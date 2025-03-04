@@ -42,3 +42,10 @@ class DevToolsController:
             self.driver.quit()
             self.driver = None  # ✅ 종료 후 드라이버 변수 초기화
             print("[INFO] 브라우저 종료됨")
+
+    def get_redirected_url(self):
+        """현재 브라우저의 URL을 가져오는 함수"""
+        if not self.driver:
+            print("[ERROR] WebDriver가 실행되지 않음")
+            return None
+        return self.driver.current_url  # 현재 URL 반환
