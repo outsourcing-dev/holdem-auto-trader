@@ -147,47 +147,36 @@ class MainWindow(QMainWindow):
         if self.is_trading_active:
             print("[INFO] 이미 자동 매매가 진행 중입니다.")
             return
-            
+
         print("[INFO] 자동 매매 시작!")
         self.is_trading_active = True
 
-        # 브라우저 실행 확인
+        # ✅ 브라우저 실행 확인
         if not self.devtools.driver:
             self.devtools.start_browser()
 
-        # ✅ 창 목록 확인
+        # ✅ 현재 열린 창 목록 확인
         print("[DEBUG] 창 목록 확인 중...")
         window_handles = self.devtools.driver.window_handles
         for i, handle in enumerate(window_handles):
             print(f"[DEBUG] 창 {i+1} - 핸들: {handle}")
 
-        # ✅ 2개의 창이 열려 있으면 카지노 창(2번 창)으로 전환 시도
-        if len(window_handles) >= 2:
-            print("[INFO] 카지노 창으로 전환 시도...")
-            self.devtools.driver.switch_to.window(window_handles[1])
-            time.sleep(2)
-
-            # ✅ 전환 후 현재 URL 확인
-            current_url = self.devtools.get_redirected_url()
-            print(f"[INFO] 전환 후 현재 창 URL: {current_url}")
-
-            if "evo-games.com" in current_url:
-                print("[INFO] 카지노 창으로 정상 전환됨")
-            else:
-                print("[ERROR] 카지노 창이 아님! 원래 창으로 복귀 시도")
-                self.devtools.driver.switch_to.window(window_handles[0])
-                return  # 🚨 창 전환 실패 시 중단
-        else:
-            print("[ERROR] 창 개수가 2개가 아님, 창 전환 실패")
+        if len(window_handles) < 2:
+            print("[ERROR] 창 개수가 부족합니다. 2개 창이 필요합니다.")
             return  # 🚨 창이 하나뿐이면 중단
+
+        # ✅ 1번 창에서 잔액 먼저 가져오기
+        print("[INFO] 1번 창(기본 사이트)에서 잔액 가져오기 시도...")
+        self.devtools.driver.switch_to.window(window_handles[0])  # 1번 창 전환
+        time.sleep(2)
 
         # ✅ 현재 페이지 HTML 가져오기
         html = self.devtools.get_page_source()
         if html:
             # ✅ HTML 저장 (디버깅용)
-            with open("debug_current_page.html", "w", encoding="utf-8") as f:
+            with open("debug_main_page.html", "w", encoding="utf-8") as f:
                 f.write(html)
-            print("[INFO] 현재 페이지 HTML 저장 완료 (debug_current_page.html)")
+            print("[INFO] 1번 창 HTML 저장 완료 (debug_main_page.html)")
 
             # ✅ 잔액 파싱 시도
             parser = HTMLParser(html)
@@ -197,10 +186,26 @@ class MainWindow(QMainWindow):
                 self.update_user_data(current_amount=balance)
             else:
                 print("[WARNING] 잔액 정보를 찾을 수 없습니다. HTML을 확인하세요.")
+                return  # 🚨 잔액 정보를 못 찾으면 중단
         else:
-            print("[ERROR] 페이지 소스를 가져올 수 없습니다. 사이트에 먼저 접속하세요.")
-            self.is_trading_active = False
-            return
+            print("[ERROR] 1번 창 페이지 소스를 가져올 수 없습니다.")
+            return  # 🚨 HTML을 못 가져오면 중단
+
+        # ✅ 2번 창(카지노 창)으로 전환
+        print("[INFO] 카지노 창으로 전환 시도...")
+        self.devtools.driver.switch_to.window(window_handles[1])  # 2번 창 전환
+        time.sleep(2)
+
+        # ✅ 전환 후 현재 URL 확인
+        current_url = self.devtools.driver.current_url
+        print(f"[INFO] 전환 후 현재 창 URL: {current_url}")
+
+        if "evo-games.com" in current_url:
+            print("[INFO] 카지노 창으로 정상 전환됨")
+        else:
+            print("[ERROR] 카지노 창이 아님! 원래 창으로 복귀 시도")
+            self.devtools.driver.switch_to.window(window_handles[0])
+            return  # 🚨 창 전환 실패 시 중단
 
         # ✅ 남은 시간 설정 (임시: 1시간)
         self.set_remaining_time(1, 0, 0)

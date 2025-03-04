@@ -1,0 +1,2412 @@
+<html lang="ko"><head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	<link rel="icon" type="image/png" href="/images/favicon/favicon.png">
+	<title>Pandora</title>
+	<!--	Vendor css -->
+	<link rel="stylesheet" type="text/css" href="/fonts/XEIcon-2.2.0/xeicon.min.css">
+	<!--	Custom styles	-->
+	<link href="/css/style.css?v=20241003" rel="stylesheet">
+
+	<link href="/css/modal.min.css" rel="stylesheet">
+	<link href="/css/responsive.css?v=20241003" rel="stylesheet">
+	<link href="/fonts/fonts.css" rel="stylesheet">
+	<link href="/vendor/unslider/dist/css/unslider.css" rel="stylesheet">
+	<link href="/vendor/unslider/dist/css/unslider-dots.css" rel="stylesheet">
+	<script type="text/javascript" src="/js/func.js"></script>
+	<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+	<script src="/vendor/unslider/unslider.js"></script>
+	<script src="/js/sweetalert2.all.min.js"></script><style>.swal2-popup.swal2-toast{box-sizing:border-box;grid-column:1/4!important;grid-row:1/4!important;grid-template-columns:1fr 99fr 1fr;padding:1em;overflow-y:hidden;background:#fff;box-shadow:0 0 1px rgba(0,0,0,.075),0 1px 2px rgba(0,0,0,.075),1px 2px 4px rgba(0,0,0,.075),1px 3px 8px rgba(0,0,0,.075),2px 4px 16px rgba(0,0,0,.075);pointer-events:all}.swal2-popup.swal2-toast>*{grid-column:2}.swal2-popup.swal2-toast .swal2-title{margin:.5em 1em;padding:0;font-size:1em;text-align:initial}.swal2-popup.swal2-toast .swal2-loading{justify-content:center}.swal2-popup.swal2-toast .swal2-input{height:2em;margin:.5em;font-size:1em}.swal2-popup.swal2-toast .swal2-validation-message{font-size:1em}.swal2-popup.swal2-toast .swal2-footer{margin:.5em 0 0;padding:.5em 0 0;font-size:.8em}.swal2-popup.swal2-toast .swal2-close{grid-column:3/3;grid-row:1/99;align-self:center;width:.8em;height:.8em;margin:0;font-size:2em}.swal2-popup.swal2-toast .swal2-html-container{margin:.5em 1em;padding:0;font-size:1em;text-align:initial}.swal2-popup.swal2-toast .swal2-html-container:empty{padding:0}.swal2-popup.swal2-toast .swal2-loader{grid-column:1;grid-row:1/99;align-self:center;width:2em;height:2em;margin:.25em}.swal2-popup.swal2-toast .swal2-icon{grid-column:1;grid-row:1/99;align-self:center;width:2em;min-width:2em;height:2em;margin:0 .5em 0 0}.swal2-popup.swal2-toast .swal2-icon .swal2-icon-content{display:flex;align-items:center;font-size:1.8em;font-weight:700}.swal2-popup.swal2-toast .swal2-icon.swal2-success .swal2-success-ring{width:2em;height:2em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line]{top:.875em;width:1.375em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=left]{left:.3125em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=right]{right:.3125em}.swal2-popup.swal2-toast .swal2-actions{justify-content:flex-start;height:auto;margin:0;margin-top:.5em;padding:0 .5em}.swal2-popup.swal2-toast .swal2-styled{margin:.25em .5em;padding:.4em .6em;font-size:1em}.swal2-popup.swal2-toast .swal2-success{border-color:#a5dc86}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line]{position:absolute;width:1.6em;height:3em;transform:rotate(45deg);border-radius:50%}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line][class$=left]{top:-.8em;left:-.5em;transform:rotate(-45deg);transform-origin:2em 2em;border-radius:4em 0 0 4em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line][class$=right]{top:-.25em;left:.9375em;transform-origin:0 1.5em;border-radius:0 4em 4em 0}.swal2-popup.swal2-toast .swal2-success .swal2-success-ring{width:2em;height:2em}.swal2-popup.swal2-toast .swal2-success .swal2-success-fix{top:0;left:.4375em;width:.4375em;height:2.6875em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line]{height:.3125em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line][class$=tip]{top:1.125em;left:.1875em;width:.75em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line][class$=long]{top:.9375em;right:.1875em;width:1.375em}.swal2-popup.swal2-toast .swal2-success.swal2-icon-show .swal2-success-line-tip{-webkit-animation:swal2-toast-animate-success-line-tip .75s;animation:swal2-toast-animate-success-line-tip .75s}.swal2-popup.swal2-toast .swal2-success.swal2-icon-show .swal2-success-line-long{-webkit-animation:swal2-toast-animate-success-line-long .75s;animation:swal2-toast-animate-success-line-long .75s}.swal2-popup.swal2-toast.swal2-show{-webkit-animation:swal2-toast-show .5s;animation:swal2-toast-show .5s}.swal2-popup.swal2-toast.swal2-hide{-webkit-animation:swal2-toast-hide .1s forwards;animation:swal2-toast-hide .1s forwards}.swal2-container{display:grid;position:fixed;z-index:1060;top:0;right:0;bottom:0;left:0;box-sizing:border-box;grid-template-areas:"top-start     top            top-end" "center-start  center         center-end" "bottom-start  bottom-center  bottom-end";grid-template-rows:minmax(-webkit-min-content,auto) minmax(-webkit-min-content,auto) minmax(-webkit-min-content,auto);grid-template-rows:minmax(min-content,auto) minmax(min-content,auto) minmax(min-content,auto);height:100%;padding:.625em;overflow-x:hidden;transition:background-color .1s;-webkit-overflow-scrolling:touch}.swal2-container.swal2-backdrop-show,.swal2-container.swal2-noanimation{background:rgba(0,0,0,.4)}.swal2-container.swal2-backdrop-hide{background:0 0!important}.swal2-container.swal2-bottom-start,.swal2-container.swal2-center-start,.swal2-container.swal2-top-start{grid-template-columns:minmax(0,1fr) auto auto}.swal2-container.swal2-bottom,.swal2-container.swal2-center,.swal2-container.swal2-top{grid-template-columns:auto minmax(0,1fr) auto}.swal2-container.swal2-bottom-end,.swal2-container.swal2-center-end,.swal2-container.swal2-top-end{grid-template-columns:auto auto minmax(0,1fr)}.swal2-container.swal2-top-start>.swal2-popup{align-self:start}.swal2-container.swal2-top>.swal2-popup{grid-column:2;align-self:start;justify-self:center}.swal2-container.swal2-top-end>.swal2-popup,.swal2-container.swal2-top-right>.swal2-popup{grid-column:3;align-self:start;justify-self:end}.swal2-container.swal2-center-left>.swal2-popup,.swal2-container.swal2-center-start>.swal2-popup{grid-row:2;align-self:center}.swal2-container.swal2-center>.swal2-popup{grid-column:2;grid-row:2;align-self:center;justify-self:center}.swal2-container.swal2-center-end>.swal2-popup,.swal2-container.swal2-center-right>.swal2-popup{grid-column:3;grid-row:2;align-self:center;justify-self:end}.swal2-container.swal2-bottom-left>.swal2-popup,.swal2-container.swal2-bottom-start>.swal2-popup{grid-column:1;grid-row:3;align-self:end}.swal2-container.swal2-bottom>.swal2-popup{grid-column:2;grid-row:3;justify-self:center;align-self:end}.swal2-container.swal2-bottom-end>.swal2-popup,.swal2-container.swal2-bottom-right>.swal2-popup{grid-column:3;grid-row:3;align-self:end;justify-self:end}.swal2-container.swal2-grow-fullscreen>.swal2-popup,.swal2-container.swal2-grow-row>.swal2-popup{grid-column:1/4;width:100%}.swal2-container.swal2-grow-column>.swal2-popup,.swal2-container.swal2-grow-fullscreen>.swal2-popup{grid-row:1/4;align-self:stretch}.swal2-container.swal2-no-transition{transition:none!important}.swal2-popup{display:none;position:relative;box-sizing:border-box;grid-template-columns:minmax(0,100%);width:32em;max-width:100%;padding:0 0 1.25em;border:none;border-radius:5px;background:#fff;color:#545454;font-family:inherit;font-size:1rem}.swal2-popup:focus{outline:0}.swal2-popup.swal2-loading{overflow-y:hidden}.swal2-title{position:relative;max-width:100%;margin:0;padding:.8em 1em 0;color:inherit;font-size:1.875em;font-weight:600;text-align:center;text-transform:none;word-wrap:break-word}.swal2-actions{display:flex;z-index:1;box-sizing:border-box;flex-wrap:wrap;align-items:center;justify-content:center;width:auto;margin:1.25em auto 0;padding:0}.swal2-actions:not(.swal2-loading) .swal2-styled[disabled]{opacity:.4}.swal2-actions:not(.swal2-loading) .swal2-styled:hover{background-image:linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.1))}.swal2-actions:not(.swal2-loading) .swal2-styled:active{background-image:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.2))}.swal2-loader{display:none;align-items:center;justify-content:center;width:2.2em;height:2.2em;margin:0 1.875em;-webkit-animation:swal2-rotate-loading 1.5s linear 0s infinite normal;animation:swal2-rotate-loading 1.5s linear 0s infinite normal;border-width:.25em;border-style:solid;border-radius:100%;border-color:#2778c4 transparent #2778c4 transparent}.swal2-styled{margin:.3125em;padding:.625em 1.1em;transition:box-shadow .1s;box-shadow:0 0 0 3px transparent;font-weight:500}.swal2-styled:not([disabled]){cursor:pointer}.swal2-styled.swal2-confirm{border:0;border-radius:.25em;background:initial;background-color:#7066e0;color:#fff;font-size:1em}.swal2-styled.swal2-confirm:focus{box-shadow:0 0 0 3px rgba(112,102,224,.5)}.swal2-styled.swal2-deny{border:0;border-radius:.25em;background:initial;background-color:#dc3741;color:#fff;font-size:1em}.swal2-styled.swal2-deny:focus{box-shadow:0 0 0 3px rgba(220,55,65,.5)}.swal2-styled.swal2-cancel{border:0;border-radius:.25em;background:initial;background-color:#6e7881;color:#fff;font-size:1em}.swal2-styled.swal2-cancel:focus{box-shadow:0 0 0 3px rgba(110,120,129,.5)}.swal2-styled.swal2-default-outline:focus{box-shadow:0 0 0 3px rgba(100,150,200,.5)}.swal2-styled:focus{outline:0}.swal2-styled::-moz-focus-inner{border:0}.swal2-footer{justify-content:center;margin:1em 0 0;padding:1em 1em 0;border-top:1px solid #eee;color:inherit;font-size:1em}.swal2-timer-progress-bar-container{position:absolute;right:0;bottom:0;left:0;grid-column:auto!important;height:.25em;overflow:hidden;border-bottom-right-radius:5px;border-bottom-left-radius:5px}.swal2-timer-progress-bar{width:100%;height:.25em;background:rgba(0,0,0,.2)}.swal2-image{max-width:100%;margin:2em auto 1em}.swal2-close{z-index:2;align-items:center;justify-content:center;width:1.2em;height:1.2em;margin-top:0;margin-right:0;margin-bottom:-1.2em;padding:0;overflow:hidden;transition:color .1s,box-shadow .1s;border:none;border-radius:5px;background:0 0;color:#ccc;font-family:serif;font-family:monospace;font-size:2.5em;cursor:pointer;justify-self:end}.swal2-close:hover{transform:none;background:0 0;color:#f27474}.swal2-close:focus{outline:0;box-shadow:inset 0 0 0 3px rgba(100,150,200,.5)}.swal2-close::-moz-focus-inner{border:0}.swal2-html-container{z-index:1;justify-content:center;margin:1em 1.6em .3em;padding:0;overflow:auto;color:inherit;font-size:1.125em;font-weight:400;line-height:normal;text-align:center;word-wrap:break-word;word-break:break-word}.swal2-checkbox,.swal2-file,.swal2-input,.swal2-radio,.swal2-select,.swal2-textarea{margin:1em 2em 0}.swal2-file,.swal2-input,.swal2-textarea{box-sizing:border-box;width:auto;transition:border-color .1s,box-shadow .1s;border:1px solid #d9d9d9;border-radius:.1875em;background:inherit;box-shadow:inset 0 1px 1px rgba(0,0,0,.06),0 0 0 3px transparent;color:inherit;font-size:1.125em}.swal2-file.swal2-inputerror,.swal2-input.swal2-inputerror,.swal2-textarea.swal2-inputerror{border-color:#f27474!important;box-shadow:0 0 2px #f27474!important}.swal2-file:focus,.swal2-input:focus,.swal2-textarea:focus{border:1px solid #b4dbed;outline:0;box-shadow:inset 0 1px 1px rgba(0,0,0,.06),0 0 0 3px rgba(100,150,200,.5)}.swal2-file::-moz-placeholder,.swal2-input::-moz-placeholder,.swal2-textarea::-moz-placeholder{color:#ccc}.swal2-file:-ms-input-placeholder,.swal2-input:-ms-input-placeholder,.swal2-textarea:-ms-input-placeholder{color:#ccc}.swal2-file::placeholder,.swal2-input::placeholder,.swal2-textarea::placeholder{color:#ccc}.swal2-range{margin:1em 2em 0;background:#fff}.swal2-range input{width:80%}.swal2-range output{width:20%;color:inherit;font-weight:600;text-align:center}.swal2-range input,.swal2-range output{height:2.625em;padding:0;font-size:1.125em;line-height:2.625em}.swal2-input{height:2.625em;padding:0 .75em}.swal2-file{width:75%;margin-right:auto;margin-left:auto;background:inherit;font-size:1.125em}.swal2-textarea{height:6.75em;padding:.75em}.swal2-select{min-width:50%;max-width:100%;padding:.375em .625em;background:inherit;color:inherit;font-size:1.125em}.swal2-checkbox,.swal2-radio{align-items:center;justify-content:center;background:#fff;color:inherit}.swal2-checkbox label,.swal2-radio label{margin:0 .6em;font-size:1.125em}.swal2-checkbox input,.swal2-radio input{flex-shrink:0;margin:0 .4em}.swal2-input-label{display:flex;justify-content:center;margin:1em auto 0}.swal2-validation-message{align-items:center;justify-content:center;margin:1em 0 0;padding:.625em;overflow:hidden;background:#f0f0f0;color:#666;font-size:1em;font-weight:300}.swal2-validation-message::before{content:"!";display:inline-block;width:1.5em;min-width:1.5em;height:1.5em;margin:0 .625em;border-radius:50%;background-color:#f27474;color:#fff;font-weight:600;line-height:1.5em;text-align:center}.swal2-icon{position:relative;box-sizing:content-box;justify-content:center;width:5em;height:5em;margin:2.5em auto .6em;border:.25em solid transparent;border-radius:50%;border-color:#000;font-family:inherit;line-height:5em;cursor:default;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.swal2-icon .swal2-icon-content{display:flex;align-items:center;font-size:3.75em}.swal2-icon.swal2-error{border-color:#f27474;color:#f27474}.swal2-icon.swal2-error .swal2-x-mark{position:relative;flex-grow:1}.swal2-icon.swal2-error [class^=swal2-x-mark-line]{display:block;position:absolute;top:2.3125em;width:2.9375em;height:.3125em;border-radius:.125em;background-color:#f27474}.swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=left]{left:1.0625em;transform:rotate(45deg)}.swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=right]{right:1em;transform:rotate(-45deg)}.swal2-icon.swal2-error.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-error.swal2-icon-show .swal2-x-mark{-webkit-animation:swal2-animate-error-x-mark .5s;animation:swal2-animate-error-x-mark .5s}.swal2-icon.swal2-warning{border-color:#facea8;color:#f8bb86}.swal2-icon.swal2-warning.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-warning.swal2-icon-show .swal2-icon-content{-webkit-animation:swal2-animate-i-mark .5s;animation:swal2-animate-i-mark .5s}.swal2-icon.swal2-info{border-color:#9de0f6;color:#3fc3ee}.swal2-icon.swal2-info.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-info.swal2-icon-show .swal2-icon-content{-webkit-animation:swal2-animate-i-mark .8s;animation:swal2-animate-i-mark .8s}.swal2-icon.swal2-question{border-color:#c9dae1;color:#87adbd}.swal2-icon.swal2-question.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-question.swal2-icon-show .swal2-icon-content{-webkit-animation:swal2-animate-question-mark .8s;animation:swal2-animate-question-mark .8s}.swal2-icon.swal2-success{border-color:#a5dc86;color:#a5dc86}.swal2-icon.swal2-success [class^=swal2-success-circular-line]{position:absolute;width:3.75em;height:7.5em;transform:rotate(45deg);border-radius:50%}.swal2-icon.swal2-success [class^=swal2-success-circular-line][class$=left]{top:-.4375em;left:-2.0635em;transform:rotate(-45deg);transform-origin:3.75em 3.75em;border-radius:7.5em 0 0 7.5em}.swal2-icon.swal2-success [class^=swal2-success-circular-line][class$=right]{top:-.6875em;left:1.875em;transform:rotate(-45deg);transform-origin:0 3.75em;border-radius:0 7.5em 7.5em 0}.swal2-icon.swal2-success .swal2-success-ring{position:absolute;z-index:2;top:-.25em;left:-.25em;box-sizing:content-box;width:100%;height:100%;border:.25em solid rgba(165,220,134,.3);border-radius:50%}.swal2-icon.swal2-success .swal2-success-fix{position:absolute;z-index:1;top:.5em;left:1.625em;width:.4375em;height:5.625em;transform:rotate(-45deg)}.swal2-icon.swal2-success [class^=swal2-success-line]{display:block;position:absolute;z-index:2;height:.3125em;border-radius:.125em;background-color:#a5dc86}.swal2-icon.swal2-success [class^=swal2-success-line][class$=tip]{top:2.875em;left:.8125em;width:1.5625em;transform:rotate(45deg)}.swal2-icon.swal2-success [class^=swal2-success-line][class$=long]{top:2.375em;right:.5em;width:2.9375em;transform:rotate(-45deg)}.swal2-icon.swal2-success.swal2-icon-show .swal2-success-line-tip{-webkit-animation:swal2-animate-success-line-tip .75s;animation:swal2-animate-success-line-tip .75s}.swal2-icon.swal2-success.swal2-icon-show .swal2-success-line-long{-webkit-animation:swal2-animate-success-line-long .75s;animation:swal2-animate-success-line-long .75s}.swal2-icon.swal2-success.swal2-icon-show .swal2-success-circular-line-right{-webkit-animation:swal2-rotate-success-circular-line 4.25s ease-in;animation:swal2-rotate-success-circular-line 4.25s ease-in}.swal2-progress-steps{flex-wrap:wrap;align-items:center;max-width:100%;margin:1.25em auto;padding:0;background:inherit;font-weight:600}.swal2-progress-steps li{display:inline-block;position:relative}.swal2-progress-steps .swal2-progress-step{z-index:20;flex-shrink:0;width:2em;height:2em;border-radius:2em;background:#2778c4;color:#fff;line-height:2em;text-align:center}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step{background:#2778c4}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step~.swal2-progress-step{background:#add8e6;color:#fff}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step~.swal2-progress-step-line{background:#add8e6}.swal2-progress-steps .swal2-progress-step-line{z-index:10;flex-shrink:0;width:2.5em;height:.4em;margin:0 -1px;background:#2778c4}[class^=swal2]{-webkit-tap-highlight-color:transparent}.swal2-show{-webkit-animation:swal2-show .3s;animation:swal2-show .3s}.swal2-hide{-webkit-animation:swal2-hide .15s forwards;animation:swal2-hide .15s forwards}.swal2-noanimation{transition:none}.swal2-scrollbar-measure{position:absolute;top:-9999px;width:50px;height:50px;overflow:scroll}.swal2-rtl .swal2-close{margin-right:initial;margin-left:0}.swal2-rtl .swal2-timer-progress-bar{right:0;left:auto}@-webkit-keyframes swal2-toast-show{0%{transform:translateY(-.625em) rotateZ(2deg)}33%{transform:translateY(0) rotateZ(-2deg)}66%{transform:translateY(.3125em) rotateZ(2deg)}100%{transform:translateY(0) rotateZ(0)}}@keyframes swal2-toast-show{0%{transform:translateY(-.625em) rotateZ(2deg)}33%{transform:translateY(0) rotateZ(-2deg)}66%{transform:translateY(.3125em) rotateZ(2deg)}100%{transform:translateY(0) rotateZ(0)}}@-webkit-keyframes swal2-toast-hide{100%{transform:rotateZ(1deg);opacity:0}}@keyframes swal2-toast-hide{100%{transform:rotateZ(1deg);opacity:0}}@-webkit-keyframes swal2-toast-animate-success-line-tip{0%{top:.5625em;left:.0625em;width:0}54%{top:.125em;left:.125em;width:0}70%{top:.625em;left:-.25em;width:1.625em}84%{top:1.0625em;left:.75em;width:.5em}100%{top:1.125em;left:.1875em;width:.75em}}@keyframes swal2-toast-animate-success-line-tip{0%{top:.5625em;left:.0625em;width:0}54%{top:.125em;left:.125em;width:0}70%{top:.625em;left:-.25em;width:1.625em}84%{top:1.0625em;left:.75em;width:.5em}100%{top:1.125em;left:.1875em;width:.75em}}@-webkit-keyframes swal2-toast-animate-success-line-long{0%{top:1.625em;right:1.375em;width:0}65%{top:1.25em;right:.9375em;width:0}84%{top:.9375em;right:0;width:1.125em}100%{top:.9375em;right:.1875em;width:1.375em}}@keyframes swal2-toast-animate-success-line-long{0%{top:1.625em;right:1.375em;width:0}65%{top:1.25em;right:.9375em;width:0}84%{top:.9375em;right:0;width:1.125em}100%{top:.9375em;right:.1875em;width:1.375em}}@-webkit-keyframes swal2-show{0%{transform:scale(.7)}45%{transform:scale(1.05)}80%{transform:scale(.95)}100%{transform:scale(1)}}@keyframes swal2-show{0%{transform:scale(.7)}45%{transform:scale(1.05)}80%{transform:scale(.95)}100%{transform:scale(1)}}@-webkit-keyframes swal2-hide{0%{transform:scale(1);opacity:1}100%{transform:scale(.5);opacity:0}}@keyframes swal2-hide{0%{transform:scale(1);opacity:1}100%{transform:scale(.5);opacity:0}}@-webkit-keyframes swal2-animate-success-line-tip{0%{top:1.1875em;left:.0625em;width:0}54%{top:1.0625em;left:.125em;width:0}70%{top:2.1875em;left:-.375em;width:3.125em}84%{top:3em;left:1.3125em;width:1.0625em}100%{top:2.8125em;left:.8125em;width:1.5625em}}@keyframes swal2-animate-success-line-tip{0%{top:1.1875em;left:.0625em;width:0}54%{top:1.0625em;left:.125em;width:0}70%{top:2.1875em;left:-.375em;width:3.125em}84%{top:3em;left:1.3125em;width:1.0625em}100%{top:2.8125em;left:.8125em;width:1.5625em}}@-webkit-keyframes swal2-animate-success-line-long{0%{top:3.375em;right:2.875em;width:0}65%{top:3.375em;right:2.875em;width:0}84%{top:2.1875em;right:0;width:3.4375em}100%{top:2.375em;right:.5em;width:2.9375em}}@keyframes swal2-animate-success-line-long{0%{top:3.375em;right:2.875em;width:0}65%{top:3.375em;right:2.875em;width:0}84%{top:2.1875em;right:0;width:3.4375em}100%{top:2.375em;right:.5em;width:2.9375em}}@-webkit-keyframes swal2-rotate-success-circular-line{0%{transform:rotate(-45deg)}5%{transform:rotate(-45deg)}12%{transform:rotate(-405deg)}100%{transform:rotate(-405deg)}}@keyframes swal2-rotate-success-circular-line{0%{transform:rotate(-45deg)}5%{transform:rotate(-45deg)}12%{transform:rotate(-405deg)}100%{transform:rotate(-405deg)}}@-webkit-keyframes swal2-animate-error-x-mark{0%{margin-top:1.625em;transform:scale(.4);opacity:0}50%{margin-top:1.625em;transform:scale(.4);opacity:0}80%{margin-top:-.375em;transform:scale(1.15)}100%{margin-top:0;transform:scale(1);opacity:1}}@keyframes swal2-animate-error-x-mark{0%{margin-top:1.625em;transform:scale(.4);opacity:0}50%{margin-top:1.625em;transform:scale(.4);opacity:0}80%{margin-top:-.375em;transform:scale(1.15)}100%{margin-top:0;transform:scale(1);opacity:1}}@-webkit-keyframes swal2-animate-error-icon{0%{transform:rotateX(100deg);opacity:0}100%{transform:rotateX(0);opacity:1}}@keyframes swal2-animate-error-icon{0%{transform:rotateX(100deg);opacity:0}100%{transform:rotateX(0);opacity:1}}@-webkit-keyframes swal2-rotate-loading{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}@keyframes swal2-rotate-loading{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}@-webkit-keyframes swal2-animate-question-mark{0%{transform:rotateY(-360deg)}100%{transform:rotateY(0)}}@keyframes swal2-animate-question-mark{0%{transform:rotateY(-360deg)}100%{transform:rotateY(0)}}@-webkit-keyframes swal2-animate-i-mark{0%{transform:rotateZ(45deg);opacity:0}25%{transform:rotateZ(-25deg);opacity:.4}50%{transform:rotateZ(15deg);opacity:.8}75%{transform:rotateZ(-5deg);opacity:1}100%{transform:rotateX(0);opacity:1}}@keyframes swal2-animate-i-mark{0%{transform:rotateZ(45deg);opacity:0}25%{transform:rotateZ(-25deg);opacity:.4}50%{transform:rotateZ(15deg);opacity:.8}75%{transform:rotateZ(-5deg);opacity:1}100%{transform:rotateX(0);opacity:1}}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown){overflow:hidden}body.swal2-height-auto{height:auto!important}body.swal2-no-backdrop .swal2-container{background-color:transparent!important;pointer-events:none}body.swal2-no-backdrop .swal2-container .swal2-popup{pointer-events:all}body.swal2-no-backdrop .swal2-container .swal2-modal{box-shadow:0 0 10px rgba(0,0,0,.4)}@media print{body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown){overflow-y:scroll!important}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown)>[aria-hidden=true]{display:none}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .swal2-container{position:static!important}}body.swal2-toast-shown .swal2-container{box-sizing:border-box;width:360px;max-width:100%;background-color:transparent;pointer-events:none}body.swal2-toast-shown .swal2-container.swal2-top{top:0;right:auto;bottom:auto;left:50%;transform:translateX(-50%)}body.swal2-toast-shown .swal2-container.swal2-top-end,body.swal2-toast-shown .swal2-container.swal2-top-right{top:0;right:0;bottom:auto;left:auto}body.swal2-toast-shown .swal2-container.swal2-top-left,body.swal2-toast-shown .swal2-container.swal2-top-start{top:0;right:auto;bottom:auto;left:0}body.swal2-toast-shown .swal2-container.swal2-center-left,body.swal2-toast-shown .swal2-container.swal2-center-start{top:50%;right:auto;bottom:auto;left:0;transform:translateY(-50%)}body.swal2-toast-shown .swal2-container.swal2-center{top:50%;right:auto;bottom:auto;left:50%;transform:translate(-50%,-50%)}body.swal2-toast-shown .swal2-container.swal2-center-end,body.swal2-toast-shown .swal2-container.swal2-center-right{top:50%;right:0;bottom:auto;left:auto;transform:translateY(-50%)}body.swal2-toast-shown .swal2-container.swal2-bottom-left,body.swal2-toast-shown .swal2-container.swal2-bottom-start{top:auto;right:auto;bottom:0;left:0}body.swal2-toast-shown .swal2-container.swal2-bottom{top:auto;right:auto;bottom:0;left:50%;transform:translateX(-50%)}body.swal2-toast-shown .swal2-container.swal2-bottom-end,body.swal2-toast-shown .swal2-container.swal2-bottom-right{top:auto;right:0;bottom:0;left:auto}</style>
+	<script src="/js/ac-alert.js"></script>
+	<script type="text/javascript" src="/js/func.js"></script>
+
+	<script>
+		jQuery(document).ready(function($) {
+			$('.v1-slider').unslider({
+				animation: 'fade',
+				autoplay: true,
+				//	keys: true,               //  Enable keyboard (left, right) arrow shortcuts
+				speed: 800, //  The speed to animate each slide (in milliseconds)
+				delay: 5000 //  The delay between slide animations (in milliseconds)
+
+			});
+			$('.hotgame').unslider({
+				animation: 'vertical',
+				autoplay: false,
+				dots: true
+			});
+		});
+
+	</script>
+
+
+	<script type="text/javascript">
+		$(window).scroll(function() {
+			var scroll = $(window).scrollTop();
+			var objectSelect = $(".contents_wrap");
+			var objectPosition = objectSelect.offset().top;
+			if (scroll > objectPosition) {
+				$("body").addClass("scroll");
+			} else {
+				$("body").removeClass("scroll");
+			}
+		});
+
+	</script>
+  	<script language="javascript">
+        function SwalText(b_text) {
+            Swal.fire({
+                icon: 'error',
+                title: '오류',
+                text: b_text
+            })
+        }
+	</script>
+<script type="text/javascript">
+	function html_location(num) {
+        if (num == 1)
+        {
+            window.scrollTo({top:550, left:0, behavior:'smooth'});
+            document.getElementById('center001').className='active';
+            document.getElementById('center002').className='';
+            document.getElementById('center003').className='';
+        }
+        else if (num == 2)
+        {
+            window.scrollTo({top:550, left:0, behavior:'smooth'});
+            document.getElementById('center001').className='';
+            document.getElementById('center002').className='active';
+            document.getElementById('center003').className='';
+        }
+        else if (num == 3)
+        {
+            window.scrollTo({top:550, left:0, behavior:'smooth'});
+            document.getElementById('center001').className='';
+            document.getElementById('center002').className='';
+            document.getElementById('center003').className='active';
+        }
+    }
+
+	function menu_view(menu_name) {
+        if (menu_name == "message")
+        {
+            document.getElementById("m_myinfo").className = "";
+            document.getElementById("m_changeList").className = "";
+            document.getElementById("m_exchangeList").className = "";
+            document.getElementById("m_message").className = "active";
+            document.getElementById("m_comp").className = "";
+
+            document.getElementById("tab_default_1").className = "tab-pane";
+            document.getElementById("tab_default_2").className = "tab-pane";
+            document.getElementById("tab_default_3").className = "tab-pane";
+            document.getElementById("tab_default_4").className = "tab-pane active sub_pop3";
+            document.getElementById("tab_default_5").className = "tab-pane";
+        }
+        else if (menu_name == "comp")
+        {
+            document.getElementById("m_myinfo").className = "";
+            document.getElementById("m_changeList").className = "";
+            document.getElementById("m_exchangeList").className = "";
+            document.getElementById("m_message").className = "";
+            document.getElementById("m_comp").className = "active";
+
+            document.getElementById("tab_default_1").className = "tab-pane";
+            document.getElementById("tab_default_2").className = "tab-pane";
+            document.getElementById("tab_default_3").className = "tab-pane";
+            document.getElementById("tab_default_4").className = "tab-pane sub_pop3";
+            document.getElementById("tab_default_5").className = "tab-pane active";
+        }
+        else if (menu_name == "mypage")
+        {
+            document.getElementById("m_myinfo").className = "active";
+            document.getElementById("m_changeList").className = "";
+            document.getElementById("m_exchangeList").className = "";
+            document.getElementById("m_message").className = "";
+            document.getElementById("m_comp").className = "";
+
+            document.getElementById("tab_default_1").className = "tab-pane active";
+            document.getElementById("tab_default_2").className = "tab-pane";
+            document.getElementById("tab_default_3").className = "tab-pane";
+            document.getElementById("tab_default_4").className = "tab-pane sub_pop3";
+            document.getElementById("tab_default_5").className = "tab-pane";
+        }
+    }
+</script><script>
+	function setCookie(cookie_name, value, days) {
+		var exdate = new Date();
+		exdate.setDate(exdate.getDate() + days);
+		// 설정 일수만큼 현재시간에 만료값으로 지정
+
+		var cookie_value = escape(value) + ((days == null) ? '' : '; path=/; expires=' + exdate.toUTCString());
+		document.cookie = cookie_name + '=' + cookie_value;
+		location.reload();
+	}
+</script><style>
+	.dropbtn {
+	  background-color: #594f50;
+	  color: white;
+	  padding-left: 8px;
+	  font-size: 12px;
+	  border: none;
+	  color: #ffffff;
+	  width:150px;
+	  height:28px;
+	  text-align: left;
+	}
+
+	.dropdown {
+	  display: inline-block;
+	  color: #ffffff;
+	  font-size: 12px;
+	}
+
+	.dropdown-content {
+	  margin-top: 0px;
+	  margin-left: 0px;
+	  display: none;
+	  position: absolute;
+	  background-color: #000000;
+	  color: #ffffff;
+	  font-size: 12px;
+	  min-width: 150px;
+	  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+	  z-index: 1;
+	  text-align: left;
+	}
+
+	.dropdown-content a {
+	  color: black;
+	  padding: 6px 8px;
+	  text-decoration: none;
+	  display: block;
+	  color: #ffffff;
+	  font-size: 12px;
+	}
+.tb-board {
+            width: 100%;
+            table-layout: fixed; /* 테이블 레이아웃을 고정 */
+            word-wrap: break-word; /* 긴 단어가 줄바꿈 되도록 설정 */
+            white-space: pre-wrap; /* 공백과 줄바꿈을 유지하면서 자동 줄바꿈 */
+        }
+        .tb-board th, .tb-board td {
+            padding: 8px;
+            text-align: left;
+        }
+        .tb-board .list_notice2 {
+            word-wrap: break-word; /* 긴 내용이 자동으로 줄바꿈 되도록 설정 */
+        }
+        .modal-dialog {
+            max-width: 100%; /* 모달의 최대 너비 설정 */
+        }
+        .modal-content {
+            padding: 20px;
+        }
+
+	.dropdown-content a:hover {background-color: #5D5D5D;color: #ffffff;font-size: 12px;}
+	.dropdown:hover .dropdown-content {display: block;}
+	.dropdown:hover .dropbtn {background-color: #72612b;color: #ffffff;font-size: 12px;}
+</style><style>.swal2-popup.swal2-toast{box-sizing:border-box;grid-column:1/4!important;grid-row:1/4!important;grid-template-columns:1fr 99fr 1fr;padding:1em;overflow-y:hidden;background:#fff;box-shadow:0 0 1px rgba(0,0,0,.075),0 1px 2px rgba(0,0,0,.075),1px 2px 4px rgba(0,0,0,.075),1px 3px 8px rgba(0,0,0,.075),2px 4px 16px rgba(0,0,0,.075);pointer-events:all}.swal2-popup.swal2-toast>*{grid-column:2}.swal2-popup.swal2-toast .swal2-title{margin:.5em 1em;padding:0;font-size:1em;text-align:initial}.swal2-popup.swal2-toast .swal2-loading{justify-content:center}.swal2-popup.swal2-toast .swal2-input{height:2em;margin:.5em;font-size:1em}.swal2-popup.swal2-toast .swal2-validation-message{font-size:1em}.swal2-popup.swal2-toast .swal2-footer{margin:.5em 0 0;padding:.5em 0 0;font-size:.8em}.swal2-popup.swal2-toast .swal2-close{grid-column:3/3;grid-row:1/99;align-self:center;width:.8em;height:.8em;margin:0;font-size:2em}.swal2-popup.swal2-toast .swal2-html-container{margin:.5em 1em;padding:0;font-size:1em;text-align:initial}.swal2-popup.swal2-toast .swal2-html-container:empty{padding:0}.swal2-popup.swal2-toast .swal2-loader{grid-column:1;grid-row:1/99;align-self:center;width:2em;height:2em;margin:.25em}.swal2-popup.swal2-toast .swal2-icon{grid-column:1;grid-row:1/99;align-self:center;width:2em;min-width:2em;height:2em;margin:0 .5em 0 0}.swal2-popup.swal2-toast .swal2-icon .swal2-icon-content{display:flex;align-items:center;font-size:1.8em;font-weight:700}.swal2-popup.swal2-toast .swal2-icon.swal2-success .swal2-success-ring{width:2em;height:2em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line]{top:.875em;width:1.375em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=left]{left:.3125em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=right]{right:.3125em}.swal2-popup.swal2-toast .swal2-actions{justify-content:flex-start;height:auto;margin:0;margin-top:.5em;padding:0 .5em}.swal2-popup.swal2-toast .swal2-styled{margin:.25em .5em;padding:.4em .6em;font-size:1em}.swal2-popup.swal2-toast .swal2-success{border-color:#a5dc86}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line]{position:absolute;width:1.6em;height:3em;transform:rotate(45deg);border-radius:50%}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line][class$=left]{top:-.8em;left:-.5em;transform:rotate(-45deg);transform-origin:2em 2em;border-radius:4em 0 0 4em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line][class$=right]{top:-.25em;left:.9375em;transform-origin:0 1.5em;border-radius:0 4em 4em 0}.swal2-popup.swal2-toast .swal2-success .swal2-success-ring{width:2em;height:2em}.swal2-popup.swal2-toast .swal2-success .swal2-success-fix{top:0;left:.4375em;width:.4375em;height:2.6875em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line]{height:.3125em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line][class$=tip]{top:1.125em;left:.1875em;width:.75em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line][class$=long]{top:.9375em;right:.1875em;width:1.375em}.swal2-popup.swal2-toast .swal2-success.swal2-icon-show .swal2-success-line-tip{-webkit-animation:swal2-toast-animate-success-line-tip .75s;animation:swal2-toast-animate-success-line-tip .75s}.swal2-popup.swal2-toast .swal2-success.swal2-icon-show .swal2-success-line-long{-webkit-animation:swal2-toast-animate-success-line-long .75s;animation:swal2-toast-animate-success-line-long .75s}.swal2-popup.swal2-toast.swal2-show{-webkit-animation:swal2-toast-show .5s;animation:swal2-toast-show .5s}.swal2-popup.swal2-toast.swal2-hide{-webkit-animation:swal2-toast-hide .1s forwards;animation:swal2-toast-hide .1s forwards}.swal2-container{display:grid;position:fixed;z-index:1060;top:0;right:0;bottom:0;left:0;box-sizing:border-box;grid-template-areas:"top-start     top            top-end" "center-start  center         center-end" "bottom-start  bottom-center  bottom-end";grid-template-rows:minmax(-webkit-min-content,auto) minmax(-webkit-min-content,auto) minmax(-webkit-min-content,auto);grid-template-rows:minmax(min-content,auto) minmax(min-content,auto) minmax(min-content,auto);height:100%;padding:.625em;overflow-x:hidden;transition:background-color .1s;-webkit-overflow-scrolling:touch}.swal2-container.swal2-backdrop-show,.swal2-container.swal2-noanimation{background:rgba(0,0,0,.4)}.swal2-container.swal2-backdrop-hide{background:0 0!important}.swal2-container.swal2-bottom-start,.swal2-container.swal2-center-start,.swal2-container.swal2-top-start{grid-template-columns:minmax(0,1fr) auto auto}.swal2-container.swal2-bottom,.swal2-container.swal2-center,.swal2-container.swal2-top{grid-template-columns:auto minmax(0,1fr) auto}.swal2-container.swal2-bottom-end,.swal2-container.swal2-center-end,.swal2-container.swal2-top-end{grid-template-columns:auto auto minmax(0,1fr)}.swal2-container.swal2-top-start>.swal2-popup{align-self:start}.swal2-container.swal2-top>.swal2-popup{grid-column:2;align-self:start;justify-self:center}.swal2-container.swal2-top-end>.swal2-popup,.swal2-container.swal2-top-right>.swal2-popup{grid-column:3;align-self:start;justify-self:end}.swal2-container.swal2-center-left>.swal2-popup,.swal2-container.swal2-center-start>.swal2-popup{grid-row:2;align-self:center}.swal2-container.swal2-center>.swal2-popup{grid-column:2;grid-row:2;align-self:center;justify-self:center}.swal2-container.swal2-center-end>.swal2-popup,.swal2-container.swal2-center-right>.swal2-popup{grid-column:3;grid-row:2;align-self:center;justify-self:end}.swal2-container.swal2-bottom-left>.swal2-popup,.swal2-container.swal2-bottom-start>.swal2-popup{grid-column:1;grid-row:3;align-self:end}.swal2-container.swal2-bottom>.swal2-popup{grid-column:2;grid-row:3;justify-self:center;align-self:end}.swal2-container.swal2-bottom-end>.swal2-popup,.swal2-container.swal2-bottom-right>.swal2-popup{grid-column:3;grid-row:3;align-self:end;justify-self:end}.swal2-container.swal2-grow-fullscreen>.swal2-popup,.swal2-container.swal2-grow-row>.swal2-popup{grid-column:1/4;width:100%}.swal2-container.swal2-grow-column>.swal2-popup,.swal2-container.swal2-grow-fullscreen>.swal2-popup{grid-row:1/4;align-self:stretch}.swal2-container.swal2-no-transition{transition:none!important}.swal2-popup{display:none;position:relative;box-sizing:border-box;grid-template-columns:minmax(0,100%);width:32em;max-width:100%;padding:0 0 1.25em;border:none;border-radius:5px;background:#fff;color:#545454;font-family:inherit;font-size:1rem}.swal2-popup:focus{outline:0}.swal2-popup.swal2-loading{overflow-y:hidden}.swal2-title{position:relative;max-width:100%;margin:0;padding:.8em 1em 0;color:inherit;font-size:1.875em;font-weight:600;text-align:center;text-transform:none;word-wrap:break-word}.swal2-actions{display:flex;z-index:1;box-sizing:border-box;flex-wrap:wrap;align-items:center;justify-content:center;width:auto;margin:1.25em auto 0;padding:0}.swal2-actions:not(.swal2-loading) .swal2-styled[disabled]{opacity:.4}.swal2-actions:not(.swal2-loading) .swal2-styled:hover{background-image:linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.1))}.swal2-actions:not(.swal2-loading) .swal2-styled:active{background-image:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.2))}.swal2-loader{display:none;align-items:center;justify-content:center;width:2.2em;height:2.2em;margin:0 1.875em;-webkit-animation:swal2-rotate-loading 1.5s linear 0s infinite normal;animation:swal2-rotate-loading 1.5s linear 0s infinite normal;border-width:.25em;border-style:solid;border-radius:100%;border-color:#2778c4 transparent #2778c4 transparent}.swal2-styled{margin:.3125em;padding:.625em 1.1em;transition:box-shadow .1s;box-shadow:0 0 0 3px transparent;font-weight:500}.swal2-styled:not([disabled]){cursor:pointer}.swal2-styled.swal2-confirm{border:0;border-radius:.25em;background:initial;background-color:#7066e0;color:#fff;font-size:1em}.swal2-styled.swal2-confirm:focus{box-shadow:0 0 0 3px rgba(112,102,224,.5)}.swal2-styled.swal2-deny{border:0;border-radius:.25em;background:initial;background-color:#dc3741;color:#fff;font-size:1em}.swal2-styled.swal2-deny:focus{box-shadow:0 0 0 3px rgba(220,55,65,.5)}.swal2-styled.swal2-cancel{border:0;border-radius:.25em;background:initial;background-color:#6e7881;color:#fff;font-size:1em}.swal2-styled.swal2-cancel:focus{box-shadow:0 0 0 3px rgba(110,120,129,.5)}.swal2-styled.swal2-default-outline:focus{box-shadow:0 0 0 3px rgba(100,150,200,.5)}.swal2-styled:focus{outline:0}.swal2-styled::-moz-focus-inner{border:0}.swal2-footer{justify-content:center;margin:1em 0 0;padding:1em 1em 0;border-top:1px solid #eee;color:inherit;font-size:1em}.swal2-timer-progress-bar-container{position:absolute;right:0;bottom:0;left:0;grid-column:auto!important;height:.25em;overflow:hidden;border-bottom-right-radius:5px;border-bottom-left-radius:5px}.swal2-timer-progress-bar{width:100%;height:.25em;background:rgba(0,0,0,.2)}.swal2-image{max-width:100%;margin:2em auto 1em}.swal2-close{z-index:2;align-items:center;justify-content:center;width:1.2em;height:1.2em;margin-top:0;margin-right:0;margin-bottom:-1.2em;padding:0;overflow:hidden;transition:color .1s,box-shadow .1s;border:none;border-radius:5px;background:0 0;color:#ccc;font-family:serif;font-family:monospace;font-size:2.5em;cursor:pointer;justify-self:end}.swal2-close:hover{transform:none;background:0 0;color:#f27474}.swal2-close:focus{outline:0;box-shadow:inset 0 0 0 3px rgba(100,150,200,.5)}.swal2-close::-moz-focus-inner{border:0}.swal2-html-container{z-index:1;justify-content:center;margin:1em 1.6em .3em;padding:0;overflow:auto;color:inherit;font-size:1.125em;font-weight:400;line-height:normal;text-align:center;word-wrap:break-word;word-break:break-word}.swal2-checkbox,.swal2-file,.swal2-input,.swal2-radio,.swal2-select,.swal2-textarea{margin:1em 2em 0}.swal2-file,.swal2-input,.swal2-textarea{box-sizing:border-box;width:auto;transition:border-color .1s,box-shadow .1s;border:1px solid #d9d9d9;border-radius:.1875em;background:inherit;box-shadow:inset 0 1px 1px rgba(0,0,0,.06),0 0 0 3px transparent;color:inherit;font-size:1.125em}.swal2-file.swal2-inputerror,.swal2-input.swal2-inputerror,.swal2-textarea.swal2-inputerror{border-color:#f27474!important;box-shadow:0 0 2px #f27474!important}.swal2-file:focus,.swal2-input:focus,.swal2-textarea:focus{border:1px solid #b4dbed;outline:0;box-shadow:inset 0 1px 1px rgba(0,0,0,.06),0 0 0 3px rgba(100,150,200,.5)}.swal2-file::-moz-placeholder,.swal2-input::-moz-placeholder,.swal2-textarea::-moz-placeholder{color:#ccc}.swal2-file:-ms-input-placeholder,.swal2-input:-ms-input-placeholder,.swal2-textarea:-ms-input-placeholder{color:#ccc}.swal2-file::placeholder,.swal2-input::placeholder,.swal2-textarea::placeholder{color:#ccc}.swal2-range{margin:1em 2em 0;background:#fff}.swal2-range input{width:80%}.swal2-range output{width:20%;color:inherit;font-weight:600;text-align:center}.swal2-range input,.swal2-range output{height:2.625em;padding:0;font-size:1.125em;line-height:2.625em}.swal2-input{height:2.625em;padding:0 .75em}.swal2-file{width:75%;margin-right:auto;margin-left:auto;background:inherit;font-size:1.125em}.swal2-textarea{height:6.75em;padding:.75em}.swal2-select{min-width:50%;max-width:100%;padding:.375em .625em;background:inherit;color:inherit;font-size:1.125em}.swal2-checkbox,.swal2-radio{align-items:center;justify-content:center;background:#fff;color:inherit}.swal2-checkbox label,.swal2-radio label{margin:0 .6em;font-size:1.125em}.swal2-checkbox input,.swal2-radio input{flex-shrink:0;margin:0 .4em}.swal2-input-label{display:flex;justify-content:center;margin:1em auto 0}.swal2-validation-message{align-items:center;justify-content:center;margin:1em 0 0;padding:.625em;overflow:hidden;background:#f0f0f0;color:#666;font-size:1em;font-weight:300}.swal2-validation-message::before{content:"!";display:inline-block;width:1.5em;min-width:1.5em;height:1.5em;margin:0 .625em;border-radius:50%;background-color:#f27474;color:#fff;font-weight:600;line-height:1.5em;text-align:center}.swal2-icon{position:relative;box-sizing:content-box;justify-content:center;width:5em;height:5em;margin:2.5em auto .6em;border:.25em solid transparent;border-radius:50%;border-color:#000;font-family:inherit;line-height:5em;cursor:default;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.swal2-icon .swal2-icon-content{display:flex;align-items:center;font-size:3.75em}.swal2-icon.swal2-error{border-color:#f27474;color:#f27474}.swal2-icon.swal2-error .swal2-x-mark{position:relative;flex-grow:1}.swal2-icon.swal2-error [class^=swal2-x-mark-line]{display:block;position:absolute;top:2.3125em;width:2.9375em;height:.3125em;border-radius:.125em;background-color:#f27474}.swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=left]{left:1.0625em;transform:rotate(45deg)}.swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=right]{right:1em;transform:rotate(-45deg)}.swal2-icon.swal2-error.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-error.swal2-icon-show .swal2-x-mark{-webkit-animation:swal2-animate-error-x-mark .5s;animation:swal2-animate-error-x-mark .5s}.swal2-icon.swal2-warning{border-color:#facea8;color:#f8bb86}.swal2-icon.swal2-warning.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-warning.swal2-icon-show .swal2-icon-content{-webkit-animation:swal2-animate-i-mark .5s;animation:swal2-animate-i-mark .5s}.swal2-icon.swal2-info{border-color:#9de0f6;color:#3fc3ee}.swal2-icon.swal2-info.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-info.swal2-icon-show .swal2-icon-content{-webkit-animation:swal2-animate-i-mark .8s;animation:swal2-animate-i-mark .8s}.swal2-icon.swal2-question{border-color:#c9dae1;color:#87adbd}.swal2-icon.swal2-question.swal2-icon-show{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-icon.swal2-question.swal2-icon-show .swal2-icon-content{-webkit-animation:swal2-animate-question-mark .8s;animation:swal2-animate-question-mark .8s}.swal2-icon.swal2-success{border-color:#a5dc86;color:#a5dc86}.swal2-icon.swal2-success [class^=swal2-success-circular-line]{position:absolute;width:3.75em;height:7.5em;transform:rotate(45deg);border-radius:50%}.swal2-icon.swal2-success [class^=swal2-success-circular-line][class$=left]{top:-.4375em;left:-2.0635em;transform:rotate(-45deg);transform-origin:3.75em 3.75em;border-radius:7.5em 0 0 7.5em}.swal2-icon.swal2-success [class^=swal2-success-circular-line][class$=right]{top:-.6875em;left:1.875em;transform:rotate(-45deg);transform-origin:0 3.75em;border-radius:0 7.5em 7.5em 0}.swal2-icon.swal2-success .swal2-success-ring{position:absolute;z-index:2;top:-.25em;left:-.25em;box-sizing:content-box;width:100%;height:100%;border:.25em solid rgba(165,220,134,.3);border-radius:50%}.swal2-icon.swal2-success .swal2-success-fix{position:absolute;z-index:1;top:.5em;left:1.625em;width:.4375em;height:5.625em;transform:rotate(-45deg)}.swal2-icon.swal2-success [class^=swal2-success-line]{display:block;position:absolute;z-index:2;height:.3125em;border-radius:.125em;background-color:#a5dc86}.swal2-icon.swal2-success [class^=swal2-success-line][class$=tip]{top:2.875em;left:.8125em;width:1.5625em;transform:rotate(45deg)}.swal2-icon.swal2-success [class^=swal2-success-line][class$=long]{top:2.375em;right:.5em;width:2.9375em;transform:rotate(-45deg)}.swal2-icon.swal2-success.swal2-icon-show .swal2-success-line-tip{-webkit-animation:swal2-animate-success-line-tip .75s;animation:swal2-animate-success-line-tip .75s}.swal2-icon.swal2-success.swal2-icon-show .swal2-success-line-long{-webkit-animation:swal2-animate-success-line-long .75s;animation:swal2-animate-success-line-long .75s}.swal2-icon.swal2-success.swal2-icon-show .swal2-success-circular-line-right{-webkit-animation:swal2-rotate-success-circular-line 4.25s ease-in;animation:swal2-rotate-success-circular-line 4.25s ease-in}.swal2-progress-steps{flex-wrap:wrap;align-items:center;max-width:100%;margin:1.25em auto;padding:0;background:inherit;font-weight:600}.swal2-progress-steps li{display:inline-block;position:relative}.swal2-progress-steps .swal2-progress-step{z-index:20;flex-shrink:0;width:2em;height:2em;border-radius:2em;background:#2778c4;color:#fff;line-height:2em;text-align:center}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step{background:#2778c4}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step~.swal2-progress-step{background:#add8e6;color:#fff}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step~.swal2-progress-step-line{background:#add8e6}.swal2-progress-steps .swal2-progress-step-line{z-index:10;flex-shrink:0;width:2.5em;height:.4em;margin:0 -1px;background:#2778c4}[class^=swal2]{-webkit-tap-highlight-color:transparent}.swal2-show{-webkit-animation:swal2-show .3s;animation:swal2-show .3s}.swal2-hide{-webkit-animation:swal2-hide .15s forwards;animation:swal2-hide .15s forwards}.swal2-noanimation{transition:none}.swal2-scrollbar-measure{position:absolute;top:-9999px;width:50px;height:50px;overflow:scroll}.swal2-rtl .swal2-close{margin-right:initial;margin-left:0}.swal2-rtl .swal2-timer-progress-bar{right:0;left:auto}@-webkit-keyframes swal2-toast-show{0%{transform:translateY(-.625em) rotateZ(2deg)}33%{transform:translateY(0) rotateZ(-2deg)}66%{transform:translateY(.3125em) rotateZ(2deg)}100%{transform:translateY(0) rotateZ(0)}}@keyframes swal2-toast-show{0%{transform:translateY(-.625em) rotateZ(2deg)}33%{transform:translateY(0) rotateZ(-2deg)}66%{transform:translateY(.3125em) rotateZ(2deg)}100%{transform:translateY(0) rotateZ(0)}}@-webkit-keyframes swal2-toast-hide{100%{transform:rotateZ(1deg);opacity:0}}@keyframes swal2-toast-hide{100%{transform:rotateZ(1deg);opacity:0}}@-webkit-keyframes swal2-toast-animate-success-line-tip{0%{top:.5625em;left:.0625em;width:0}54%{top:.125em;left:.125em;width:0}70%{top:.625em;left:-.25em;width:1.625em}84%{top:1.0625em;left:.75em;width:.5em}100%{top:1.125em;left:.1875em;width:.75em}}@keyframes swal2-toast-animate-success-line-tip{0%{top:.5625em;left:.0625em;width:0}54%{top:.125em;left:.125em;width:0}70%{top:.625em;left:-.25em;width:1.625em}84%{top:1.0625em;left:.75em;width:.5em}100%{top:1.125em;left:.1875em;width:.75em}}@-webkit-keyframes swal2-toast-animate-success-line-long{0%{top:1.625em;right:1.375em;width:0}65%{top:1.25em;right:.9375em;width:0}84%{top:.9375em;right:0;width:1.125em}100%{top:.9375em;right:.1875em;width:1.375em}}@keyframes swal2-toast-animate-success-line-long{0%{top:1.625em;right:1.375em;width:0}65%{top:1.25em;right:.9375em;width:0}84%{top:.9375em;right:0;width:1.125em}100%{top:.9375em;right:.1875em;width:1.375em}}@-webkit-keyframes swal2-show{0%{transform:scale(.7)}45%{transform:scale(1.05)}80%{transform:scale(.95)}100%{transform:scale(1)}}@keyframes swal2-show{0%{transform:scale(.7)}45%{transform:scale(1.05)}80%{transform:scale(.95)}100%{transform:scale(1)}}@-webkit-keyframes swal2-hide{0%{transform:scale(1);opacity:1}100%{transform:scale(.5);opacity:0}}@keyframes swal2-hide{0%{transform:scale(1);opacity:1}100%{transform:scale(.5);opacity:0}}@-webkit-keyframes swal2-animate-success-line-tip{0%{top:1.1875em;left:.0625em;width:0}54%{top:1.0625em;left:.125em;width:0}70%{top:2.1875em;left:-.375em;width:3.125em}84%{top:3em;left:1.3125em;width:1.0625em}100%{top:2.8125em;left:.8125em;width:1.5625em}}@keyframes swal2-animate-success-line-tip{0%{top:1.1875em;left:.0625em;width:0}54%{top:1.0625em;left:.125em;width:0}70%{top:2.1875em;left:-.375em;width:3.125em}84%{top:3em;left:1.3125em;width:1.0625em}100%{top:2.8125em;left:.8125em;width:1.5625em}}@-webkit-keyframes swal2-animate-success-line-long{0%{top:3.375em;right:2.875em;width:0}65%{top:3.375em;right:2.875em;width:0}84%{top:2.1875em;right:0;width:3.4375em}100%{top:2.375em;right:.5em;width:2.9375em}}@keyframes swal2-animate-success-line-long{0%{top:3.375em;right:2.875em;width:0}65%{top:3.375em;right:2.875em;width:0}84%{top:2.1875em;right:0;width:3.4375em}100%{top:2.375em;right:.5em;width:2.9375em}}@-webkit-keyframes swal2-rotate-success-circular-line{0%{transform:rotate(-45deg)}5%{transform:rotate(-45deg)}12%{transform:rotate(-405deg)}100%{transform:rotate(-405deg)}}@keyframes swal2-rotate-success-circular-line{0%{transform:rotate(-45deg)}5%{transform:rotate(-45deg)}12%{transform:rotate(-405deg)}100%{transform:rotate(-405deg)}}@-webkit-keyframes swal2-animate-error-x-mark{0%{margin-top:1.625em;transform:scale(.4);opacity:0}50%{margin-top:1.625em;transform:scale(.4);opacity:0}80%{margin-top:-.375em;transform:scale(1.15)}100%{margin-top:0;transform:scale(1);opacity:1}}@keyframes swal2-animate-error-x-mark{0%{margin-top:1.625em;transform:scale(.4);opacity:0}50%{margin-top:1.625em;transform:scale(.4);opacity:0}80%{margin-top:-.375em;transform:scale(1.15)}100%{margin-top:0;transform:scale(1);opacity:1}}@-webkit-keyframes swal2-animate-error-icon{0%{transform:rotateX(100deg);opacity:0}100%{transform:rotateX(0);opacity:1}}@keyframes swal2-animate-error-icon{0%{transform:rotateX(100deg);opacity:0}100%{transform:rotateX(0);opacity:1}}@-webkit-keyframes swal2-rotate-loading{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}@keyframes swal2-rotate-loading{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}@-webkit-keyframes swal2-animate-question-mark{0%{transform:rotateY(-360deg)}100%{transform:rotateY(0)}}@keyframes swal2-animate-question-mark{0%{transform:rotateY(-360deg)}100%{transform:rotateY(0)}}@-webkit-keyframes swal2-animate-i-mark{0%{transform:rotateZ(45deg);opacity:0}25%{transform:rotateZ(-25deg);opacity:.4}50%{transform:rotateZ(15deg);opacity:.8}75%{transform:rotateZ(-5deg);opacity:1}100%{transform:rotateX(0);opacity:1}}@keyframes swal2-animate-i-mark{0%{transform:rotateZ(45deg);opacity:0}25%{transform:rotateZ(-25deg);opacity:.4}50%{transform:rotateZ(15deg);opacity:.8}75%{transform:rotateZ(-5deg);opacity:1}100%{transform:rotateX(0);opacity:1}}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown){overflow:hidden}body.swal2-height-auto{height:auto!important}body.swal2-no-backdrop .swal2-container{background-color:transparent!important;pointer-events:none}body.swal2-no-backdrop .swal2-container .swal2-popup{pointer-events:all}body.swal2-no-backdrop .swal2-container .swal2-modal{box-shadow:0 0 10px rgba(0,0,0,.4)}@media print{body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown){overflow-y:scroll!important}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown)>[aria-hidden=true]{display:none}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .swal2-container{position:static!important}}body.swal2-toast-shown .swal2-container{box-sizing:border-box;width:360px;max-width:100%;background-color:transparent;pointer-events:none}body.swal2-toast-shown .swal2-container.swal2-top{top:0;right:auto;bottom:auto;left:50%;transform:translateX(-50%)}body.swal2-toast-shown .swal2-container.swal2-top-end,body.swal2-toast-shown .swal2-container.swal2-top-right{top:0;right:0;bottom:auto;left:auto}body.swal2-toast-shown .swal2-container.swal2-top-left,body.swal2-toast-shown .swal2-container.swal2-top-start{top:0;right:auto;bottom:auto;left:0}body.swal2-toast-shown .swal2-container.swal2-center-left,body.swal2-toast-shown .swal2-container.swal2-center-start{top:50%;right:auto;bottom:auto;left:0;transform:translateY(-50%)}body.swal2-toast-shown .swal2-container.swal2-center{top:50%;right:auto;bottom:auto;left:50%;transform:translate(-50%,-50%)}body.swal2-toast-shown .swal2-container.swal2-center-end,body.swal2-toast-shown .swal2-container.swal2-center-right{top:50%;right:0;bottom:auto;left:auto;transform:translateY(-50%)}body.swal2-toast-shown .swal2-container.swal2-bottom-left,body.swal2-toast-shown .swal2-container.swal2-bottom-start{top:auto;right:auto;bottom:0;left:0}body.swal2-toast-shown .swal2-container.swal2-bottom{top:auto;right:auto;bottom:0;left:50%;transform:translateX(-50%)}body.swal2-toast-shown .swal2-container.swal2-bottom-end,body.swal2-toast-shown .swal2-container.swal2-bottom-right{top:auto;right:0;bottom:0;left:auto}</style></head>
+
+
+
+<body class="hasHover">
+	<div class="wrap">
+		<!-- Navigation -->
+		<header class="cd-auto-hide-header">
+			<nav class="navbar cd-primary-nav">
+				<div class="dropdown only_m" style="display: none;">
+					<button type="button" class="btn btn-primary dropbtn">
+						<table style="width:100%;">
+							<tbody><tr>
+								<td style="width:70%;">
+									<img src="/lang/kor.png" style="width:20px;height:20px;"> <font>한국어</font>
+								</td>
+								<td style="width:30%;text-align: right;">
+									<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
+								</td>
+							</tr>
+						</tbody></table>
+					</button>
+
+					<div class="dropdown-content">
+						<a href="#" onclick="setCookie('site_lang','eng','365')"><img src="/lang/eng.png" style="width:20px;height:20px;"> english</a>
+						<a href="#" onclick="setCookie('site_lang','jap','365')"><img src="/lang/jap.png" style="width:20px;height:20px;"> 日本語</a>
+						<a href="#" onclick="setCookie('site_lang','cha','365')"><img src="/lang/cha.png" style="width:20px;height:20px;"> 简体中文</a>
+						<a href="#" onclick="setCookie('site_lang','thai','365')"><img src="/lang/thai.png" style="width:20px;height:20px;"> แบบไทย</a>
+						<a href="#" onclick="setCookie('site_lang','km','365')"><img src="/lang/km.png" style="width:20px;height:20px;"> ខ្មែរ</a>
+						<a href="#" onclick="setCookie('site_lang','kor','365')"><img src="/lang/kor.png" style="width:20px;height:20px;"> 한국어</a>
+					</div>
+				</div>
+
+				<a href="#" class="nav-trigger">
+					<span>
+						<span aria-hidden="true"></span>
+						<em aria-hidden="true"></em>
+					</span>
+					<p class="logo-m"><img src="/images/main/top_logo.png" style="height:56px"></p>
+				</a> <!-- .nav-trigger -->
+				<div class="container trans" id="cd-navigation">
+					<div class="row toplink trans">
+						<div class="toplink_userinfo">
+							<ul class="leftbox">
+								<li class="roundedlink"><a href="#ModalMypage" data-toggle="modal" onclick="message_detail();menu_view('message');" class="join-link">내 쪽지함 : <strong class="mes-cnt">
+        0
+</strong> </a></li>
+								<li class="roundedlink"><a href="#ModalMypage" data-toggle="modal" onclick="message_detail();menu_view('mypage');">마이페이지</a></li>
+								<li><i class="xi-crown"></i><strong>eropoo02</strong> 회원님 환영합니다!</li>
+							</ul>
+							<script>
+
+								$(function(){
+									// ajax 선언
+									let messageMsg = function () {
+										var ajax = $.ajax({
+										type: "GET", // 요청 메소드 타입
+										url: "/etc/_memo_alram.asp" // 접속 url
+										});
+										// 결과
+										ajax.done(function(data){
+										// 위 라벨 태그에 결과를 입력한다.
+										$(".mes-cnt").html(data);
+										}) ;
+									}
+
+									messageMsg();	//일단 즉시 한번 호출하고
+
+									timer = setInterval( messageMsg, 10000);		//10초마다 호출함
+								});
+
+							</script>
+							<ul class="rightbox">
+								<li><a class="nav-link" href="#ModalDeposit" data-toggle="modal"><img src="/images/icons/icon_wallet.png"> 캐쉬 : <strong class="fontcolor_yellow">100,000</strong></a></li>
+								<li><a href="#ModalMypage" data-toggle="modal" onclick="message_detail();menu_view('comp');"><img src="/images/icons/icon_point.png"> 콤프 : <strong class="fontcolor_mint">0</strong></a></li>
+								<!--
+								<li><a class="nav-link" href="#ModalLogin" data-toggle="modal"><img src="/images/icons/icon_coupon.png"> 쿠폰 : <strong class="fontcolor_mint">0</strong></a></li>
+								-->
+								<li class="roundedlink"><a class="nav-link" href="" data-toggle="modal" onclick="location.href='/login/_Logout_Proc.asp'" style="margin-top: 7px;">로그아웃</a></li>
+
+								<li>
+									<div class="dropdown">
+										<button type="button" class="btn btn-primary dropbtn">
+											<table style="width:100%;">
+												<tbody><tr>
+													<td style="width:70%;">
+														<img src="/lang/kor.png" style="width:20px;height:20px;"> 한국어 
+													</td>
+													<td style="width:30%;text-align: right;">
+														<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
+													</td>
+												</tr>
+											</tbody></table>
+											
+										</button>
+
+										<div class="dropdown-content">
+											<a href="#" onclick="setCookie('site_lang','eng','365')"><img src="/lang/eng.png" style="width:20px;height:20px;"> english</a>
+											<a href="#" onclick="setCookie('site_lang','jap','365')"><img src="/lang/jap.png" style="width:20px;height:20px;"> 日本語</a>
+											<a href="#" onclick="setCookie('site_lang','cha','365')"><img src="/lang/cha.png" style="width:20px;height:20px;"> 简体中文</a>
+											<a href="#" onclick="setCookie('site_lang','thai','365')"><img src="/lang/thai.png" style="width:20px;height:20px;"> แบบไทย</a>
+											<a href="#" onclick="setCookie('site_lang','km','365')"><img src="/lang/km.png" style="width:20px;height:20px;"> ខ្មែរ</a>
+											<a href="#" onclick="setCookie('site_lang','kor','365')"><img src="/lang/kor.png" style="width:20px;height:20px;"> 한국어</a>
+										</div>
+									</div>
+								</li>
+							</ul>
+						</div>
+					</div>
+
+					<style type="text/css">
+					/* LOGO CENTER */
+					@media (min-width: 1024px) {
+						.navbar .nav-linkset {
+							position: relative;
+							background: url(../images/main/top_bar.png?v=20241003);
+							background-size: auto 100%;
+							background-position: bottom;
+							background-repeat: repeat-x;
+							overflow: visible;
+						}
+						.navbar .nav-linkset .nav-box {
+							width:100%;
+							max-width: 1480px;
+							height: 80px;
+							overflow: visible;
+							margin: 0 auto;
+							display: flex;
+							flex-direction: row;
+							align-items: center;
+							justify-content: space-between;
+						}
+						.navbar .nav-linkset .logos {
+							float: unset;
+							margin: unset;
+							position: absolute;
+							left: 50%;
+							top: 0;
+							transform: translate(-50%, -10%);
+						}
+						.navbar .nav-linkset .logos .navbar-logo {
+							filter: drop-shadow(0px 4px 8px #0d162496);
+						}
+						.navbar .nav-box .menuleft {
+							width: fit-content;
+							float: unset;
+							margin: unset;
+						}
+					}
+					</style>
+
+					<div class="row nav-linkset">
+						<div class="nav-box">
+							<div class="logos"><a class="navbar-logo" href="/"><img src="/images/main/top_logo.png?v=20241003-1" style="height:104px"></a></div>
+
+							<div class="menuleft">
+								<ul class="navbar-nav">
+									<li class="nav-item active"><a class="nav-link" href="#ModalDeposit" data-toggle="modal"><span class="trans">입/출금신청</span><span class="icon_pic trans"><i><img src="/images/main/top_nav_add_1.png"></i></span></a></li>
+									<!--
+									<li class="nav-item"><a class="nav-link" href="#ModalLogin" data-toggle="modal"><span class="trans">쿠폰</span><span class="icon_pic trans"><i><img src="/images/main/top_nav_add_2.png"></i></span></a></li>
+									-->
+									<li class="nav-item"><a class="nav-link" href="#ModalTableBoard01" data-toggle="modal"><span class="trans">공지사항</span><span class="icon_pic trans"><i><img src="/images/main/top_nav_add_3.png"></i></span></a></li>
+									<li class="nav-item"><a class="nav-link faq-link" href="#ModalWithdraw" data-toggle="modal" onclick="support_detail();"><span class="trans">고객센터</span><span class="icon_pic trans"><i><img src="/images/main/top_nav_add_4.png"></i></span></a></li>
+								</ul>
+							</div>
+
+							<div class="menuright">
+								<ul>
+									<li class="liveca"><a href="#glist_casino" data-toggle="tab" onclick="html_location(1);">라이브카지노</a></li>
+									<li class="slotga"><a href="#glist_slot" data-toggle="tab" onclick="html_location(3);">슬롯게임</a></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</div>
+			</nav>
+		</header>
+
+
+
+		<script language="javascript">
+			function casino_game_open(title, vendor_key, game_key) {
+				window.open('/game/casino_game_start.asp?title=' + title + '&vendor_key=' + vendor_key + '&game_key=' + game_key, 'gamepopup', 'width=1400, height=900, toolbar=no, menubar=no, scrollbars=no, resizable=yes');
+			}
+
+		</script>
+		<div class="container slide-box">
+			<div class="slide_leftbox"><img src="/images/main/left_card.png"></div>
+			<div class="slide_rightbox"><img src="/images/main/right_card.png"></div>
+			<div class="slide_rightcurtain"><img src="/images/main/right_curtain.png"></div>
+			<div class="unslider"><div class="main-visual v1-slider unslider-fade" style="overflow: hidden;">
+				<ul class="unslider-wrap">
+					<li class="vislider_03 videosc unslider-active" style="opacity: 0.220584;">
+						<img class="v_img_bg" src="/images/main/main_slide_01.png?v=1">
+						<div class="bg_shadow_dott"></div>
+						<img id="videobcg03" class="mov-bg" preload="auto" autoplay="true" loop="loop" muted="muted" volume="0" src="/images/video/mov_bg02.gif">
+					</li>
+					<li class="vislider_01" style="opacity: 0.779416;">
+						<img class="v_img_bg" src="/images/main/main_slide_02.png?v=1">
+						<div class="bg_shadow_dott"></div>
+						<img id="videobcg03" class="mov-bg" preload="auto" autoplay="true" loop="loop" muted="muted" volume="0" src="/images/video/mov_bg02.gif">
+					</li>
+				</ul>
+			</div><a class="unslider-arrow next"><i class="xi-angle-right-thin"></i></a><a class="unslider-arrow prev"><i class="xi-angle-left-thin"></i></a><nav class="unslider-nav"><ol><li data-slide="0" class="unslider-active">1</li><li data-slide="1" class="">2</li></ol></nav></div>
+		</div>
+
+
+
+		<div class="maincontent">
+			<div class="btn-set-gamelist">
+				<ul class="nav nav-tabs">
+					<li class="border35"><img src="/images/main/game_banner_bar_left.png"></li>
+					<li class="active" id="center001">
+						<a href="#glist_casino" data-toggle="tab" onclick="window.scrollTo({top:550, left:0, behavior:'smooth'});">
+							<img src="/images/main/game_boxbanner_1_off.png" title="라이브카지노" class="opcOff">
+							<img src="/images/main/game_boxbanner_1_on.png" title="라이브카지노" class="opcHover">
+						</a>
+					</li>
+					<li class="border27"><img src="/images/main/game_banner_bar_center.png"></li>
+					<li id="center003">
+						<a href="#glist_slot" data-toggle="tab" onclick="window.scrollTo({top:550, left:0, behavior:'smooth'});">
+							<img src="/images/main/game_boxbanner_3_off.png" title="슬롯게임" class="opcOff">
+							<img src="/images/main/game_boxbanner_3_on.png" title="슬롯게임" class="opcHover">
+						</a>
+					</li>
+					<li class="border35"><img src="/images/main/game_banner_bar_right.png"></li>
+				</ul>
+			</div>
+
+			<div class="tab-content">
+				<div class="tab-pane fade in active" id="glist_casino">
+					<div class="gamelist">
+						<h1 class="game-title">
+							<img src="/images/main/title_livecasio.png" class="titleboximg">
+						</h1>
+						<ul class="game-list-casino">
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('DBLIVECASINO', 'dblive_casino','C');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">DBLIVE 카지노</span></p>
+									</div>
+									<img src="/images/game/DBLIVE.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('PRAGMATIC', 'pragmatic_casino','A');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">프라그마틱카지노</span></p>
+									</div>
+									<img src="/images/game/PRAGMATICCASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('DREAMGAMING', 'dreamgaming_casino','B');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">드림게이밍</span></p>
+									</div>
+									<img src="/images/game/DG.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('EVOLUTION', 'evolution-n','B');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">에볼루션</span></p>
+									</div>
+									<img src="/images/game/EVOLUTION.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+									<!-- 신규게임 아이콘 --> <p class="newGamesIcon"><img src="/images/icons/icon_new_games.png"></p><!-- 신규게임 아이콘 END -->
+								
+								<a href="#" onclick="casino_game_open('EZUGI', 'ezugi_casino','A');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">이주기</span></p>
+									</div>
+									<img src="/images/game/EZUGI.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('MOTIVATION', 'motivation_casino','A');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">모티베이션카지노</span></p>
+									</div>
+									<img src="/images/game/MOTIVATION.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('CQ9', 'cq9_casino','ca01');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">CQ9카지노</span></p>
+									</div>
+									<img src="/images/game/CQ9CASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('ASIAGAMING', 'ag_casino','D');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">아시안게이밍카지노</span></p>
+									</div>
+									<img src="/images/game/ASIACASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('SKYWIND', 'skywind_casino','A');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">스카이윈드카지노</span></p>
+									</div>
+									<img src="/images/game/SKYWINDCASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">타이산</span></p>
+									</div>
+									<img src="/images/game/TAISHAN.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('SEXYBACCARAT', 'sexy_casino','C');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">섹시 바카라</span></p>
+									</div>
+									<img src="/images/game/SEXYCASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">올벳 카지노</span></p>
+									</div>
+									<img src="/images/game/ALLBETCASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">벳게임즈TV 카지노</span></p>
+									</div>
+									<img src="/images/game/BETGAMESCASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('BIGGAMING', 'bg_casino','A');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">빅게이밍</span></p>
+									</div>
+									<img src="/images/game/BIGCASINO.png?v=1" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('ORIENTALGAME', 'orientalgame_casino','C');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">오리엔탈 게이밍</span></p>
+									</div>
+									<img src="/images/game/OG.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('MICRO GRAND CASINO', 'mggrand_casino','A');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">마이크로 그랜드 카지노</span></p>
+									</div>
+									<img src="/images/game/MICROCASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								
+									<!-- 신규게임 아이콘 --> <p class="newGamesIcon"><img src="/images/icons/icon_new_games.png"></p><!-- 신규게임 아이콘 END -->
+								
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">베가스카지노</span></p>
+									</div>
+									<img src="/images/game/VEGAS.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								
+								<a href="#" onclick="casino_game_open('BOTA', 'bota_casino','C');">
+							
+									<div class="frame-border">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">보타카지노</span></p>
+									</div>
+									<img src="/images/game/BOTACASINO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+
+
+
+						</ul>
+					</div>
+				</div>
+
+				<div class="tab-pane fade" id="glist_hcasino">
+					<div class="gamelist">
+						<h1 class="game-title">
+							<img src="/images/main/title_sports.png" class="titleboximg">
+						</h1>
+						<ul class="game-list-casino">
+
+
+
+						</ul>
+					</div>
+				</div>
+
+				<div class="tab-pane fade" id="glist_slot">
+					<div class="gamelist">
+						<h1 class="game-title">
+							<img src="/images/main/title_slotgame.png" class="titleboximg">
+						</h1>
+						<ul class="game-list-casino">
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('프라그마틱슬롯', 'pragmatic_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">프라그마틱슬롯</span></p>
+									</div>
+									<img src="/images/game/PRAGMATICSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('부운고', 'booongo_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">부운고</span></p>
+									</div>
+									<img src="/images/game/BOOONGO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('CQ9슬롯', 'cq9_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">CQ9슬롯</span></p>
+									</div>
+									<img src="/images/game/CQ9SLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('하바네로', 'habanero_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">하바네로</span></p>
+									</div>
+									<img src="/images/game/HABANERO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('노리밋시티', 'nlc_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">노리밋시티</span></p>
+									</div>
+									<img src="/images/game/NOLIMITSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('PG소프트', 'pgsoft_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">PG소프트</span></p>
+									</div>
+									<img src="/images/game/PGSOFTSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('플레이손', 'playson_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">플레이손</span></p>
+									</div>
+									<img src="/images/game/PLAYSON.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('핵쏘우게이밍 슬롯', 'hs_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">핵쏘우게이밍 슬롯</span></p>
+									</div>
+									<img src="/images/game/HACKSAWSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('아바타UX', 'aux_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">아바타UX</span></p>
+									</div>
+									<img src="/images/game/AVATAUXSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('플레이앤고', 'playngo_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">플레이앤고</span></p>
+									</div>
+									<img src="/images/game/PLAYNGO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('에보플레이', 'evo_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">에보플레이</span></p>
+									</div>
+									<img src="/images/game/EVO.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">릴플레이</span></p>
+									</div>
+									<img src="/images/game/REELPLAY.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">판타즈마</span></p>
+									</div>
+									<img src="/images/game/FANTASMA.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">부메랑</span></p>
+									</div>
+									<img src="/images/game/BOOMERANG.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('포더플레이어', '4tp_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">포더플레이어</span></p>
+									</div>
+									<img src="/images/game/4TP.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('GMW', 'gmw_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">GMW</span></p>
+									</div>
+									<img src="/images/game/GMWSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('플레이스타', 'ps_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">플레이스타</span></p>
+									</div>
+									<img src="/images/game/PSTARSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('넷게이밍', 'netgaming','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">넷게이밍</span></p>
+									</div>
+									<img src="/images/game/NETGAINGSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap">
+								<a href="#SlotDetail" data-toggle="modal" onclick="casino_detail('블루프린트', 'blueprint_slot','slot');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">블루프린트</span></p>
+									</div>
+									<img src="/images/game/BLUEPRINT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">드래곤소프트</span></p>
+									</div>
+									<img src="/images/game/DRAGSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">슬롯 매트릭스</span></p>
+									</div>
+									<img src="/images/game/SPHSLOT.png?v=1" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">비게이밍</span></p>
+									</div>
+									<img src="/images/game/BGAMINGSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">부밍게임즈</span></p>
+									</div>
+									<img src="/images/game/BOOMINGSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">익스팬스</span></p>
+									</div>
+									<img src="/images/game/EXPANSESLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">펀키게임즈 슬롯</span></p>
+									</div>
+									<img src="/images/game/FUNKYGAMES.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">조커</span></p>
+									</div>
+									<img src="/images/game/JOKER.png?v=2" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">JILI 슬롯</span></p>
+									</div>
+									<img src="/images/game/JILI.png?v=3" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">스카이윈드</span></p>
+									</div>
+									<img src="/images/game/SKYWINDSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">넥스트스핀</span></p>
+									</div>
+									<img src="/images/game/NEXTSPINSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">마이크로게이밍 슬롯</span></p>
+									</div>
+									<img src="/images/game/MICROSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">아시안게이밍슬롯</span></p>
+									</div>
+									<img src="/images/game/ASIASLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">UPG 슬롯</span></p>
+									</div>
+									<img src="/images/game/UPGSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">아스펙트</span></p>
+									</div>
+									<img src="/images/game/ASPECTSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">벳소프트</span></p>
+									</div>
+									<img src="/images/game/BETSOFT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">NAGA</span></p>
+									</div>
+									<img src="/images/game/NAGASLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">릴렉스</span></p>
+									</div>
+									<img src="/images/game/RELAX.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">레드타이거</span></p>
+									</div>
+									<img src="/images/game/REDTSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">넷엔트</span></p>
+									</div>
+									<img src="/images/game/NETENT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">BTG</span></p>
+									</div>
+									<img src="/images/game/BTGSLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+							<li class="game_box_wrap disable-repair">
+								<a href="#" onclick="SwalText('점검중입니다');">
+							
+									<div class="frame-border" data-toggle="modal">
+										<i class="gamePartnerLogo"><img src="/images/main/gamebox_playgame.png"></i>
+										<p class="frame_bo_tit"><span class="over_title">FTG</span></p>
+									</div>
+									<img src="/images/game/FUNTASLOT.png" class="content_img">
+								</a>
+							</li>
+
+
+
+
+
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="game-article">
+			<div class="container">
+				<div class="wrap-notice">
+					<h1 class="game-title">
+						<img src="/images/main/title_notice.png" class="titleboximg">
+					</h1>
+					<div class="article-box">
+						<ul class="list">
+
+							<li>
+								<a href="#ModalTableBoard01" data-toggle="modal">바카라 &amp; 슬롯 배팅금 및 상한 당첨금 규정<span class="list-date">2024-11-25</span></a>
+							</li>
+
+							<li>
+								<a href="#ModalTableBoard01" data-toggle="modal">** 에볼루션 금지 게임 안내 **<span class="list-date">2024-10-30</span></a>
+							</li>
+
+							<li>
+								<a href="#ModalTableBoard01" data-toggle="modal">입금 규정<span class="list-date">2024-06-07</span></a>
+							</li>
+
+							<li>
+								<a href="#ModalTableBoard01" data-toggle="modal">**게임 오류로 인한 공지사항**<span class="list-date">2024-06-07</span></a>
+							</li>
+
+							<li>
+								<a href="#ModalTableBoard01" data-toggle="modal">**카지노 규정 및 공지사항**<span class="list-date">2024-06-07</span></a>
+							</li>
+
+							<li>
+								<a href="#ModalTableBoard01" data-toggle="modal">출금 규정<span class="list-date">2024-05-14</span></a>
+							</li>
+
+							<li>
+								<a href="#ModalTableBoard01" data-toggle="modal">버그 및 불법 프로그램사용 공지<span class="list-date">2024-02-26</span></a>
+							</li>
+
+
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+
+
+        <!-- Footer -->
+        <footer class="footer-box">
+             <div class="container">
+				<div class="logoset" style="display: flex; justify-content: space-between;">
+					<img src="/images/footer_partner_1.png?v=1" style="width: 33%;">
+					<img src="/images/footer_partner_2.png?v=2" style="width: 33%;">
+					<img src="/images/footer_partner_3.png?v=3" style="width: 33%;">
+				</div>
+			</div>
+
+            <div class="text-copyr">
+                <div class="container">
+                    <p class="f_logo"><img src="/images/main/footer_logo.png?v=4"></p>
+                    <p class="tx_footer">
+                        <font>
+                            Pandora Casino is a new online casino and mobile casino with 100s of the best casino games for you to enjoy 24 hours a day, 7 days a week, 365 days a year.<br>
+                            Enjoy playing the best new casino games safely at our secure casino site in the comfort of your own home,or anywhere using your cellphone and mobile tablet device.<br>
+                            Register or login now to play here at Pandora Casino and enjoy playing the best new casino games online and mobile. Casino players aged 18+/21+ from all around the world are welcome to play here including US casino players.<br>
+                            <br>
+                            Pandora Casino hosts some of the best online slot games and mobile slot machines with 100s of the top slots games here for you to enjoy anytime.<br>
+                            We have slots ranging from ₩0.01 a spin rights up to jackpot slots with jackpots up to ₩1,000,000s to be win with one spin! So if you love to play penny pokies we have 100s of games for you. If you prefer to play high stakes slots we also have 100s of games for you to play. We also have some of the most popular progressives where you can become a millionaire within seconds and one click of those reels. Register or login to play now.<br>
+                            <br>
+                        </font>
+                        <span>Copyright © <strong>Pandora Casino</strong> 2022</span>
+                    </p>
+                </div>
+            </div>
+            <!-- /.container -->
+        </footer>
+	<!-- //.Footer -->
+	</div>
+
+
+
+	<!-- 게임상세 -->
+	<!-- 회원가입 레이어 -->
+	<div id="SlotDetail" class="modal TableBoard fade" tabindex="-1">i
+		<div class="modal-dialog">
+			<div class="etc_pop1">
+				<script>
+					function casino_detail(title, vendorKey, categoryKey) {
+						$(function() {
+							// ajax 선언
+							var ajax = $.ajax({
+								type: "GET", // 요청 메소드 타입
+								url: "/game/slot_game_detail.asp?title=" + title + "&vendor_key=" + vendorKey + "&category_key=" + categoryKey // 접속 url
+							});
+							// 결과
+							ajax.done(function(data) {
+								// 위 라벨 태그에 결과를 입력한다.
+								$(".etc_pop1").html(data);
+							});
+						});
+					}
+				</script>
+			</div>
+		</div>
+	</div>
+
+
+	<!-- 입금신청 레이어 -->
+	<div id="ModalDeposit" class="modal inputSetForm fade" tabindex="-1">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-body">
+					<div class="container h-100">
+						<div class="d-flex h-100">
+							<div class="user_card">
+								<div class="pop-header">
+									<h2>입/출금신청</h2>
+									<button type="button" class="close" data-dismiss="modal"><i class="xi-close-circle-o xi-x vam"></i></button>
+								</div>
+								<div class="row">
+										<div class="tabbable-panel">
+											<div class="tabbable-line cashflow">
+												<ul class="nav nav-tabs ">
+													<li class="active">
+														<a href="#tab_cashflow_1_1" data-toggle="tab">입금신청</a>
+													</li>
+													<li>
+														<a href="#tab_cashflow_1_2" onclick="exchage_detail();" data-toggle="tab">출금신청</a>
+													</li>
+												</ul>
+												<script type="text/javascript">
+													function setComma(str) {
+														str = "" + str + "";
+														var retValue = "";
+														for (i = 0; i < str.length; i++) {
+															if (i > 0 && (i % 3) == 0) {
+																retValue = str.charAt(str.length - i - 1) + "," + retValue;
+															} else {
+																retValue = str.charAt(str.length - i - 1) + retValue;
+															}
+														}
+														return retValue;
+													}
+
+													function deposit(str) {
+														var str = str.replace(/,/gi, '');
+
+														if (str == '0') {
+															document.charge_frm.IC_Amount.value = '';
+														} else {
+															if (document.charge_frm.IC_Amount.value == '') {
+																document.charge_frm.IC_Amount.value = 0;
+															}
+															var a = document.charge_frm.IC_Amount.value;
+															a = a.replace(/,/gi, '');
+															a = parseInt(a) + parseInt(str);
+															document.charge_frm.IC_Amount.value = setComma(a);
+														}
+														window.focus();
+													}
+
+													function AmountChk() {
+														var frm = document.charge_frm;
+														frm.target = "ifr";
+														frm.action = "/money/_Money_Proc.asp";
+														frm.submit();
+													}
+
+													function gohaza() {
+														var f = document.charge_frm;
+														f.target = "ifr";
+														f.action = "/support/_Answer_Proc2.asp";
+														f.submit();
+													}
+
+												</script>
+												<div class="tab-content">
+													<!-- 입금신청 -->
+													<div id="tab_cashflow_1_1" class="tab-pane active">
+														<form name="charge_frm" method="post" target="ifr">
+															<input type="hidden" name="emode" value="CHARGE">
+															<div class="mt-3"></div>
+															<table class="user_join">
+																<colgroup>
+																	<col>
+																	<col>
+																</colgroup>
+																<tbody><tr>
+																	<th style="vertical-align:middle;height:35px;"><i class="xi-face"></i> 회원정보</th>
+																	<td style="vertical-align:middle;height:35px;">
+																		<font class="dispot-tx">민민민2</font> 
+																	</td>
+																</tr>
+																<tr>
+																	<th style="vertical-align:middle;height:35px;"><i class="xi-bank"></i> 보유머니</th>
+																	<td style="vertical-align:middle;">
+																		<font class="dispot-tx">₩0</font> 
+																	</td>
+																</tr>
+																<tr>
+																	<th style="vertical-align:middle;height:35px;"><i class="xi-bank"></i> 계좌문의</th>
+																	<td style="vertical-align:middle;">
+																		<a href="#" class="btn_money" onclick="gohaza();">입금계좌문의</a>
+																	</td>
+																</tr>
+																<tr>
+																	<th style="vertical-align:middle;height:35px;"><i class="xi-face"></i> 입금자명</th>
+																	<td style="vertical-align:middle;height:35px;">
+																		<font class="dispot-tx">가</font> 
+																	</td>
+																</tr>
+																
+																<tr>
+																	<th><i class="xi-won"></i> 신청금액</th>
+																	<td><input type="text" name="IC_Amount" id="IC_Amount" class="form-control"></td>
+																</tr>
+																<tr>
+																	<th></th>
+																	<td>
+																		<a href="#" class="btn_money" onclick="deposit('10,000');">10,000</a>
+																		<a href="#" class="btn_money" onclick="deposit('50,000');">50,000</a>
+																		<a href="#" class="btn_money" onclick="deposit('100,000');">100,000</a>
+																		<a href="#" class="btn_money" onclick="deposit('300,000');">300,000</a>
+																		<a href="#" class="btn_money" onclick="deposit('500,000');">500,000</a>
+																		<a href="#" class="btn_money" onclick="deposit('1,000,000');">1,000,000</a>
+																		<a href="#" class="btn_red" onclick="deposit('0');">정정</a>
+																	</td>
+																</tr>
+															</tbody></table>
+														</form>
+														<!-- // 신청중일때 -->
+														<div class="d-flex justify-content-center mt-3 login_container">
+															<button type="button" name="button" class="btn ok_btn" onclick="AmountChk();">입금신청</button>
+															<button type="button" name="button" class="btn nop_btn" data-dismiss="modal">취소</button>
+														</div>
+													</div>
+													<!-- // 입금신청 -->
+
+
+
+													<!-- 출금신청 -->
+													<div id="tab_cashflow_1_2" class="tab-pane sub_pop2">
+														<script>
+															function exchage_detail() {
+																$(function() {
+																	// ajax 선언
+																	var ajax = $.ajax({
+																		type: "GET", // 요청 메소드 타입
+																		url: "/money/exchange.asp?user_id=eropoo02" // 접속 url
+																	});
+																	// 결과
+																	ajax.done(function(data) {
+																		// 위 라벨 태그에 결과를 입력한다.
+																		$(".sub_pop2").html(data);
+																	});
+																});
+															}
+														</script>
+													</div>
+													<!--// 출금신청 -->
+												</div>
+											</div>
+										</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+
+	<!-- 고객센터 레이어 -->
+	<div id="ModalWithdraw" class="modal TableBoard fade" tabindex="-1">
+		<div class="modal-dialog sub_pop123">
+		<script>
+			function support_detail() {
+				$(function(){
+				// ajax 선언
+					var ajax = $.ajax({
+					type: "GET", // 요청 메소드 타입
+					url: "/support/Customer.asp" // 접속 url
+					});
+					// 결과
+					ajax.done(function(data){
+					// 위 라벨 태그에 결과를 입력한다.
+					$(".sub_pop123").html(data);
+					}) ;
+				});
+			}
+		</script>
+		</div>
+	</div>
+	<script type="text/javascript">
+		function showBoard(objId) {
+			dis = document.getElementById(objId).style.display == "none" ? "table-row" : "none";
+			document.getElementById(objId).style.display = dis
+		}
+
+	</script>
+
+	<script type="text/javascript">
+		function FreAdd() {
+			var f = document.FreContent;
+			if (f.bc_title.value == "") {
+                Swal.fire({
+                    icon: 'error',
+                    title: '오류',
+                    text: '제목을 입력하세요'
+                })
+				f.bc_title.value = "";
+				f.bc_title.focus();
+				return false;
+			}
+
+			if (f.bc_contents.value == "") {
+                Swal.fire({
+                    icon: 'error',
+                    title: '오류',
+                    text: '내용을 입력하세요'
+                })
+				f.bc_contents.value = "";
+				f.bc_contents.focus();
+				return;
+			}
+			f.target = "ifr";
+			f.action = "/support/_Answer_Proc.asp"
+			f.submit();
+		}
+
+	</script>
+
+	<!-- 고객센터 글쓰기 레이어 -->
+	<div id="ModalWithdraw2" class="modal TableBoard fade" tabindex="-1">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-body">
+					<div class="container h-100">
+						<div class="d-flex h-100">
+							<div class="user_card">
+								<div class="pop-header">
+									<h2>고객센터</h2>
+									<button type="button" class="close" data-dismiss="modal"><i class="xi-close-circle-o xi-x vam"></i></button>
+								</div>
+								<div class="mt-2"></div>
+								<form name="FreContent" method="post">
+                                    <input type="hidden" name="EMODE" value="QNAADD">
+                                    <input type="hidden" name="BC_WRITER" value="민민민2">
+									<table class="tb-board">
+										<tbody>
+											<tr>
+												<td style="vertical-align:middle;text-align:center;width:15%;"><i class="xi-key"></i> 제목</td>
+												<td style="vertical-align:middle;text-align:center;width:80%;"><input type="text" name="bc_title" id="bc_title" class="form-control" placeholder="제목"></td>
+											</tr>
+											<tr>
+												<td style="vertical-align:middle;text-align:center;"><i class="xi-key"></i> 내용</td>
+												<td style="vertical-align:middle;text-align:center;"><textarea id="bc_contents" name="bc_contents" cols="115" rows="15" class="input2" style="width:100%"></textarea></td>
+											</tr>
+										</tbody>
+									</table>
+								</form>
+								<div class="mt-3"></div>
+								<div class="d-flex justify-content-center mt-3 login_container">
+									<button type="button" name="button" class="btn y_btn" style="width: 120px;" onclick="FreAdd();">문의하기</button>
+									<button type="button" name="button" class="btn nop_btn" style="width: 130px;" data-dismiss="modal">취소</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		function use_coupon(CP_IDX) {
+
+			var f = document.coupon_frm;
+			Swal.fire({
+				icon: 'success',
+				title: '쿠폰사용',
+				text: '쿠폰을 사용하시겠습니까?',
+				showCancelButton: true,
+				confirmButtonText: '확인',
+				cancelButtonText: '닫기',
+
+			}).then((result) => {
+				if (result.isConfirmed) {
+				f.CP_IDX.value = CP_IDX;
+				f.target = "ifr";
+				f.action = "/member/_coupon_proc.asp"
+				f.submit();
+				}
+			});
+		}
+
+	</script>
+
+
+	<!-- Board Table 레이어 -->
+  <div id="ModalTableBoard01" class="modal TableBoard fade" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <div class="container h-100">
+                        <div class="d-flex h-100">
+                            <div class="user_card">
+                                <div class="pop-header">
+                                    <h2>공지사항</h2>
+                                    <button type="button" class="close" data-dismiss="modal"><i class="xi-close-circle-o xi-x vam"></i></button>
+                                </div>
+                                <div class="mt-2"></div>
+                                <table class="tb-board">
+                                    <tbody><tr>
+                                        <th>#</th>
+                                        <th>제목</th>
+                                        <th>작성일</th>
+                                    </tr>
+
+                                    <tr>
+                                        <td class="num"><i class="xi-info" aria-hidden="true"></i></td>
+                                        <td class="subj"><a href="#" onclick="showBoard('board17')">바카라 &amp; 슬롯 배팅금 및 상한 당첨금 규정</a></td>
+                                        <td class="date">2024-11-25</td>
+                                    </tr>
+                                    <tr id="board17" style="display:none;">
+                                        <td class="list_notice1"></td>
+                                        <td class="list_notice2" colspan="3">####슬롯 게임######<br><br>배팅금 제한 없이 최대 당첨금 3000만원까지만 인정합니다.<br><br>최대 당첨금 : 3천만원 (상한가 넘어간 금액은 회수)<br><br><br>####바카라 &amp; 이벤트성 게임######<br>바카라를 포함하여 <br>에볼루션 라이트닝 ,에볼루션 익스트림 바카라, 풍성한 바카라, 게임쇼에 있는 기타게임(펑키타임, 클레이지 타임,모노폴리등등)은&nbsp;<br><br>최대당첨금 베팅금포함 1500만원까지만 인정합니다.<br><br>에볼루션 라이트닝 및 기타게임 최대당첨금 : 베팅금포함 1500만원 (상한가 넘어간 금액은 회수)<br><br>보타카지노의 배팅상한은 사이드배팅(페어, 타이) 포함 350만원까지 가능합니다<br><br>배팅한도 500만원 이상의 배팅시 배팅거절이 나올수 있는점 주의 부탁드립니다 <br><br>해당 부분 꼭 지켜주시기 바랍니다.<br><br>해당 배팅한도를 지키지않고 배팅하신 부분은 전액 회수됩니다.<br><br>감사합니다.</td>                                                          
+                                    </tr> 
+
+                                    <tr>
+                                        <td class="num"><i class="xi-info" aria-hidden="true"></i></td>
+                                        <td class="subj"><a href="#" onclick="showBoard('board15')">** 에볼루션 금지 게임 안내 **</a></td>
+                                        <td class="date">2024-10-30</td>
+                                    </tr>
+                                    <tr id="board15" style="display:none;">
+                                        <td class="list_notice1"></td>
+                                        <td class="list_notice2" colspan="3">아래게임은 이용할수 없으니 꼭 참고하여 이용부탁드립니다!!!!<br><br>슈퍼스피드 바카라 및 샬롱 테이블 게임류는 배팅 불가이니 참고 부탁드립니다.</td>                                                          
+                                    </tr> 
+
+                                    <tr>
+                                        <td class="num"><i class="xi-info" aria-hidden="true"></i></td>
+                                        <td class="subj"><a href="#" onclick="showBoard('board9')">입금 규정</a></td>
+                                        <td class="date">2024-06-07</td>
+                                    </tr>
+                                    <tr id="board9" style="display:none;">
+                                        <td class="list_notice1"></td>
+                                        <td class="list_notice2" colspan="3">안녕하세요, 운영진 입니다.<br><br>최근 3자 사기를 통하여 입금이 되는 경우로 인하여 많은 문제가 되고 있습니다.&nbsp;<br><br>저희 Money Back에서는 토스(TOSS), 카카오페이, 핀크 등 은행 대행업체를 통한 충전신청은 불가하며 입금 처리가 되지 않음을 안내드립니다.<br><br>저희 사이트에 기입하신 은행명의로 해당 은행의 인터넷뱅킹만 이용을 해주시기 바라며 ATM기기, CD기 입금 역시 입금처리가 되지 않음을 안내드립니다.<br><br>타명의 계좌는 절대 이용 불가 합니다. (가족 명의도 사용 불가)<br><br>신규 회원가입 계좌등록시 3금융계좌등록은 저희 Money Go&nbsp;에서는 허용되지 않습니다.<br><br>증권계좌 또는 저축은행계좌, 적금계좌(OK저축은행, 미래에셋 등) 이용이 불가합니다.<br><br>마지막으로 신규 회원일경우 첫입금부터 고액 충전 및 3자 사기로 의심될 경우 자금 몰수처리와 함께 해당 계좌에 관하여 수사기관에 정보 제공하여 처리를 하고 있으니 정상이용 부탁드립니다.&nbsp;<br><br>입,출금 제한없습니다<br><br><br><br>※주의사항<br><br><br><br>입금계좌는 업무의 특성상 불시에 변경될 수 있으니, 필히 입금 전 계좌확인을 하시기 바라며, 만일 계좌 확인 없이 이전 계좌로 입금하실 경우 입금(충전)이 거절되니 유의하시기 바랍니다.<br><br>만일 계좌 확인 없이 이전 계좌로 입금하실 경우 입금(충전)이 거절되고 피해보상을 해드릴수없습니다, 이점 유의하시기 바랍니다.<br><br>오류로 인한 입금액 이용시 고객센터로 문의 주셔야합니다. 만약 문의없이 오류로 지급 된 금액은 무효처리되며, 경고없이 전액 몰수 처리 됩니다.</td>                                                          
+                                    </tr> 
+
+                                    <tr>
+                                        <td class="num"><i class="xi-info" aria-hidden="true"></i></td>
+                                        <td class="subj"><a href="#" onclick="showBoard('board7')">**게임 오류로 인한 공지사항**</a></td>
+                                        <td class="date">2024-06-07</td>
+                                    </tr>
+                                    <tr id="board7" style="display:none;">
+                                        <td class="list_notice1"></td>
+                                        <td class="list_notice2" colspan="3">공지사항<br><br>​<br><br>사이트 이용중&nbsp; 보유금,베팅금,당첨금, 게임 오류현상 시<br><br>이용중지 후 고객센터로 문의바랍니다.<br><br><br><br>해외게임사 API 오류로 인한<br><br>베팅 누락건, 당첨금 중복지급처리 등<br><br><br><br>오류현상 발생 시 이용중지 후 고객센터로 연락바랍니다.<br><br><br><br>문제점을 인지후에도 이용시 악이용으로 간주되며<br><br>해당 아이디 삭제 및 전액몰수처리 , 블랙리스트 등록처리하겠습니다.​&nbsp;&nbsp;<br><br>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;<br><br>&nbsp; &nbsp; &nbsp; &nbsp; 오류처리 : 모든 오류처리는 게임사의 결과 통보에 따르며,&nbsp;​(다소 시간이 소요될 수 있습니다)&nbsp;<br><br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;객관적으로 확인되지 않은 사항은 처리가 되지 않음을 확실히 인지하시기 바랍니다.</td>                                                          
+                                    </tr> 
+
+                                    <tr>
+                                        <td class="num"><i class="xi-info" aria-hidden="true"></i></td>
+                                        <td class="subj"><a href="#" onclick="showBoard('board6')">**카지노 규정 및 공지사항**</a></td>
+                                        <td class="date">2024-06-07</td>
+                                    </tr>
+                                    <tr id="board6" style="display:none;">
+                                        <td class="list_notice1"></td>
+                                        <td class="list_notice2" colspan="3">공지내용<br><br><br>1. 카지노 최대 배팅금액 500만원까지 가능합니다 .<br>(단 보타카지노 사이드배팅 포함 350만원까지 가능합니다)<br>프라그마틱 플레이 카지노의 경우 좌측 상단 스킨값상의 배팅한도가 1,000 ~ 20,000,000으로 표기되어 있으나 최대 500만원까지만 배팅 가능합니다.<br>-500만원 초과 배팅시 배팅 및 당첨금 몰수 처리 되오니 이점 유의하시면서 이용 부탁드립니다.<br>-라이트닝(바카라/룰렛/다이스)메가볼,머니휠 배팅금 포함, 최대 당첨금 2000만원까지 인정됩니다.<br><br>2. 슬롯 최대 프리스핀 구매금액은 200만원까지 가능합니다.<br>-200만원 초과 배팅시 배팅 및 당첨금 몰수 처리 되오니 이점 유의하시면서 이용 부탁드립니다.<br>-작업 배팅 적발시 배팅 및 당첨금 몰수 처리 되오니 이점 유의하시면서 이용 부탁드립니다.<br><br>이점 유념해 주세요.<br><br>카지노마다 가끔씩 베팅 상한 금액이 다른게임들도 있습니다 이점 참고 하시고 이용 바랍니다</td>                                                          
+                                    </tr> 
+
+                                    <tr>
+                                        <td class="num"><i class="xi-info" aria-hidden="true"></i></td>
+                                        <td class="subj"><a href="#" onclick="showBoard('board5')">출금 규정</a></td>
+                                        <td class="date">2024-05-14</td>
+                                    </tr>
+                                    <tr id="board5" style="display:none;">
+                                        <td class="list_notice1"></td>
+                                        <td class="list_notice2" colspan="3">	<br>안녕하세요 운영진 입니다<br><br>항상 저희 카지노를 이용해주시는 회원님들께 진심으로 감사의 인사를 드립니다<br><br>이용시 출금 조건에 대해 안내해드리겠습니다<br><br> - 출금시 보통 10분~30분안에 출금처리를 원칙으로 하고있습니다.<br><br> - 환전 재환전 대기시간은 60분이며, 출금신청후 완료됨시점 기준으로 60분이후 <br>    재신청 가능합니다. <br><br> - 출금은 반드시 입금하신 계좌로만 출금처리 됩니다.<br><br> <br><br> - 보유중인 게임머니가 있을경우 계좌변경은 불가합니다.<br><br> <br><br> <br><br>항상 최선을 다하겠습니다. 감사합니다.</td>                                                          
+                                    </tr> 
+
+                                    <tr>
+                                        <td class="num"><i class="xi-info" aria-hidden="true"></i></td>
+                                        <td class="subj"><a href="#" onclick="showBoard('board4')">버그 및 불법 프로그램사용 공지</a></td>
+                                        <td class="date">2024-02-26</td>
+                                    </tr>
+                                    <tr id="board4" style="display:none;">
+                                        <td class="list_notice1"></td>
+                                        <td class="list_notice2" colspan="3">프로그램 오류 및 버그를 발견하여 이를 악용하거나 <br><br>슬롯 가속 프로그램등 승인되지 않은 프로그램을 사용해<br><br>이득을 취하는 행위 적발시 아이디 정지 및 보유금이 몰수처리 됩니다.</td>                                                          
+                                    </tr> 
+
+                                </tbody></table>
+                                <div class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+	<script type="text/javascript">
+		function showBoard(objId) {
+			dis = document.getElementById(objId).style.display == "none" ? "table-row" : "none";
+			document.getElementById(objId).style.display = dis
+		}
+
+	</script>
+
+
+	<!-- 이벤트 레이어 -->
+	<div id="ModalTableBoard02" class="modal TableBoard fade" tabindex="-1">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-body">
+					<div class="container h-100">
+						<div class="d-flex h-100">
+							<div class="user_card">
+								<div class="pop-header">
+									<h2>이벤트</h2>
+									<button type="button" class="close" data-dismiss="modal"><i class="xi-close-circle-o xi-x vam"></i></button>
+								</div>
+								<div class="mt-2"></div>
+								<table class="tb-board">
+									<tbody><tr>
+										<th>#</th>
+										<th>제목</th>
+										<th>작성일</th>
+									</tr>
+
+								</tbody></table>
+								<div class="mt-3"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script type="text/javascript">
+		function showBoard2(objId) {
+			dis = document.getElementById(objId).style.display == "none" ? "table-row" : "none";
+			document.getElementById(objId).style.display = dis
+		}
+
+	</script>
+
+	<!-- 마이페이지 -->
+	<div id="ModalMypage" class="modal TableBoard fade" tabindex="-1">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-body">
+					<div class="container h-100">
+						<div class="d-flex h-100">
+							<div class="user_card">
+								<div class="pop-header">
+									<h2>마이페이지</h2>
+									<button type="button" class="close" data-dismiss="modal"><i class="xi-close-circle-o xi-x vam"></i></button>
+								</div>
+								<div class="row">
+										<div class="tabbable-panel">
+											<div class="tabbable-line">
+												<ul class="nav nav-tabs ">
+													<li id="m_myinfo" name="m_myinfo">
+														<a href="#tab_default_1" data-toggle="tab">내 정보</a>
+													</li>
+													<li id="m_changeList" name="m_changeList">
+														<a href="#tab_default_2" data-toggle="tab">입금내역</a>
+													</li>
+													<li id="m_exchangeList" name="m_exchangeList">
+														<a href="#tab_default_3" data-toggle="tab">출금내역</a>
+													</li>
+													<li id="m_message" name="m_message" class="active">
+														<a href="#tab_default_4" data-toggle="tab" onclick="message_detail();">쪽지</a>
+													</li>
+													<li id="m_comp" name="m_comp">
+														<a href="#tab_default_5" data-toggle="tab">콤프</a>
+													</li>
+												</ul>
+												<script type="text/javascript">
+													function pw_modify() {
+														var f = document.MemberPw;
+														var pattern1 = /[0-9]/;
+														var pattern2 = /[a-zA-Z]/;
+														var pattern3 = /[~!@\#$%<>^&*]/;     // 원하는 특수문자 추가 제거
+
+														if (f.ne_iu_pw.value != f.ne_iu_pw2.value) {
+
+															Swal.fire({
+																icon: 'error',
+																title: '오류',
+																text: '비밀번호와 비밀번호 확인이 일치하지 않습니다'
+															})
+															frm.IU_PW1.value = "";
+															frm.IU_PW1.focus();
+															return ;
+														}
+
+														// 비밀번호 체크
+														if(!pattern1.test(f.ne_iu_pw.value)||!pattern2.test(f.ne_iu_pw.value)||!pattern3.test(f.ne_iu_pw.value)||f.ne_iu_pw.value.length<8||f.ne_iu_pw.value.length>50){
+															Swal.fire({
+																icon: 'error',
+																title: '오류',
+																text: '영문+숫자+특수기호 8자리 이상으로 구성하여야 합니다'
+															})
+															frm.IU_PW.select();
+															frm.IU_PW.focus();
+															return false;
+														} 
+
+														f.target = "ifr";
+														f.action = "/member/_Member_Pw_Proc.asp"
+														f.submit();
+													}
+
+												</script>
+												<div class="tab-content">
+													<!-- 내정보 -->
+													<div id="tab_default_1" class="tab-pane">
+														<form name="MemberPw" method="post">
+															<input type="hidden" name="e_mode" value="PW_MOD">
+															<table class="user_join mypage">
+																<colgroup>
+																	<col>
+																	<col>
+																</colgroup>
+																<tbody>
+                                                                    <tr>
+                                                                        <th style="vertical-align:middle;height:35px;"><i class="xi-face"></i> 아이디</th>
+                                                                        <td style="vertical-align:middle;height:35px;">eropoo02</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th style="vertical-align:middle;height:35px;"><i class="xi-profile-o"></i> 닉네임</th>
+                                                                        <td style="vertical-align:middle;height:35px;">민민민2</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th style="vertical-align:middle;height:35px;"><i class="xi-user-address"></i> 연락처</th>
+                                                                        <td style="vertical-align:middle;height:35px;">01096587456</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th style="vertical-align:middle;height:35px;"><i class="xi-bank"></i> 거래은행</th>
+                                                                        <td style="vertical-align:middle;height:35px;">농협</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th style="vertical-align:middle;height:35px;"><i class="xi-bank"></i> 계좌번호</th>
+                                                                        <td style="vertical-align:middle;height:35px;">1</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th style="vertical-align:middle;height:35px;"><i class="xi-bank"></i> 예금주</th>
+                                                                        <td style="vertical-align:middle;height:35px;">가</td>
+                                                                    </tr>
+																	<tr class="hr">
+																		<td colspan="2">
+																			<hr>
+																		</td>
+																	</tr>
+																	<!--
+                                                                    <tr>
+                                                                        <th><i class="xi-key"></i> 비밀번호</th>
+                                                                        <td><input type="password" name="RE_IU_PW" id="RE_IU_PW" class="form-control" placeholder="비밀번호"></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th><i class="xi-key"></i> 새로운 비밀번호</th>
+                                                                        <td><input type="password" name="ne_iu_pw" id="ne_iu_pw" class="form-control" placeholder="새로운 비밀번호"></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <th><i class="xi-key"></i> 비밀번호확인</th>
+                                                                        <td><input type="password" name="ne_iu_pw2" id="ne_iu_pw2" class="form-control" placeholder="비밀번호확인"></td>
+                                                                    </tr>
+																	-->
+																</tbody>
+															</table>
+														</form>
+														<!--
+														<div class="mt-3"></div>
+														<div class="d-flex justify-content-center mt-3 login_container">
+															<button type="button" name="button" class="btn y_btn" style="width: 100px;" onclick="pw_modify();">수정</button>
+															<button type="button" name="button" class="btn nop_btn" style="width: 100px;" data-dismiss="modal">취소</button>
+														</div>
+														-->
+													</div>
+													<!-- // 내정보 -->
+
+													<!-- 입출금 리스트 -->
+													<div id="tab_default_2" class="tab-pane">
+														<div class="mt-2"></div>
+														<table class="tb-board myp_deposit">
+															<tbody><tr>
+																<th>구분</th>
+																<th>금액</th>
+																<th>상태</th>
+																<th>신청날짜</th>
+																<th>처리날짜</th>
+															</tr>
+
+
+															<tr class="data_not">
+																<td colspan="5">정보가 없습니다</td>
+															</tr>
+		
+
+														</tbody></table>
+														<div class="mt-4"></div>
+													</div>
+													<!--// 입출금 리스트 -->
+
+													<!-- 출금 내역 -->
+													<div id="tab_default_3" class="tab-pane">
+														<div class="mt-2"></div>
+														<table class="tb-board myp_deposit">
+															<tbody><tr>
+																<th>구분</th>
+																<th>금액</th>
+																<th>상태</th>
+																<th>신청날짜</th>
+																<th>처리날짜</th>
+															</tr>
+
+
+															<tr class="data_not">
+																<td colspan="5">정보가 없습니다</td>
+															</tr>
+	
+														</tbody></table>
+														<div class="mt-4"></div>
+													</div>
+													<!--// 출금 내역 -->
+
+													<!-- 쪽지 -->
+													<div id="tab_default_4" class="tab-pane active sub_pop3">
+														<script>
+															function message_detail() {
+																$(function() {
+																	// ajax 선언
+																	var ajax = $.ajax({
+																		type: "GET", // 요청 메소드 타입
+																		url: "/member/Message.asp" // 접속 url
+																	});
+																	// 결과
+																	ajax.done(function(data) {
+																		// 위 라벨 태그에 결과를 입력한다.
+																		$(".sub_pop3").html(data);
+																	});
+																});
+															}
+
+														</script>
+													</div>
+
+													<!--// 쪽지 -->
+
+													<script type="text/javascript">
+														function compExchange() {
+                                                            var f = document.frm;
+															Swal.fire({
+																icon: 'success',
+																title: '콤프전환',
+																text: '콤프를 캐쉬로 전환 하시겠습니까?',
+																showCancelButton: true,
+																confirmButtonText: '확인',
+																cancelButtonText: '닫기',
+
+															}).then((result) => {
+																if (result.isConfirmed) {
+																	f.target = "ifr";
+																	f.action = "/money/_Comp_Proc.asp";
+																	f.submit();
+																}
+															});
+														}
+													</script>
+
+													<!-- 콤프 -->
+													<div id="tab_default_5" class="tab-pane">
+														<div class="container">
+															<div class="tab-content">
+																<!-- 입금신청 -->
+																<div id="tab_cashflow_2_1" class="tab-pane active">
+																	<div class="mt-2"></div>
+																	<form method="post" name="frm">
+																		<input type="hidden" name="emode" value="EXCHANGE">
+																		<table class="user_join">
+																			<colgroup>
+																				<col>
+																				<col>
+																			</colgroup>
+                                                                            <tbody><tr>
+                                                                                <th><i class="xi-face"></i> 회원정보</th>
+                                                                                <td style="font-size: 12px; color:rgba(255, 255, 255, 0.5);">
+                                                                                    <font class="dispot-tx">민민민2</font> 
+                                                                                </td>
+                                                                            </tr>
+                                                                            <tr>
+                                                                                <th style="vertical-align:middle;height:35px;"><i class="xi-bank"></i> 보유머니</th>
+                                                                                <td style="vertical-align:middle;height:35px;font-size: 12px; color:rgba(255, 255, 255, 0.5);">
+                                                                                    <font class="dispot-tx">0</font> 
+                                                                                </td>
+                                                                            </tr>
+                                                                            <tr>
+                                                                                <th style="vertical-align:middle;height:35px;"><i class="xi-bank"></i> 보유콤프</th>
+                                                                                <td style="vertical-align:middle;height:35px;font-size: 12px; color:rgba(255, 255, 255, 0.5);">
+                                                                                    <font class="dispot-tx">0</font> 
+                                                                                </td>
+                                                                            </tr>
+																		</tbody></table>
+																	</form>
+																	<div class="d-flex justify-content-center mt-3 login_container">
+																		<button type="button" name="button" class="btn ok_btn" style="width: 130px;" onclick="compExchange();">콤프사용</button>
+																		<button type="button" name="button" class="btn nop_btn" style="width: 130px;" data-dismiss="modal">취소</button>
+																	</div>
+																</div>
+																<!-- // 입금신청 -->
+															</div>
+															<div class="mt-3"></div>
+														</div>
+													</div>
+													<!-- 배팅규정 -->
+													<div id="tab_default_7" class="tab-pane"></div>
+													<!--// 배팅규정 -->
+												</div>
+											</div>
+										</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="/js/sweetalert2.all.min.js"></script>
+	<script src="/js/ac-alert.js"></script>
+	<script src="/vendor/jquery/jquery.min.js"></script>
+	<script src="/vendor/bootstrap/js/bootstrap.min.js"></script>
+	<script src="/vendor/jquery/main.js"></script>
+	<script src="/js/modal_alert.js?v=11"></script><!-- 소스가 들어있는 클래스 -->
+
+	<script type="text/javascript">
+		function watchForHover() {
+			// lastTouchTime is used for ignoring emulated mousemove events
+			// that are fired after touchstart events. Since they're
+			// indistinguishable from real events, we use the fact that they're
+			// fired a few milliseconds after touchstart to filter them.
+			let lastTouchTime = 0
+
+			function enableHover() {
+				if (new Date() - lastTouchTime < 500) return
+				document.body.classList.add('hasHover')
+			}
+
+			function disableHover() {
+				document.body.classList.remove('hasHover')
+			}
+
+			function updateLastTouchTime() {
+				lastTouchTime = new Date()
+			}
+
+			document.addEventListener('touchstart', updateLastTouchTime, true)
+			document.addEventListener('touchstart', disableHover, true)
+			document.addEventListener('mousemove', enableHover, true)
+
+			enableHover()
+		}
+
+		watchForHover()
+	</script>
+
+	<div class="fc-header-balances" style="z-index:999999;"></div>
+		<style>
+		:root {
+			--popup-concept-color: #f4ed93;
+			--popup-text-color: #422c17;
+		}
+		.popupWrap {
+			position: absolute;
+			z-index: 999999;
+			width: 100%;
+			min-width: 1440px;
+			top: 180px;
+			display: flex;
+			flex-direction: row;
+			flex-wrap: nowrap;
+			justify-content: center;
+			align-items: flex-start;
+			align-content: flex-start;
+		}
+		.noticeNewPop {
+			position: relative;
+			margin: 0 15px;
+			box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.85);
+		}
+		.noticeNewPop .popup_wrap {
+			width: 100%;
+			min-width: 300px;
+			max-width: 520px;
+			border: 4px solid;
+			border-color: var(--popup-concept-color);
+			box-sizing: border-box;
+		}
+		.noticeNewPop .popup_wrap .popup_box {
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+			background: rgba(0, 0, 0, 0.85);
+		}
+		.noticeNewPop .popup_wrap .popup_box .popup_content {
+			display: block;
+			color: #E9E9E9;
+			box-sizing: border-box;
+		}
+		.noticeNewPop .popup_wrap .popup_box .popup_content>img {
+			width: 100%;
+			height: auto;
+		}
+		.noticeNewPop .popup_wrap .popup_box .popup_content>font {
+			padding: 35px 20px;
+			display: block;
+			line-height: 185%;
+			font-size: 125%;
+		}
+		.popup_wrap .btnPopClose {
+			position: absolute;
+			right: -15px;
+			top: -17px;
+		}
+		.popup_wrap .btnPopClose a {
+			background-color: var(--popup-concept-color);
+			border-radius: 40px 40px;
+			overflow: hidden;
+			width: 40px;
+			height: 40px;
+			text-align: center;
+			cursor: pointer;
+			display: block;
+			opacity: 1;
+			-webkit-transform: scale(1.0);
+			-moz-transform: scale(1.0);
+			-ms-transform: scale(1.0);
+			-o-transform: scale(1.0);
+			transform: scale(1.0);
+			-webkit-transition: all 0.3s 0s ease-in-out;
+			-moz-transition: all 0.3s 0s ease-in-out;
+			-o-transition: all 0.3s 0s ease-in-out;
+			transition: all 0.3s 0s ease-in-out;
+		}
+		.popup_wrap .btnPopClose a svg {
+			fill: var(--popup-text-color);
+			width: 16px;
+			height: auto;
+			display: block;
+			margin: 12px auto;
+		}
+		.popup_wrap .btnPopToday {
+			position: absolute;
+			margin: 0 auto;
+			width: auto;
+			top: -10px;
+			left: 0;
+		}
+		.popup_wrap .btnPopToday a {
+			background-color: var(--popup-concept-color);
+			padding: 4px 10px;
+			box-sizing: border-box;
+			border-radius: 20px 20px;
+			text-align: center;
+			cursor: pointer;
+			display: block;
+			opacity: 1;
+			-webkit-transform: scale(1.0);
+			-moz-transform: scale(1.0);
+			-ms-transform: scale(1.0);
+			-o-transform: scale(1.0);
+			transform: scale(1.0);
+			-webkit-transition: all 0.3s 0s ease-in-out;
+			-moz-transition: all 0.3s 0s ease-in-out;
+			-o-transition: all 0.3s 0s ease-in-out;
+			transition: all 0.3s 0s ease-in-out;
+		}
+		.popup_wrap .btnPopToday a span {
+			font-size: 12px;
+			letter-spacing: -0.035rem;
+			font-weight: 600;
+			color: var(--popup-text-color);
+		}
+		.popup_wrap .btnPopToday a span svg {
+			fill: var(--popup-text-color);
+			vertical-align: middle;
+			margin: -3px 0 0 5px;
+			opacity: 0.85;
+		}
+		.popup_wrap .btnPopClose a:hover {
+			opacity: 0.85;
+			-webkit-transform: scale(1.25);
+			-moz-transform: scale(1.25);
+			-ms-transform: scale(1.25);
+			-o-transform: scale(1.25);
+			transform: scale(1.25);
+			-webkit-transition: all 0.3s 0s ease-in-out;
+			-moz-transition: all 0.3s 0s ease-in-out;
+			-o-transition: all 0.3s 0s ease-in-out;
+			transition: all 0.3s 0s ease-in-out;
+			box-shadow: 2px 2px 5px #000000;
+		}
+		.popup_wrap .btnPopToday a:hover {
+			opacity: 0.95;
+			margin-left: 10px;
+			-webkit-transition: all 0.3s 0s ease-in-out;
+			-moz-transition: all 0.3s 0s ease-in-out;
+			-o-transition: all 0.3s 0s ease-in-out;
+			transition: all 0.3s 0s ease-in-out;
+			box-shadow: 2px 2px 5px #000000;
+			
+		}
+		@media (max-width:768px) {
+			.popupWrap {
+				width: 90%;
+				margin: 0 5%;
+				min-width: 300px;
+				top: 100px;
+				display: flex;
+				align-items: center;
+				align-content: center;
+				flex-direction: column;
+				justify-content: flex-start;
+			}
+			.noticeNewPop {
+				position: absolute;
+				margin: 0 auto;
+				width: 100%;
+			}
+			.noticeNewPop .popup_wrap { max-width: none;}
+	</style>
+
+<div class="popupWrap">
+
+
+
+
+	<script type="text/javascript" language="javascript">
+		clicked1 = false;
+		maxZindex = 200;
+
+		function startDragpop81 (cx, cy) {
+			clicked1 = true;
+			pleft = parseInt(document.getElementById("pop81").style.left);
+			ptop = parseInt(document.getElementById("pop81").style.top);
+			maxZindex = maxZindex + 2;
+			document.getElementById("pop81").style.zIndex = maxZindex;
+			dragxcoor = cx;
+			dragycoor = cy;
+		}
+
+		function stopDragpop81 () {
+			clicked1 = false;
+		}
+
+		function dragBoxpop81 (evt) {
+			e = evt || window.event;
+			if (clicked1 == true) {
+				newx = pleft + e.clientX - dragxcoor;
+				newy = ptop + e.clientY - dragycoor;
+				document.getElementById("pop81").style.left = newx;
+				document.getElementById("pop81").style.top = newy;
+			}
+		}
+
+		function setCookiepop81 (name, value, expiredays) {
+			var todayDate = new Date();
+			todayDate.setDate(todayDate.getDate() + expiredays);
+			document.cookie = name + "=" + escape(value) + "; path=/; expires=" + todayDate.toGMTString() + ";"
+		}
+
+		function closeWinpop81 (check) {
+			if (check == 'Y') {
+				setCookiepop81 ("pop81", "done", 1);
+			}
+
+			document.getElementById("pop81").style.display = "none";
+		}
+	</script>
+
+	<div id="pop81" class="noticeNewPop" style="display: block;">
+		<form name="formpop81">
+			<div class="popup_wrap">
+				<div class="popup_box">
+					<span class="popup_content">
+						<br>  
+<p style="text-align: center;>
+<font color=" red"="">사칭 주의 안내  <br><br><br>
+
+최근 저희 사이트를 사칭하여 <br><br>
+유저페이지가 변경 되었다며 보증 되지 않은 타사이트 가입 유도 하는<br><br>
+일들이 빈번히 발생중입니다.<br><br>
+<br><br>
+<br>
+유저분들이 저희가 아닌 운영자가 누군지도 모르고<br><br>
+정상적인 업체인지도 모르는  <br><br>
+타 사이트 이용시  <br><br>
+환전에 대한 문제가 발생했을때<br><br>
+해결하실수 있는 방법이 없습니다.<br><br>
+<br>
+저희를 사칭 하는 사이트 안내 받으실경우<br><br>
+해당 사이트 주소를 저희 고객센터로 제보 부탁드립니다.<br><br>
+<br><br>
+항상 노력하는 최고의 놀이터가 되겠습니다.<br><br>
+감사합니다.<br><br>
+<br><br><br>
+					
+				</p></span></div>
+				<div class="btnPopClose">
+					<a onclick="closeWinpop81('N');">
+						<span>
+							<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Capa_1" x="0px" y="0px" viewBox="0 0 426.667 426.667" style="enable-background:new 0 0 426.667 426.667;" xml:space="preserve">
+								<polygon points="426.667,59.733 366.933,0 213.333,153.6 59.733,0 0,59.733 153.6,213.333 0,366.933 59.733,426.667     213.333,273.067 366.933,426.667 426.667,366.933 273.067,213.333"></polygon>
+							</svg>
+						</span>
+					</a>
+				</div>
+				<div class="btnPopToday">
+					<a onclick="closeWinpop81('Y');">
+						<span>
+							오늘 하루 이 창을 열지 않음
+							<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" height="7" viewBox="0 0 48 48" width="7" data-name="Layer 1">
+								<path d="m28.39 24 18.7-18.7a3.09 3.09 0 0 0 .91-2.2 3 3 0 0 0 -.91-2.19 3 3 0 0 0 -2.19-.91 3.09 3.09 0 0 0 -2.2.91l-18.7 18.7-18.7-18.7a3.09 3.09 0 0 0 -2.2-.91 3 3 0 0 0 -2.19.91 3 3 0 0 0 -.91 2.19 3.09 3.09 0 0 0 .91 2.2l18.7 18.7-18.7 18.7a3.09 3.09 0 0 0 -.91 2.2 3 3 0 0 0 .91 2.19 3 3 0 0 0 2.19.91 3.09 3.09 0 0 0 2.2-.91l18.7-18.7 18.7 18.7a3.09 3.09 0 0 0 2.2.91 3.11 3.11 0 0 0 3.1-3.1 3.09 3.09 0 0 0 -.91-2.2z"></path>
+							</svg>
+						</span>
+					</a>
+				</div>
+			</div>
+		</form>
+	</div>
+
+
+	<script language="Javascript">
+		cookiedata = document.cookie;
+		if (cookiedata.indexOf("pop81=done") < 0) {
+			document.getElementById("pop81").style.display = "block";
+		} else {
+			document.getElementById("pop81").style.display = "none";
+		}
+	</script>
+
+	<script type="text/javascript">
+		document.onmousemove = function() {
+			dragBoxpop81();
+
+		}
+	</script>
+
+
+</div>
+<!--//popupWrap-->
+	
+
+
+
+<iframe name="ifr" id="ifr" src="" width="0" height="0" frameborder="0"></iframe></body></html>
