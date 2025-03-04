@@ -10,7 +10,7 @@ class SettingsWindow(QWidget):
         super().__init__()
 
         self.setWindowTitle("설정")
-        self.setGeometry(200, 200, 600, 800)
+        self.setGeometry(200, 200, 600, 500)
         self.setObjectName("SettingsWindow")  # QSS 스타일 적용을 위한 ID 지정
         
         # 스타일 적용
@@ -63,9 +63,9 @@ class SettingsWindow(QWidget):
         self.martin_count_label = QLabel("마틴 횟수:")
         self.martin_count_label.setFont(label_font)
         self.martin_count_spinner = QSpinBox()
-        self.martin_count_spinner.setStyleSheet("background-color: #2D2D2D; color: white; padding: 4px;")
+        # 스핀 박스는 필요한 스타일만 추가
         self.martin_count_spinner.setMinimum(1)
-        self.martin_count_spinner.setMaximum(10)
+        self.martin_count_spinner.setMaximum(30)  # 최대 마틴 단계 수를 30으로 증가
         self.martin_count_spinner.setValue(martin_count)
         self.martin_count_spinner.valueChanged.connect(self.update_martin_table)
         count_layout.addWidget(self.martin_count_label)
@@ -74,37 +74,16 @@ class SettingsWindow(QWidget):
         
         # 마틴 금액 테이블
         self.martin_table = QTableWidget()
-        self.martin_table.setColumnCount(2)
-        self.martin_table.setHorizontalHeaderLabels(["단계", "금액 (원)"])
-        self.martin_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.martin_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        # 테이블 스타일 적용
+        self.martin_table.setColumnCount(1)  # 단계 컬럼 제거하고 금액만 표시
+        self.martin_table.setHorizontalHeaderLabels(["금액 (원)"])
+        self.martin_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        # 행 헤더 표시 설정 (단계 번호를 행 헤더로 표시)
+        self.martin_table.verticalHeader().setVisible(True)
+        # 추가 스타일 적용 (전역 스타일시트 위에 테이블 편집 영역에 대한 스타일 추가)
         self.martin_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #2D2D2D;
-                color: white;
-                gridline-color: #555555;
-                border: 1px solid #007BFF;
-                border-radius: 4px;
-            }
-            QHeaderView::section {
-                background-color: #007BFF;
-                color: white;
-                font-weight: bold;
-                padding: 4px;
-                border: 1px solid #0056b3;
-            }
-            QTableWidget::item {
-                padding: 4px;
-            }
             QLineEdit {
-                background-color: #2D2D2D;
-                color: white;
-                border: 2px solid #007BFF;
-                border-radius: 4px;
-                padding: 4px;
-                font-size: 14px;
                 min-height: 28px;
+                font-size: 14px;
             }
         """)
         martin_layout.addWidget(self.martin_table)

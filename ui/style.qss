@@ -1,24 +1,28 @@
-﻿/* ✅ 전체 배경을 다크모드로 적용 (로그인 창 포함) */
+﻿/* 전체 배경을 라이트 모드로 적용 */
 QWidget, QMainWindow, QDialog {
-    background-color: #1E1E1E;
-    color: white;
+    background-color: #F5F5F5;
+    color: #333333;
     font-family: "Arial";
     font-size: 14px;
 }
 
-/* ✅ 입력 필드 스타일 */
+/* 입력 필드 스타일 */
 QLineEdit {
-    background-color: #2D2D2D;
-    color: white;
-    border: 2px solid #007BFF;
+    background-color: #FFFFFF;
+    color: #333333;
+    border: 2px solid #4CAF50;
     border-radius: 6px;
     padding: 6px;
     font-size: 14px;
 }
 
-/* ✅ 버튼 스타일 */
+QLineEdit:focus {
+    border-color: #2E7D32;
+}
+
+/* 버튼 스타일 */
 QPushButton {
-    background-color: #007BFF;
+    background-color: #4CAF50;
     color: white;
     font-size: 16px;
     border-radius: 6px;
@@ -27,13 +31,127 @@ QPushButton {
 }
 
 QPushButton:hover {
-    background-color: #0056b3;
+    background-color: #2E7D32;
 }
 
-/* ✅ 그룹 박스 (옵션) */
+QPushButton:pressed {
+    background-color: #1B5E20;
+}
+
+/* 그룹 박스 */
 QGroupBox {
-    border: 2px solid #007BFF;
+    border: 2px solid #4CAF50;
     border-radius: 6px;
     margin-top: 10px;
     padding: 6px;
+    background-color: #FFFFFF;
+}
+
+QGroupBox::title {
+    color: #2E7D32;
+    font-weight: bold;
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 5px;
+}
+
+/* 테이블 위젯 */
+QTableWidget {
+    background-color: #FFFFFF;
+    color: #333333;
+    gridline-color: #CCCCCC;
+    border: 1px solid #4CAF50;
+    border-radius: 4px;
+    selection-background-color: #C8E6C9;
+    selection-color: #333333;
+}
+
+QHeaderView::section {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: bold;
+    padding: 4px;
+    border: 1px solid #2E7D32;
+}
+
+QTableWidget::item {
+    padding: 4px;
+}
+
+/* 스핀 박스 */
+QSpinBox {
+    background-color: #FFFFFF;
+    color: #333333;
+    border: 2px solid #4CAF50;
+    border-radius: 4px;
+    padding: 4px;
+    min-height: 24px;
+}
+
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #4CAF50;
+    width: 16px;
+    border-radius: 2px;
+}
+
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #2E7D32;
+}
+
+/* 프로그레스 바 */
+QProgressBar {
+    border: 1px solid #CCCCCC;
+    border-radius: 4px;
+    text-align: center;
+    background-color: #FFFFFF;
+}
+
+QProgressBar::chunk {
+    background-color: #4CAF50;
+    width: 10px;
+    margin: 0.5px;
+}
+
+/* 라벨 (특별한 라벨) */
+QLabel#specialLabel {
+    color: #2E7D32;
+    font-weight: bold;
+}
+
+/* 스크롤 바 */
+QScrollBar:vertical {
+    border: 1px solid #CCCCCC;
+    background-color: #F5F5F5;
+    width: 14px;
+    margin: 14px 0 14px 0;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #4CAF50;
+    min-height: 20px;
+    border-radius: 3px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #2E7D32;
+}
+
+QScrollBar::add-line:vertical {
+    border: 1px solid #CCCCCC;
+    background-color: #4CAF50;
+    height: 14px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:vertical {
+    border: 1px solid #CCCCCC;
+    background-color: #4CAF50;
+    height: 14px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
 }
