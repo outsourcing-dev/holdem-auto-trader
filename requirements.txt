@@ -1,0 +1,6 @@
+﻿PyQt6
+pymysql  # MariaDB(MySQL) 연결용 라이브러리
+undetected-chromedriver  # 자동화 탐지 우회 가능
+websockets  # CDP 프로토콜 통신
+setuptools
+beautifulsoup4
