@@ -10,7 +10,7 @@ class SettingsWindow(QWidget):
         super().__init__()
 
         self.setWindowTitle("설정")
-        self.setGeometry(200, 200, 600, 500)
+        self.setGeometry(200, 200, 600, 600)
         self.setObjectName("SettingsWindow")  # QSS 스타일 적용을 위한 ID 지정
         
         # 스타일 적용
@@ -63,9 +63,8 @@ class SettingsWindow(QWidget):
         self.martin_count_label = QLabel("마틴 횟수:")
         self.martin_count_label.setFont(label_font)
         self.martin_count_spinner = QSpinBox()
-        # 스핀 박스는 필요한 스타일만 추가
         self.martin_count_spinner.setMinimum(1)
-        self.martin_count_spinner.setMaximum(30)  # 최대 마틴 단계 수를 30으로 증가
+        self.martin_count_spinner.setMaximum(30)  # 최대 마틴 단계 수
         self.martin_count_spinner.setValue(martin_count)
         self.martin_count_spinner.valueChanged.connect(self.update_martin_table)
         count_layout.addWidget(self.martin_count_label)
@@ -74,16 +73,27 @@ class SettingsWindow(QWidget):
         
         # 마틴 금액 테이블
         self.martin_table = QTableWidget()
-        self.martin_table.setColumnCount(1)  # 단계 컬럼 제거하고 금액만 표시
+        self.martin_table.setColumnCount(1)  # 금액 열만 표시
         self.martin_table.setHorizontalHeaderLabels(["금액 (원)"])
         self.martin_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        # 행 헤더 표시 설정 (단계 번호를 행 헤더로 표시)
-        self.martin_table.verticalHeader().setVisible(True)
-        # 추가 스타일 적용 (전역 스타일시트 위에 테이블 편집 영역에 대한 스타일 추가)
+        
+        # 행 헤더(단계) 표시 설정
+        self.martin_table.verticalHeader().setVisible(True)  # 행 헤더 표시
+        self.martin_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.martin_table.verticalHeader().setDefaultSectionSize(30)  # 행 높이 설정
+        
+        # 추가 스타일 적용
         self.martin_table.setStyleSheet("""
             QLineEdit {
                 min-height: 28px;
                 font-size: 14px;
+            }
+            QHeaderView::section:vertical {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                padding: 4px;
+                border: 1px solid #2E7D32;
             }
         """)
         martin_layout.addWidget(self.martin_table)
@@ -130,47 +140,42 @@ class SettingsWindow(QWidget):
             
         # 테이블 채우기
         for i in range(count):
-            # 단계 열 (편집 불가)
-            stage_item = QTableWidgetItem(f"{i+1}")
-            stage_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 가운데 정렬
-            stage_item.setFlags(stage_item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # 편집 불가능하게 설정
-            self.martin_table.setItem(i, 0, stage_item)
+            # 행 헤더 설정 (단계)
+            self.martin_table.setVerticalHeaderItem(i, QTableWidgetItem(f"단계 {i+1}"))
             
             # 금액 열 (편집 가능)
             amount_item = QTableWidgetItem(f"{self.martin_amounts[i]:,}원")
             amount_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 가운데 정렬
-            self.martin_table.setItem(i, 1, amount_item)
+            self.martin_table.setItem(i, 0, amount_item)
         
         # 테이블 아이템 변경 이벤트 처리 재개
         self.martin_table.blockSignals(False)
     
     def on_table_item_changed(self, item):
         """테이블 항목이 편집되었을 때 호출"""
-        # 금액 열에 대해서만 처리 (열 인덱스 1)
-        if item.column() == 1:
-            row = item.row()
-            try:
-                # 쉼표와 '원' 제거
-                text = item.text().replace(",", "").replace("원", "").strip()
-                amount = int(text)
-                
-                # 금액 범위 제한 (최소 100원)
-                if amount < 100:
-                    amount = 100
-                
-                # 마틴 금액 배열 업데이트
-                if row < len(self.martin_amounts):
-                    self.martin_amounts[row] = amount
-                
-                # 포맷된 텍스트로 다시 표시
-                item.setText(f"{amount:,}원")
-                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 가운데 정렬
-                
-            except ValueError:
-                # 숫자가 아닌 경우 이전 값으로 복원
-                old_amount = self.martin_amounts[row] if row < len(self.martin_amounts) else 1000
-                item.setText(f"{old_amount:,}원")
-                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 가운데 정렬
+        row = item.row()
+        try:
+            # 쉼표와 '원' 제거
+            text = item.text().replace(",", "").replace("원", "").strip()
+            amount = int(text)
+            
+            # 금액 범위 제한 (최소 100원)
+            if amount < 100:
+                amount = 100
+            
+            # 마틴 금액 배열 업데이트
+            if row < len(self.martin_amounts):
+                self.martin_amounts[row] = amount
+            
+            # 포맷된 텍스트로 다시 표시
+            item.setText(f"{amount:,}원")
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 가운데 정렬
+            
+        except ValueError:
+            # 숫자가 아닌 경우 이전 값으로 복원
+            old_amount = self.martin_amounts[row] if row < len(self.martin_amounts) else 1000
+            item.setText(f"{old_amount:,}원")
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 가운데 정렬
     
     def collect_martin_amounts(self):
         """테이블에서 마틴 금액 수집"""
@@ -178,7 +183,7 @@ class SettingsWindow(QWidget):
         amounts = []
         
         for i in range(count):
-            amount_item = self.martin_table.item(i, 1)
+            amount_item = self.martin_table.item(i, 0)  # 첫 번째(유일한) 열
             text = amount_item.text().replace(",", "").replace("원", "").strip()  # 쉼표와 '원' 제거
             try:
                 amount = int(text)

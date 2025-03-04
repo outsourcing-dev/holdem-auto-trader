@@ -1,18 +1,12 @@
 {
-    "site1": "www.naver.com",
+    "site1": "https://drdr-1230.com/",
     "site2": "www.daum.net",
     "site3": "www.ygosu.com",
-    "martin_count": 10,
+    "martin_count": 4,
     "martin_amounts": [
         1000,
         2000,
         4000,
-        8000,
-        16000,
-        32000,
-        64000,
-        8000,
-        16000,
-        32000
+        8000
     ]
 }
