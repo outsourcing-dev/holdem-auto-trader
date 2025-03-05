@@ -279,30 +279,107 @@ class MainWindow(QMainWindow):
         # ✅ 자동 매매 루프 시작
         self.run_auto_trading()
         
-
+    def get_all_rooms(self):
+        """iframe 내에서 스크롤하며 모든 방 정보 가져오기"""
+        try:
+            # iframe으로 전환
+            iframe = self.devtools.driver.find_element("css selector", "iframe")
+            self.devtools.driver.switch_to.frame(iframe)
+            
+            # 콘텐츠 로드 대기
+            print("[INFO] iframe 내부 콘텐츠 로드 대기...")
+            time.sleep(3)
+            
+            # 방 이름 요소 직접 찾기
+            all_rooms = []
+            name_elements = self.devtools.driver.find_elements("css selector", "[data-role='tile-name']")
+            
+            print(f"[INFO] 발견된 방 이름 요소 수: {len(name_elements)}")
+            
+            for element in name_elements:
+                try:
+                    room_name = element.text
+                    if room_name:
+                        # 방 요소 (상위 요소) 찾기
+                        tile_element = element.find_element("xpath", "./ancestor::*[@data-role='table-tile']")
+                        
+                        room_info = {
+                            'name': room_name,
+                            'element': tile_element
+                        }
+                        all_rooms.append(room_info)
+                        print(f"[INFO] 방 발견: {room_name}")
+                except Exception as e:
+                    print(f"[WARNING] 방 정보 처리 중 오류: {e}")
+            
+            # 메인 프레임으로 돌아가기
+            self.devtools.driver.switch_to.default_content()
+            
+            print(f"[INFO] 총 {len(all_rooms)}개의 방을 찾았습니다.")
+            return all_rooms
+            
+        except Exception as e:
+            print(f"[ERROR] 방 정보 수집 중 오류 발생: {e}")
+            # 실패 시 메인 프레임으로 복귀 시도
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except:
+                pass
+            return []
+        
     def run_auto_trading(self):
         """자동 매매 로직"""
         if not self.is_trading_active:
             return
-            
+                
         # TODO: 파싱 및 자동 매매 로직 구현
         print("[INFO] 자동 매매 진행 중...")
         
-        # 테스트: UI 업데이트 함수 호출
-        self.update_betting_status(
-            room_name="스피드바카라 A",
-            pick="B",
-            step_markers={1: "X", 2: "X", 3: "X", 4: "O"}
-        )
-        
-        # 테스트용: 배팅 결과 추가
-        self.add_betting_result(1, "스피드바카라 A", 4, "적중")
+        # iframe 내부 콘텐츠 접근
+        print("[INFO] iframe 내부 콘텐츠 접근 시도...")
+        try:
+            # iframe에서 모든 방 정보 가져오기
+            all_rooms = self.get_all_rooms()
+            
+            if all_rooms:
+                print("[INFO] 방 목록 수집 성공")
+                # 여기서 수집된 방 정보를 활용해 자동 매매 로직 구현
+                # 예: 특정 조건의 방 선택, 입장, 베팅 등
+                
+                # 테스트용: 첫 번째 방 정보 표시
+                if len(all_rooms) > 0:
+                    first_room = all_rooms[0]
+                    self.update_betting_status(
+                        room_name=first_room['name'],
+                        pick="B",
+                        step_markers={1: "X", 2: "X", 3: "X", 4: "O"}
+                    )
+                    self.add_betting_result(1, first_room['name'], 4, "적중")
+            else:
+                print("[WARNING] 방 목록을 가져오지 못했습니다.")
+                # 기본 테스트 데이터 사용
+                # self.update_betting_status(
+                #     room_name="스피드바카라 A",
+                #     pick="B",
+                #     step_markers={1: "X", 2: "X", 3: "X", 4: "O"}
+                # )
+                # self.add_betting_result(1, "스피드바카라 A", 4, "적중")
+            
+        except Exception as e:
+            print(f"[ERROR] 자동 매매 중 오류 발생: {e}")
+            # 오류 발생 시 기본 테스트 데이터 사용
+            # self.update_betting_status(
+            #     room_name="스피드바카라 A",
+            #     pick="B",
+            #     step_markers={1: "X", 2: "X", 3: "X", 4: "O"}
+            # )
+            # self.add_betting_result(1, "스피드바카라 A", 4, "적중")
         
         # 잔액 업데이트 주기적 실행을 위한 타이머 설정
         self.balance_update_timer = QTimer(self)
         self.balance_update_timer.timeout.connect(self.update_balance)
         self.balance_update_timer.start(10000)  # 10초마다 잔액 갱신
-
+        
     def update_balance(self):
         """잔액 정보 주기적 업데이트"""
         if not self.is_trading_active or not self.devtools.driver:
