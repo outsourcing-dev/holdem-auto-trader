@@ -1,4 +1,3 @@
-# 5. 수정된 main_window.py
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QMessageBox, QTableWidget, 
                              QTableWidgetItem)
@@ -10,13 +9,14 @@ from utils.settings_manager import SettingsManager
 from utils.room_manager import RoomManager
 from utils.trading_manager import TradingManager
 from utils.ui_updater import UIUpdater
+import time
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("홀덤 자동 매매")
-        self.setGeometry(100, 100, 1000, 600)
+        self.setGeometry(100, 100, 1200, 700)  # 창 크기 확대
         self.setObjectName("MainWindow")
 
         # 유틸리티 클래스 초기화
@@ -57,7 +57,7 @@ class MainWindow(QMainWindow):
 
         # 왼쪽 UI (기존 UI 유지)
         self.left_panel = QVBoxLayout()
-        self.layout.addLayout(self.left_panel, 3)  # 비율 3:1
+        self.layout.addLayout(self.left_panel, 2)  # 비율 2:1
 
         # 상단 정보바
         self.header = HeaderWidget()
@@ -105,7 +105,7 @@ class MainWindow(QMainWindow):
 
         # 오른쪽 UI (방 목록 패널)
         self.room_panel = QVBoxLayout()
-        self.layout.addLayout(self.room_panel, 1)  # 비율 3:1
+        self.layout.addLayout(self.room_panel, 1)  # 비율 2:1
 
         # "방 목록" 제목 추가
         self.room_label = QLabel("📋 방 목록")
@@ -114,15 +114,26 @@ class MainWindow(QMainWindow):
 
         # 방 목록 테이블 추가
         self.room_table = QTableWidget()
-        self.room_table.setColumnCount(1)
-        self.room_table.setHorizontalHeaderLabels(["방 이름"])
-        self.room_table.setColumnWidth(0, 200)  # 컬럼 크기 조정
+        self.room_table.setColumnCount(2)  # 체크박스 열과 방 이름 열
+        self.room_table.setHorizontalHeaderLabels(["선택", "방 이름"])
+        self.room_table.setColumnWidth(0, 50)  # 체크박스 열 너비
+        self.room_table.setColumnWidth(1, 250)  # 방 이름 열 너비
         self.room_panel.addWidget(self.room_table)
 
-        # 방 목록 업데이트 버튼
+        # 방 목록 관리 버튼들 (가로 배치)
+        room_buttons_layout = QHBoxLayout()
+        
+        # 방 목록 불러오기 버튼
         self.update_room_button = QPushButton("방 목록 불러오기")
-        self.update_room_button.clicked.connect(self.load_rooms_into_table)
-        self.room_panel.addWidget(self.update_room_button)
+        self.update_room_button.clicked.connect(lambda: self.show_room_list(None))
+        room_buttons_layout.addWidget(self.update_room_button)
+        
+        # 방 목록 저장하기 버튼
+        self.save_room_button = QPushButton("방 목록 저장하기")
+        self.save_room_button.clicked.connect(self.save_room_settings)
+        room_buttons_layout.addWidget(self.save_room_button)
+        
+        self.room_panel.addLayout(room_buttons_layout)
 
     def reset_ui(self):
         """UI의 모든 값을 초기화 (0원)"""
@@ -150,6 +161,47 @@ class MainWindow(QMainWindow):
         self.devtools.open_site(url)
         print(f"[INFO] 사이트 열기: {url}")
     
+    def switch_to_casino_window(self):
+        """카지노 창(2번 창)으로 전환"""
+        if not self.devtools.driver:
+            QMessageBox.warning(self, "알림", "브라우저가 실행되지 않았습니다. 먼저 브라우저를 실행해주세요.")
+            return False
+            
+        window_handles = self.devtools.driver.window_handles
+        if len(window_handles) < 2:
+            QMessageBox.warning(self, "알림", "창이 2개 이상 필요합니다. 사이트 버튼으로 카지노 페이지를 열어주세요.")
+            return False
+            
+        print("[INFO] 카지노 창으로 전환 시도...")
+        self.devtools.driver.switch_to.window(window_handles[1])
+        time.sleep(2)
+        
+        current_url = self.devtools.driver.current_url
+        print(f"[INFO] 전환 후 현재 창 URL: {current_url}")
+        
+        # 카지노 페이지 여부 확인 (URL 체크 - 예시)
+        if "evo-games.com" in current_url:
+            print("[INFO] 카지노 창으로 정상 전환됨")
+            return True
+        else:
+            print("[WARNING] 카지노 창이 아닐 수 있습니다 - URL: " + current_url)
+            # 경고만 표시하고 계속 진행
+            return True
+    
+    def switch_to_main_window(self):
+        """메인 창(1번 창)으로 전환"""
+        if not self.devtools.driver:
+            return False
+            
+        window_handles = self.devtools.driver.window_handles
+        if len(window_handles) < 1:
+            return False
+            
+        print("[INFO] 메인 창으로 전환 시도...")
+        self.devtools.driver.switch_to.window(window_handles[0])
+        time.sleep(1)
+        return True
+    
     # 델리게이트 함수들: 각 매니저 클래스의 메서드를 호출
     def set_remaining_time(self, hours, minutes, seconds):
         self.ui_updater.set_remaining_time(hours, minutes, seconds)
@@ -172,5 +224,25 @@ class MainWindow(QMainWindow):
     def stop_trading(self):
         self.trading_manager.stop_trading()
     
-    def load_rooms_into_table(self, rooms=None):
+    def show_room_list(self, rooms=None):
+        """방 목록을 테이블에 업데이트"""
+        print(f"[DEBUG-MAIN] show_room_list 호출, rooms 매개변수: {rooms}")
+        
+        # 카지노 창으로 전환
+        if not self.switch_to_casino_window():
+            return
+        
+        # rooms가 None이 아니면 None으로 변경 (버튼 클릭 이벤트에서 False가 전달되는 문제 해결)
+        if rooms is not None and not isinstance(rooms, list):
+            print(f"[DEBUG-MAIN] rooms 매개변수 타입 변경: {type(rooms)} -> None")
+            rooms = None
+                
+        # 방 목록 가져오기
         self.room_manager.load_rooms_into_table(rooms)
+        
+    def save_room_settings(self):
+        """방 목록 설정 저장"""
+        if self.room_manager.save_room_settings():
+            QMessageBox.information(self, "알림", "방 목록 설정이 저장되었습니다.")
+        else:
+            QMessageBox.warning(self, "오류", "방 목록 설정 저장 중 오류가 발생했습니다.")
