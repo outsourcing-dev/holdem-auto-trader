@@ -14,32 +14,31 @@ class HeaderWidget(QWidget):
         
         # User info
         self.user_label = QLabel("유저정보")
-        self.user_value = QLabel("AAA1232")
+        self.user_value = QLabel("로그인 필요")
         info_layout.addWidget(self.user_label, 0, 0)
         info_layout.addWidget(self.user_value, 1, 0)
         
-        # Starting amount
+        # Starting amount - 초기화: 0원
         self.start_amount_label = QLabel("시작금액")
-        self.start_amount_value = QLabel("750,000")
+        self.start_amount_value = QLabel("0")
         info_layout.addWidget(self.start_amount_label, 0, 1)
         info_layout.addWidget(self.start_amount_value, 1, 1)
         
-        # Current amount
+        # Current amount - 초기화: 0원
         self.current_amount_label = QLabel("현재금액")
-        self.current_amount_value = QLabel("950,000")
+        self.current_amount_value = QLabel("0")
         info_layout.addWidget(self.current_amount_label, 0, 2)
         info_layout.addWidget(self.current_amount_value, 1, 2)
         
-        # Profit amount
+        # Profit amount - 초기화: 0원
         self.profit_label = QLabel("수익금액")
-        self.profit_value = QLabel("200,000")
-        self.profit_value.setStyleSheet("color: blue;")
+        self.profit_value = QLabel("0")
         info_layout.addWidget(self.profit_label, 0, 3)
         info_layout.addWidget(self.profit_value, 1, 3)
         
-        # Cumulative betting
+        # Cumulative betting - 초기화: 0원
         self.total_bet_label = QLabel("누적배팅")
-        self.total_bet_value = QLabel("1,000,000")
+        self.total_bet_value = QLabel("0")
         info_layout.addWidget(self.total_bet_label, 0, 4)
         info_layout.addWidget(self.total_bet_value, 1, 4)
         
@@ -61,7 +60,8 @@ class HeaderWidget(QWidget):
 
     def update_user_info(self, username):
         """Update user information"""
-        self.user_value.setText(username)
+        if username:
+            self.user_value.setText(username)
         
     def update_start_amount(self, amount):
         """Update starting amount"""
@@ -84,6 +84,15 @@ class HeaderWidget(QWidget):
     def update_total_bet(self, amount):
         """Update cumulative betting amount"""
         self.total_bet_value.setText(f"{amount:,}")
+    
+    def reset_values(self):
+        """모든 값을 초기화 (0원)"""
+        self.user_value.setText("로그인 필요")
+        self.start_amount_value.setText("0")
+        self.current_amount_value.setText("0")
+        self.profit_value.setText("0")
+        self.profit_value.setStyleSheet("color: black;")
+        self.total_bet_value.setText("0")
         
     def open_settings(self):
         """Open settings window"""

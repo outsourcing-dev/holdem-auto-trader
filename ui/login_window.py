@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
 from PyQt6.QtGui import QFont
 
-class LoginWindow(QDialog):  # ✅ QDialog를 상속하도록 변경
+class LoginWindow(QDialog):  # QDialog를 상속하도록 변경
     def __init__(self, app):
         super().__init__()
 
@@ -9,9 +9,9 @@ class LoginWindow(QDialog):  # ✅ QDialog를 상속하도록 변경
 
         self.setWindowTitle("로그인")
         self.setGeometry(100, 100, 320, 220)
-        self.setObjectName("LoginWindow")  # ✅ 스타일 적용을 위한 ID 지정
+        self.setObjectName("LoginWindow")  # 스타일 적용을 위한 ID 지정
 
-        # ✅ 스타일 적용 (QSS 불러오기)
+        # 스타일 적용 (QSS 불러오기)
         with open("ui/style.qss", "r", encoding="utf-8") as f:
             self.setStyleSheet(f.read())
 
@@ -54,9 +54,20 @@ class LoginWindow(QDialog):  # ✅ QDialog를 상속하도록 변경
         username = self.username_input.text()
         password = self.password_input.text()
 
-        # TODO: DB 연동하여 검증 (현재는 테스트용 코드)
+        # 입력값 검증
+        if not username:
+            QMessageBox.warning(self, "로그인 실패", "아이디를 입력해주세요.")
+            return
+            
+        if not password:
+            QMessageBox.warning(self, "로그인 실패", "비밀번호를 입력해주세요.")
+            return
+
+        # TODO: DB 연동하여 검증 (현재는 테스트용 코드, 나중에 수정 예정)
         if username == "admin" and password == "1234":
             QMessageBox.information(self, "로그인 성공", "환영합니다! 😊")
-            self.app.show_main_window()  # 메인 화면으로 이동
+            self.app.show_main_window(username=username)  # 사용자명 전달
         else:
-            QMessageBox.warning(self, "로그인 실패", "아이디 또는 비밀번호가 잘못되었습니다.")
+            # 실제 DB 검증 대신 일단 바로 로그인 허용 (요청에 따라)
+            QMessageBox.information(self, "로그인 성공", f"{username}님 환영합니다! 😊")
+            self.app.show_main_window(username=username)  # 사용자명 전달

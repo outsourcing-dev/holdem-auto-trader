@@ -1,10 +1,10 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMessageBox
 from PyQt6.QtCore import Qt, QTimer
 from ui.header_widget import HeaderWidget
 from ui.betting_widget import BettingWidget
 from utils.devtools import DevToolsController
 from utils.settings_manager import SettingsManager
-from utils.parser import HTMLParser
+from utils.parser import HTMLParser, CasinoParser
 import time
 
 class MainWindow(QMainWindow):
@@ -22,6 +22,13 @@ class MainWindow(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_remaining_time)
         self.remaining_seconds = 0  # 초기 남은 시간 (초 단위)
+        
+        # 상태 변수 초기화
+        self.start_amount = 0  # 시작 금액
+        self.current_amount = 0  # 현재 금액
+        self.total_bet_amount = 0  # 누적 배팅 금액
+        self.profit_amount = 0  # 수익 금액
+        self.username = ""  # 사용자명
 
         # 스타일 적용
         with open("ui/style.qss", "r", encoding="utf-8") as f:
@@ -79,6 +86,26 @@ class MainWindow(QMainWindow):
         layout.addLayout(start_stop_layout)
 
         central_widget.setLayout(layout)  # 중앙 위젯에 레이아웃 설정
+        
+        # UI 초기화 - 모든 값을 0원으로 설정
+        self.reset_ui()
+
+    def reset_ui(self):
+        """UI의 모든 값을 초기화 (0원)"""
+        self.start_amount = 0
+        self.current_amount = 0
+        self.total_bet_amount = 0
+        self.profit_amount = 0
+        self.username = ""
+        
+        # HeaderWidget 초기화
+        self.header.reset_values()
+        
+        # BettingWidget 초기화
+        self.betting_widget.clear_results()
+        self.betting_widget.reset_step_markers()
+        self.betting_widget.update_current_room("")
+        self.betting_widget.set_pick("")
 
     def open_site(self, url):
         """사이트 열기"""
@@ -116,16 +143,31 @@ class MainWindow(QMainWindow):
         self.remaining_time_value.setText(time_str)
 
     def update_user_data(self, username=None, start_amount=None, current_amount=None, profit_amount=None, total_bet=None):
-        """사용자 데이터 업데이트"""
+        """사용자 데이터 업데이트 - 내부 변수와 UI 모두 업데이트"""
         if username is not None:
+            self.username = username
             self.header.update_user_info(username)
+            
         if start_amount is not None:
+            self.start_amount = start_amount
             self.header.update_start_amount(start_amount)
+            
         if current_amount is not None:
+            self.current_amount = current_amount
             self.header.update_current_amount(current_amount)
+            
+            # 현재 금액이 변경되면 수익 금액도 재계산
+            if self.start_amount > 0:
+                new_profit = self.current_amount - self.start_amount
+                self.profit_amount = new_profit
+                self.header.update_profit(new_profit)
+                
         if profit_amount is not None:
+            self.profit_amount = profit_amount
             self.header.update_profit(profit_amount)
+            
         if total_bet is not None:
+            self.total_bet_amount = total_bet
             self.header.update_total_bet(total_bet)
     
     def update_betting_status(self, room_name=None, pick=None, step_markers=None):
@@ -149,6 +191,9 @@ class MainWindow(QMainWindow):
             return
 
         print("[INFO] 자동 매매 시작!")
+        
+        # 초기화: 모든 값을 0으로 리셋
+        self.reset_ui()
         self.is_trading_active = True
 
         # ✅ 브라우저 실행 확인
@@ -162,7 +207,8 @@ class MainWindow(QMainWindow):
             print(f"[DEBUG] 창 {i+1} - 핸들: {handle}")
 
         if len(window_handles) < 2:
-            print("[ERROR] 창 개수가 부족합니다. 2개 창이 필요합니다.")
+            QMessageBox.warning(self, "오류", "창 개수가 부족합니다. 최소 2개의 창이 필요합니다.")
+            self.is_trading_active = False
             return  # 🚨 창이 하나뿐이면 중단
 
         # ✅ 1번 창에서 잔액 먼저 가져오기
@@ -183,12 +229,25 @@ class MainWindow(QMainWindow):
             balance = parser.get_balance()
             if balance is not None:
                 print(f"[INFO] 현재 잔액: {balance}원")
-                self.update_user_data(current_amount=balance)
+                
+                # 시작 금액 및 현재 금액 설정 (최초 시작 시 동일)
+                self.update_user_data(
+                    start_amount=balance,
+                    current_amount=balance
+                )
+                
+                # 유저 정보 파싱 추가
+                username = parser.get_username()
+                if username:
+                    print(f"[INFO] 유저명: {username}")
+                    self.update_user_data(username=username)
             else:
-                print("[WARNING] 잔액 정보를 찾을 수 없습니다. HTML을 확인하세요.")
+                QMessageBox.warning(self, "오류", "잔액 정보를 찾을 수 없습니다. 먼저 사이트에 로그인하세요.")
+                self.is_trading_active = False
                 return  # 🚨 잔액 정보를 못 찾으면 중단
         else:
-            print("[ERROR] 1번 창 페이지 소스를 가져올 수 없습니다.")
+            QMessageBox.warning(self, "오류", "페이지 소스를 가져올 수 없습니다.")
+            self.is_trading_active = False
             return  # 🚨 HTML을 못 가져오면 중단
 
         # ✅ 2번 창(카지노 창)으로 전환
@@ -200,19 +259,26 @@ class MainWindow(QMainWindow):
         current_url = self.devtools.driver.current_url
         print(f"[INFO] 전환 후 현재 창 URL: {current_url}")
 
+        # ✅ 2번 창의 HTML 저장 (새로 추가)
+        casino_html = self.devtools.get_page_source()
+        if casino_html:
+            # ✅ HTML 저장 (디버깅용)
+            with open("debug_casino_page.html", "w", encoding="utf-8") as f:
+                f.write(casino_html)
+            print("[INFO] 2번 창 HTML 저장 완료 (debug_casino_page.html)")
+        
         if "evo-games.com" in current_url:
             print("[INFO] 카지노 창으로 정상 전환됨")
         else:
-            print("[ERROR] 카지노 창이 아님! 원래 창으로 복귀 시도")
-            self.devtools.driver.switch_to.window(window_handles[0])
-            return  # 🚨 창 전환 실패 시 중단
+            print("[WARNING] 카지노 창이 아닐 수 있습니다 - URL: " + current_url)
+            # 경고만 표시하고 계속 진행
 
         # ✅ 남은 시간 설정 (임시: 1시간)
         self.set_remaining_time(1, 0, 0)
 
         # ✅ 자동 매매 루프 시작
         self.run_auto_trading()
-
+        
 
     def run_auto_trading(self):
         """자동 매매 로직"""
@@ -228,11 +294,76 @@ class MainWindow(QMainWindow):
             pick="B",
             step_markers={1: "X", 2: "X", 3: "X", 4: "O"}
         )
+        
+        # 테스트용: 배팅 결과 추가
+        self.add_betting_result(1, "스피드바카라 A", 4, "적중")
+        
+        # 잔액 업데이트 주기적 실행을 위한 타이머 설정
+        self.balance_update_timer = QTimer(self)
+        self.balance_update_timer.timeout.connect(self.update_balance)
+        self.balance_update_timer.start(10000)  # 10초마다 잔액 갱신
+
+    def update_balance(self):
+        """잔액 정보 주기적 업데이트"""
+        if not self.is_trading_active or not self.devtools.driver:
+            return
+            
+        try:
+            # 현재 열린 창 목록 확인
+            window_handles = self.devtools.driver.window_handles
+            
+            # 현재 창 저장
+            current_handle = self.devtools.driver.current_window_handle
+            
+            # 1번 창으로 전환
+            self.devtools.driver.switch_to.window(window_handles[0])
+            
+            # HTML 가져오기
+            html = self.devtools.get_page_source()
+            if html:
+                # 잔액 파싱
+                parser = HTMLParser(html)
+                balance = parser.get_balance()
+                if balance is not None:
+                    print(f"[INFO] 현재 잔액 업데이트: {balance}원")
+                    self.update_user_data(current_amount=balance)
+            
+            # 원래 창으로 복귀
+            self.devtools.driver.switch_to.window(current_handle)
+            
+        except Exception as e:
+            print(f"[ERROR] 잔액 업데이트 중 오류 발생: {e}")
 
     def stop_trading(self):
         """자동 매매 종료"""
         self.is_trading_active = False
         self.timer.stop()
+        
+        # 잔액 업데이트 타이머가 있다면 중지
+        if hasattr(self, 'balance_update_timer') and self.balance_update_timer.isActive():
+            self.balance_update_timer.stop()
+            
         print("[INFO] 자동 매매 종료!")
         
-        # TODO: 필요한 정리 작업 수행
+        # 종료 시 마지막 잔액 정보 확인하여 UI 업데이트
+        try:
+            if self.devtools.driver:
+                window_handles = self.devtools.driver.window_handles
+                current_handle = self.devtools.driver.current_window_handle
+                
+                # 1번 창으로 전환
+                self.devtools.driver.switch_to.window(window_handles[0])
+                
+                # 최종 HTML 가져오기
+                html = self.devtools.get_page_source()
+                if html:
+                    parser = HTMLParser(html)
+                    balance = parser.get_balance()
+                    if balance is not None:
+                        print(f"[INFO] 최종 잔액: {balance}원")
+                        self.update_user_data(current_amount=balance)
+                
+                # 원래 창으로 복귀
+                self.devtools.driver.switch_to.window(current_handle)
+        except Exception as e:
+            print(f"[ERROR] 종료 시 잔액 확인 중 오류 발생: {e}")
