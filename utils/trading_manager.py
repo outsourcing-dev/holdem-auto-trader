@@ -122,10 +122,44 @@ class TradingManager:
             first_result.click()
             print("[SUCCESS] 첫 번째 검색 결과 클릭 완료!")
 
+            # ✅ 새로운 창 핸들 감지 후 전환
+            time.sleep(2)  # 새 창이 열리는 시간 대기
+            new_window_handles = self.devtools.driver.window_handles
+            if len(new_window_handles) > 1:
+                self.devtools.driver.switch_to.window(new_window_handles[-1])
+                print("[INFO] 새로운 방으로 포커스 변경 완료!")
+                time.sleep(10)
+                # ✅ 방 종료 버튼 클릭
+                self.close_room()
+
         except Exception as e:
             print(f"[ERROR] 방 검색 및 클릭 실패: {e}")
         finally:
             self.devtools.driver.switch_to.default_content()  # 다시 메인 프레임으로 이동
+
+    def close_room(self):
+        """✅ 현재 열린 방을 종료"""
+        try:
+            # ✅ iframe 내부로 이동하여 종료 버튼 찾기
+            self.devtools.driver.switch_to.default_content()
+            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+            self.devtools.driver.switch_to.frame(iframe)
+            print("[INFO] iframe 내부에서 종료 버튼 탐색 중...")
+
+            # ✅ 종료 버튼 찾기 및 클릭
+            close_button = WebDriverWait(self.devtools.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-role='close-button']"))
+            )
+            close_button.click()
+            print("[SUCCESS] 방 종료 버튼 클릭 완료!")
+
+            # ✅ 다시 메인 프레임으로 전환
+            self.devtools.driver.switch_to.default_content()
+
+        except Exception as e:
+            print(f"[ERROR] 방 종료 실패: {e}")
+
+
 
     def run_auto_trading(self):
         """자동 매매 로직"""
