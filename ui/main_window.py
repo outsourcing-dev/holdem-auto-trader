@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMessageBox
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMessageBox, QTableWidget, QTableWidgetItem
 from PyQt6.QtCore import Qt, QTimer
 from ui.header_widget import HeaderWidget
 from ui.betting_widget import BettingWidget
@@ -6,16 +6,22 @@ from utils.devtools import DevToolsController
 from utils.settings_manager import SettingsManager
 from utils.parser import HTMLParser, CasinoParser
 import time
+import re
 
+def clean_text(text):
+    """숨겨진 특수 문자 제거"""
+    text = re.sub(r'[\u200c\u2066\u2069]', '', text)  # 보이지 않는 문자 삭제
+    return text.strip()
+    
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("홀덤 자동 매매")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1000, 600)  # 🌟 창 크기 확장 (기존보다 넓게 설정)
         self.setObjectName("MainWindow")  # QSS 스타일 적용을 위한 ID 지정
 
-        # DevToolsController 객체 생성
+        # DevToolsController 및 설정 매니저 초기화
         self.devtools = DevToolsController()
         self.settings_manager = SettingsManager()
         self.is_trading_active = False
@@ -34,29 +40,36 @@ class MainWindow(QMainWindow):
         with open("ui/style.qss", "r", encoding="utf-8") as f:
             self.setStyleSheet(f.read())
 
+        # 🌟 메인 위젯 및 레이아웃 설정
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout()
 
-        # 상단 정보바
+        # 전체 레이아웃 (왼쪽 기존 UI + 오른쪽 방 목록 패널)
+        self.layout = QHBoxLayout()
+        central_widget.setLayout(self.layout)
+
+        # ✅ 왼쪽 UI (기존 UI 유지)
+        self.left_panel = QVBoxLayout()
+        self.layout.addLayout(self.left_panel, 3)  # 비율 3:1
+
+        # ✅ 상단 정보바
         self.header = HeaderWidget()
-        layout.addWidget(self.header)
+        self.left_panel.addWidget(self.header)
         
-        # 배팅 위젯 (현재 진행 상황 표시)
+        # ✅ 배팅 위젯 (현재 진행 상황 표시)
         self.betting_widget = BettingWidget()
-        layout.addWidget(self.betting_widget)
+        self.left_panel.addWidget(self.betting_widget)
 
-        # 남은 시간 표시
+        # ✅ 남은 시간 표시
         remaining_time_layout = QHBoxLayout()
         self.remaining_time_label = QLabel("남은시간")
         self.remaining_time_value = QLabel("00 : 00 : 00")
         remaining_time_layout.addWidget(self.remaining_time_label)
         remaining_time_layout.addWidget(self.remaining_time_value)
-        layout.addLayout(remaining_time_layout)
+        self.left_panel.addLayout(remaining_time_layout)
 
-        # 사이트 이동 버튼 (한 줄 정렬)
+        # ✅ 사이트 이동 버튼
         site1, site2, site3 = self.settings_manager.get_sites()
-
         site_button_layout = QHBoxLayout()
         self.site1_button = QPushButton("사이트 1 이동")
         self.site2_button = QPushButton("사이트 2 이동")
@@ -69,10 +82,9 @@ class MainWindow(QMainWindow):
         site_button_layout.addWidget(self.site1_button)
         site_button_layout.addWidget(self.site2_button)
         site_button_layout.addWidget(self.site3_button)
+        self.left_panel.addLayout(site_button_layout)
 
-        layout.addLayout(site_button_layout)
-
-        # 시작 / 종료 버튼 (한 줄 정렬)
+        # ✅ 자동 매매 시작 / 종료 버튼
         start_stop_layout = QHBoxLayout()
         self.start_button = QPushButton("🔵 자동 매매 시작")
         self.stop_button = QPushButton("🔴 자동 매매 종료")
@@ -82,12 +94,30 @@ class MainWindow(QMainWindow):
 
         start_stop_layout.addWidget(self.start_button)
         start_stop_layout.addWidget(self.stop_button)
+        self.left_panel.addLayout(start_stop_layout)
 
-        layout.addLayout(start_stop_layout)
+        # 🌟 오른쪽 UI (방 목록 패널 추가)
+        self.room_panel = QVBoxLayout()
+        self.layout.addLayout(self.room_panel, 1)  # 비율 3:1
 
-        central_widget.setLayout(layout)  # 중앙 위젯에 레이아웃 설정
-        
-        # UI 초기화 - 모든 값을 0원으로 설정
+        # 🏠 "방 목록" 제목 추가
+        self.room_label = QLabel("📋 방 목록")
+        self.room_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.room_panel.addWidget(self.room_label)
+
+        # 📊 방 목록 테이블 추가
+        self.room_table = QTableWidget()
+        self.room_table.setColumnCount(1)
+        self.room_table.setHorizontalHeaderLabels(["방 이름"])
+        self.room_table.setColumnWidth(0, 200)  # 컬럼 크기 조정
+        self.room_panel.addWidget(self.room_table)
+
+        # 🔄 방 목록 업데이트 버튼
+        self.update_room_button = QPushButton("방 목록 불러오기")
+        self.update_room_button.clicked.connect(self.load_rooms_into_table)
+        self.room_panel.addWidget(self.update_room_button)
+
+        # ✅ UI 초기화
         self.reset_ui()
 
     def reset_ui(self):
@@ -278,47 +308,48 @@ class MainWindow(QMainWindow):
 
         # ✅ 자동 매매 루프 시작
         self.run_auto_trading()
-    
-    import time
+
+
     def get_all_rooms(self):
-        """iframe 내에서 처음 보이는 30개의 방 정보만 가져오기 (스크롤 없이)"""
+        """iframe 내에서 처음 보이는 30개의 방 정보만 가져오기"""
         try:
             # iframe으로 전환
             iframe = self.devtools.driver.find_element("css selector", "iframe")
             self.devtools.driver.switch_to.frame(iframe)
 
             print("[INFO] iframe 내부 콘텐츠 로드 대기...")
-            time.sleep(3)  # iframe 내부 페이지 로드 대기
+            time.sleep(3)
 
-            # 방 정보를 저장할 리스트 (중복 방지용 set 사용)
             all_rooms = set()
 
-            # **특정 클래스(tile--5d2e6) 방 이름 요소 찾기**
+            # ✅ 특정 클래스(tile--5d2e6) 방 이름 요소 찾기
             name_elements = self.devtools.driver.find_elements("css selector", ".tile--5d2e6")
             print(f"[INFO] 현재 보이는 방 개수: {len(name_elements)}")
 
-            for element in name_elements:
+            for idx, element in enumerate(name_elements):
                 try:
-                    room_name = element.text.strip()
-                    if room_name:
-                        all_rooms.add(room_name)  # 중복 방지
+                    full_text = element.text.strip()
+                    clean_full_text = clean_text(full_text)  # ✅ 숨겨진 문자 제거
+                    lines = [line.strip() for line in clean_full_text.splitlines() if line.strip()]
+
+                    if lines:
+                        room_name = clean_text(lines[0])  # ✅ 첫 번째 줄(방 이름)만 추출 후 클리닝
+
+                        print(f"[DEBUG] room[{idx}] 원본 데이터: {repr(full_text)}")  
+                        print(f"[DEBUG] room[{idx}] 첫 줄 (클린): {repr(room_name)}")  
+
+                        if room_name:
+                            all_rooms.add(room_name)
+                    else:
+                        print(f"[WARNING] room[{idx}] 비어있는 값 감지! -> {repr(full_text)}")
+
                 except Exception as e:
                     print(f"[ERROR] 방 이름 가져오는 중 오류 발생: {e}")
 
-            final_rooms = list(all_rooms)  # set -> list 변환
+            final_rooms = list(all_rooms)
             print(f"[INFO] 최종적으로 찾은 방 개수: {len(final_rooms)}")
-            
-            # ✅ 디버깅 코드 추가: 반환값 확인
-            print(f"[DEBUG] get_all_rooms() 반환 데이터: {final_rooms}")
 
-            for idx, room in enumerate(final_rooms):
-                print(f"[DEBUG] room[{idx}] 타입: {type(room)}, 값: {room}")
-
-                # room이 문자열이 아닐 경우, 문제가 발생할 수 있음.
-                if not isinstance(room, str):
-                    print(f"[ERROR] 잘못된 room 데이터 형식 감지! room[{idx}]: {room}")
-
-            return final_rooms  # 방 목록 리스트 반환
+            return final_rooms
 
         except Exception as e:
             print(f"[ERROR] get_all_rooms 실행 중 오류 발생: {e}")
@@ -329,41 +360,24 @@ class MainWindow(QMainWindow):
         """자동 매매 로직"""
         if not self.is_trading_active:
             return
-                    
+                        
         print("[INFO] 자동 매매 진행 중...")
-        
-        # iframe 내부 콘텐츠 접근
-        print("[INFO] iframe 내부 콘텐츠 접근 시도...")
+
         try:
-            # iframe에서 모든 방 정보 가져오기
-            all_rooms = self.get_all_rooms()
-            
+            print("[DEBUG] get_all_rooms() 실행 전")
+            all_rooms = self.get_all_rooms()  # ✅ 여기서만 실행
+            print("[DEBUG] get_all_rooms() 실행 완료, 반환된 방 개수:", len(all_rooms))
+
             if all_rooms:
                 print("[INFO] 방 목록 수집 성공")
-
-                # 첫 번째 방 정보 표시 (문자열로 처리)
-                if len(all_rooms) > 0:
-                    first_room = all_rooms[0]  # ✅ 문자열 그대로 사용
-
-                    self.update_betting_status(
-                        room_name=first_room,  # ✅ 딕셔너리가 아니라 문자열이므로 그대로 사용
-                        pick="B",
-                        step_markers={1: "X", 2: "X", 3: "X", 4: "O"}
-                    )
-                    self.add_betting_result(1, first_room, 4, "적중")  # ✅ 그대로 사용
+                self.load_rooms_into_table(all_rooms)  # ✅ 이제 방 목록을 직접 전달
             else:
                 print("[WARNING] 방 목록을 가져오지 못했습니다.")
             
         except Exception as e:
             print(f"[ERROR] 자동 매매 중 오류 발생: {e}")
-        
-        # 잔액 업데이트 주기적 실행을 위한 타이머 설정
-        self.balance_update_timer = QTimer(self)
-        self.balance_update_timer.timeout.connect(self.update_balance)
-        self.balance_update_timer.start(10000)  # 10초마다 잔액 갱신
 
 
-        
     def update_balance(self):
         """잔액 정보 주기적 업데이트"""
         if not self.is_trading_active or not self.devtools.driver:
@@ -428,3 +442,16 @@ class MainWindow(QMainWindow):
                 self.devtools.driver.switch_to.window(current_handle)
         except Exception as e:
             print(f"[ERROR] 종료 시 잔액 확인 중 오류 발생: {e}")
+            
+    def load_rooms_into_table(self, rooms):
+        """방 목록을 테이블에 업데이트"""
+        print("[DEBUG] load_rooms_into_table() 실행됨")
+
+        if not rooms:
+            QMessageBox.warning(self, "알림", "방 목록을 불러올 수 없습니다.")
+            return
+
+        self.room_table.setRowCount(len(rooms))  # 테이블 행 개수 설정
+
+        for row, room in enumerate(rooms):
+            self.room_table.setItem(row, 0, QTableWidgetItem(room))  # ✅ 받은 데이터만 사용!
