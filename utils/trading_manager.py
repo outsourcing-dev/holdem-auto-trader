@@ -1,6 +1,10 @@
-from PyQt6.QtWidgets import QMessageBox
-from utils.parser import HTMLParser
+import random
 import time
+from PyQt6.QtWidgets import QMessageBox
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from utils.parser import HTMLParser
 
 class TradingManager:
     def __init__(self, main_window):
@@ -28,9 +32,12 @@ class TradingManager:
         
         print(f"[INFO] 선택된 방 {len(checked_rooms)}개: {[room['name'] for room in checked_rooms]}")
         
-        # 초기화: 모든 값을 0으로 리셋
-        self.main_window.reset_ui()
+        # ✅ 랜덤 방 선택 후 검색 입력 및 클릭
+        self.enter_room_search_and_click(checked_rooms)
         
+        # ✅ 기존 잔액 및 UI 초기화
+        self.main_window.reset_ui()
+
         # ✅ 브라우저 실행 확인
         if not self.devtools.driver:
             self.devtools.start_browser()
@@ -40,12 +47,12 @@ class TradingManager:
         if len(window_handles) < 2:
             QMessageBox.warning(self.main_window, "오류", "창 개수가 부족합니다. 최소 2개의 창이 필요합니다.")
             return
-            
+
         # ✅ 메인 창으로 전환하여 잔액 가져오기
         if not self.main_window.switch_to_main_window():
             QMessageBox.warning(self.main_window, "오류", "메인 창으로 전환할 수 없습니다.")
             return
-            
+
         # ✅ 잔액 파싱
         html = self.devtools.get_page_source()
         if html:
@@ -53,13 +60,13 @@ class TradingManager:
             balance = parser.get_balance()
             if balance is not None:
                 print(f"[INFO] 현재 잔액: {balance}원")
-                
+
                 # 시작 금액 및 현재 금액 설정
                 self.main_window.update_user_data(
                     start_amount=balance,
                     current_amount=balance
                 )
-                
+
                 # 유저 정보 파싱
                 username = parser.get_username()
                 if username:
@@ -76,8 +83,8 @@ class TradingManager:
         if not self.main_window.switch_to_casino_window():
             QMessageBox.warning(self.main_window, "오류", "카지노 창으로 전환할 수 없습니다.")
             return
-            
-        # 자동 매매 활성화
+
+        # ✅ 자동 매매 활성화
         self.is_trading_active = True
         print("[INFO] 자동 매매 시작!")
 
@@ -86,7 +93,40 @@ class TradingManager:
 
         # ✅ 자동 매매 루프 시작
         self.run_auto_trading()
-    
+
+    def enter_room_search_and_click(self, checked_rooms):
+        """✅ 랜덤으로 체크된 방을 선택하여 검색 입력 후 첫 번째 결과 클릭"""
+        selected_room = random.choice(checked_rooms)
+        room_name = selected_room['name']
+        print(f"[INFO] 선택된 방: {room_name}")
+
+        try:
+            # ✅ iframe 내부로 이동하여 입력 필드 찾기
+            self.devtools.driver.switch_to.default_content()
+            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+            self.devtools.driver.switch_to.frame(iframe)
+
+            # ✅ 검색 입력 필드 찾기 및 입력
+            search_input = self.devtools.driver.find_element(By.CSS_SELECTOR, "input.TableTextInput--464ac")
+            search_input.clear()
+            search_input.send_keys(room_name)
+            print(f"[SUCCESS] 방 이름 '{room_name}' 입력 완료!")
+
+            # ✅ 검색 결과 대기 (최대 5초)
+            wait = WebDriverWait(self.devtools.driver, 5)
+            first_result = wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-role='search-result']"))
+            )
+
+            # ✅ 첫 번째 검색 결과 클릭
+            first_result.click()
+            print("[SUCCESS] 첫 번째 검색 결과 클릭 완료!")
+
+        except Exception as e:
+            print(f"[ERROR] 방 검색 및 클릭 실패: {e}")
+        finally:
+            self.devtools.driver.switch_to.default_content()  # 다시 메인 프레임으로 이동
+
     def run_auto_trading(self):
         """자동 매매 로직"""
         if not self.is_trading_active:
@@ -98,65 +138,9 @@ class TradingManager:
         checked_rooms = self.room_manager.get_checked_rooms()
         print(f"[INFO] 매매 진행할 방 {len(checked_rooms)}개")
         
-        # 여기에 체크된 방들에 대한 매매 로직 구현
-        # ...
-
         # 예시: 첫 번째 체크된 방 정보 UI에 표시
         if checked_rooms:
             first_room = checked_rooms[0]
             self.main_window.update_betting_status(room_name=first_room["name"])
             print(f"[INFO] 현재 진행 중인 방: {first_room['name']}")
-    
-    def stop_trading(self):
-        """자동 매매 종료"""
-        self.is_trading_active = False
-        self.main_window.timer.stop()
-        
-        # 잔액 업데이트 타이머가 있다면 중지
-        if hasattr(self.main_window, 'balance_update_timer') and self.main_window.balance_update_timer.isActive():
-            self.main_window.balance_update_timer.stop()
-            
-        print("[INFO] 자동 매매 종료!")
-        
-        # 종료 시 마지막 잔액 정보 확인하여 UI 업데이트
-        try:
-            # 메인 창으로 전환하여 잔액 확인
-            if self.main_window.switch_to_main_window():
-                html = self.devtools.get_page_source()
-                if html:
-                    parser = HTMLParser(html)
-                    balance = parser.get_balance()
-                    if balance is not None:
-                        print(f"[INFO] 최종 잔액: {balance}원")
-                        self.main_window.update_user_data(current_amount=balance)
-                
-                # 다시 카지노 창으로 전환
-                self.main_window.switch_to_casino_window()
-        except Exception as e:
-            print(f"[ERROR] 종료 시 잔액 확인 중 오류 발생: {e}")
-    
-    def update_balance(self):
-        """잔액 정보 주기적 업데이트"""
-        if not self.is_trading_active or not self.devtools.driver:
-            return
-            
-        try:
-            # 현재 창 저장
-            current_handle = self.devtools.driver.current_window_handle
-            
-            # 메인 창으로 전환
-            if self.main_window.switch_to_main_window():
-                # 잔액 파싱
-                html = self.devtools.get_page_source()
-                if html:
-                    parser = HTMLParser(html)
-                    balance = parser.get_balance()
-                    if balance is not None:
-                        print(f"[INFO] 현재 잔액 업데이트: {balance}원")
-                        self.main_window.update_user_data(current_amount=balance)
-            
-            # 원래 창으로 복귀
-            self.devtools.driver.switch_to.window(current_handle)
-            
-        except Exception as e:
-            print(f"[ERROR] 잔액 업데이트 중 오류 발생: {e}")
+

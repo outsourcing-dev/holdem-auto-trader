@@ -18,6 +18,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("홀덤 자동 매매")
         self.setGeometry(100, 100, 1200, 700)  # 창 크기 확대
         self.setObjectName("MainWindow")
+        
 
         # 유틸리티 클래스 초기화
         self.devtools = DevToolsController()
