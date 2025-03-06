@@ -1,6 +1,7 @@
 # utils/trading_manager.py
 import random
 import time
+import openpyxl
 from PyQt6.QtWidgets import QMessageBox
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
@@ -23,6 +24,9 @@ class TradingManager:
         self.current_room_name = ""
         self.game_count = 0
         self.recent_results = []
+        
+        # 베팅 상태 초기화
+        self.has_bet_current_round = False
     
     def start_trading(self):
         """자동 매매 시작"""
@@ -167,62 +171,173 @@ class TradingManager:
             # 게임 상태 감지
             game_state = self.game_detector.detect_game_state(html_content)
             
-            # 게임 수와 최근 결과 저장
-            self.game_count = game_state['round']
-            self.recent_results = game_state.get('recent_results', [])
+            # 새로운 게임 결과가 있는지 확인
+            new_game_count = game_state['round']
+            latest_result = game_state.get('latest_result')
             
-            # TIE를 제외한 결과 가져오기 (필터링된 결과)
-            filtered_results = game_state.get('filtered_results', [])
-            
-            # TIE 포함 실제 사용할 결과 (TIE 개수에 따라 동적으로 조정됨)
+            # 최근 결과 업데이트
+            recent_results = game_state.get('recent_results', [])
             actual_results = game_state.get('actual_results', [])
-            tie_count = game_state.get('tie_count', 0)
-            total_needed = game_state.get('total_needed', 0)
             
-            print(f"\n[INFO] 현재 게임 수: {self.game_count}")
-            if game_state.get('latest_game_coords'):
-                print(f"[INFO] 최신 게임 좌표: ({game_state['latest_game_coords'][0]}, {game_state['latest_game_coords'][1]})")
-            print(f"[INFO] 최신 결과: {game_state.get('latest_result', 'None')}")
+            print(f"\n[INFO] 현재 게임 수: {new_game_count}")
+            print(f"[INFO] 최신 결과: {latest_result}")
             
-            # TIE 개수와 필요한 총 결과 개수 출력
-            print(f"[INFO] TIE 개수: {tie_count}, 필요한 총 결과 개수: {total_needed}")
+            # ExcelManager 인스턴스 생성
+            from utils.excel_manager import ExcelManager
+            excel_manager = ExcelManager()
             
-            # 최근 결과 (TIE 포함)
-            recent_display = self.recent_results[-10:] if len(self.recent_results) > 10 else self.recent_results
-            print(f"[INFO] 최근 게임 결과 (최대 10개): {recent_display}")
+            # 전에 없던 새로운 결과가 있는지 확인 (최신 결과가 있고 이전 게임 수보다 증가했는지)
+            has_new_result = new_game_count > self.game_count and latest_result is not None
             
-            # TIE 포함 실제 사용할 결과 (10 + TIE 개수)
-            print(f"[INFO] 실제 사용 결과 (TIE 포함, {len(actual_results)}개): {actual_results}")
+            if has_new_result:
+                print(f"[INFO] 새로운 게임 결과 감지: {latest_result}")
+                
+                # 새 라운드 시작 시 베팅 상태 초기화
+                self.has_bet_current_round = False
+                
+                # 첫 실행 여부 확인 (self.game_count가 0이면 첫 실행)
+                is_first_run = self.game_count == 0
+                
+                if is_first_run and actual_results:
+                    # 1. 최초 입장 시: 10개 결과를 처음부터 기록
+                    print("[INFO] 첫 실행 감지: 엑셀에 최근 10개 결과 기록")
+                    excel_manager.write_filtered_game_results([], actual_results)
+                    print(f"[INFO] 엑셀에 게임 결과 {len(actual_results)}개 기록 완료")
+                else:
+                    # 2. 이후 실행: 마지막 열 다음에 결과 추가
+                    # 현재 열(마지막으로 결과가 입력된 열 다음) 찾기
+                    current_column = excel_manager.get_current_column()
+                    
+                    if current_column:
+                        # 2-1. 새 결과 기록
+                        print(f"[INFO] {current_column}3에 새 결과 '{latest_result}' 기록 중...")
+                        excel_manager.write_game_result(current_column, latest_result)
+                        print(f"[INFO] {current_column}3에 '{latest_result}' 기록 완료")
+                    else:
+                        print("[WARNING] 기록할 빈 열을 찾을 수 없음. 엑셀 초기화 필요할 수 있음")
+                
+                # 새 결과를 기록한 후 엑셀 저장
+                save_success = excel_manager.save_with_app()
+                
+                if save_success:
+                    # 마지막으로 입력된 열 찾기
+                    if is_first_run:
+                        # 첫 실행 시: 입력한 결과 수에 따라 마지막 열 계산
+                        last_column_idx = 1 + len(actual_results)  # B(2) + results_count - 1
+                        last_column = openpyxl.utils.get_column_letter(last_column_idx)
+                    else:
+                        # 이후 실행 시: current_column이 마지막 입력된 열
+                        last_column = current_column
+                    
+                    # 3. 다음 열의 PICK 값 확인 (마지막 열 + 1의 12행)
+                    next_pick = excel_manager.check_next_column_pick(last_column)
+                    
+                    # UI 업데이트
+                    self.main_window.update_betting_status(
+                        room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
+                        pick=next_pick
+                    )
+                    
+                    print(f"[INFO] 다음 배팅: {next_pick}")
+                    
+                    # PICK 값이 P 또는 B일 경우 베팅 실행
+                    if next_pick in ['P', 'B']:
+                        self.place_bet(next_pick)
+                    else:
+                        print(f"[INFO] 베팅 없음 (PICK 값: {next_pick})")
+                else:
+                    # 수동 저장 안내
+                    print("\n" + "=" * 50)
+                    print("자동 Excel 저장에 실패했습니다.")
+                    print("엑셀 파일을 수동으로 저장해주세요.")
+                    print("=" * 50)
+            else:
+                # 새로운 결과가 없으면 기존 정보로 UI만 업데이트
+                print("[INFO] 새로운 게임 결과 없음, 이전 상태 유지")
+                
+                # UI 업데이트 (방 이름만 업데이트)
+                self.main_window.update_betting_status(
+                    room_name=f"{self.current_room_name} (게임 수: {new_game_count})"
+                )
             
-            # TIE를 제외한 결과
-            print(f"[INFO] TIE 제외 결과 (정확히 {len(filtered_results)}개): {filtered_results}")
+            # 게임 카운트 업데이트
+            self.game_count = new_game_count
+            self.recent_results = recent_results
             
-            # 결과를 엑셀에 기록 (TIE 포함 결과를 기록)
-            if actual_results:
-                from utils.excel_manager import ExcelManager
-                excel_manager = ExcelManager()  # 기본 엑셀 파일 경로 사용
-                excel_manager.write_filtered_game_results(filtered_results, actual_results)
-                print(f"[INFO] 엑셀에 게임 결과 {len(actual_results)}개 기록 완료")
-            
-            # game_results 정보 출력 (게임 번호와 결과)
-            if 'game_results' in game_state:
-                print("\n[INFO] 게임 번호별 결과:")
-                for game_number, result in game_state['game_results'][-10:]:  # 최근 10개만 출력
-                    print(f"  게임 #{game_number}: {result}")
-            
-            # 사용자 인터페이스 업데이트
-            self.main_window.update_betting_status(
-                room_name=f"{self.current_room_name} (게임 수: {self.game_count})",
-                pick=game_state.get('latest_result', '')
-            )
-            
-            # 2초마다 자동으로 분석 수행
-            self.main_window.set_remaining_time(0, 0, 2)  # 2초 타이머 설정
+            # 2초마다 분석 수행
+            self.main_window.set_remaining_time(0, 0, 2)
             
         except Exception as e:
             print(f"[ERROR] 게임 상태 분석 중 오류 발생: {e}")
             import traceback
             traceback.print_exc()
+            
+    def place_bet(self, bet_type):
+        """
+        베팅 타입(P 또는 B)에 따라 적절한 베팅 영역을 클릭합니다.
+        중복 클릭 방지를 위해 베팅 상태를 기록합니다.
+        
+        Args:
+            bet_type (str): 'P'(플레이어) 또는 'B'(뱅커)
+        
+        Returns:
+            bool: 성공 여부
+        """
+        if not self.is_trading_active:
+            print("[INFO] 자동 매매가 활성화되지 않았습니다.")
+            return False
+        
+        # 이미 베팅했는지 확인 (중복 베팅 방지)
+        if hasattr(self, 'has_bet_current_round') and self.has_bet_current_round:
+            print("[INFO] 이미 현재 라운드에 베팅했습니다.")
+            return False
+        
+        try:
+            # iframe으로 전환
+            self.devtools.driver.switch_to.default_content()
+            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+            self.devtools.driver.switch_to.frame(iframe)
+            
+            # 베팅 대상 선택
+            if bet_type == 'P':
+                # Player 영역 찾기 및 클릭
+                selector = "div.spot--5ad7f[data-betspot-destination='Player']"
+                print(f"[INFO] Player 베팅 영역 클릭 시도: {selector}")
+            elif bet_type == 'B':
+                # Banker 영역 찾기 및 클릭
+                selector = "div.spot--5ad7f[data-betspot-destination='Banker']"
+                print(f"[INFO] Banker 베팅 영역 클릭 시도: {selector}")
+            else:
+                print(f"[ERROR] 잘못된 베팅 타입: {bet_type}")
+                return False
+            
+            # 요소 찾기
+            bet_element = WebDriverWait(self.devtools.driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+            )
+            
+            # 요소가 활성화되어 있는지 확인 (클래스에 'active--dc7b3'가 있는지)
+            is_active = 'active--dc7b3' in bet_element.get_attribute('class')
+            if is_active:
+                print(f"[INFO] 이미 {bet_type} 영역이 활성화되어 있습니다.")
+            else:
+                # 클릭
+                bet_element.click()
+                print(f"[SUCCESS] {bet_type} 영역 클릭 완료!")
+            
+            # 베팅 상태 기록 (중복 베팅 방지)
+            self.has_bet_current_round = True
+            
+            # UI 업데이트
+            self.main_window.update_betting_status(
+                room_name=f"{self.current_room_name} (게임 수: {self.game_count}, 베팅: {bet_type})"
+            )
+            
+            return True
+        
+        except Exception as e:
+            print(f"[ERROR] 베팅 중 오류 발생: {e}")
+            return False
             
     def close_room(self):
         """✅ 현재 열린 방을 종료"""
@@ -259,3 +374,18 @@ class TradingManager:
         # 게임 모니터링 루프 설정 (게임이 약 10초 간격으로 빠르게 진행됨)
         monitoring_interval = 2  # 2초마다 체크하여 변화 감지
         self.main_window.set_remaining_time(0, 0, monitoring_interval)
+
+    def stop_trading(self):
+        """자동 매매 중지"""
+        if not self.is_trading_active:
+            print("[INFO] 자동 매매가 이미 중지된 상태입니다.")
+            return
+            
+        print("[INFO] 자동 매매 중지 중...")
+        self.is_trading_active = False
+        
+        # 타이머 중지
+        self.main_window.timer.stop()
+        
+        # 메시지 표시
+        QMessageBox.information(self.main_window, "알림", "자동 매매가 중지되었습니다.")

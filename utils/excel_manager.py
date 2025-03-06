@@ -381,3 +381,94 @@ class ExcelManager:
         """
         # actual_results를 엑셀에 기록 (가장 오래된 순서대로)
         return self.write_game_results_sequence(actual_results)
+
+    def check_next_column_pick(self, last_result_column):
+        """
+        마지막으로 결과가 입력된 열의 다음 열에서 12행(PICK) 값을 확인합니다.
+        
+        Args:
+            last_result_column (str): 마지막 결과가 입력된 열 문자 (예: 'J')
+            
+        Returns:
+            str: 다음 열의 PICK 값 ('P', 'B', 'N' 중 하나)
+        """
+        try:
+            # 열 인덱스 계산
+            col_idx = openpyxl.utils.column_index_from_string(last_result_column)
+            next_col_idx = col_idx + 1
+            next_col_letter = openpyxl.utils.get_column_letter(next_col_idx)
+            
+            # 엑셀 워크북 로드 (수식 계산된 값을 읽기 위해 data_only=True 설정)
+            workbook = openpyxl.load_workbook(self.excel_path, data_only=True)
+            sheet = workbook.active
+            
+            # 다음 열의 12행 값 읽기
+            pick_value = sheet[f"{next_col_letter}12"].value
+            
+            # 값이 None이면 'N'으로 처리
+            if pick_value is None:
+                pick_value = 'N'
+            # 문자열이 아니면 문자열로 변환
+            elif not isinstance(pick_value, str):
+                pick_value = str(pick_value)
+            
+            workbook.close()
+            
+            print(f"[INFO] 다음 열 {next_col_letter}12의 PICK 값: {pick_value}")
+            return pick_value
+        
+        except Exception as e:
+            print(f"[ERROR] 다음 열 PICK 값 확인 중 오류 발생: {str(e)}")
+            return 'N'  # 오류 발생 시 기본값 'N' 반환
+        
+    # utils/excel_manager.py 내의 ExcelManager 클래스에 추가할 메서드
+
+    def save_with_app(self):
+        """
+        실제 Excel 애플리케이션을 사용하여 파일을 열고 저장합니다.
+        Windows에서만 사용 가능합니다.
+        
+        Returns:
+            bool: 성공 여부
+        """
+        import os
+        is_windows = os.name == 'nt'
+        
+        # Windows가 아니면 False 반환
+        if not is_windows:
+            print("[WARNING] Excel 애플리케이션 저장은 Windows에서만 지원됩니다.")
+            print("[INFO] 수동으로 Excel 파일을 열고 저장해주세요.")
+            return False
+        
+        try:
+            import win32com.client
+        except ImportError:
+            print("[WARNING] win32com 모듈이 설치되지 않았습니다. pip install pywin32로 설치하세요.")
+            return False
+        
+        try:
+            print("[INFO] Excel 애플리케이션으로 파일 열고 저장 중...")
+            abs_path = os.path.abspath(self.excel_path)
+            
+            # Excel 애플리케이션 실행
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Visible = False  # Excel UI를 표시하지 않음
+            
+            # 파일 열기
+            workbook = excel.Workbooks.Open(abs_path)
+            
+            # 변경 없이 저장
+            workbook.Save()
+            
+            # 파일 닫기
+            workbook.Close(True)
+            
+            # Excel 종료
+            excel.Quit()
+            
+            print("[INFO] Excel 애플리케이션으로 파일 저장 완료")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Excel 애플리케이션 저장 중 오류 발생: {str(e)}")
+            return False
+        
