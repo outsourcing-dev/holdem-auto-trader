@@ -21,8 +21,8 @@ class BettingService:
         self.devtools = devtools
         self.main_window = main_window
         self.has_bet_current_round = False
-
-    def place_bet(self, bet_type, current_room_name, game_count, is_trading_active):
+        
+    def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         """
         베팅 타입(P 또는 B)에 따라 적절한 베팅 영역을 클릭합니다.
         중복 클릭 방지를 위해 베팅 상태를 기록합니다.
@@ -32,6 +32,7 @@ class BettingService:
             current_room_name (str): 현재 방 이름
             game_count (int): 현재 게임 카운트
             is_trading_active (bool): 자동 매매 활성화 상태
+            bet_amount (int, optional): 배팅 금액 (None이면 마틴 단계에서 가져옴)
         
         Returns:
             bool: 성공 여부
@@ -86,14 +87,26 @@ class BettingService:
                 EC.presence_of_element_located((By.CSS_SELECTOR, selector))
             )
             
+            # 베팅 금액이 지정되지 않은 경우 마틴 서비스에서 가져오기
+            if bet_amount is None:
+                # 마틴 서비스에서 현재 베팅 금액 가져오기
+                bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
+            
+            # 클릭 횟수 계산 (1,000원당 1회)
+            click_count = max(1, bet_amount // 1000)
+            self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 클릭 횟수: {click_count}회")
+            
             # 요소가 활성화되어 있는지 확인
             is_active = 'active--dc7b3' in bet_element.get_attribute('class')
             if is_active:
                 self.logger.info(f"이미 {bet_type} 영역이 활성화되어 있습니다.")
-            else:
-                # 클릭
+            
+            # 계산된 클릭 횟수만큼 베팅 영역 클릭
+            for i in range(click_count):
                 bet_element.click()
-                self.logger.info(f"{bet_type} 영역 클릭 완료!")
+                time.sleep(0.2)  # 클릭 간 약간의 딜레이
+            
+            self.logger.info(f"{bet_type} 영역 {click_count}회 클릭 완료!")
             
             # 베팅 후 총 베팅 금액 변경 확인 (1초 대기)
             time.sleep(1)
@@ -135,7 +148,7 @@ class BettingService:
             # 오류 로깅
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-
+        
     def reset_betting_state(self):
         """베팅 상태 초기화"""
         self.has_bet_current_round = False

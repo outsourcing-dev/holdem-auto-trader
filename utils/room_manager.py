@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QTableWidgetItem, QCheckBox, QMessageBox
 from PyQt6.QtCore import Qt
 import time
 import re
+import random
 
 ROOM_DATA_FILE = "room_settings.json"
 
@@ -13,12 +14,69 @@ def clean_text(text):
     return text.strip()
 
 class RoomManager:
+    # utils/room_manager.py의 RoomManager 클래스에 추가
     def __init__(self, main_window):
         self.main_window = main_window
         self.devtools = main_window.devtools
         self.rooms_data = []  # 방 데이터를 저장할 리스트 ([{"name": "방이름", "checked": True}, ...])
+        self.room_visit_queue = []  # 방문할 방들의 순서 (랜덤하게 섞인 배열)
         self.load_room_settings()  # 저장된 방 설정 불러오기
-    
+
+    def generate_visit_order(self):
+        """
+        체크된 방들의 방문 순서를 랜덤하게 생성합니다.
+        """
+        checked_rooms = self.get_checked_rooms()
+        if not checked_rooms:
+            return False
+            
+        # 방 이름만 추출
+        room_names = [room['name'] for room in checked_rooms]
+        
+        # 랜덤하게 순서 섞기
+        random.shuffle(room_names)
+        
+        self.room_visit_queue = room_names
+        # 로깅 방식 변경 - logger 대신 print 사용
+        print(f"[INFO] 새로운 방문 순서 생성: {self.room_visit_queue}")
+        return True
+
+    def get_next_room_to_visit(self):
+        """
+        다음에 방문할 방을 큐에서 가져옵니다.
+        큐가 비어있으면 새로운 방문 순서를 생성합니다.
+        
+        Returns:
+            str: 다음 방문할 방 이름 또는 None
+        """
+        # 큐가 비어있으면 새로 생성
+        if not self.room_visit_queue:
+            success = self.generate_visit_order()
+            if not success:
+                return None
+        
+        # 큐에서 첫 번째 방 이름 가져오기
+        if self.room_visit_queue:
+            room_name = self.room_visit_queue.pop(0)
+            print(f"[INFO] 다음 방문 방: {room_name} (남은 방: {len(self.room_visit_queue)}개)")
+            return room_name
+        
+        return None
+
+    def mark_current_room_visited(self, room_name):
+        """
+        현재 방을 방문 처리합니다.
+        방이 큐에 있을 경우 제거합니다.
+        
+        Args:
+            room_name (str): 방문 처리할 방 이름
+        """
+        # 혹시 이 방이 아직 큐에 있다면 제거
+        if room_name in self.room_visit_queue:
+            self.room_visit_queue.remove(room_name)
+            # 로깅 방식 변경
+            print(f"[INFO] '{room_name}'을 방문 큐에서 제거 (남은 방: {len(self.room_visit_queue)}개)")
+
     def get_all_rooms(self):
         """iframe 내에서 방 정보 가져오기"""
         print("[DEBUG] get_all_rooms() 메서드 시작")
@@ -86,6 +144,7 @@ class RoomManager:
                 self.rooms_data.append({"name": name, "checked": False})
                 existing_names.add(name)
     
+    # utils/room_manager.py에 메서드 추가
     def load_rooms_into_table(self, rooms_data=None):
         """방 목록을 테이블에 업데이트"""
         print("[DEBUG] load_rooms_into_table() 실행됨")
@@ -139,7 +198,12 @@ class RoomManager:
             name_item = QTableWidgetItem(room_data["name"])
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # 편집 불가능하게 설정
             room_table.setItem(row, 1, name_item)
-    
+        
+        # 방 목록이 성공적으로 로드되면 버튼 활성화
+        print("[DEBUG] 방 목록 로드 완료, 버튼 활성화")
+        self.main_window.start_button.setEnabled(True)
+        self.main_window.stop_button.setEnabled(True)
+        
     def on_checkbox_changed(self, row, state):
         """체크박스 상태가 변경되었을 때 호출"""
         if 0 <= row < len(self.rooms_data):

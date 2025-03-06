@@ -53,19 +53,19 @@
     },
     {
         "name": "Xclusive스피드 바카라 G",
-        "checked": false
+        "checked": true
     },
     {
         "name": "슈퍼 스피드 바카라",
-        "checked": false
+        "checked": true
     },
     {
         "name": "본자이 스피드 바카라 A",
-        "checked": false
+        "checked": true
     },
     {
         "name": "Xclusive스피드 바카라 A",
-        "checked": false
+        "checked": true
     },
     {
         "name": "라이트닝 바카라",
@@ -73,11 +73,11 @@
     },
     {
         "name": "Xclusive스피드 바카라 B",
-        "checked": false
+        "checked": true
     },
     {
         "name": "코리안 스피드 바카라 A",
-        "checked": false
+        "checked": true
     },
     {
         "name": "스퀴즈 바카라",

@@ -27,28 +27,21 @@ class RoomEntryService:
         self.main_window = main_window
         self.room_manager = room_manager
 
-    # services/room_entry_service.py 수정
-
     def enter_room(self):
         """
-        랜덤으로 선택된 방에 입장합니다.
+        랜덤 순서로 생성된 방 목록에서 다음 방에 입장합니다.
         방 게임 수가 10판 미만이거나 45판 이상이면 다른 방을 찾습니다.
         
         Returns:
             str: 선택된 방 이름 또는 None
         """
         try:
-            # 체크된 방 목록 가져오기
-            checked_rooms = self.room_manager.get_checked_rooms()
+            # 다음에 방문할 방 가져오기
+            room_name = self.room_manager.get_next_room_to_visit()
             
-            # 방 목록 검증
-            if not checked_rooms:
+            if not room_name:
                 QMessageBox.warning(self.main_window, "알림", "자동 매매를 시작할 방을 선택해주세요.")
                 return None
-            
-            # 랜덤 방 선택
-            selected_room = random.choice(checked_rooms)
-            room_name = selected_room['name']
             
             # 로깅
             self.logger.info(f"선택된 방: {room_name}")
@@ -99,7 +92,7 @@ class RoomEntryService:
                 f"선택한 방에 입장할 수 없습니다.\n오류: {str(e)}"
             )
             return None
-
+        
     def _switch_to_iframe(self):
         """
         iframe으로 전환합니다.
