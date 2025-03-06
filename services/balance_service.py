@@ -77,3 +77,41 @@ class BalanceService:
         except Exception as e:
             self.logger.error(f"잔액 정보 업데이트 실패: {e}", exc_info=True)
             return False
+        
+    def get_iframe_balance(self):
+        """
+        iframe 내에서 잔액을 가져옵니다.
+        
+        Returns:
+            int: 현재 잔액 또는 None (실패 시)
+        """
+        try:
+            # iframe으로 전환
+            self.devtools.driver.switch_to.default_content()
+            iframe = self.devtools.driver.find_element("css selector", "iframe")
+            self.devtools.driver.switch_to.frame(iframe)
+            
+            # 잔액 요소 찾기
+            balance_element = self.devtools.driver.find_element("css selector", "span[data-role='balance-label-value']")
+            balance_text = balance_element.text
+            
+            # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+            balance = int(balance_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+            
+            self.logger.info(f"iframe에서 가져온 잔액: {balance:,}원")
+            
+            # 기본 컨텐츠로 돌아가기
+            self.devtools.driver.switch_to.default_content()
+            
+            return balance
+            
+        except Exception as e:
+            self.logger.error(f"iframe에서 잔액 가져오기 실패: {e}", exc_info=True)
+            
+            # 기본 컨텐츠로 돌아가기 시도
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except:
+                pass
+            
+            return None

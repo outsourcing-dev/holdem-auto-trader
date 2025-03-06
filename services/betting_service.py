@@ -3,6 +3,7 @@ import logging
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import time
 
 class BettingService:
     def __init__(self, devtools, main_window, logger=None):
@@ -51,6 +52,22 @@ class BettingService:
             iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
             self.devtools.driver.switch_to.frame(iframe)
             
+            # 베팅 전 현재 총 베팅 금액 확인
+            try:
+                total_bet_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='total-bet-label-value']")
+                before_bet_amount_text = total_bet_element.text
+                self.logger.info(f"베팅 전 총 베팅 금액: {before_bet_amount_text}")
+                
+                # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+                before_bet_amount = int(before_bet_amount_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+                
+                # 새 라운드 시작 시 배팅 금액이 0이 아니면 경고 로그
+                if before_bet_amount != 0:
+                    self.logger.warning(f"새 라운드인데 배팅 금액이 0이 아닙니다: {before_bet_amount}원")
+            except Exception as e:
+                self.logger.warning(f"베팅 전 총 베팅 금액 확인 실패: {e}")
+                before_bet_amount = 0
+            
             # 베팅 대상 선택
             if bet_type == 'P':
                 # Player 영역 찾기 및 클릭
@@ -78,54 +95,81 @@ class BettingService:
                 bet_element.click()
                 self.logger.info(f"{bet_type} 영역 클릭 완료!")
             
-            # 베팅 상태 기록 (중복 베팅 방지)
-            self.has_bet_current_round = True
+            # 베팅 후 총 베팅 금액 변경 확인 (1초 대기)
+            time.sleep(1)
+            try:
+                total_bet_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='total-bet-label-value']")
+                after_bet_amount_text = total_bet_element.text
+                self.logger.info(f"베팅 후 총 베팅 금액: {after_bet_amount_text}")
+                
+                # 숫자만 추출
+                after_bet_amount = int(after_bet_amount_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+                
+                # 베팅 금액이 0에서 변경되었는지 확인 (라운드마다 리셋되는 로직 반영)
+                if after_bet_amount > 0:
+                    self.logger.info(f"실제 베팅이 성공적으로 처리되었습니다. (금액: {after_bet_amount}원)")
+                    is_bet_success = True
+                else:
+                    self.logger.warning(f"베팅 후에도 금액이 0원입니다. 실제 베팅이 이루어지지 않았습니다.")
+                    is_bet_success = False
+                    return False
+            except Exception as e:
+                self.logger.error(f"베팅 후 총 베팅 금액 확인 실패: {e}")
+                is_bet_success = False
+                return False
             
-            # UI 업데이트
-            self.main_window.update_betting_status(
-                room_name=f"{current_room_name} (게임 수: {game_count}, 베팅: {bet_type})"
-            )
+            # 베팅 상태 기록 (실제 베팅이 처리된 경우에만)
+            if is_bet_success:
+                self.has_bet_current_round = True
+                
+                # UI 업데이트
+                self.main_window.update_betting_status(
+                    room_name=f"{current_room_name} (게임 수: {game_count}, 베팅: {bet_type})"
+                )
+                
+                return True
+            else:
+                return False
             
-            return True
-        
         except Exception as e:
             # 오류 로깅
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-    
+
     def reset_betting_state(self):
         """베팅 상태 초기화"""
         self.has_bet_current_round = False
         self.logger.info("베팅 상태 초기화 완료")
         
-    def check_betting_result(self, column, latest_result, current_room_name, result_count):
+    def check_betting_result(self, bet_type, latest_result, current_room_name, result_count):
         """
-        특정 열의 베팅 결과를 확인하고 UI를 업데이트합니다.
+        베팅 결과를 직접 확인합니다.
         
         Args:
-            column (str): 확인할 열 문자 (예: 'B', 'C', 'D')
-            latest_result (str): 최신 게임 결과 ('P', 'B', 'T')
+            bet_type (str): 베팅한 타입 ('P' 또는 'B')
+            latest_result (str): 게임 결과 ('P', 'B', 'T')
             current_room_name (str): 현재 방 이름
             result_count (int): 결과 카운트
-            
+                
         Returns:
             tuple: (is_win, result_count)
         """
         try:
-            from utils.excel_manager import ExcelManager
-            excel_manager = ExcelManager()
-            
-            # 현재 PICK 값 확인 (현재 열의 12행)
-            _, current_pick = excel_manager.check_betting_needed(column)
-            
-            # 결과 확인 (현재 열의 16행)
-            is_win, result_value = excel_manager.check_result(column)
-            
             # 결과 번호 증가
             result_count += 1
             
+            # 게임 결과가 'T'(타이)인 경우 무승부로 처리
+            if latest_result == 'T':
+                self.logger.info(f"게임 결과: 타이(T) - 무승부 처리")
+                result_text = "무승부"
+                is_win = False  # 타이는 일반적으로 패배로 처리
+            else:
+                # 베팅 타입과 게임 결과 비교
+                is_win = (bet_type == latest_result)
+                result_text = "적중" if is_win else "실패"
+                self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}, 승패: {result_text}")
+            
             # UI에 결과 추가
-            result_text = "적중" if is_win else "실패"
             self.main_window.add_betting_result(
                 no=result_count,
                 room_name=current_room_name,
@@ -138,10 +182,8 @@ class BettingService:
                 step_markers={1: marker}  # 현재는 첫 번째 단계만 표시
             )
             
-            self.logger.info(f"베팅 결과 확인 - 열: {column}, PICK: {current_pick}, 결과: {latest_result}, 승패: {result_text}")
-            
             return is_win, result_count
-            
+                
         except Exception as e:
             # 오류 로깅
             self.logger.error(f"베팅 결과 확인 중 오류 발생: {e}", exc_info=True)

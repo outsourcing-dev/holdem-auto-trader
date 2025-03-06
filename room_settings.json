@@ -21,7 +21,7 @@
     },
     {
         "name": "코리안 스피드 바카라 B",
-        "checked": false
+        "checked": true
     },
     {
         "name": "엠퍼러 드래곤 타이거",
@@ -29,7 +29,7 @@
     },
     {
         "name": "본자이 스피드 바카라 B",
-        "checked": false
+        "checked": true
     },
     {
         "name": "바카라 B",
@@ -97,15 +97,15 @@
     },
     {
         "name": "익스클루지브 코리안 스피드 바카라 A",
-        "checked": false
+        "checked": true
     },
     {
         "name": "Xclusive스피드 바카라 F",
-        "checked": false
+        "checked": true
     },
     {
         "name": "코리안 스피드 바카라 C",
-        "checked": false
+        "checked": true
     },
     {
         "name": "바카라 A",
@@ -117,6 +117,6 @@
     },
     {
         "name": "Xclusive스피드 바카라 C",
-        "checked": false
+        "checked": true
     }
 ]

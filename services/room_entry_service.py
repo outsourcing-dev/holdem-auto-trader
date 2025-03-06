@@ -27,12 +27,15 @@ class RoomEntryService:
         self.main_window = main_window
         self.room_manager = room_manager
 
+    # services/room_entry_service.py 수정
+
     def enter_room(self):
         """
         랜덤으로 선택된 방에 입장합니다.
+        방 게임 수가 10판 미만이거나 45판 이상이면 다른 방을 찾습니다.
         
         Returns:
-            str: 선택된 방 이름
+            str: 선택된 방 이름 또는 None
         """
         try:
             # 체크된 방 목록 가져오기
@@ -55,7 +58,36 @@ class RoomEntryService:
 
             # 방 검색 및 입장
             self._search_and_enter_room(room_name)
-
+            
+            # 방 입장 후 게임 수 확인 (2초 대기 후)
+            time.sleep(2)
+            
+            # 게임 상태 확인
+            game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
+            if game_state:
+                game_count = game_state.get('round', 0)
+                self.logger.info(f"방 {room_name}의 현재 게임 수: {game_count}")
+                
+                # 게임 수가 10판 미만이거나 45판 이상인 경우 방 나가기
+                if game_count < 10 or game_count >= 45:
+                    self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
+                    
+                    # 방 나가기
+                    if self.main_window.trading_manager.game_monitoring_service.close_current_room():
+                        self.logger.info("방을 성공적으로 나갔습니다.")
+                        
+                        # 2번 창(카지노 로비)으로 포커싱
+                        window_handles = self.devtools.driver.window_handles
+                        if len(window_handles) >= 2:
+                            self.devtools.driver.switch_to.window(window_handles[1])
+                            self.logger.info("카지노 로비 창으로 포커싱 전환")
+                            
+                        # 재귀적으로 다른 방 찾기
+                        return self.enter_room()
+                    else:
+                        self.logger.error("방 나가기 실패")
+                        return None
+            
             return room_name
 
         except Exception as e:

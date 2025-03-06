@@ -34,7 +34,8 @@ class TradingManager:
         self.current_room_name = ""
         self.game_count = 0
         self.result_count = 0
-        
+        self.current_pick = None  # 현재 베팅 타입 저장 변수 추가
+
         # 서비스 클래스 초기화
         self.betting_service = BettingService(
             devtools=self.devtools,
@@ -75,6 +76,7 @@ class TradingManager:
         # 게임 컨트롤러
         self.game_controller = None
 
+    # utils/trading_manager.py의 start_trading 함수 수정 (간소화 버전)
     def start_trading(self):
         """자동 매매 시작 로직"""
         try:
@@ -105,25 +107,18 @@ class TradingManager:
                 QMessageBox.warning(self.main_window, "오류", "창 개수가 부족합니다. 최소 2개의 창이 필요합니다.")
                 return
 
-            # 메인 창으로 전환하여 잔액 가져오기
-            if not self.main_window.switch_to_main_window():
-                QMessageBox.warning(self.main_window, "오류", "메인 창으로 전환할 수 없습니다.")
-                return
-
-            # 잔액 및 사용자 정보 가져오기
-            balance, username = self.balance_service.get_current_balance_and_username()
+            # iframe에서 잔액 가져오기 (방 입장 후)
+            balance = self.balance_service.get_iframe_balance()
             
             if balance is None:
-                QMessageBox.warning(self.main_window, "오류", "잔액 정보를 찾을 수 없습니다. 먼저 사이트에 로그인하세요.")
+                QMessageBox.warning(self.main_window, "오류", "게임 내 잔액 정보를 찾을 수 없습니다.")
                 return
-                
+            
+            # 사용자 이름은 기본값 사용
+            username = self.main_window.username or "사용자"
+                    
             # UI에 잔액 및 사용자 정보 업데이트
             self.balance_service.update_balance_and_user_data(balance, username)
-
-            # 카지노 창으로 전환
-            if not self.main_window.switch_to_casino_window():
-                QMessageBox.warning(self.main_window, "오류", "카지노 창으로 전환할 수 없습니다.")
-                return
 
             # 자동 매매 활성화
             self.is_trading_active = True
@@ -148,7 +143,7 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
-
+                
     def _validate_trading_prerequisites(self):
         """자동 매매 시작 전 사전 검증"""
         if self.is_trading_active:
@@ -170,36 +165,50 @@ class TradingManager:
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
         try:
-            # 게임 상태 가져오기
-            game_state = self.game_monitoring_service.get_current_game_state()
+            # 직전 상태 저장 (변경 감지용)
+            previous_game_count = self.game_count
+            
+            # 게임 상태 가져오기 (로깅 제거, 변경 감지 후 로깅하도록 수정)
+            game_state = self.game_monitoring_service.get_current_game_state(log_always=False)
             
             if not game_state:
+                # 오류는 여전히 로깅
                 self.logger.error("게임 상태를 가져올 수 없습니다.")
                 return
+            
+            # 현재 게임 카운트 확인
+            current_game_count = game_state.get('round', 0)
+            
+            # 게임 카운트가 변경되었는지 확인 (변경시에만 로깅)
+            if current_game_count != previous_game_count:
+                self.logger.info(f"게임 카운트 변경: {previous_game_count} -> {current_game_count}")
             
             # 게임 결과 처리
             result = self.excel_trading_service.process_game_results(
                 game_state, 
                 self.game_count, 
-                self.current_room_name
+                self.current_room_name,
+                log_on_change=True  # 변경될 때만 로깅
             )
 
             # 결과 처리
             if result[0] is not None:  # last_column이 None이 아닌 경우에만 처리
                 last_column, new_game_count, recent_results, next_pick = result
 
-                # 새로운 게임이 시작되면 베팅 상태 초기화
+                # 새로운 게임이 시작되면 베팅 상태 초기화 및 로깅
                 if new_game_count > self.game_count:
                     self.betting_service.reset_betting_state()
                     self.logger.info(f"새로운 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
 
-                # UI 업데이트
-                self.main_window.update_betting_status(
-                    room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
-                    pick=next_pick
-                )
-                
-                # PICK 값이 P 또는 B일 경우 베팅 실행
+                    # UI 업데이트
+                    self.main_window.update_betting_status(
+                        room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
+                        pick=next_pick
+                    )
+                    # 현재 베팅 타입 저장
+                    self.current_pick = next_pick
+
+                # PICK 값이 P 또는 B일 경우 베팅 실행 (변경 없으면 로깅 안함)
                 if next_pick in ['P', 'B'] and not self.betting_service.has_bet_current_round:
                     # 마틴 서비스에서 현재 베팅 금액 가져오기
                     bet_amount = self.martin_service.get_current_bet_amount()
@@ -212,23 +221,17 @@ class TradingManager:
                         new_game_count, 
                         self.is_trading_active
                     )
-                    
-                    # 베팅 결과 처리는 다음 라운드에서 처리됨
-                    
-                else:
-                    self.logger.info(f"베팅 없음 (PICK 값: {next_pick}, 베팅 상태: {self.betting_service.has_bet_current_round})")
-
+                
                 # 이전 베팅 결과 확인 (베팅 결과가 결정된 후)
-                if new_game_count > self.game_count and self.game_count > 0:
-                    # 이전 열 구하기
-                    prev_col_idx = openpyxl.utils.column_index_from_string(last_column) - 1
-                    if prev_col_idx >= 2:  # B열(인덱스 2) 이상인 경우에만
-                        prev_col = openpyxl.utils.get_column_letter(prev_col_idx)
-                        
+                if new_game_count > self.game_count and self.game_count > 0 and self.betting_service.has_bet_current_round:
+                    # self.current_pick 변수를 사용하여 이전에 베팅한 타입 가져오기
+                    previous_bet_type = self.current_pick
+                    
+                    if previous_bet_type in ['P', 'B']:
                         # 이전 베팅 결과 확인
                         is_win, self.result_count = self.betting_service.check_betting_result(
-                            prev_col, 
-                            game_state.get('latest_result', 'N'),
+                            previous_bet_type,  # 베팅한 타입
+                            game_state.get('latest_result', 'N'),  # 게임 결과
                             self.current_room_name,
                             self.result_count
                         )
@@ -241,7 +244,6 @@ class TradingManager:
                             self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
                             # 방 이동 실행
                             self.change_room()
-
                 # 게임 카운트 및 최근 결과 업데이트
                 self.game_count = new_game_count
                 self.recent_results = recent_results
@@ -254,7 +256,7 @@ class TradingManager:
             self.logger.error(f"게임 상태 분석 중 오류 발생: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
-
+            
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:
@@ -317,14 +319,20 @@ class TradingManager:
                 "중지 오류", 
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다.\n오류: {str(e)}"
             )
-    
+
+    # utils/trading_manager.py의 change_room 메서드 수정
+
     def change_room(self):
         """
         현재 방을 나가고 새로운 방으로 이동합니다.
         """
         try:
             # 현재 방 닫기
-            self.game_monitoring_service.close_current_room()
+            if not self.game_monitoring_service.close_current_room():
+                self.logger.error("현재 방을 닫는데 실패했습니다.")
+                return False
+            
+            # 이 시점에서 카지노 로비 창으로 포커싱이 전환됨
             
             # 새 방 입장
             self.current_room_name = self.room_entry_service.enter_room()
@@ -333,7 +341,7 @@ class TradingManager:
             if not self.current_room_name:
                 self.stop_trading()
                 QMessageBox.warning(self.main_window, "오류", "새 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
-                return
+                return False
             
             # 상태 초기화
             self.game_count = 0
@@ -347,11 +355,12 @@ class TradingManager:
             self.main_window.betting_widget.reset_step_markers()
             
             self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료")
+            return True
             
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")
-
+            return False
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
