@@ -9,6 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.parser import HTMLParser, CasinoParser
 from modules.game_detector import GameDetector
+from utils.game_controller import GameController
 
 class TradingManager:
     def __init__(self, main_window):
@@ -20,6 +21,9 @@ class TradingManager:
         # 게임 상태 감지 모듈 초기화
         self.game_detector = GameDetector()
         
+        # 게임 컨트롤러 초기화 (배팅 결과 확인용)
+        self.game_controller = None
+        
         # 현재 게임 정보 초기화
         self.current_room_name = ""
         self.game_count = 0
@@ -27,6 +31,9 @@ class TradingManager:
         
         # 베팅 상태 초기화
         self.has_bet_current_round = False
+        
+        # 결과 카운트 초기화
+        self.result_count = 0
     
     def start_trading(self):
         """자동 매매 시작"""
@@ -56,6 +63,9 @@ class TradingManager:
         # ✅ 브라우저 실행 확인
         if not self.devtools.driver:
             self.devtools.start_browser()
+            
+        # ✅ 게임 컨트롤러 초기화
+        self.game_controller = GameController(self.devtools.driver)
 
         # ✅ 창 개수 확인
         window_handles = self.devtools.driver.window_handles
@@ -154,6 +164,53 @@ class TradingManager:
 
         except Exception as e:
             print(f"[ERROR] 방 검색 및 클릭 실패: {e}")
+            
+    def check_betting_result(self, column, latest_result):
+        """
+        특정 열의 베팅 결과를 확인하고 UI를 업데이트합니다.
+        
+        Args:
+            column (str): 확인할 열 문자 (예: 'B', 'C', 'D')
+            latest_result (str): 최신 게임 결과 ('P', 'B', 'T')
+            
+        Returns:
+            bool: 베팅 성공 여부
+        """
+        from utils.excel_manager import ExcelManager
+        excel_manager = ExcelManager()
+        
+        try:
+            # 현재 PICK 값 확인 (현재 열의 12행)
+            _, current_pick = excel_manager.check_betting_needed(column)
+            
+            # 결과 확인 (현재 열의 16행)
+            is_win, result_value = excel_manager.check_result(column)
+            
+            # 결과 번호 증가
+            self.result_count += 1
+            
+            # UI에 결과 추가
+            result_text = "적중" if is_win else "실패"
+            self.main_window.add_betting_result(
+                no=self.result_count,
+                room_name=self.current_room_name,
+                step=1,  # 현재는 단계 구현 없음, 향후 마틴 단계 추가 필요
+                result=result_text
+            )
+            
+            # 결과에 따른 마커 표시 (O 또는 X)
+            marker = "O" if is_win else "X"
+            self.main_window.update_betting_status(
+                step_markers={1: marker}  # 현재는 첫 번째 단계만 표시
+            )
+            
+            print(f"[INFO] 베팅 결과 확인 - 열: {column}, PICK: {current_pick}, 결과: {latest_result}, 승패: {result_text}")
+            
+            return is_win
+            
+        except Exception as e:
+            print(f"[ERROR] 베팅 결과 확인 중 오류 발생: {e}")
+            return False
 
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
@@ -192,9 +249,6 @@ class TradingManager:
             if has_new_result:
                 print(f"[INFO] 새로운 게임 결과 감지: {latest_result}")
                 
-                # 새 라운드 시작 시 베팅 상태 초기화
-                self.has_bet_current_round = False
-                
                 # 첫 실행 여부 확인 (self.game_count가 0이면 첫 실행)
                 is_first_run = self.game_count == 0
                 
@@ -203,6 +257,10 @@ class TradingManager:
                     print("[INFO] 첫 실행 감지: 엑셀에 최근 10개 결과 기록")
                     excel_manager.write_filtered_game_results([], actual_results)
                     print(f"[INFO] 엑셀에 게임 결과 {len(actual_results)}개 기록 완료")
+                    
+                    # 마지막으로 입력된 열 계산 (B(2) + results_count - 1)
+                    last_column_idx = 1 + len(actual_results)
+                    last_column = openpyxl.utils.get_column_letter(last_column_idx)
                 else:
                     # 2. 이후 실행: 마지막 열 다음에 결과 추가
                     # 현재 열(마지막으로 결과가 입력된 열 다음) 찾기
@@ -213,22 +271,31 @@ class TradingManager:
                         print(f"[INFO] {current_column}3에 새 결과 '{latest_result}' 기록 중...")
                         excel_manager.write_game_result(current_column, latest_result)
                         print(f"[INFO] {current_column}3에 '{latest_result}' 기록 완료")
+                        
+                        # 2-2. 이전에 배팅한 경우 결과 확인
+                        if self.has_bet_current_round:
+                            print(f"[INFO] 이전에 배팅한 결과 확인 중... (열: {current_column})")
+                            is_win = self.check_betting_result(current_column, latest_result)
+                            
+                            if is_win:
+                                print("[SUCCESS] 베팅 성공! 방 이동이 필요할 수 있습니다.")
+                                # TODO: 승리 시 방 이동 기능 추가
+                            else:
+                                print("[INFO] 베팅 실패. 다음 베팅 계속 진행")
+                            
+                            # 베팅 상태 초기화
+                            self.has_bet_current_round = False
+                        
+                        # 마지막 열 저장
+                        last_column = current_column
                     else:
                         print("[WARNING] 기록할 빈 열을 찾을 수 없음. 엑셀 초기화 필요할 수 있음")
+                        last_column = None
                 
                 # 새 결과를 기록한 후 엑셀 저장
                 save_success = excel_manager.save_with_app()
                 
-                if save_success:
-                    # 마지막으로 입력된 열 찾기
-                    if is_first_run:
-                        # 첫 실행 시: 입력한 결과 수에 따라 마지막 열 계산
-                        last_column_idx = 1 + len(actual_results)  # B(2) + results_count - 1
-                        last_column = openpyxl.utils.get_column_letter(last_column_idx)
-                    else:
-                        # 이후 실행 시: current_column이 마지막 입력된 열
-                        last_column = current_column
-                    
+                if save_success and last_column:
                     # 3. 다음 열의 PICK 값 확인 (마지막 열 + 1의 12행)
                     next_pick = excel_manager.check_next_column_pick(last_column)
                     
