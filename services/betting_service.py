@@ -21,7 +21,8 @@ class BettingService:
         self.devtools = devtools
         self.main_window = main_window
         self.has_bet_current_round = False
-        
+
+    # services/betting_service.py
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         """
         베팅 타입(P 또는 B)에 따라 적절한 베팅 영역을 클릭합니다.
@@ -53,6 +54,38 @@ class BettingService:
             iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
             self.devtools.driver.switch_to.frame(iframe)
             
+            # 현재 게임 상태 확인 - 배팅 가능한지 체크
+            try:
+                # 게임 상태 표시 요소 확인
+                game_status_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "div[data-role='game-status']")
+                game_status_text = game_status_element.text if game_status_element else ""
+                
+                # 배팅 불가능 상태인지 확인
+                betting_disabled = False
+                
+                if "PLEASE WAIT" in game_status_text.upper() or "NO MORE BETS" in game_status_text.upper():
+                    self.logger.info(f"현재 게임 상태가 배팅 불가능 상태입니다: {game_status_text}")
+                    betting_disabled = True
+                
+                # 칩 클릭 가능 상태 확인 (첫 번째 칩 요소로 테스트)
+                try:
+                    chip_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "div.chip--29b81[data-role='chip']")
+                    chip_class = chip_element.get_attribute("class")
+                    if "disabled" in chip_class or not chip_element.is_enabled():
+                        self.logger.info("칩 요소가 비활성화되어 있습니다. 배팅이 불가능합니다.")
+                        betting_disabled = True
+                except Exception as e:
+                    self.logger.warning(f"칩 상태 확인 중 오류: {e}")
+                    # 칩 상태 확인 실패는 배팅 금지 조건으로 처리하지 않음
+                
+                if betting_disabled:
+                    self.logger.info("현재 배팅이 불가능한 상태입니다. 다음 게임을 기다립니다.")
+                    return False
+                    
+            except Exception as e:
+                self.logger.warning(f"게임 상태 확인 중 오류: {e}")
+                # 게임 상태 확인에 실패하더라도 계속 진행 (추후 칩 클릭 시 에러 처리)
+            
             # 베팅 전 현재 총 베팅 금액 확인
             try:
                 total_bet_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='total-bet-label-value']")
@@ -69,6 +102,68 @@ class BettingService:
                 self.logger.warning(f"베팅 전 총 베팅 금액 확인 실패: {e}")
                 before_bet_amount = 0
             
+            # 베팅 금액이 지정되지 않은 경우 마틴 서비스에서 가져오기
+            if bet_amount is None:
+                # 마틴 서비스에서 현재 베팅 금액 가져오기
+                bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
+            
+            self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
+            
+            # 사용 가능한 칩 금액 (큰 단위부터 처리)
+            available_chips = [100000, 25000, 5000, 2000, 1000]
+            
+            # 각 칩별로 필요한 클릭 횟수 계산
+            chip_clicks = {}
+            remaining_amount = bet_amount
+            
+            for chip in available_chips:
+                clicks = remaining_amount // chip
+                if clicks > 0:
+                    chip_clicks[chip] = clicks
+                    remaining_amount %= chip
+            
+            self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 칩별 클릭 횟수: {chip_clicks}")
+            
+            # 계산된 칩별로 클릭 수행
+            total_clicks = sum(chip_clicks.values())
+            if total_clicks == 0:
+                self.logger.warning(f"베팅 금액이 너무 작아 클릭할 칩이 없습니다: {bet_amount}원")
+                # 최소 금액(1000원) 베팅
+                chip_clicks[1000] = 1
+                total_clicks = 1
+            
+            # 각 칩 클릭 시 예외 처리 추가
+            all_chips_clicked = True
+            for chip_value, clicks in chip_clicks.items():
+                try:
+                    # 칩 선택 요소 찾기
+                    chip_selector = f"div.chip--29b81[data-role='chip'][data-value='{chip_value}']"
+                    chip_element = WebDriverWait(self.devtools.driver, 3).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, chip_selector))
+                    )
+                    
+                    # 칩 활성화 상태 확인
+                    if "disabled" in chip_element.get_attribute("class") or not chip_element.is_enabled():
+                        self.logger.warning(f"{chip_value:,}원 칩이 비활성화되어 있습니다. 배팅이 불가능합니다.")
+                        all_chips_clicked = False
+                        break
+                    
+                    # 칩 클릭
+                    for _ in range(clicks):
+                        chip_element.click()
+                        time.sleep(0.1)  # 약간의 딜레이
+                    
+                    self.logger.info(f"{chip_value:,}원 칩 {clicks}회 클릭 완료")
+                except Exception as e:
+                    self.logger.error(f"{chip_value:,}원 칩 클릭 중 오류: {e}")
+                    all_chips_clicked = False
+                    break
+            
+            # 칩 클릭에 실패했으면 배팅 중단
+            if not all_chips_clicked:
+                self.logger.warning("일부 칩 클릭에 실패했습니다. 배팅을 건너뜁니다.")
+                return False
+            
             # 베팅 대상 선택
             if bet_type == 'P':
                 # Player 영역 찾기 및 클릭
@@ -82,31 +177,23 @@ class BettingService:
                 self.logger.error(f"잘못된 베팅 타입: {bet_type}")
                 return False
             
-            # 요소 찾기
-            bet_element = WebDriverWait(self.devtools.driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-            )
-            
-            # 베팅 금액이 지정되지 않은 경우 마틴 서비스에서 가져오기
-            if bet_amount is None:
-                # 마틴 서비스에서 현재 베팅 금액 가져오기
-                bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
-            
-            # 클릭 횟수 계산 (1,000원당 1회)
-            click_count = max(1, bet_amount // 1000)
-            self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 클릭 횟수: {click_count}회")
-            
-            # 요소가 활성화되어 있는지 확인
-            is_active = 'active--dc7b3' in bet_element.get_attribute('class')
-            if is_active:
-                self.logger.info(f"이미 {bet_type} 영역이 활성화되어 있습니다.")
-            
-            # 계산된 클릭 횟수만큼 베팅 영역 클릭
-            for i in range(click_count):
+            try:
+                # 요소 찾기
+                bet_element = WebDriverWait(self.devtools.driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                )
+                
+                # 요소가 활성화되어 있는지 확인
+                is_active = 'active--dc7b3' in bet_element.get_attribute('class')
+                if is_active:
+                    self.logger.info(f"이미 {bet_type} 영역이 활성화되어 있습니다.")
+                
+                # 베팅 영역 클릭
                 bet_element.click()
-                time.sleep(0.2)  # 클릭 간 약간의 딜레이
-            
-            self.logger.info(f"{bet_type} 영역 {click_count}회 클릭 완료!")
+                self.logger.info(f"{bet_type} 영역 클릭 완료!")
+            except Exception as e:
+                self.logger.error(f"베팅 영역 클릭 중 오류: {e}")
+                return False
             
             # 베팅 후 총 베팅 금액 변경 확인 (1초 대기)
             time.sleep(1)

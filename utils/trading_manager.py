@@ -258,7 +258,8 @@ class TradingManager:
                         
                         # 방 이동이 필요한지 확인하고 플래그 설정
                         if self.martin_service.should_change_room():
-                            self.logger.info("배팅 성공으로 방 이동이 필요합니다. 다음 게임 준비 중 이동합니다.")
+                            self.logger.info("배팅 성공으로 방 이동이 필요합니다. 다음 게임 준비 중 이동합니다.10초대기")
+                            time.sleep(10)  # 10초 대기
                             self.should_move_to_next_room = True  # 플래그만 설정, 즉시 이동하지 않음
                 
                 # 게임 카운트 및 최근 결과 업데이트
@@ -354,8 +355,8 @@ class TradingManager:
         현재 방을 나가고 새로운 방으로 이동합니다.
         """
         try:
-            self.logger.info("배팅 성공 후 방 이동 준비 중 (3초 대기)...")
-            time.sleep(3)
+            self.logger.info("배팅 성공 후 방 이동 준비 중 (5초 대기)...")
+            time.sleep(5)
 
             # 방 이동 플래그 초기화
             self.should_move_to_next_room = False

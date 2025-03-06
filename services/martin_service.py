@@ -3,6 +3,7 @@ import logging
 from utils.settings_manager import SettingsManager
 
 class MartinBettingService:
+# services/martin_service.py
     def __init__(self, main_window, logger=None):
         """
         마틴 베팅 서비스 초기화
@@ -20,7 +21,11 @@ class MartinBettingService:
         # 마틴 설정 로드
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         
-        # 현재 마틴 단계
+        # 로그에 설정값 출력
+        self.logger.info(f"마틴 설정 로드 완료 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
+        
+        # 현재 마틴 단계 (0부터 시작, 인덱스로 사용)
+        # 0일 때 self.martin_amounts[0] 값 사용
         self.current_step = 0
         self.consecutive_losses = 0
         self.total_bet_amount = 0
@@ -36,10 +41,15 @@ class MartinBettingService:
         """
         # 단계가 범위를 벗어나면 마지막 단계 금액 사용
         if self.current_step >= len(self.martin_amounts):
+            self.logger.warning(f"마틴 단계({self.current_step})가 최대 단계({len(self.martin_amounts)})를 초과하여 마지막 단계 금액 사용: {self.martin_amounts[-1]:,}원")
             return self.martin_amounts[-1]
         
-        return self.martin_amounts[self.current_step]
+        # 현재 마틴 단계에 해당하는 금액 반환
+        bet_amount = self.martin_amounts[self.current_step]
+        self.logger.info(f"현재 마틴 단계: {self.current_step}, 설정된 마틴 금액 목록: {self.martin_amounts}, 현재 베팅 금액: {bet_amount:,}원")
         
+        return bet_amount
+    
     def process_bet_result(self, is_win):
         """
         베팅 결과에 따라 마틴 단계를 조정합니다.
