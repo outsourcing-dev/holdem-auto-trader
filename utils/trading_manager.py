@@ -150,7 +150,7 @@ class TradingManager:
 
         except Exception as e:
             print(f"[ERROR] 방 검색 및 클릭 실패: {e}")
-            
+
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
         try:
@@ -197,7 +197,12 @@ class TradingManager:
             # TIE를 제외한 결과
             print(f"[INFO] TIE 제외 결과 (정확히 {len(filtered_results)}개): {filtered_results}")
             
-            # 결과를 엑셀에 기록할 경우, filtered_results를 사용
+            # 결과를 엑셀에 기록 (TIE 포함 결과를 기록)
+            if actual_results:
+                from utils.excel_manager import ExcelManager
+                excel_manager = ExcelManager()  # 기본 엑셀 파일 경로 사용
+                excel_manager.write_filtered_game_results(filtered_results, actual_results)
+                print(f"[INFO] 엑셀에 게임 결과 {len(actual_results)}개 기록 완료")
             
             # game_results 정보 출력 (게임 번호와 결과)
             if 'game_results' in game_state:

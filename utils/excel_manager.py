@@ -328,3 +328,56 @@ class ExcelManager:
         """
         # 3행 초기화
         return self.clear_row(3, 'B', 'BW')
+    
+    def write_game_results_sequence(self, results):
+        """
+        게임 결과 시퀀스를 B3부터 순서대로 엑셀에 기록합니다.
+        가장 오래된 결과부터 최신 결과 순으로 입력합니다.
+        먼저 3행 전체를 초기화합니다.
+        
+        Args:
+            results (list): 게임 결과 리스트 (예: ['P', 'B', 'T', 'B', ...])
+            
+        Returns:
+            bool: 성공 여부
+        """
+        try:
+            # 먼저 3행 전체를 초기화 (B열부터 BW열까지)
+            self.clear_row(3, 'B', 'BW')
+            
+            # 엑셀 워크북 로드
+            workbook = openpyxl.load_workbook(self.excel_path)
+            
+            # 활성화된 시트 선택
+            sheet = workbook.active
+            
+            # 결과 시퀀스 기록 (B3부터 시작)
+            for idx, result in enumerate(results):
+                col_letter = openpyxl.utils.get_column_letter(2 + idx)  # B(2)부터 시작
+                sheet[f"{col_letter}3"] = result
+                print(f"[INFO] {col_letter}3에 '{result}' 기록")
+            
+            # 변경 사항 저장
+            workbook.save(self.excel_path)
+            workbook.close()
+            
+            print(f"[INFO] 총 {len(results)}개의 결과를 엑셀에 기록했습니다.")
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] 게임 결과 시퀀스 기록 중 오류 발생: {str(e)}")
+            return False
+
+    def write_filtered_game_results(self, filtered_results, actual_results):
+        """
+        TIE를 포함한 실제 사용 결과를 엑셀에 기록합니다.
+        
+        Args:
+            filtered_results (list): TIE를 제외한 결과 리스트 (P, B만 포함)
+            actual_results (list): TIE를 포함한 실제 사용 결과 리스트
+            
+        Returns:
+            bool: 성공 여부
+        """
+        # actual_results를 엑셀에 기록 (가장 오래된 순서대로)
+        return self.write_game_results_sequence(actual_results)
