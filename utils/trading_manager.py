@@ -150,9 +150,7 @@ class TradingManager:
 
         except Exception as e:
             print(f"[ERROR] 방 검색 및 클릭 실패: {e}")
-        finally:
-            self.devtools.driver.switch_to.default_content()  # 다시 메인 프레임으로 이동
-
+            
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
         try:
@@ -173,22 +171,35 @@ class TradingManager:
             self.game_count = game_state['round']
             self.recent_results = game_state.get('recent_results', [])
             
+            # TIE를 제외한 결과 가져오기 (필터링된 결과)
+            filtered_results = game_state.get('filtered_results', [])
+            
+            # TIE 포함 실제 사용할 결과 (TIE 개수에 따라 동적으로 조정됨)
+            actual_results = game_state.get('actual_results', [])
+            tie_count = game_state.get('tie_count', 0)
+            total_needed = game_state.get('total_needed', 0)
+            
             print(f"\n[INFO] 현재 게임 수: {self.game_count}")
             if game_state.get('latest_game_coords'):
                 print(f"[INFO] 최신 게임 좌표: ({game_state['latest_game_coords'][0]}, {game_state['latest_game_coords'][1]})")
             print(f"[INFO] 최신 결과: {game_state.get('latest_result', 'None')}")
             
-            # 최근 10게임 결과 (또는 전체 결과)
-            recent_10 = self.recent_results[-10:] if len(self.recent_results) > 10 else self.recent_results
-            print(f"[INFO] 최근 게임 결과 (최대 10개): {recent_10}")
+            # TIE 개수와 필요한 총 결과 개수 출력
+            print(f"[INFO] TIE 개수: {tie_count}, 필요한 총 결과 개수: {total_needed}")
             
-            # P, B, T 각각의 개수 계산
-            p_count = self.recent_results.count('P')
-            b_count = self.recent_results.count('B')
-            t_count = self.recent_results.count('T')
-            print(f"[INFO] 결과 통계: Player={p_count}, Banker={b_count}, Tie={t_count}")
+            # 최근 결과 (TIE 포함)
+            recent_display = self.recent_results[-10:] if len(self.recent_results) > 10 else self.recent_results
+            print(f"[INFO] 최근 게임 결과 (최대 10개): {recent_display}")
             
-            # game_results 정보 출력 (게임 번호와 결과) - 여기에 추가
+            # TIE 포함 실제 사용할 결과 (10 + TIE 개수)
+            print(f"[INFO] 실제 사용 결과 (TIE 포함, {len(actual_results)}개): {actual_results}")
+            
+            # TIE를 제외한 결과
+            print(f"[INFO] TIE 제외 결과 (정확히 {len(filtered_results)}개): {filtered_results}")
+            
+            # 결과를 엑셀에 기록할 경우, filtered_results를 사용
+            
+            # game_results 정보 출력 (게임 번호와 결과)
             if 'game_results' in game_state:
                 print("\n[INFO] 게임 번호별 결과:")
                 for game_number, result in game_state['game_results'][-10:]:  # 최근 10개만 출력
@@ -207,12 +218,6 @@ class TradingManager:
             print(f"[ERROR] 게임 상태 분석 중 오류 발생: {e}")
             import traceback
             traceback.print_exc()
-        finally:
-            # 다시 메인 프레임으로 이동
-            try:
-                self.devtools.driver.switch_to.default_content()
-            except:
-                pass
             
     def close_room(self):
         """✅ 현재 열린 방을 종료"""

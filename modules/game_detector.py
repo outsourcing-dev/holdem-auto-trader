@@ -55,7 +55,6 @@ class GameDetector:
                 element_str = str(element)
                 
                 # 정규 표현식으로 name 속성 추출 시도
-                import re
                 name_match = re.search(r'name="([^"]+)"', element_str)
                 
                 if name_match:
@@ -98,7 +97,7 @@ class GameDetector:
             "recent_results": recent_results,
             "game_results": game_results
         }
-        
+
     def detect_game_state(self, html_content):
         """
         현재 게임 상태를 감지합니다.
@@ -127,8 +126,32 @@ class GameDetector:
             if latest_result_type in ['P', 'B']:
                 self.pb_history.append(latest_result_type)
         
-        # 최근 10게임 결과 가져오기
-        recent_10_results = game_info["recent_results"][-10:] if game_info["recent_results"] else []
+        # 최근 결과 가져오기
+        recent_results = game_info["recent_results"] if game_info["recent_results"] else []
+        
+        # TIE를 제외한 결과를 정확히 10개 얻기 위한 처리
+        desired_pb_count = 10  # P와 B를 합쳐 10개 필요
+        
+        # 결과에서 TIE를 제외한 P/B만의 결과 필터링
+        filtered_results = []
+        tie_count = 0
+        total_needed = 0
+        
+        # 뒤에서부터(최신 결과부터) 개수 세기
+        for result in reversed(recent_results):
+            if result in ['P', 'B']:
+                filtered_results.insert(0, result)  # 최신 결과를 앞에 추가
+            elif result == 'T':
+                tie_count += 1
+            
+            total_needed += 1
+            
+            # TIE 제외 결과가 10개면 충분
+            if len(filtered_results) >= desired_pb_count:
+                break
+        
+        # 원본 데이터에서 total_needed만큼만 가져와서 다시 필터링
+        actual_results = recent_results[-total_needed:] if total_needed <= len(recent_results) else recent_results
         
         # 최신 게임의 좌표 정보
         latest_coords = None
@@ -140,9 +163,14 @@ class GameDetector:
             'betting_available': betting_available,
             'latest_result': latest_result_type,
             'latest_game_coords': latest_coords,
-            'recent_results': recent_10_results
+            'recent_results': recent_results,             # 모든 결과(TIE 포함)
+            'filtered_results': filtered_results,         # TIE를 제외한 결과 (최대 10개)
+            'actual_results': actual_results,             # TIE 포함 10+tie_count개 결과
+            'tie_count': tie_count,                       # TIE 개수
+            'total_needed': total_needed,                 # 필요한 총 결과 개수
+            'game_results': game_info.get("game_results", [])  # 게임 번호별 결과
         }
-
+        
     def record_pb(self, result):
         """
         P(플레이어) 또는 B(뱅커)만 기록 (T 제외)
