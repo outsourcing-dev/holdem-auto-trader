@@ -18,8 +18,16 @@ class UIUpdater:
             self.main_window.remaining_seconds -= 1
             self.update_remaining_time_display()
         else:
-            self.main_window.timer.stop()
-    
+            # 자동 매매 활성화 상태인지 확인
+            if hasattr(self.main_window, 'trading_manager') and self.main_window.trading_manager.is_trading_active:
+                # 게임 분석 실행
+                self.main_window.trading_manager.analyze_current_game()
+                # 다시 타이머 설정 (2초 간격으로 계속 모니터링)
+                self.set_remaining_time(0, 0, 2)
+            else:
+                # 자동 매매가 활성화되지 않은 경우 타이머 정지
+                self.main_window.timer.stop()
+            
     def update_remaining_time_display(self):
         """남은 시간 표시 업데이트"""
         hours = self.main_window.remaining_seconds // 3600

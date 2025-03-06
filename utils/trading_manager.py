@@ -1,10 +1,13 @@
+# utils/trading_manager.py
 import random
 import time
 from PyQt6.QtWidgets import QMessageBox
+from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils.parser import HTMLParser
+from utils.parser import HTMLParser, CasinoParser
+from modules.game_detector import GameDetector
 
 class TradingManager:
     def __init__(self, main_window):
@@ -12,6 +15,14 @@ class TradingManager:
         self.devtools = main_window.devtools
         self.room_manager = main_window.room_manager
         self.is_trading_active = False
+        
+        # 게임 상태 감지 모듈 초기화
+        self.game_detector = GameDetector()
+        
+        # 현재 게임 정보 초기화
+        self.current_room_name = ""
+        self.game_count = 0
+        self.recent_results = []
     
     def start_trading(self):
         """자동 매매 시작"""
@@ -91,13 +102,17 @@ class TradingManager:
         # ✅ 남은 시간 설정 (임시: 1시간)
         self.main_window.set_remaining_time(1, 0, 0)
 
-        # ✅ 자동 매매 루프 시작
+        # ✅ 게임 정보 초기 분석
+        self.analyze_current_game()
+
+        # ✅ 자동 매매 루프 시작 (여기서는 결과 출력만 시연)
         self.run_auto_trading()
 
     def enter_room_search_and_click(self, checked_rooms):
         """✅ 랜덤으로 체크된 방을 선택하여 검색 입력 후 첫 번째 결과 클릭"""
         selected_room = random.choice(checked_rooms)
         room_name = selected_room['name']
+        self.current_room_name = room_name
         print(f"[INFO] 선택된 방: {room_name}")
 
         try:
@@ -128,15 +143,77 @@ class TradingManager:
             if len(new_window_handles) > 1:
                 self.devtools.driver.switch_to.window(new_window_handles[-1])
                 print("[INFO] 새로운 방으로 포커스 변경 완료!")
-                time.sleep(10)
-                # ✅ 방 종료 버튼 클릭
-                self.close_room()
+                time.sleep(5)  # 게임 로딩 대기
+                
+                # UI 업데이트
+                self.main_window.update_betting_status(room_name=room_name)
 
         except Exception as e:
             print(f"[ERROR] 방 검색 및 클릭 실패: {e}")
         finally:
             self.devtools.driver.switch_to.default_content()  # 다시 메인 프레임으로 이동
 
+    def analyze_current_game(self):
+        """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
+        try:
+            print("[INFO] 현재 게임 상태 분석 중...")
+            
+            # iframe으로 전환
+            self.devtools.driver.switch_to.default_content()
+            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+            self.devtools.driver.switch_to.frame(iframe)
+            
+            # 페이지 소스 가져오기
+            html_content = self.devtools.driver.page_source
+            
+            # 게임 상태 감지
+            game_state = self.game_detector.detect_game_state(html_content)
+            
+            # 게임 수와 최근 결과 저장
+            self.game_count = game_state['round']
+            self.recent_results = game_state.get('recent_results', [])
+            
+            print(f"\n[INFO] 현재 게임 수: {self.game_count}")
+            if game_state.get('latest_game_coords'):
+                print(f"[INFO] 최신 게임 좌표: ({game_state['latest_game_coords'][0]}, {game_state['latest_game_coords'][1]})")
+            print(f"[INFO] 최신 결과: {game_state.get('latest_result', 'None')}")
+            
+            # 최근 10게임 결과 (또는 전체 결과)
+            recent_10 = self.recent_results[-10:] if len(self.recent_results) > 10 else self.recent_results
+            print(f"[INFO] 최근 게임 결과 (최대 10개): {recent_10}")
+            
+            # P, B, T 각각의 개수 계산
+            p_count = self.recent_results.count('P')
+            b_count = self.recent_results.count('B')
+            t_count = self.recent_results.count('T')
+            print(f"[INFO] 결과 통계: Player={p_count}, Banker={b_count}, Tie={t_count}")
+            
+            # game_results 정보 출력 (게임 번호와 결과) - 여기에 추가
+            if 'game_results' in game_state:
+                print("\n[INFO] 게임 번호별 결과:")
+                for game_number, result in game_state['game_results'][-10:]:  # 최근 10개만 출력
+                    print(f"  게임 #{game_number}: {result}")
+            
+            # 사용자 인터페이스 업데이트
+            self.main_window.update_betting_status(
+                room_name=f"{self.current_room_name} (게임 수: {self.game_count})",
+                pick=game_state.get('latest_result', '')
+            )
+            
+            # 2초마다 자동으로 분석 수행
+            self.main_window.set_remaining_time(0, 0, 2)  # 2초 타이머 설정
+            
+        except Exception as e:
+            print(f"[ERROR] 게임 상태 분석 중 오류 발생: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # 다시 메인 프레임으로 이동
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except:
+                pass
+            
     def close_room(self):
         """✅ 현재 열린 방을 종료"""
         try:
@@ -159,22 +236,16 @@ class TradingManager:
         except Exception as e:
             print(f"[ERROR] 방 종료 실패: {e}")
 
-
-
     def run_auto_trading(self):
-        """자동 매매 로직"""
+        """자동 매매 루프"""
         if not self.is_trading_active:
             return
                         
         print("[INFO] 자동 매매 진행 중...")
         
-        # 체크된 방 목록 확인
-        checked_rooms = self.room_manager.get_checked_rooms()
-        print(f"[INFO] 매매 진행할 방 {len(checked_rooms)}개")
+        # 초기 게임 분석
+        self.analyze_current_game()
         
-        # 예시: 첫 번째 체크된 방 정보 UI에 표시
-        if checked_rooms:
-            first_room = checked_rooms[0]
-            self.main_window.update_betting_status(room_name=first_room["name"])
-            print(f"[INFO] 현재 진행 중인 방: {first_room['name']}")
-
+        # 게임 모니터링 루프 설정 (게임이 약 10초 간격으로 빠르게 진행됨)
+        monitoring_interval = 2  # 2초마다 체크하여 변화 감지
+        self.main_window.set_remaining_time(0, 0, monitoring_interval)

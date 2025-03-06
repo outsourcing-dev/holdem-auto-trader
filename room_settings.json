@@ -13,7 +13,7 @@
     },
     {
         "name": "드래곤 타이거",
-        "checked": true
+        "checked": false
     },
     {
         "name": "Xclusive스피드 바카라 I",
@@ -49,7 +49,7 @@
     },
     {
         "name": "코리안 스피드 바카라 D",
-        "checked": false
+        "checked": true
     },
     {
         "name": "Xclusive스피드 바카라 G",
