@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("홀덤 자동 매매")
+        self.setWindowTitle("홀덤 자동 배팅")
         self.setGeometry(100, 100, 1200, 700)  # 창 크기 확대
         self.setObjectName("MainWindow")
         
@@ -92,10 +92,10 @@ class MainWindow(QMainWindow):
         site_button_layout.addWidget(self.site3_button)
         self.left_panel.addLayout(site_button_layout)
 
-        # 자동 매매 시작 / 종료 버튼
+        # 자동 배팅 시작 / 종료 버튼
         start_stop_layout = QHBoxLayout()
-        self.start_button = QPushButton("🔵 자동 매매 시작")
-        self.stop_button = QPushButton("🔴 자동 매매 종료")
+        self.start_button = QPushButton("🔵 자동 배팅 시작")
+        self.stop_button = QPushButton("🔴 자동 배팅 종료")
 
         self.start_button.clicked.connect(self.start_trading)
         self.stop_button.clicked.connect(self.stop_trading)
