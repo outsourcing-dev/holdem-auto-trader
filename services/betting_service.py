@@ -85,7 +85,8 @@ class BettingService:
                     return False
                     
             except Exception as e:
-                self.logger.warning(f"게임 상태 확인 중 오류: {e}")
+                pass
+                # self.logger.warning(f"게임 상태 확인 중 오류: {e}")
                 # 게임 상태 확인에 실패하더라도 계속 진행 (추후 칩 클릭 시 에러 처리)
             
             # 베팅 전 현재 총 베팅 금액 확인
@@ -97,13 +98,18 @@ class BettingService:
                 # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
                 before_bet_amount = int(before_bet_amount_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
                 
-                # 새 라운드 시작 시 배팅 금액이 0이 아니면 경고 로그
-                if before_bet_amount != 0:
+                # "지난 우승" 표시 확인
+                last_win_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='total-bet-label-title']")
+                is_last_win = "지난 우승" in last_win_element.text if last_win_element else False
+                
+                # 새 라운드 시작 시 배팅 금액이 0이 아니면서 "지난 우승"이 아닌 경우에만 경고 로그
+                if before_bet_amount != 0 and not is_last_win:
                     self.logger.warning(f"새 라운드인데 배팅 금액이 0이 아닙니다: {before_bet_amount}원")
+                elif is_last_win:
+                    self.logger.info(f"지난 우승 금액 감지: {before_bet_amount}원")
             except Exception as e:
                 self.logger.warning(f"베팅 전 총 베팅 금액 확인 실패: {e}")
                 before_bet_amount = 0
-            
             # 베팅 금액이 지정되지 않은 경우 마틴 서비스에서 가져오기
             if bet_amount is None:
                 # 마틴 서비스에서 현재 베팅 금액 가져오기
@@ -179,16 +185,14 @@ class BettingService:
                         return False
                     
                     # 칩 선택 (한 번만 클릭)
-                    time.sleep(0.5)  # 클릭 전 딜레이
                     chip_element.click()
-                    time.sleep(0.5)  # 클릭 후 딜레이
+                    time.sleep(0.1)  # 클릭 후 딜레이
                     self.logger.info(f"{chip_value:,}원 칩 선택 완료")
                     
                     # 베팅 영역 여러 번 클릭
                     for i in range(clicks):
-                        time.sleep(0.5)  # 클릭 전 딜레이
                         bet_element.click()
-                        time.sleep(0.5)  # 클릭 후 딜레이
+                        time.sleep(0.1)  # 클릭 후 딜레이
                         self.logger.info(f"{bet_type} 영역 {i+1}/{clicks}번째 클릭 완료")
                     
                 except Exception as e:
@@ -196,7 +200,7 @@ class BettingService:
                     return False
             
             # 베팅 후 총 베팅 금액 변경 확인 (1.5초 대기)
-            time.sleep(1.5)
+            time.sleep(1)
             try:
                 total_bet_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='total-bet-label-value']")
                 after_bet_amount_text = total_bet_element.text
@@ -226,7 +230,8 @@ class BettingService:
                 
                 # UI 업데이트
                 self.main_window.update_betting_status(
-                    room_name=f"{current_room_name} (게임 수: {game_count}, 베팅: {bet_type})"
+                    room_name=f"{current_room_name} (게임 수: {game_count}, 베팅: {bet_type})",
+                    pick=bet_type  # PICK 값 직접 설정
                 )
                 
                 return True
@@ -250,7 +255,7 @@ class BettingService:
         """현재 라운드에 베팅했는지 확인"""
         return self.has_bet_current_round and self.current_bet_round == current_round
     
-    def check_betting_result(self, bet_type, latest_result, current_room_name, result_count):
+    def check_betting_result(self, bet_type, latest_result, current_room_name, result_count, step=None):
         """
         베팅 결과를 직접 확인합니다.
         
@@ -259,11 +264,17 @@ class BettingService:
             latest_result (str): 게임 결과 ('P', 'B', 'T')
             current_room_name (str): 현재 방 이름
             result_count (int): 결과 카운트
+            step (int, optional): 현재 마틴 단계 (1부터 시작)
                 
         Returns:
-            tuple: (is_win, result_count)
+            tuple: (result_status, result_count)
+            - result_status: 'win'(승리), 'lose'(패배), 'tie'(무승부)
         """
         try:
+            # 마틴 단계가 None이면 현재 단계 가져오기
+            if step is None:
+                step = self.main_window.trading_manager.martin_service.current_step + 1  # 0부터 시작하므로 +1
+
             # 결과 번호 증가
             result_count += 1
             
@@ -271,33 +282,40 @@ class BettingService:
             if latest_result == 'T':
                 self.logger.info(f"게임 결과: 타이(T) - 무승부 처리")
                 result_text = "무승부"
-                is_win = False  # 타이는 일반적으로 패배로 처리
+                result_status = "tie"  # 타이는 무승부로 처리
+                marker = "T"
             else:
                 # 베팅 타입과 게임 결과 비교
-                is_win = (bet_type == latest_result)
-                result_text = "적중" if is_win else "실패"
-                self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}, 승패: {result_text}")
+                if bet_type == latest_result:
+                    result_status = "win"
+                    result_text = "적중"
+                    marker = "O"
+                else:
+                    result_status = "lose"
+                    result_text = "실패"
+                    marker = "X"
+                self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}, 승패: {result_text}, 단계: {step}")
             
             # UI에 결과 추가
             self.main_window.add_betting_result(
                 no=result_count,
                 room_name=current_room_name,
-                step=1,  # 현재는 단계 구현 없음, 향후 마틴 단계 추가 필요
+                step=step,
                 result=result_text
             )
             
-            marker = "O" if is_win else "X"
+            # 해당 단계에 마커 설정
             self.main_window.update_betting_status(
-                step_markers={1: marker}  # 현재는 첫 번째 단계만 표시
+                step_markers={step: marker}
             )
             
-            return is_win, result_count
+            return result_status, result_count
                 
         except Exception as e:
             # 오류 로깅
             self.logger.error(f"베팅 결과 확인 중 오류 발생: {e}", exc_info=True)
-            return False, result_count
-        
+            return "error", result_count
+
     def get_last_bet(self):
         """마지막 베팅 정보 반환"""
         if not self.has_bet_current_round:
@@ -306,3 +324,23 @@ class BettingService:
             'round': self.current_bet_round,
             'type': self.last_bet_type
         }
+        
+    def update_balance_after_bet(self):
+        """베팅 후 잔액 변경 확인 및 UI 업데이트"""
+        try:
+            # iframe 내에서 잔액 가져오기
+            balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='balance-label-value']")
+            balance_text = balance_element.text
+            
+            # 숫자만 추출
+            current_balance = int(balance_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+            
+            # 현재 금액 업데이트
+            self.main_window.update_user_data(current_amount=current_balance)
+            
+            self.logger.info(f"현재 잔액 업데이트: {current_balance:,}원")
+            
+            return current_balance
+        except Exception as e:
+            self.logger.error(f"잔액 업데이트 실패: {e}")
+            return None

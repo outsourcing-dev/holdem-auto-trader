@@ -50,13 +50,13 @@ class MartinBettingService:
         
         return bet_amount
     
-    def process_bet_result(self, is_win):
+    def process_bet_result(self, result_status):
         """
         베팅 결과에 따라 마틴 단계를 조정합니다.
         
         Args:
-            is_win (bool): 베팅 성공 여부
-            
+            result_status (str): 'win'(승리), 'lose'(패배), 'tie'(무승부)
+                
         Returns:
             tuple: (현재 단계, 연속 패배 수)
         """
@@ -64,13 +64,16 @@ class MartinBettingService:
         current_bet = self.get_current_bet_amount()
         self.total_bet_amount += current_bet
         
-        if is_win:
+        if result_status == "win":
             # 승리 시 마틴 단계 초기화
             self.current_step = 0
             self.consecutive_losses = 0
             self.win_count += 1
             self.logger.info(f"베팅 성공: 마틴 단계 초기화 (금액: {current_bet:,}원)")
-        else:
+        elif result_status == "tie":
+            # 무승부 시 마틴 단계 유지 (변경 없음)
+            self.logger.info(f"베팅 무승부: 마틴 단계 유지 (금액: {current_bet:,}원)")
+        else:  # "lose"
             # 패배 시 다음 마틴 단계로 진행
             self.consecutive_losses += 1
             self.current_step += 1
@@ -89,7 +92,7 @@ class MartinBettingService:
         )
         
         return self.current_step, self.consecutive_losses
-        
+
     def should_change_room(self):
         """
         방 이동이 필요한지 확인합니다.

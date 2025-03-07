@@ -111,13 +111,12 @@ class TradingManager:
                 QMessageBox.warning(self.main_window, "오류", "창 개수가 부족합니다. 최소 2개의 창이 필요합니다.")
                 return
 
-            # iframe에서 잔액 가져오기 (방 입장 후)
             balance = self.balance_service.get_iframe_balance()
-            
+
             if balance is None:
                 QMessageBox.warning(self.main_window, "오류", "게임 내 잔액 정보를 찾을 수 없습니다.")
                 return
-            
+
             # 사용자 이름은 기본값 사용
             username = self.main_window.username or "사용자"
                     
@@ -215,8 +214,9 @@ class TradingManager:
                     
                     # 7. PICK 값에 따른 베팅 실행 (방 이동 예정이 아닐 때만)
                     if not self.should_move_to_next_room and next_pick in ['P', 'B'] and not self.betting_service.has_bet_current_round:
+                        self.main_window.update_betting_status(pick=next_pick)
                         self._place_bet(next_pick, new_game_count)
-                    
+
                     # 8. 게임 카운트 및 최근 결과 업데이트
                     self.game_count = new_game_count
                     self.recent_results = recent_results
@@ -242,21 +242,29 @@ class TradingManager:
             if bet_type in ['P', 'B'] and latest_result:
                 self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}")
                 
+                # 현재 마틴 단계 가져오기
+                current_step = self.martin_service.current_step + 1  # 0부터 시작하므로 +1
+                
                 # 베팅 결과 확인
-                is_win, self.result_count = self.betting_service.check_betting_result(
+                result_status, self.result_count = self.betting_service.check_betting_result(
                     bet_type,
                     latest_result,
                     self.current_room_name,
-                    self.result_count
+                    self.result_count,
+                    step=current_step
                 )
                 
                 # 마틴 베팅 단계 업데이트
-                self.martin_service.process_bet_result(is_win)
+                self.martin_service.process_bet_result(result_status)
                 
-                # 방 이동이 필요한지 확인
-                if self.martin_service.should_change_room():
+                # 현재 잔액 업데이트 (베팅 결과 확인 후)
+                # betting_service가 아닌 balance_service 사용
+                self.balance_service.update_balance_after_bet_result()
+                
+                # 방 이동이 필요한지 확인 (승리 시에만)
+                if result_status == "win" and self.martin_service.should_change_room():
                     self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
-                    time.sleep(2)  # 10초 대기
+                    time.sleep(1)  # 2초 대기
                     self.should_move_to_next_room = True
         
         # 베팅 상태 초기화 (새 라운드 번호로)
@@ -268,12 +276,15 @@ class TradingManager:
             room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
             pick=self.current_pick
         )
-
+        
     def _place_bet(self, pick_value, game_count):
         """베팅 실행"""
         # 마틴 서비스에서 현재 베팅 금액 가져오기
         bet_amount = self.martin_service.get_current_bet_amount()
         self.logger.info(f"마틴 단계 {self.martin_service.current_step + 1}/{self.martin_service.martin_count}: {bet_amount:,}원 베팅")
+        
+        # 베팅 전에 PICK 값 UI 업데이트
+        self.main_window.update_betting_status(pick=pick_value)
         
         # 베팅 실행
         bet_success = self.betting_service.place_bet(
@@ -284,7 +295,16 @@ class TradingManager:
         )
         
         # 현재 베팅 타입 저장
-        self.current_pick = pick_value      
+        self.current_pick = pick_value
+        
+        # 베팅 성공 여부와 관계없이 PICK 값을 UI에 표시
+        if not bet_success:
+            self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {pick_value}")
+            self.main_window.update_betting_status(pick=pick_value)
+        
+        return bet_success
+
+         
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:

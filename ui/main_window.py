@@ -16,7 +16,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("홀덤 자동 배팅")
-        self.setGeometry(100, 100, 1200, 700)  # 창 크기 확대
+        self.setGeometry(50, 0, 1800, 900)  # 창 크기 확대
         self.setObjectName("MainWindow")
         
 

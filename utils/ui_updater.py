@@ -44,8 +44,10 @@ class UIUpdater:
             self.main_window.header.update_user_info(username)
             
         if start_amount is not None:
-            self.main_window.start_amount = start_amount
-            self.main_window.header.update_start_amount(start_amount)
+            # 시작 금액은 처음 설정된 경우에만 적용 (이미 값이 있으면 유지)
+            if self.main_window.start_amount == 0:
+                self.main_window.start_amount = start_amount
+                self.main_window.header.update_start_amount(start_amount)
             
         if current_amount is not None:
             self.main_window.current_amount = current_amount
