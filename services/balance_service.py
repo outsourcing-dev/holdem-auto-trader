@@ -76,7 +76,7 @@ class BalanceService:
             )
             
             # 목표 금액 확인 - 중앙 집중식 체커 사용
-            self.main_window.target_checker.check_target_amount(balance, source="최초 입장")
+            self.check_target_amount(balance, source="최초 입장")
             
             return True
                 
@@ -150,7 +150,7 @@ class BalanceService:
             self.main_window.update_user_data(current_amount=balance)
             
             # 목표 금액 확인하여 도달 시 자동 매매 중지
-            self.main_window.target_checker.check_target_amount(balance, source="베팅 결과")
+            self.check_target_amount(balance, source="베팅 결과")
 
             # 기본 컨텐츠로 돌아가기
             self.devtools.driver.switch_to.default_content()
@@ -168,6 +168,7 @@ class BalanceService:
             
             return None
         
+    # services/balance_service.py의 check_target_amount 메서드 수정
     def check_target_amount(self, current_balance, source="BalanceService"):
         """
         현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
@@ -183,8 +184,9 @@ class BalanceService:
         if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
             return False
         
-        # 목표 금액 가져오기
+        # 목표 금액 항상 새로 가져오기 (캐시된 값 대신 파일에서 직접 읽기)
         target_amount = self.settings_manager.get_target_amount()
+        self.logger.info(f"[{source}] 현재 목표 금액: {target_amount:,}원, 현재 잔액: {current_balance:,}원")
         
         # 목표 금액이 설정되어 있고(0보다 큼), 현재 잔액이 목표 금액 이상이면
         if target_amount > 0 and current_balance >= target_amount:

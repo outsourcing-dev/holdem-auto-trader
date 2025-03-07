@@ -93,7 +93,13 @@ class TradingManager:
             
             # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드
             self.settings_manager = SettingsManager()
-            
+            if hasattr(self, 'balance_service') and hasattr(self.balance_service, 'settings_manager'):
+                self.balance_service.settings_manager = SettingsManager()
+                
+                # 현재 목표 금액 로그 출력
+                target_amount = self.balance_service.settings_manager.get_target_amount()
+                self.logger.info(f"[INFO] 현재 설정된 목표 금액: {target_amount:,}원")
+
             # 마틴 서비스의 설정 매니저 갱신
             if hasattr(self, 'martin_service'):
                 self.martin_service.settings_manager = self.settings_manager
@@ -152,7 +158,7 @@ class TradingManager:
             )
             
             # 중요: 최초 입장 시 목표 금액 체크 추가
-            if self.target_checker.check_target_amount(balance, source="최초 입장"):
+            if self.balance_service.check_target_amount(balance):
                 self.logger.info("목표 금액에 이미 도달하여 자동 매매를 시작하지 않습니다.")
                 return
             

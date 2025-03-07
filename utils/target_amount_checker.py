@@ -49,3 +49,4 @@ class TargetAmountChecker:
             return True
                 
         return False
+    
