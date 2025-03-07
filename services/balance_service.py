@@ -168,12 +168,13 @@ class BalanceService:
             
             return None
         
-    def check_target_amount(self, current_balance):
+    def check_target_amount(self, current_balance, source="BalanceService"):
         """
         현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
         
         Args:
             current_balance (int): 현재 잔액
+            source (str): 호출 출처 (로깅용)
         
         Returns:
             bool: 목표 금액 도달 여부
@@ -187,7 +188,7 @@ class BalanceService:
         
         # 목표 금액이 설정되어 있고(0보다 큼), 현재 잔액이 목표 금액 이상이면
         if target_amount > 0 and current_balance >= target_amount:
-            self.logger.info(f"목표 금액({target_amount:,}원)에 도달했습니다! 현재 잔액: {current_balance:,}원")
+            self.logger.info(f"[{source}] 목표 금액({target_amount:,}원)에 도달했습니다! 현재 잔액: {current_balance:,}원")
             
             # 메시지 박스 표시
             QMessageBox.information(

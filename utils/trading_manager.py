@@ -17,6 +17,7 @@ from services.game_monitoring_service import GameMonitoringService
 from services.balance_service import BalanceService
 from services.martin_service import MartinBettingService
 from utils.settings_manager import SettingsManager
+from utils.target_amount_checker import TargetAmountChecker
 
 class TradingManager:
     def __init__(self, main_window, logger=None):
@@ -37,6 +38,7 @@ class TradingManager:
         self.result_count = 0
         self.current_pick = None  # 현재 베팅 타입 저장 변수 추가
         self.should_move_to_next_room = False  # 방 이동 예약 플래그 추가
+        self.target_checker = TargetAmountChecker(main_window)
 
         # 서비스 클래스 초기화
         self.betting_service = BettingService(
@@ -78,7 +80,7 @@ class TradingManager:
         # 게임 컨트롤러
         self.game_controller = None
 
-    # utils/trading_manager.py의 start_trading 함수 수정 (간소화 버전)
+    # utils/trading_manager.py의 start_trading 메서드 수정
     def start_trading(self):
         """자동 매매 시작 로직"""
         try:
@@ -132,9 +134,9 @@ class TradingManager:
                 return
 
             # 사용자 이름은 기본값 사용
-            username = self.main_window.username or "사용자"
+            username = self.main_window.username
                     
-            # 자동 매매 활성화 - 잔액 업데이트 전에 활성화하여 balance_service에서 목표 금액 도달 시 중지 가능하도록 함
+            # 자동 매매 활성화 - 잔액 업데이트 전에 활성화하여 목표 금액 도달 시 중지 가능하도록 함
             self.is_trading_active = True
             self.logger.info("자동 매매 시작!")
             
@@ -142,10 +144,19 @@ class TradingManager:
             self.main_window.start_button.setEnabled(False)
             self.main_window.stop_button.setEnabled(True)
             
-            # UI에 잔액 및 사용자 정보 업데이트 (여기서 목표 금액 비교도 수행)
-            self.balance_service.update_balance_and_user_data(balance, username)
+            # UI에 잔액 및 사용자 정보 업데이트
+            self.main_window.update_user_data(
+                username=username,
+                start_amount=balance,
+                current_amount=balance
+            )
             
-            # 추가 검증: 자동 매매가 중지되었는지 확인 (balance_service에서 목표 금액 도달 시 중지되었을 수 있음)
+            # 중요: 최초 입장 시 목표 금액 체크 추가
+            if self.target_checker.check_target_amount(balance, source="최초 입장"):
+                self.logger.info("목표 금액에 이미 도달하여 자동 매매를 시작하지 않습니다.")
+                return
+            
+            # 추가 검증: 자동 매매가 중지되었는지 확인
             if not self.is_trading_active:
                 self.logger.info("목표 금액 도달로 자동 매매가 이미 중지되었습니다.")
                 return
@@ -248,6 +259,7 @@ class TradingManager:
             import traceback
             traceback.print_exc()
             
+    # utils/trading_manager.py의 _process_previous_game_result 메서드 수정
     def _process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 및 배팅 상태 초기화"""
         # 이전 베팅 정보 가져오기
@@ -302,7 +314,13 @@ class TradingManager:
                 self.martin_service.process_bet_result(result_status)
                 
                 # 현재 잔액 업데이트 (베팅 결과 확인 후)
-                self.balance_service.update_balance_after_bet_result()
+                current_balance = self.balance_service.update_balance_after_bet_result()
+                
+                # 중요: 목표 금액 체크 - 잔액이 제대로 가져와진 경우에만
+                if current_balance:
+                    if self.balance_service.check_target_amount(current_balance):
+                        self.logger.info("목표 금액 도달로 자동 매매를 중지합니다.")
+                        return  # 여기서 함수 종료 - 더 이상 처리하지 않음
                 
                 # 방 이동이 필요한지 확인 (승리 시에만)
                 if result_status == "win" and self.martin_service.should_change_room():
@@ -319,47 +337,63 @@ class TradingManager:
             room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
             pick=self.current_pick
         )
-        
+    # utils/trading_manager.py의 _place_bet 메서드 수정
     def _place_bet(self, pick_value, game_count):
         """베팅 실행"""
-        # 매 베팅마다 설정을 파일에서 강제로 다시 로드
-        if hasattr(self, 'martin_service'):
-            # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드
-            self.martin_service.settings_manager = SettingsManager()
-            self.martin_service.martin_count, self.martin_service.martin_amounts = self.martin_service.settings_manager.get_martin_settings()
-            self.logger.info(f"[INFO] 베팅 전 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
+        try:
+            # 매 베팅마다 설정을 파일에서 강제로 다시 로드
+            if hasattr(self, 'martin_service'):
+                # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드
+                self.martin_service.settings_manager = SettingsManager()
+                self.martin_service.martin_count, self.martin_service.martin_amounts = self.martin_service.settings_manager.get_martin_settings()
+                self.logger.info(f"[INFO] 베팅 전 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
+                
+                # 현재 마틴 단계 디버깅
+                self.logger.info(f"[DEBUG] 현재 마틴 단계: {self.martin_service.current_step} (0부터 시작)")
+                self.logger.info(f"[DEBUG] 현재 베팅 단계 (UI 표시용): {self.martin_service.current_step + 1}")
+                self.logger.info(f"[DEBUG] 진행 중인 step_items 키: {list(self.main_window.betting_widget.step_items.keys())}")
             
-            # 현재 마틴 단계 디버깅
-            self.logger.info(f"[DEBUG] 현재 마틴 단계: {self.martin_service.current_step} (0부터 시작)")
-            self.logger.info(f"[DEBUG] 현재 베팅 단계 (UI 표시용): {self.martin_service.current_step + 1}")
-            self.logger.info(f"[DEBUG] 진행 중인 step_items 키: {list(self.main_window.betting_widget.step_items.keys())}")
-        
-        # 마틴 서비스에서 현재 베팅 금액 가져오기
-        bet_amount = self.martin_service.get_current_bet_amount()
-        self.logger.info(f"마틴 단계 {self.martin_service.current_step + 1}/{self.martin_service.martin_count}: {bet_amount:,}원 베팅")
-        
-        # 베팅 전에 PICK 값 UI 업데이트
-        self.main_window.update_betting_status(pick=pick_value)
-        
-        # 베팅 실행
-        bet_success = self.betting_service.place_bet(
-            pick_value, 
-            self.current_room_name, 
-            game_count, 
-            self.is_trading_active,
-            bet_amount
-        )
-        
-        # 현재 베팅 타입 저장
-        self.current_pick = pick_value
-        
-        # 베팅 성공 여부와 관계없이 PICK 값을 UI에 표시
-        if not bet_success:
-            self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {pick_value}")
+            # 중요: 베팅 전 현재 잔액 확인 및 목표 금액 체크
+            balance = self.balance_service.get_iframe_balance()
+            if balance:
+                # 현재 잔액 업데이트
+                self.main_window.update_user_data(current_amount=balance)
+                
+                # 목표 금액 체크 (체크 결과가 True면 베팅 중단)
+                if self.balance_service.check_target_amount(balance):
+                    self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
+                    return False
+            
+            # 마틴 서비스에서 현재 베팅 금액 가져오기
+            bet_amount = self.martin_service.get_current_bet_amount()
+            self.logger.info(f"마틴 단계 {self.martin_service.current_step + 1}/{self.martin_service.martin_count}: {bet_amount:,}원 베팅")
+            
+            # 베팅 전에 PICK 값 UI 업데이트
             self.main_window.update_betting_status(pick=pick_value)
+            
+            # 베팅 실행
+            bet_success = self.betting_service.place_bet(
+                pick_value, 
+                self.current_room_name, 
+                game_count, 
+                self.is_trading_active,
+                bet_amount
+            )
+            
+            # 현재 베팅 타입 저장
+            self.current_pick = pick_value
+            
+            # 베팅 성공 여부와 관계없이 PICK 값을 UI에 표시
+            if not bet_success:
+                self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {pick_value}")
+                self.main_window.update_betting_status(pick=pick_value)
+            
+            return bet_success
         
-        return bet_success
-         
+        except Exception as e:
+            self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
+            return False
+        
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:
@@ -397,7 +431,7 @@ class TradingManager:
             if not self.is_trading_active:
                 self.logger.info("자동 매매가 이미 중지된 상태입니다.")
                 return
-                
+                    
             self.logger.info("자동 매매 중지 중...")
             
             self.is_trading_active = False
@@ -408,6 +442,25 @@ class TradingManager:
             # 버튼 상태 업데이트
             self.main_window.start_button.setEnabled(True)
             self.main_window.stop_button.setEnabled(False)
+            
+            # 현재 게임방에서 나가기 시도
+            try:
+                # 현재 URL 확인
+                current_url = self.devtools.driver.current_url
+                
+                # 게임방에 있는지 확인 (URL로 판단)
+                in_game_room = "game" in current_url.lower() or "live" in current_url.lower()
+                
+                if in_game_room:
+                    self.logger.info("현재 게임방에서 나가기 시도 중...")
+                    # 게임방에서 나가는 함수 호출
+                    self.game_monitoring_service.close_current_room()
+                    self.logger.info("게임방에서 나가고 로비로 이동 완료")
+                else:
+                    self.logger.info("이미 카지노 로비에 있습니다.")
+            except Exception as e:
+                self.logger.warning(f"방 나가기 중 오류 발생: {e}")
+                # 오류가 발생해도 자동 매매 종료 프로세스는 계속 진행
             
             # 메시지 표시
             QMessageBox.information(self.main_window, "알림", "자동 매매가 중지되었습니다.")
@@ -434,7 +487,7 @@ class TradingManager:
                 "중지 오류", 
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다.\n오류: {str(e)}"
             )
-        
+
     def change_room(self):
         """
         현재 방을 나가고 새로운 방으로 이동합니다.
