@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, 
-                             QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox)
+                             QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox,QScrollArea)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont
 from utils.settings_manager import SettingsManager
@@ -19,45 +19,95 @@ class BettingWidget(QWidget):
         
         # 진행 섹션 (현재 방 + PICK 표시)
         progress_group = QGroupBox("진행")
+        progress_group.setMinimumHeight(200)  # 최소 높이 설정
         progress_layout = QVBoxLayout()
         
         # 현재 방 표시
         room_layout = QHBoxLayout()
-        room_label = QLabel("현재방")
-        self.current_room = QLabel("") # 초기값 비워두기
+        room_label = QLabel("현재방:")
+        room_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.current_room = QLabel("")  # 초기값 비워두기
+        self.current_room.setStyleSheet("font-size: 14px;")
         room_layout.addWidget(room_label)
         room_layout.addWidget(self.current_room)
         progress_layout.addLayout(room_layout)
         
-        # PICK 표시와 X/O 체크
-        pick_grid = QGridLayout()
+        # 진행 테이블 - 스크롤 가능한 테이블 위젯
+        self.progress_table = QTableWidget()
+        self.progress_table.setMinimumHeight(100)
+        self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
+        self.progress_table.setColumnCount(1)  # 초기 열 1개 (PICK), 나중에 동적으로 추가
         
-        # PICK 헤더 설정
-        pick_label = QLabel("PICK")
-        pick_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pick_grid.addWidget(pick_label, 0, 0)
+        # 헤더 설정
+        self.progress_table.setVerticalHeaderLabels(["", ""])  # 행 헤더 비움
+        self.progress_table.horizontalHeader().setVisible(False)  # 열 헤더 숨김
         
-        # 베팅 선택 표시 (B, P 등)
-        self.pick_label = QLabel("")
-        self.pick_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.pick_label.setStyleSheet("color: white; border-radius: 15px; min-width: 30px; min-height: 30px;")
-        pick_grid.addWidget(self.pick_label, 1, 0)
+        # PICK 열 추가
+        self.progress_table.setColumnCount(1)
+        pick_header_item = QTableWidgetItem("PICK")
+        pick_header_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        pick_header_item.setBackground(QColor("#f0f0f0"))
+        pick_header_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.progress_table.setItem(0, 0, pick_header_item)
         
-        # 1-5 칸과 X/O 체크
-        self.step_markers = {}
-        for i in range(1, 6):
-            # 숫자 헤더
-            num_label = QLabel(str(i))
-            num_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            pick_grid.addWidget(num_label, 0, i)
+        # PICK 값 아이템 (초기에는 빈 값)
+        self.pick_item = QTableWidgetItem("")
+        self.pick_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.pick_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.progress_table.setItem(1, 0, self.pick_item)
+        
+        # 숫자 열 추가 (1부터 20 또는 더 많이)
+        max_columns = max(20, self.martin_count + 5)
+        self.progress_table.setColumnCount(max_columns + 1)  # PICK + 숫자 열
+        
+        # 각 열에 대한 설정
+        self.step_items = {}
+        for i in range(1, max_columns + 1):
+            # 헤더 행 - 숫자
+            num_item = QTableWidgetItem(str(i))
+            num_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            num_item.setBackground(QColor("#f0f0f0"))
+            num_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+            self.progress_table.setItem(0, i, num_item)
             
-            # X/O 표시 (초기에는 빈칸)
-            mark = QLabel("")
-            mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            pick_grid.addWidget(mark, 1, i)
-            self.step_markers[i] = mark
+            # 마커 행 - 초기에는 빈 값
+            marker_item = QTableWidgetItem("")
+            marker_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            marker_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+            self.progress_table.setItem(1, i, marker_item)
+            self.step_items[i] = marker_item
         
-        progress_layout.addLayout(pick_grid)
+        # 셀 크기 설정
+        self.progress_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.progress_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        
+        # 첫 번째 열 너비 설정
+        self.progress_table.setColumnWidth(0, 80)  # PICK 열
+        
+        # 나머지 열 너비 설정
+        for i in range(1, max_columns + 1):
+            self.progress_table.setColumnWidth(i, 60)  # 숫자 열
+        
+        # 행 높이 설정
+        self.progress_table.setRowHeight(0, 40)  # 헤더 행
+        self.progress_table.setRowHeight(1, 60)  # 마커 행
+        
+        # 테이블 스타일 설정
+        self.progress_table.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #CCCCCC;
+                gridline-color: #DDDDDD;
+            }
+            QTableWidget::item {
+                padding: 5px;
+            }
+        """)
+        
+        # 가로 스크롤바 표시
+        self.progress_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.progress_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        progress_layout.addWidget(self.progress_table)
         progress_group.setLayout(progress_layout)
         main_layout.addWidget(progress_group)
         
@@ -67,6 +117,7 @@ class BettingWidget(QWidget):
         
         # 결과 테이블
         self.results_table = QTableWidget()
+        self.results_table.setMinimumHeight(300)  # 최소 높이 설정
         self.results_table.setColumnCount(4)
         self.results_table.setHorizontalHeaderLabels(["NO", "방이름", "단계", "승패"])
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -80,8 +131,9 @@ class BettingWidget(QWidget):
         # 적중 수
         win_layout = QHBoxLayout()
         win_label = QLabel("적중")
-        win_label.setStyleSheet("background-color: gray; color: white; padding: 5px;")
+        win_label.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; font-size: 14px; border-radius: 4px;")
         self.win_count_label = QLabel("0")  # 초기값 0
+        self.win_count_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 8px;")
         win_layout.addWidget(win_label)
         win_layout.addWidget(self.win_count_label)
         summary_layout.addLayout(win_layout)
@@ -89,8 +141,9 @@ class BettingWidget(QWidget):
         # 실패 수
         lose_layout = QHBoxLayout()
         lose_label = QLabel("실패")
-        lose_label.setStyleSheet("background-color: gray; color: white; padding: 5px;")
+        lose_label.setStyleSheet("background-color: #F44336; color: white; padding: 8px; font-size: 14px; border-radius: 4px;")
         self.lose_count_label = QLabel("0")  # 초기값 0
+        self.lose_count_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 8px;")
         lose_layout.addWidget(lose_label)
         lose_layout.addWidget(self.lose_count_label)
         summary_layout.addLayout(lose_layout)
@@ -100,7 +153,7 @@ class BettingWidget(QWidget):
         main_layout.addWidget(results_group)
         
         self.setLayout(main_layout)
-    
+        
     def update_settings(self):
         """설정이 변경되었을 때 호출"""
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
@@ -111,32 +164,45 @@ class BettingWidget(QWidget):
     
     def set_pick(self, pick_value):
         """PICK 값 설정 (B, P 등)"""
-        self.pick_label.setText(pick_value)
-        # 배경색 설정 (기본: 빨간색)
+        self.pick_item.setText(pick_value)
+        
+        # 배경색 설정 (기본: 회색)
         if pick_value == "B":
-            self.pick_label.setStyleSheet("background-color: red; color: white; border-radius: 15px; min-width: 30px; min-height: 30px;")
+            self.pick_item.setBackground(QColor("#F44336"))  # 빨간색
+            self.pick_item.setForeground(QColor("white"))
         elif pick_value == "P":
-            self.pick_label.setStyleSheet("background-color: blue; color: white; border-radius: 15px; min-width: 30px; min-height: 30px;")
+            self.pick_item.setBackground(QColor("#2196F3"))  # 파란색
+            self.pick_item.setForeground(QColor("white"))
         else:
-            self.pick_label.setStyleSheet("background-color: gray; color: white; border-radius: 15px; min-width: 30px; min-height: 30px;")
+            self.pick_item.setBackground(QColor("#9E9E9E"))  # 회색
+            self.pick_item.setForeground(QColor("white"))
     
     def set_step_marker(self, step, marker):
-        """단계별 마커 설정 (X, O, 빈칸)"""
-        if step in self.step_markers:
-            self.step_markers[step].setText(marker)
+        """단계별 마커 설정 (X, O, T, 빈칸)"""
+        if step in self.step_items:
+            item = self.step_items[step]
+            item.setText(marker)
+            
             # 마커에 따른 색상 설정
             if marker == "X":
-                self.step_markers[step].setStyleSheet("color: black;")
+                item.setBackground(QColor("#F44336"))  # 빨간색
+                item.setForeground(QColor("white"))
             elif marker == "O":
-                self.step_markers[step].setStyleSheet("color: blue;")
+                item.setBackground(QColor("#2196F3"))  # 파란색
+                item.setForeground(QColor("white"))
+            elif marker == "T":
+                item.setBackground(QColor("#4CAF50"))  # 초록색
+                item.setForeground(QColor("white"))
             else:
-                self.step_markers[step].setStyleSheet("")
+                item.setBackground(QColor("white"))
+                item.setForeground(QColor("black"))
     
     def reset_step_markers(self):
         """모든 단계 마커 초기화"""
-        for step in self.step_markers:
-            self.step_markers[step].setText("")
-            self.step_markers[step].setStyleSheet("")
+        for step, item in self.step_items.items():
+            item.setText("")
+            item.setBackground(QColor("white"))
+            item.setForeground(QColor("black"))
     
     def clear_results(self):
         """결과 테이블 초기화"""

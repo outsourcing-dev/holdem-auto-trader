@@ -87,7 +87,7 @@ class RoomManager:
             self.devtools.driver.switch_to.frame(iframe)
 
             print("[INFO] iframe 내부 콘텐츠 로드 대기...")
-            time.sleep(3)
+            time.sleep(1)
 
             all_rooms = set()
 
