@@ -35,10 +35,15 @@ class MartinBettingService:
     def get_current_bet_amount(self):
         """
         현재 마틴 단계에 따른 베팅 금액을 반환합니다.
+        매번 호출할 때마다 최신 설정을 다시 로드합니다.
         
         Returns:
             int: 베팅 금액
         """
+        # 매번 호출 시 최신 설정 로드
+        self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
+        self.logger.info(f"[INFO] 마틴 설정 다시 로드 - 단계: {self.martin_count}, 금액: {self.martin_amounts}")
+        
         # 단계가 범위를 벗어나면 마지막 단계 금액 사용
         if self.current_step >= len(self.martin_amounts):
             self.logger.warning(f"마틴 단계({self.current_step})가 최대 단계({len(self.martin_amounts)})를 초과하여 마지막 단계 금액 사용: {self.martin_amounts[-1]:,}원")
@@ -118,5 +123,17 @@ class MartinBettingService:
         """
         설정이 변경된 경우 마틴 설정을 다시 로드합니다.
         """
+        # 이전 설정 값 저장
+        old_martin_count = self.martin_count
+        old_martin_amounts = self.martin_amounts.copy() if self.martin_amounts else []
+        
+        # 새 설정 로드
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
-        self.logger.info(f"마틴 설정 업데이트 - 단계: {self.martin_count}, 금액: {self.martin_amounts}")
+        
+        # 설정이 변경되었는지 확인하고 로그 출력
+        if old_martin_count != self.martin_count or old_martin_amounts != self.martin_amounts:
+            self.logger.info(f"[INFO] 마틴 설정 변경됨!")
+            self.logger.info(f"  이전: 단계={old_martin_count}, 금액={old_martin_amounts}")
+            self.logger.info(f"  현재: 단계={self.martin_count}, 금액={self.martin_amounts}")
+        else:
+            self.logger.info(f"[INFO] 마틴 설정 업데이트 (변경 없음) - 단계: {self.martin_count}, 금액: {self.martin_amounts}")

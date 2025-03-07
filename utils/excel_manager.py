@@ -9,6 +9,15 @@ import openpyxl
 import os
 from typing import Dict, Any, Optional, Tuple
 
+# Windows에서만 사용 가능한 COM 인터페이스
+try:
+    import win32com.client
+    HAS_WIN32COM = True
+    print("[INFO] Excel COM 인터페이스 사용 가능")
+except ImportError:
+    HAS_WIN32COM = False
+    print("[INFO] Excel COM 인터페이스 사용 불가 - win32com 라이브러리 없음")
+    
 class ExcelManager:
     def __init__(self, excel_path: str = "AUTO.xlsx"):
         """
@@ -332,8 +341,7 @@ class ExcelManager:
     def write_game_results_sequence(self, results):
         """
         게임 결과 시퀀스를 B3부터 순서대로 엑셀에 기록합니다.
-        가장 오래된 결과부터 최신 결과 순으로 입력합니다.
-        먼저 3행 전체를 초기화합니다.
+        최적화된 버전으로 COM 호출을 최소화합니다.
         
         Args:
             results (list): 게임 결과 리스트 (예: ['P', 'B', 'T', 'B', ...])
@@ -342,32 +350,95 @@ class ExcelManager:
             bool: 성공 여부
         """
         try:
-            # 먼저 3행 전체를 초기화 (B열부터 BW열까지)
-            self.clear_row(3, 'B', 'BW')
+            # Windows에서만 COM 인터페이스 사용 가능
+            import os
+            is_windows = os.name == 'nt'
             
-            # 엑셀 워크북 로드
-            workbook = openpyxl.load_workbook(self.excel_path)
-            
-            # 활성화된 시트 선택
-            sheet = workbook.active
-            
-            # 결과 시퀀스 기록 (B3부터 시작)
-            for idx, result in enumerate(results):
-                col_letter = openpyxl.utils.get_column_letter(2 + idx)  # B(2)부터 시작
-                sheet[f"{col_letter}3"] = result
-                print(f"[INFO] {col_letter}3에 '{result}' 기록")
-            
-            # 변경 사항 저장
-            workbook.save(self.excel_path)
-            workbook.close()
-            
-            print(f"[INFO] 총 {len(results)}개의 결과를 엑셀에 기록했습니다.")
-            return True
-            
+            # COM을 사용할 수 있는 경우 (Windows + pywin32)
+            if is_windows and HAS_WIN32COM:
+                print("[INFO] COM 인터페이스로 Excel 일괄 처리 시작...")
+                import win32com.client
+                
+                # Excel 애플리케이션 한 번만 실행
+                excel = win32com.client.Dispatch("Excel.Application")
+                excel.Visible = False  # 백그라운드 모드
+                excel.DisplayAlerts = False  # 경고 메시지 표시 안 함
+                
+                # 절대 경로 변환
+                abs_path = os.path.abspath(self.excel_path)
+                
+                # 파일 열기
+                workbook = excel.Workbooks.Open(abs_path)
+                sheet = workbook.ActiveSheet  # 활성 시트
+                
+                # 3행 전체를 초기화 (한 번에 초기화)
+                print("[INFO] 3행 초기화 중...")
+                start_col = 2  # B열(인덱스 2)
+                end_col = 75   # BW열(인덱스 75)
+                
+                # 범위 지정 초기화
+                clear_range = sheet.Range(
+                    sheet.Cells(3, start_col), 
+                    sheet.Cells(3, end_col)
+                )
+                clear_range.ClearContents()
+                print("[INFO] 3행 B~BW 열 초기화 완료")
+                
+                # 결과 시퀀스 한 번에 기록
+                for idx, result in enumerate(results):
+                    col_idx = 2 + idx  # B(2)부터 시작
+                    cell = sheet.Cells(3, col_idx)
+                    cell.Value = result
+                    print(f"[INFO] {chr(65 + idx + 1)}3에 '{result}' 기록")  # B는 ASCII 66
+                
+                # 저장 및 닫기
+                workbook.Save()
+                workbook.Close(True)
+                excel.Quit()
+                
+                print(f"[INFO] 총 {len(results)}개의 결과를 Excel COM으로 기록 완료")
+                return True
+                
+            else:
+                # COM을 사용할 수 없는 경우 (비Windows 또는 pywin32 없음)
+                print("[INFO] openpyxl로 Excel 처리 시작...")
+                
+                # 먼저 3행 전체를 초기화
+                self.clear_row(3, 'B', 'BW')
+                
+                # 엑셀 워크북 로드
+                workbook = openpyxl.load_workbook(self.excel_path)
+                sheet = workbook.active
+                
+                # 결과 시퀀스 기록 (B3부터 시작)
+                for idx, result in enumerate(results):
+                    col_letter = openpyxl.utils.get_column_letter(2 + idx)  # B(2)부터 시작
+                    sheet[f"{col_letter}3"] = result
+                    print(f"[INFO] {col_letter}3에 '{result}' 기록")
+                
+                # 변경 사항 저장
+                workbook.save(self.excel_path)
+                workbook.close()
+                
+                print(f"[INFO] 총 {len(results)}개의 결과를 openpyxl로 기록 완료")
+                return True
+                
         except Exception as e:
+            # 자세한 오류 로깅
+            import traceback
             print(f"[ERROR] 게임 결과 시퀀스 기록 중 오류 발생: {str(e)}")
+            print(traceback.format_exc())
+            
+            # 혹시 COM 객체가 열려있으면 정리
+            try:
+                if 'workbook' in locals() and 'excel' in locals():
+                    workbook.Close(False)
+                    excel.Quit()
+            except:
+                pass
+                
             return False
-
+        
     def write_filtered_game_results(self, filtered_results, actual_results):
         """
         TIE를 포함한 실제 사용 결과를 엑셀에 기록합니다.

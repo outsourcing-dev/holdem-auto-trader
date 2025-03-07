@@ -3,6 +3,9 @@ from PyQt6.QtWidgets import QApplication, QStackedWidget
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
 
+# 전역 변수로 메인 윈도우 인스턴스 저장
+global_main_window = None
+
 class MainApp(QApplication):
     def __init__(self, sys_argv):
         super().__init__(sys_argv)
@@ -19,12 +22,16 @@ class MainApp(QApplication):
 
     def show_main_window(self, username=None):
         """로그인 성공 시 메인 화면으로 이동하고 사용자명 설정"""
+        global global_main_window
+        
         # 로그인 창 닫기
         self.login_window.close()
         
         # 메인 창이 아직 생성되지 않았으면 생성
         if self.main_window is None:
             self.main_window = MainWindow()
+            # 전역 변수에 저장
+            global_main_window = self.main_window
         
         # 사용자명 저장
         if username:

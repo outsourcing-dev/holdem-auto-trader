@@ -16,6 +16,7 @@ from services.betting_service import BettingService
 from services.game_monitoring_service import GameMonitoringService
 from services.balance_service import BalanceService
 from services.martin_service import MartinBettingService
+from utils.settings_manager import SettingsManager
 
 class TradingManager:
     def __init__(self, main_window, logger=None):
@@ -85,6 +86,16 @@ class TradingManager:
             if not self._validate_trading_prerequisites():
                 return
 
+            # 중요: 설정을 강제로 다시 로드
+            self.logger.info("[INFO] 자동 매매 시작 전 설정 강제 재로드")
+            
+            # 마틴 서비스의 설정 매니저 갱신
+            if hasattr(self, 'martin_service'):
+                # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드
+                self.martin_service.settings_manager = SettingsManager()
+                self.martin_service.martin_count, self.martin_service.martin_amounts = self.martin_service.settings_manager.get_martin_settings()
+                self.logger.info(f"[INFO] 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
+
             # 방문 순서 초기화 및 생성
             self.room_manager.generate_visit_order()
             
@@ -150,7 +161,7 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
-                
+                    
     def _validate_trading_prerequisites(self):
         """자동 매매 시작 전 사전 검증"""
         if self.is_trading_active:
@@ -242,8 +253,8 @@ class TradingManager:
             if bet_type in ['P', 'B'] and latest_result:
                 self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}")
                 
-                # 현재 마틴 단계 가져오기
-                current_step = self.martin_service.current_step + 1  # 0부터 시작하므로 +1
+                # 베팅 당시의 마틴 단계 저장 (현재 단계)
+                bet_step = self.martin_service.current_step + 1  # 0부터 시작하므로 +1 (UI 표시용)
                 
                 # 결과 판정
                 is_tie = (latest_result == 'T')
@@ -266,8 +277,11 @@ class TradingManager:
                 # 결과 카운트 증가
                 self.result_count += 1
                 
+                # 베팅 당시 마틴 단계를 로그에 기록 (디버깅용)
+                self.logger.info(f"[DEBUG] 베팅 결과 마커 설정 - 단계: {bet_step}, 마커: {result_marker}, 현재 방: {self.current_room_name}")
+                
                 # 1. 현재 방의 진행 테이블에 결과 표시 (BettingWidget)
-                self.main_window.betting_widget.set_step_marker(current_step, result_marker)
+                self.main_window.betting_widget.set_step_marker(bet_step, result_marker)
                 
                 # 2. 방 로그 테이블에 결과 추가 (RoomLogWidget)
                 self.main_window.room_log_widget.add_bet_result(
@@ -276,7 +290,7 @@ class TradingManager:
                     is_tie=is_tie
                 )
                 
-                # 마틴 베팅 단계 업데이트
+                # 마틴 베팅 단계 업데이트 (결과에 따라 단계 변경)
                 self.martin_service.process_bet_result(result_status)
                 
                 # 현재 잔액 업데이트 (베팅 결과 확인 후)
@@ -292,7 +306,7 @@ class TradingManager:
         self.betting_service.reset_betting_state(new_round=new_game_count)
         self.logger.info(f"새로운 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
         
-        # UI 업데이트
+        # UI 업데이트 (방 이름과 게임 수 갱신, 결과는 그대로 유지)
         self.main_window.update_betting_status(
             room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
             pick=self.current_pick
@@ -300,6 +314,18 @@ class TradingManager:
         
     def _place_bet(self, pick_value, game_count):
         """베팅 실행"""
+        # 매 베팅마다 설정을 파일에서 강제로 다시 로드
+        if hasattr(self, 'martin_service'):
+            # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드
+            self.martin_service.settings_manager = SettingsManager()
+            self.martin_service.martin_count, self.martin_service.martin_amounts = self.martin_service.settings_manager.get_martin_settings()
+            self.logger.info(f"[INFO] 베팅 전 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
+            
+            # 현재 마틴 단계 디버깅
+            self.logger.info(f"[DEBUG] 현재 마틴 단계: {self.martin_service.current_step} (0부터 시작)")
+            self.logger.info(f"[DEBUG] 현재 베팅 단계 (UI 표시용): {self.martin_service.current_step + 1}")
+            self.logger.info(f"[DEBUG] 진행 중인 step_items 키: {list(self.main_window.betting_widget.step_items.keys())}")
+        
         # 마틴 서비스에서 현재 베팅 금액 가져오기
         bet_amount = self.martin_service.get_current_bet_amount()
         self.logger.info(f"마틴 단계 {self.martin_service.current_step + 1}/{self.martin_service.martin_count}: {bet_amount:,}원 베팅")
@@ -312,7 +338,8 @@ class TradingManager:
             pick_value, 
             self.current_room_name, 
             game_count, 
-            self.is_trading_active
+            self.is_trading_active,
+            bet_amount
         )
         
         # 현재 베팅 타입 저장
@@ -324,7 +351,6 @@ class TradingManager:
             self.main_window.update_betting_status(pick=pick_value)
         
         return bet_success
-
          
     def run_auto_trading(self):
         """자동 매매 루프"""
@@ -433,14 +459,17 @@ class TradingManager:
                 QMessageBox.warning(self.main_window, "오류", "새 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
                 return False
             
-            # UI 업데이트 - 진행 상황 초기화
+            # 입장한 새 방 정보로 UI 업데이트 및 테이블 초기화
             self.main_window.update_betting_status(
                 room_name=self.current_room_name,
                 pick=""
             )
-            self.main_window.betting_widget.reset_step_markers()
             
-            self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료, 게임 카운트 초기화: {self.game_count}")
+            # 테이블 초기화 (새 방에 입장했을 때만)
+            self.main_window.betting_widget.reset_step_markers()
+            self.main_window.betting_widget.reset_room_results()
+            
+            self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료, 테이블 초기화됨, 게임 카운트 초기화: {self.game_count}")
             return True
                 
         except Exception as e:
