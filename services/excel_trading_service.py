@@ -3,7 +3,7 @@ import logging
 import openpyxl
 from typing import Dict, Any, Tuple
 from utils.excel_manager import ExcelManager
-
+import time
 class ExcelTradingService:
     def __init__(self, main_window, logger=None):
         """
@@ -80,5 +80,12 @@ class ExcelTradingService:
 
         # 다음 열의 PICK 값 확인
         next_pick = self.excel_manager.check_next_column_pick(last_column)
-        
+            # Excel 작업이 끝난 후
+        if next_pick in ['P', 'B']:
+            # 베팅 작업 전에 Excel COM 객체 일시적 해제
+            self.excel_manager.close_excel()
+            time.sleep(0.5)  # 리소스 정리 시간
+            # 가비지 컬렉션 명시적 실행
+            import gc
+            gc.collect()
         return last_column, new_game_count, recent_results, next_pick

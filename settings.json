@@ -2,11 +2,13 @@
     "site1": "https://drdr-1230.com/",
     "site2": "www.daum.net",
     "site3": "www.ygosu.com",
-    "martin_count": 3,
+    "martin_count": 5,
     "martin_amounts": [
+        1000,
         2000,
         4000,
-        8000
+        8000,
+        16000
     ],
     "target_amount": 80000
 }

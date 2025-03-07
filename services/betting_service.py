@@ -51,43 +51,61 @@ class BettingService:
                 self.logger.info("이미 현재 라운드에 베팅했습니다.")
                 return False
             
+            # 메모리 최적화 시도
+            import gc
+            gc.collect()
+            time.sleep(0.5)  # 시스템에 최적화 시간 제공
+            
             # iframe으로 전환
             self.devtools.driver.switch_to.default_content()
             iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
             self.devtools.driver.switch_to.frame(iframe)
             
-            # 현재 게임 상태 확인 - 배팅 가능한지 체크
+            # 칩 클릭 가능 여부로 베팅 상태 확인
+            max_attempts = 15  # 최대 30초 대기 (2초 간격)
+            attempts = 0
+            chip_clickable = False
+            
+            while attempts < max_attempts:
+                try:
+                    # 1000원 칩 요소 찾기
+                    chip_selector = "div.chip--29b81[data-role='chip'][data-value='1000']"
+                    chip_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, chip_selector)
+                    
+                    if chip_elements:
+                        chip_element = chip_elements[0]
+                        
+                        # 칩이 표시되고 disabled 상태가 아닌지 확인
+                        if chip_element.is_displayed():
+                            chip_class = chip_element.get_attribute("class")
+                            if "disabled" not in chip_class:
+                                # 실제로 클릭 가능한지 테스트 (현재는 클릭하지 않고 클릭 가능성만 확인)
+                                self.logger.info("1000원 칩 클릭 가능 상태 감지됨")
+                                chip_clickable = True
+                                break
+                    
+                    self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempts+1}/{max_attempts}")
+                    attempts += 1
+                    time.sleep(3)
+                    
+                except Exception as e:
+                    self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
+                    attempts += 1
+                    time.sleep(2)
+            
+            if not chip_clickable:
+                self.logger.warning("베팅 가능 상태 대기 시간 초과. 칩이 클릭 가능 상태가 되지 않았습니다.")
+                return False
+            
+            # 현재 게임 상태 확인 (추가 정보용)
             try:
                 # 게임 상태 표시 요소 확인
                 game_status_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "div[data-role='game-status']")
                 game_status_text = game_status_element.text if game_status_element else ""
-                
-                # 배팅 불가능 상태인지 확인
-                betting_disabled = False
-                
-                if "PLEASE WAIT" in game_status_text.upper() or "NO MORE BETS" in game_status_text.upper():
-                    self.logger.info(f"현재 게임 상태가 배팅 불가능 상태입니다: {game_status_text}")
-                    betting_disabled = True
-                
-                # 칩 클릭 가능 상태 확인 (첫 번째 칩 요소로 테스트)
-                try:
-                    chip_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "div.chip--29b81[data-role='chip']")
-                    chip_class = chip_element.get_attribute("class")
-                    if "disabled" in chip_class or not chip_element.is_enabled():
-                        self.logger.info("칩 요소가 비활성화되어 있습니다. 배팅이 불가능합니다.")
-                        betting_disabled = True
-                except Exception as e:
-                    self.logger.warning(f"칩 상태 확인 중 오류: {e}")
-                    # 칩 상태 확인 실패는 배팅 금지 조건으로 처리하지 않음
-                
-                if betting_disabled:
-                    self.logger.info("현재 배팅이 불가능한 상태입니다. 다음 게임을 기다립니다.")
-                    return False
-                    
+                self.logger.info(f"현재 게임 상태: {game_status_text}")
             except Exception as e:
                 pass
-                # self.logger.warning(f"게임 상태 확인 중 오류: {e}")
-                # 게임 상태 확인에 실패하더라도 계속 진행 (추후 칩 클릭 시 에러 처리)
+                # 게임 상태 확인 실패는 무시 (이미 칩으로 확인함)
             
             # 베팅 전 현재 총 베팅 금액 확인
             try:
@@ -110,6 +128,7 @@ class BettingService:
             except Exception as e:
                 self.logger.warning(f"베팅 전 총 베팅 금액 확인 실패: {e}")
                 before_bet_amount = 0
+            
             # 베팅 금액이 지정되지 않은 경우 마틴 서비스에서 가져오기
             if bet_amount is None:
                 # 마틴 서비스에서 현재 베팅 금액 가져오기
