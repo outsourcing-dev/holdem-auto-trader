@@ -426,7 +426,7 @@ class TradingManager:
                 "중지 오류", 
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다.\n오류: {str(e)}"
             )
-            
+        
     def change_room(self):
         """
         현재 방을 나가고 새로운 방으로 이동합니다.
@@ -442,7 +442,7 @@ class TradingManager:
                 self.logger.error("현재 방을 닫는데 실패했습니다.")
                 return False
             
-            # 방 이동 전 상태 초기화
+            # 방 이동 전 상태 초기화 (베팅 위젯의 결과는 유지)
             self.game_count = 0
             self.result_count = 0
             self.current_pick = None
@@ -451,23 +451,24 @@ class TradingManager:
             # 이 시점에서 카지노 로비 창으로 포커싱이 전환됨
             
             # 새 방 입장 (방문 큐에서 다음 방 선택)
-            self.current_room_name = self.room_entry_service.enter_room()
+            new_room_name = self.room_entry_service.enter_room()
             
             # 방 입장 실패 시 매매 중단
-            if not self.current_room_name:
+            if not new_room_name:
                 self.stop_trading()
                 QMessageBox.warning(self.main_window, "오류", "새 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
                 return False
             
-            # 입장한 새 방 정보로 UI 업데이트 및 테이블 초기화
+            # 이제 확실히 새 방에 입장했으므로 이 시점에서 베팅 위젯 초기화 (이전 방의 결과 기록 보존은 끝)
+            self.main_window.betting_widget.reset_step_markers()
+            self.main_window.betting_widget.reset_room_results()
+            
+            # 입장한 새 방 정보로 UI 업데이트
+            self.current_room_name = new_room_name
             self.main_window.update_betting_status(
                 room_name=self.current_room_name,
                 pick=""
             )
-            
-            # 테이블 초기화 (새 방에 입장했을 때만)
-            self.main_window.betting_widget.reset_step_markers()
-            self.main_window.betting_widget.reset_room_results()
             
             self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료, 테이블 초기화됨, 게임 카운트 초기화: {self.game_count}")
             return True
@@ -477,7 +478,6 @@ class TradingManager:
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")
             return False
         
-# 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

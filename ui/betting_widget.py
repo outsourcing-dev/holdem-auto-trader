@@ -146,10 +146,6 @@ class BettingWidget(QWidget):
     
     def update_current_room(self, room_name):
         """현재 방 이름 업데이트"""
-        # 방이 변경되면 결과 초기화
-        if room_name != self.current_room.text() and room_name:
-            self.reset_room_results()
-        
         self.current_room.setText(room_name)
     
     def reset_room_results(self):
