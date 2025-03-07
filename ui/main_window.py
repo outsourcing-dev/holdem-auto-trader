@@ -9,16 +9,41 @@ from utils.settings_manager import SettingsManager
 from utils.room_manager import RoomManager
 from utils.trading_manager import TradingManager
 from utils.ui_updater import UIUpdater
+from ui.room_log_widget import RoomLogWidget
 import time
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("홀덤 자동 배팅")
-        self.setGeometry(50, 0, 1800, 900)  # 창 크기 확대
-        self.setObjectName("MainWindow")
+        # 화면 해상도 가져오기
+        from PyQt6.QtGui import QGuiApplication
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtWidgets import QSizePolicy
         
+        screen = QGuiApplication.primaryScreen()
+        screen_size = screen.availableGeometry()
+        
+        # 가로는 고정 크기(1200), 높이는 화면에서 사용 가능한 최대 높이의 90%로 설정
+        window_width = min(1200, screen_size.width() - 40)
+        window_height = int(screen_size.height() * 0.9)
+        
+        # 창 위치 설정
+        x_position = (screen_size.width() - window_width) // 2
+        y_position = int(screen_size.height() * 0.05)
+        
+        # 창 설정
+        self.setWindowTitle("홀덤 자동 배팅")
+        self.move(x_position, y_position)  # 위치 설정
+        
+        # 최대/최소 크기를 모두 원하는 크기로 설정하여 크기 고정
+        self.setMinimumSize(window_width, window_height)
+        self.setMaximumSize(window_width, window_height)
+        
+        # 사이즈 정책 설정
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        
+        self.setObjectName("MainWindow")
 
         # 유틸리티 클래스 초기화
         self.devtools = DevToolsController()
@@ -68,6 +93,10 @@ class MainWindow(QMainWindow):
         self.betting_widget = BettingWidget()
         self.left_panel.addWidget(self.betting_widget)
 
+        # 방 로그 위젯 (새로 추가)
+        self.room_log_widget = RoomLogWidget()
+        self.left_panel.addWidget(self.room_log_widget)
+    
         # 남은 시간 표시
         remaining_time_layout = QHBoxLayout()
         self.remaining_time_label = QLabel("남은시간")
@@ -157,7 +186,11 @@ class MainWindow(QMainWindow):
         self.betting_widget.reset_step_markers()
         self.betting_widget.update_current_room("")
         self.betting_widget.set_pick("")
-
+        
+        # RoomLogWidget 초기화
+        if hasattr(self, 'room_log_widget'):
+            self.room_log_widget.clear_logs()
+            
     def open_site(self, url):
         """사이트 열기"""
         # 브라우저가 실행 중인지 확인

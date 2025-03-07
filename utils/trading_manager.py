@@ -245,26 +245,47 @@ class TradingManager:
                 # 현재 마틴 단계 가져오기
                 current_step = self.martin_service.current_step + 1  # 0부터 시작하므로 +1
                 
-                # 베팅 결과 확인
-                result_status, self.result_count = self.betting_service.check_betting_result(
-                    bet_type,
-                    latest_result,
-                    self.current_room_name,
-                    self.result_count,
-                    step=current_step
+                # 결과 판정
+                is_tie = (latest_result == 'T')
+                is_win = (not is_tie and bet_type == latest_result)
+                
+                # 승패 결과 텍스트
+                if is_tie:
+                    result_text = "무승부"
+                    result_marker = "T"
+                    result_status = "tie"
+                elif is_win:
+                    result_text = "적중"
+                    result_marker = "O"
+                    result_status = "win"
+                else:
+                    result_text = "실패"
+                    result_marker = "X"
+                    result_status = "lose"
+                
+                # 결과 카운트 증가
+                self.result_count += 1
+                
+                # 1. 현재 방의 진행 테이블에 결과 표시 (BettingWidget)
+                self.main_window.betting_widget.set_step_marker(current_step, result_marker)
+                
+                # 2. 방 로그 테이블에 결과 추가 (RoomLogWidget)
+                self.main_window.room_log_widget.add_bet_result(
+                    room_name=self.current_room_name,
+                    is_win=is_win,
+                    is_tie=is_tie
                 )
                 
                 # 마틴 베팅 단계 업데이트
                 self.martin_service.process_bet_result(result_status)
                 
                 # 현재 잔액 업데이트 (베팅 결과 확인 후)
-                # betting_service가 아닌 balance_service 사용
                 self.balance_service.update_balance_after_bet_result()
                 
                 # 방 이동이 필요한지 확인 (승리 시에만)
                 if result_status == "win" and self.martin_service.should_change_room():
                     self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
-                    time.sleep(1)  # 2초 대기
+                    time.sleep(1)  # 1초 대기
                     self.should_move_to_next_room = True
         
         # 베팅 상태 초기화 (새 라운드 번호로)
@@ -379,14 +400,13 @@ class TradingManager:
                 "중지 오류", 
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다.\n오류: {str(e)}"
             )
-
+            
     def change_room(self):
         """
         현재 방을 나가고 새로운 방으로 이동합니다.
         """
         try:
             self.logger.info("배팅 성공 후 방 이동 준비 중...")
-            # time.sleep(5)
 
             # 방 이동 플래그 초기화
             self.should_move_to_next_room = False
@@ -413,7 +433,7 @@ class TradingManager:
                 QMessageBox.warning(self.main_window, "오류", "새 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
                 return False
             
-            # UI 업데이트
+            # UI 업데이트 - 진행 상황 초기화
             self.main_window.update_betting_status(
                 room_name=self.current_room_name,
                 pick=""
@@ -422,11 +442,12 @@ class TradingManager:
             
             self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료, 게임 카운트 초기화: {self.game_count}")
             return True
-            
+                
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")
             return False
+        
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,

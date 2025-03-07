@@ -1,4 +1,3 @@
-# 4. ui_updater.py - UI 업데이트 관련 기능
 class UIUpdater:
     def __init__(self, main_window):
         self.main_window = main_window
@@ -68,15 +67,30 @@ class UIUpdater:
             self.main_window.header.update_total_bet(total_bet)
     
     def update_betting_status(self, room_name=None, pick=None, step_markers=None):
-        """배팅 상태 업데이트"""
+        """배팅 상태 업데이트 - 두 위젯 모두 업데이트"""
         if room_name is not None:
+            # BettingWidget에 현재 방 이름 설정
             self.main_window.betting_widget.update_current_room(room_name)
+            
+            # RoomLogWidget에도 현재 방 설정 (내부적으로 필요한 경우 로그 항목 생성)
+            if hasattr(self.main_window, 'room_log_widget'):
+                self.main_window.room_log_widget.set_current_room(room_name)
+        
         if pick is not None:
+            # BettingWidget에 PICK 값 설정
             self.main_window.betting_widget.set_pick(pick)
+        
         if step_markers is not None:
+            # BettingWidget에 단계 마커 설정
             for step, marker in step_markers.items():
                 self.main_window.betting_widget.set_step_marker(step, marker)
     
     def add_betting_result(self, no, room_name, step, result):
-        """배팅 결과 추가"""
+        """배팅 결과 추가 - BettingWidget 업데이트"""
+        # BettingWidget에 결과 추가
         self.main_window.betting_widget.add_raw_result(no, room_name, step, result)
+        
+        # 방 로그 위젯은 TradingManager에서 직접 업데이트합니다.
+        # is_win = (result == "적중")
+        # if hasattr(self.main_window, 'room_log_widget'):
+        #     self.main_window.room_log_widget.add_bet_result(room_name, is_win)
