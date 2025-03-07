@@ -1,6 +1,8 @@
 # services/balance_service.py
 import logging
 from utils.parser import HTMLParser
+from utils.settings_manager import SettingsManager
+from PyQt6.QtWidgets import QMessageBox
 
 class BalanceService:
     def __init__(self, devtools, main_window, logger=None):
@@ -17,7 +19,8 @@ class BalanceService:
         
         self.devtools = devtools
         self.main_window = main_window
-        
+        self.settings_manager = SettingsManager()  # 설정 매니저 추가
+
     def get_current_balance_and_username(self):
         """
         현재 잔액과 사용자 이름을 가져옵니다.
@@ -57,7 +60,7 @@ class BalanceService:
         Args:
             balance (int): 현재 잔액
             username (str): 사용자 이름
-            
+                
         Returns:
             bool: 성공 여부
         """
@@ -68,12 +71,15 @@ class BalanceService:
             # UI 업데이트
             self.main_window.update_user_data(
                 username=username,
-                start_amount=balance,
-                current_amount=balance
+                start_amount=balance,  # 시작 금액 업데이트
+                current_amount=balance  # 현재 금액 업데이트
             )
             
-            return True
+            # 목표 금액 확인 - 중앙 집중식 체커 사용
+            self.main_window.target_checker.check_target_amount(balance, source="최초 입장")
             
+            return True
+                
         except Exception as e:
             self.logger.error(f"잔액 정보 업데이트 실패: {e}", exc_info=True)
             return False
@@ -143,6 +149,9 @@ class BalanceService:
             # UI 업데이트
             self.main_window.update_user_data(current_amount=balance)
             
+            # 목표 금액 확인하여 도달 시 자동 매매 중지
+            self.main_window.target_checker.check_target_amount(balance, source="베팅 결과")
+
             # 기본 컨텐츠로 돌아가기
             self.devtools.driver.switch_to.default_content()
             
@@ -158,3 +167,42 @@ class BalanceService:
                 pass
             
             return None
+        
+    def check_target_amount(self, current_balance):
+        """
+        현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
+        
+        Args:
+            current_balance (int): 현재 잔액
+        
+        Returns:
+            bool: 목표 금액 도달 여부
+        """
+        # 자동 매매가 활성화된 상태일 때만 확인
+        if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
+            return False
+        
+        # 목표 금액 가져오기
+        target_amount = self.settings_manager.get_target_amount()
+        
+        # 목표 금액이 설정되어 있고(0보다 큼), 현재 잔액이 목표 금액 이상이면
+        if target_amount > 0 and current_balance >= target_amount:
+            self.logger.info(f"목표 금액({target_amount:,}원)에 도달했습니다! 현재 잔액: {current_balance:,}원")
+            
+            # 메시지 박스 표시
+            QMessageBox.information(
+                self.main_window, 
+                "목표 금액 달성", 
+                f"축하합니다! 목표 금액({target_amount:,}원)에 도달했습니다.\n현재 잔액: {current_balance:,}원\n자동 매매를 종료합니다."
+            )
+            
+            # 자동 매매 중지
+            self.main_window.trading_manager.stop_trading()
+            return True
+        
+        # 목표 금액 접근 중인 경우 로그 표시 (80% 이상이면)
+        if target_amount > 0 and current_balance >= target_amount * 0.8:
+            progress = current_balance / target_amount * 100
+            self.logger.info(f"목표 금액 접근 중: {progress:.1f}% (현재: {current_balance:,}원, 목표: {target_amount:,}원)")
+        
+        return False

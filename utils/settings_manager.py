@@ -1,3 +1,4 @@
+# utils/settings_manager.py에 목표 금액 설정 추가
 import json
 import os
 
@@ -16,7 +17,8 @@ class SettingsManager:
                 "site2": "", 
                 "site3": "",
                 "martin_count": 3,
-                "martin_amounts": [1000, 2000, 4000]
+                "martin_amounts": [1000, 2000, 4000],
+                "target_amount": 0  # 목표 금액 기본값 0으로 설정 (비활성화)
             }
         
         # 파일 내용 읽기
@@ -29,8 +31,12 @@ class SettingsManager:
                     settings["martin_count"] = 3
                 if "martin_amounts" not in settings:
                     settings["martin_amounts"] = [1000, 2000, 4000]
+                # 목표 금액 설정이 없을 경우 기본값 추가
+                if "target_amount" not in settings:
+                    settings["target_amount"] = 0
                     
                 print(f"[DEBUG] 설정 파일에서 읽은 마틴 금액: {settings['martin_amounts']}")
+                print(f"[DEBUG] 설정 파일에서 읽은 목표 금액: {settings['target_amount']}")
                 return settings
         except Exception as e:
             print(f"[ERROR] 설정 파일 읽기 오류: {e}")
@@ -40,11 +46,12 @@ class SettingsManager:
                 "site2": "", 
                 "site3": "",
                 "martin_count": 3,
-                "martin_amounts": [1000, 2000, 4000]
+                "martin_amounts": [1000, 2000, 4000],
+                "target_amount": 0
             }
 
-    def save_settings(self, site1, site2, site3, martin_count=3, martin_amounts=None):
-        """입력된 사이트 정보와 마틴 설정을 JSON 파일에 저장"""
+    def save_settings(self, site1, site2, site3, martin_count=3, martin_amounts=None, target_amount=0):
+        """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장"""
         if martin_amounts is None:
             martin_amounts = [1000, 2000, 4000]
             
@@ -53,7 +60,8 @@ class SettingsManager:
             "site2": site2, 
             "site3": site3,
             "martin_count": martin_count,
-            "martin_amounts": martin_amounts
+            "martin_amounts": martin_amounts,
+            "target_amount": target_amount
         }
         
         with open(SETTINGS_FILE, "w", encoding="utf-8") as file:
@@ -73,3 +81,7 @@ class SettingsManager:
             self.settings.get("martin_count", 3),
             self.settings.get("martin_amounts", [1000, 2000, 4000])
         )
+    
+    def get_target_amount(self):
+        """목표 금액 설정 반환"""
+        return self.settings.get("target_amount", 0)

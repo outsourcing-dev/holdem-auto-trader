@@ -1,7 +1,9 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QMessageBox, QTableWidget, 
-                             QTableWidgetItem)
+                             QSizePolicy)
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QGuiApplication
+
 from ui.header_widget import HeaderWidget
 from ui.betting_widget import BettingWidget
 from utils.devtools import DevToolsController
@@ -10,17 +12,15 @@ from utils.room_manager import RoomManager
 from utils.trading_manager import TradingManager
 from utils.ui_updater import UIUpdater
 from ui.room_log_widget import RoomLogWidget
+
 import time
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         # 화면 해상도 가져오기
-        from PyQt6.QtGui import QGuiApplication
-        from PyQt6.QtCore import QSize
-        from PyQt6.QtWidgets import QSizePolicy
-        
         screen = QGuiApplication.primaryScreen()
         screen_size = screen.availableGeometry()
         

@@ -1,3 +1,4 @@
+# ui/settings_window.py에 목표 금액 설정 UI 추가
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, 
                              QPushButton, QGroupBox, QHBoxLayout, QSpinBox, 
                              QTableWidget, QTableWidgetItem, QHeaderView)
@@ -10,7 +11,7 @@ class SettingsWindow(QWidget):
         super().__init__()
 
         self.setWindowTitle("설정")
-        self.setGeometry(200, 200, 600, 600)
+        self.setGeometry(200, 200, 600, 800)
         self.setObjectName("SettingsWindow")  # QSS 스타일 적용을 위한 ID 지정
         
         # 스타일 적용
@@ -20,6 +21,7 @@ class SettingsWindow(QWidget):
         self.settings_manager = SettingsManager()
         site1, site2, site3 = self.settings_manager.get_sites()
         martin_count, martin_amounts = self.settings_manager.get_martin_settings()
+        target_amount = self.settings_manager.get_target_amount()
 
         # 메인 레이아웃
         main_layout = QVBoxLayout()
@@ -52,6 +54,33 @@ class SettingsWindow(QWidget):
 
         site_group.setLayout(site_layout)
         main_layout.addWidget(site_group)
+        
+        # 목표 금액 설정 그룹
+        target_group = QGroupBox("목표 금액 설정")
+        target_group.setFont(label_font)
+        target_layout = QVBoxLayout()
+        
+        # 목표 금액 설명 레이블
+        target_info_label = QLabel("목표 금액에 도달하면 자동으로 매매가 중단됩니다. (0 = 비활성화)")
+        target_info_label.setStyleSheet("color: #555; font-size: 10pt;")
+        target_layout.addWidget(target_info_label)
+        
+        # 목표 금액 입력 필드
+        target_amount_layout = QHBoxLayout()
+        self.target_amount_label = QLabel("목표 금액(원):")
+        self.target_amount_label.setFont(label_font)
+        self.target_amount_input = QLineEdit(str(target_amount))
+        self.target_amount_input.setPlaceholderText("예: 1000000")
+        
+        # 숫자만 입력되도록 설정
+        self.target_amount_input.textChanged.connect(self.validate_target_amount)
+        
+        target_amount_layout.addWidget(self.target_amount_label)
+        target_amount_layout.addWidget(self.target_amount_input)
+        target_layout.addLayout(target_amount_layout)
+        
+        target_group.setLayout(target_layout)
+        main_layout.addWidget(target_group)
         
         # 마틴 설정 그룹
         martin_group = QGroupBox("마틴 설정")
@@ -118,6 +147,16 @@ class SettingsWindow(QWidget):
         main_layout.addWidget(self.save_button)
 
         self.setLayout(main_layout)
+
+    def validate_target_amount(self, text):
+        """목표 금액 입력값 검증 - 숫자만 허용"""
+        if text and not text.isdigit():
+            # 숫자가 아닌 문자 제거
+            cursor_pos = self.target_amount_input.cursorPosition()
+            clean_text = ''.join(filter(str.isdigit, text))
+            self.target_amount_input.setText(clean_text)
+            # 가능한 한 원래 커서 위치 유지
+            self.target_amount_input.setCursorPosition(min(cursor_pos, len(clean_text)))
 
     def update_martin_table(self):
         """마틴 테이블 업데이트"""
@@ -192,6 +231,16 @@ class SettingsWindow(QWidget):
                 amounts.append(1000)  # 기본값
                 
         return amounts
+    
+    def get_target_amount(self):
+        """목표 금액 입력값 가져오기"""
+        try:
+            text = self.target_amount_input.text().replace(",", "").strip()
+            if text:
+                return int(text)
+            return 0  # 빈 값은 0으로 처리 (비활성화)
+        except ValueError:
+            return 0  # 변환 오류 시 0으로 처리 (비활성화)
 
     def save_settings(self):
         """입력된 사이트 정보와 마틴 설정을 JSON 파일에 저장"""
@@ -202,9 +251,15 @@ class SettingsWindow(QWidget):
         martin_count = self.martin_count_spinner.value()
         martin_amounts = self.collect_martin_amounts()
         
+        # 목표 금액 가져오기
+        target_amount = self.get_target_amount()
+        
         self.settings_manager.save_settings(
             site1, site2, site3, 
             martin_count=martin_count,
-            martin_amounts=martin_amounts
+            martin_amounts=martin_amounts,
+            target_amount=target_amount
         )
+        
+        print(f"[INFO] 설정 저장 완료 - 목표 금액: {target_amount:,}원")
         self.close()

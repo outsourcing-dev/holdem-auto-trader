@@ -89,10 +89,12 @@ class TradingManager:
             # 중요: 설정을 강제로 다시 로드
             self.logger.info("[INFO] 자동 매매 시작 전 설정 강제 재로드")
             
+            # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드
+            self.settings_manager = SettingsManager()
+            
             # 마틴 서비스의 설정 매니저 갱신
             if hasattr(self, 'martin_service'):
-                # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드
-                self.martin_service.settings_manager = SettingsManager()
+                self.martin_service.settings_manager = self.settings_manager
                 self.martin_service.martin_count, self.martin_service.martin_amounts = self.martin_service.settings_manager.get_martin_settings()
                 self.logger.info(f"[INFO] 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
 
@@ -122,6 +124,7 @@ class TradingManager:
                 QMessageBox.warning(self.main_window, "오류", "창 개수가 부족합니다. 최소 2개의 창이 필요합니다.")
                 return
 
+            # 잔액 확인
             balance = self.balance_service.get_iframe_balance()
 
             if balance is None:
@@ -131,16 +134,21 @@ class TradingManager:
             # 사용자 이름은 기본값 사용
             username = self.main_window.username or "사용자"
                     
-            # UI에 잔액 및 사용자 정보 업데이트
-            self.balance_service.update_balance_and_user_data(balance, username)
-
-            # 자동 매매 활성화
+            # 자동 매매 활성화 - 잔액 업데이트 전에 활성화하여 balance_service에서 목표 금액 도달 시 중지 가능하도록 함
             self.is_trading_active = True
             self.logger.info("자동 매매 시작!")
-
+            
             # 버튼 상태 업데이트
             self.main_window.start_button.setEnabled(False)
             self.main_window.stop_button.setEnabled(True)
+            
+            # UI에 잔액 및 사용자 정보 업데이트 (여기서 목표 금액 비교도 수행)
+            self.balance_service.update_balance_and_user_data(balance, username)
+            
+            # 추가 검증: 자동 매매가 중지되었는지 확인 (balance_service에서 목표 금액 도달 시 중지되었을 수 있음)
+            if not self.is_trading_active:
+                self.logger.info("목표 금액 도달로 자동 매매가 이미 중지되었습니다.")
+                return
             
             # 남은 시간 설정 (임시: 1시간)
             self.main_window.set_remaining_time(1, 0, 0)
@@ -161,7 +169,7 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
-                    
+                            
     def _validate_trading_prerequisites(self):
         """자동 매매 시작 전 사전 검증"""
         if self.is_trading_active:
