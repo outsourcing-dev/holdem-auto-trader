@@ -4,9 +4,8 @@
     "site3": "www.ygosu.com",
     "martin_count": 4,
     "martin_amounts": [
+        1000,
         2000,
-        4000,
-        8000,
-        16000
+        4000
     ]
 }
