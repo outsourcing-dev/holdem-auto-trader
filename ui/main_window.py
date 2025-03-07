@@ -97,6 +97,11 @@ class MainWindow(QMainWindow):
         self.start_button = QPushButton("🔵 자동 배팅 시작")
         self.stop_button = QPushButton("🔴 자동 배팅 종료")
 
+        # 초기에 버튼 비활성화
+        self.start_button.setEnabled(False)
+        self.stop_button.setEnabled(False)
+
+
         self.start_button.clicked.connect(self.start_trading)
         self.stop_button.clicked.connect(self.stop_trading)
 

@@ -126,7 +126,7 @@ class ExcelManager:
             print(f"엑셀 파일에 게임 결과 쓰기 실패: {str(e)}")
             return False
     
-    def get_next_empty_column(self, row: int = 3, start_col: str = 'B', end_col: str = 'R') -> Optional[str]:
+    def get_next_empty_column(self, row: int = 3, start_col: str = 'B', end_col: str = 'BW') -> Optional[str]:
         """
         지정된 행에서 값이 비어 있는 첫 번째 열을 찾습니다.
         
