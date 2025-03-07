@@ -169,112 +169,122 @@ class TradingManager:
         
         self.logger.info(f"선택된 방 {len(checked_rooms)}개: {[room['name'] for room in checked_rooms]}")
         return True
+    
     # 2. analyze_current_game 메서드 수정
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
         try:
-            # 방 이동 플래그 확인 - 더 강력한 조건으로 수정
+            # 1. 방 이동 플래그 확인 - 항상 가장 먼저 체크
             if self.should_move_to_next_room:
                 self.logger.info("방 이동 플래그가 설정되어 있어 방 이동을 실행합니다.")
                 self.should_move_to_next_room = False  # 플래그 초기화
                 self.change_room()
                 return  # 방 이동 후 첫 분석은 건너뛰기
-            # 직전 상태 저장 (변경 감지용)
+                
+            # 2. 게임 상태 가져오기
             previous_game_count = self.game_count
-            
-            # 게임 상태 가져오기 (로깅 제거, 변경 감지 후 로깅하도록 수정)
             game_state = self.game_monitoring_service.get_current_game_state(log_always=False)
             
             if not game_state:
-                # 오류는 여전히 로깅
                 self.logger.error("게임 상태를 가져올 수 없습니다.")
                 return
             
-            # 현재 게임 카운트 확인
+            # 3. 게임 카운트 및 변경 확인
             current_game_count = game_state.get('round', 0)
             
-            # 게임 카운트가 변경되었는지 확인 (변경시에만 로깅)
             if current_game_count != previous_game_count:
                 self.logger.info(f"게임 카운트 변경: {previous_game_count} -> {current_game_count}")
-                # 방 변경 후 첫 분석인 경우 로그 추가
                 if previous_game_count == 0 and current_game_count > 0:
                     self.logger.info(f"방 {self.current_room_name}의 현재 게임 수: {current_game_count}")
             
-            # 게임 결과 처리
+            # 4. 엑셀 처리 및 PICK 값 확인
             result = self.excel_trading_service.process_game_results(
                 game_state, 
                 self.game_count, 
                 self.current_room_name,
-                log_on_change=True  # 변경될 때만 로깅
+                log_on_change=True
             )
 
-            # 결과 처리
-            if result[0] is not None:  # last_column이 None이 아닌 경우에만 처리
+            # 5. 결과 처리 (last_column이 None이 아닌 경우에만)
+            if result[0] is not None:
                 last_column, new_game_count, recent_results, next_pick = result
-
-                # 새로운 게임이 시작되면 베팅 상태 초기화 및 로깅
+                
+                # 6. 새 게임 시작 시 이전 게임 결과 확인
                 if new_game_count > self.game_count:
-                    self.betting_service.reset_betting_state()
-                    self.logger.info(f"새로운 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
-
-                    # UI 업데이트
-                    self.main_window.update_betting_status(
-                        room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
-                        pick=next_pick
-                    )
-                    # 현재 베팅 타입 저장
-                    self.current_pick = next_pick
-
-                # PICK 값이 P 또는 B일 경우 베팅 실행 (변경 없으면 로깅 안함)
-                if next_pick in ['P', 'B'] and not self.betting_service.has_bet_current_round:
-                    # 마틴 서비스에서 현재 베팅 금액 가져오기
-                    bet_amount = self.martin_service.get_current_bet_amount()
-                    self.logger.info(f"마틴 단계 {self.martin_service.current_step + 1}/{self.martin_service.martin_count}: {bet_amount:,}원 베팅")
+                    self._process_previous_game_result(game_state, new_game_count)
                     
-                    # 베팅 실행
-                    bet_success = self.betting_service.place_bet(
-                        next_pick, 
-                        self.current_room_name, 
-                        new_game_count, 
-                        self.is_trading_active
-                    )
-                
-                # 이전 베팅 결과 확인 (베팅 결과가 결정된 후)
-                if new_game_count > self.game_count and self.game_count > 0 and self.betting_service.has_bet_current_round:
-                    # self.current_pick 변수를 사용하여 이전에 베팅한 타입 가져오기
-                    previous_bet_type = self.current_pick
+                    # 7. PICK 값에 따른 베팅 실행 (방 이동 예정이 아닐 때만)
+                    if not self.should_move_to_next_room and next_pick in ['P', 'B'] and not self.betting_service.has_bet_current_round:
+                        self._place_bet(next_pick, new_game_count)
                     
-                    if previous_bet_type in ['P', 'B']:
-                        # 이전 베팅 결과 확인
-                        is_win, self.result_count = self.betting_service.check_betting_result(
-                            previous_bet_type,  # 베팅한 타입
-                            game_state.get('latest_result', 'N'),  # 게임 결과
-                            self.current_room_name,
-                            self.result_count
-                        )
-                        
-                        # 마틴 베팅 단계 업데이트
-                        self.martin_service.process_bet_result(is_win)
-                        
-                        # 방 이동이 필요한지 확인하고 플래그 설정
-                        if self.martin_service.should_change_room():
-                            self.logger.info("배팅 성공으로 방 이동이 필요합니다. 다음 게임 준비 중 이동합니다.10초대기")
-                            time.sleep(10)  # 10초 대기
-                            self.should_move_to_next_room = True  # 플래그만 설정, 즉시 이동하지 않음
-                
-                # 게임 카운트 및 최근 결과 업데이트
-                self.game_count = new_game_count
-                self.recent_results = recent_results
+                    # 8. 게임 카운트 및 최근 결과 업데이트
+                    self.game_count = new_game_count
+                    self.recent_results = recent_results
             
-            # 2초마다 분석 수행
+            # 9. 2초마다 분석 수행
             self.main_window.set_remaining_time(0, 0, 2)
-            
+                
         except Exception as e:
-            # 오류 로깅
             self.logger.error(f"게임 상태 분석 중 오류 발생: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
+            
+    def _process_previous_game_result(self, game_state, new_game_count):
+        """이전 게임 결과 처리 및 배팅 상태 초기화"""
+        # 이전 베팅 정보 가져오기
+        last_bet = self.betting_service.get_last_bet()
+        
+        # 이전 게임에 베팅했고, 그 베팅이 현재 라운드에 대한 것이었는지 확인
+        if last_bet and last_bet['round'] == self.game_count:
+            bet_type = last_bet['type']
+            latest_result = game_state.get('latest_result')
+            
+            if bet_type in ['P', 'B'] and latest_result:
+                self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}")
                 
+                # 베팅 결과 확인
+                is_win, self.result_count = self.betting_service.check_betting_result(
+                    bet_type,
+                    latest_result,
+                    self.current_room_name,
+                    self.result_count
+                )
+                
+                # 마틴 베팅 단계 업데이트
+                self.martin_service.process_bet_result(is_win)
+                
+                # 방 이동이 필요한지 확인
+                if self.martin_service.should_change_room():
+                    self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
+                    time.sleep(2)  # 10초 대기
+                    self.should_move_to_next_room = True
+        
+        # 베팅 상태 초기화 (새 라운드 번호로)
+        self.betting_service.reset_betting_state(new_round=new_game_count)
+        self.logger.info(f"새로운 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
+        
+        # UI 업데이트
+        self.main_window.update_betting_status(
+            room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
+            pick=self.current_pick
+        )
+
+    def _place_bet(self, pick_value, game_count):
+        """베팅 실행"""
+        # 마틴 서비스에서 현재 베팅 금액 가져오기
+        bet_amount = self.martin_service.get_current_bet_amount()
+        self.logger.info(f"마틴 단계 {self.martin_service.current_step + 1}/{self.martin_service.martin_count}: {bet_amount:,}원 베팅")
+        
+        # 베팅 실행
+        bet_success = self.betting_service.place_bet(
+            pick_value, 
+            self.current_room_name, 
+            game_count, 
+            self.is_trading_active
+        )
+        
+        # 현재 베팅 타입 저장
+        self.current_pick = pick_value      
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:
@@ -355,8 +365,8 @@ class TradingManager:
         현재 방을 나가고 새로운 방으로 이동합니다.
         """
         try:
-            self.logger.info("배팅 성공 후 방 이동 준비 중 (5초 대기)...")
-            time.sleep(5)
+            self.logger.info("배팅 성공 후 방 이동 준비 중...")
+            # time.sleep(5)
 
             # 방 이동 플래그 초기화
             self.should_move_to_next_room = False

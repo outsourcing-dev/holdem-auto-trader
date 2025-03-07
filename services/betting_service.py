@@ -21,6 +21,8 @@ class BettingService:
         self.devtools = devtools
         self.main_window = main_window
         self.has_bet_current_round = False
+        self.current_bet_round = 0  # 현재 베팅한 라운드 번호
+        self.last_bet_type = None   # 마지막으로 베팅한 타입
 
     # services/betting_service.py
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
@@ -132,8 +134,37 @@ class BettingService:
                 chip_clicks[1000] = 1
                 total_clicks = 1
             
-            # 각 칩 클릭 시 예외 처리 추가
-            all_chips_clicked = True
+            # 베팅 대상 선택 (미리 요소 찾기)
+            if bet_type == 'P':
+                # Player 영역 찾기
+                selector = "div.spot--5ad7f[data-betspot-destination='Player']"
+                self.logger.info(f"Player 베팅 영역 찾는 중: {selector}")
+            elif bet_type == 'B':
+                # Banker 영역 찾기
+                selector = "div.spot--5ad7f[data-betspot-destination='Banker']"
+                self.logger.info(f"Banker 베팅 영역 찾는 중: {selector}")
+            else:
+                self.logger.error(f"잘못된 베팅 타입: {bet_type}")
+                return False
+            
+            try:
+                # 베팅 영역 요소 미리 찾기
+                bet_element = WebDriverWait(self.devtools.driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                )
+                
+                # 요소가 활성화되어 있는지 확인
+                is_active = 'active--dc7b3' in bet_element.get_attribute('class')
+                if is_active:
+                    self.logger.info(f"이미 {bet_type} 영역이 활성화되어 있습니다.")
+            except Exception as e:
+                self.logger.error(f"베팅 영역 찾기 중 오류: {e}")
+                return False
+            
+            # 베팅 성공 여부 플래그
+            is_bet_success = False
+            
+            # 각 칩별로 선택 후 베팅 영역 클릭 수행
             for chip_value, clicks in chip_clicks.items():
                 try:
                     # 칩 선택 요소 찾기
@@ -145,58 +176,27 @@ class BettingService:
                     # 칩 활성화 상태 확인
                     if "disabled" in chip_element.get_attribute("class") or not chip_element.is_enabled():
                         self.logger.warning(f"{chip_value:,}원 칩이 비활성화되어 있습니다. 배팅이 불가능합니다.")
-                        all_chips_clicked = False
-                        break
+                        return False
                     
-                    # 칩 클릭
-                    for _ in range(clicks):
-                        chip_element.click()
-                        time.sleep(0.1)  # 약간의 딜레이
+                    # 칩 선택 (한 번만 클릭)
+                    time.sleep(0.5)  # 클릭 전 딜레이
+                    chip_element.click()
+                    time.sleep(0.5)  # 클릭 후 딜레이
+                    self.logger.info(f"{chip_value:,}원 칩 선택 완료")
                     
-                    self.logger.info(f"{chip_value:,}원 칩 {clicks}회 클릭 완료")
+                    # 베팅 영역 여러 번 클릭
+                    for i in range(clicks):
+                        time.sleep(0.5)  # 클릭 전 딜레이
+                        bet_element.click()
+                        time.sleep(0.5)  # 클릭 후 딜레이
+                        self.logger.info(f"{bet_type} 영역 {i+1}/{clicks}번째 클릭 완료")
+                    
                 except Exception as e:
-                    self.logger.error(f"{chip_value:,}원 칩 클릭 중 오류: {e}")
-                    all_chips_clicked = False
-                    break
+                    self.logger.error(f"{chip_value:,}원 칩 선택 또는 베팅 영역 클릭 중 오류: {e}")
+                    return False
             
-            # 칩 클릭에 실패했으면 배팅 중단
-            if not all_chips_clicked:
-                self.logger.warning("일부 칩 클릭에 실패했습니다. 배팅을 건너뜁니다.")
-                return False
-            
-            # 베팅 대상 선택
-            if bet_type == 'P':
-                # Player 영역 찾기 및 클릭
-                selector = "div.spot--5ad7f[data-betspot-destination='Player']"
-                self.logger.info(f"Player 베팅 영역 클릭 시도: {selector}")
-            elif bet_type == 'B':
-                # Banker 영역 찾기 및 클릭
-                selector = "div.spot--5ad7f[data-betspot-destination='Banker']"
-                self.logger.info(f"Banker 베팅 영역 클릭 시도: {selector}")
-            else:
-                self.logger.error(f"잘못된 베팅 타입: {bet_type}")
-                return False
-            
-            try:
-                # 요소 찾기
-                bet_element = WebDriverWait(self.devtools.driver, 5).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                )
-                
-                # 요소가 활성화되어 있는지 확인
-                is_active = 'active--dc7b3' in bet_element.get_attribute('class')
-                if is_active:
-                    self.logger.info(f"이미 {bet_type} 영역이 활성화되어 있습니다.")
-                
-                # 베팅 영역 클릭
-                bet_element.click()
-                self.logger.info(f"{bet_type} 영역 클릭 완료!")
-            except Exception as e:
-                self.logger.error(f"베팅 영역 클릭 중 오류: {e}")
-                return False
-            
-            # 베팅 후 총 베팅 금액 변경 확인 (1초 대기)
-            time.sleep(1)
+            # 베팅 후 총 베팅 금액 변경 확인 (1.5초 대기)
+            time.sleep(1.5)
             try:
                 total_bet_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='total-bet-label-value']")
                 after_bet_amount_text = total_bet_element.text
@@ -221,6 +221,8 @@ class BettingService:
             # 베팅 상태 기록 (실제 베팅이 처리된 경우에만)
             if is_bet_success:
                 self.has_bet_current_round = True
+                self.current_bet_round = game_count  # 현재 게임 라운드 저장
+                self.last_bet_type = bet_type        # 베팅한 타입 저장
                 
                 # UI 업데이트
                 self.main_window.update_betting_status(
@@ -236,11 +238,18 @@ class BettingService:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
         
-    def reset_betting_state(self):
+    def reset_betting_state(self, new_round=None):
         """베팅 상태 초기화"""
         self.has_bet_current_round = False
-        self.logger.info("베팅 상태 초기화 완료")
-        
+        # 새 라운드가 지정되면 저장, 아니면 0으로 초기화
+        self.current_bet_round = new_round if new_round is not None else 0
+        self.last_bet_type = None
+        self.logger.info(f"베팅 상태 초기화 완료 (라운드: {self.current_bet_round})")
+    
+    def check_is_bet_for_current_round(self, current_round):
+        """현재 라운드에 베팅했는지 확인"""
+        return self.has_bet_current_round and self.current_bet_round == current_round
+    
     def check_betting_result(self, bet_type, latest_result, current_room_name, result_count):
         """
         베팅 결과를 직접 확인합니다.
@@ -288,3 +297,12 @@ class BettingService:
             # 오류 로깅
             self.logger.error(f"베팅 결과 확인 중 오류 발생: {e}", exc_info=True)
             return False, result_count
+        
+    def get_last_bet(self):
+        """마지막 베팅 정보 반환"""
+        if not self.has_bet_current_round:
+            return None
+        return {
+            'round': self.current_bet_round,
+            'type': self.last_bet_type
+        }
