@@ -20,7 +20,7 @@ class RoomLoaderThread(QThread):
         self.devtools = devtools
         self.filter_type = filter_type  # "speed", "all" 등
         self.stop_requested = False
-        
+
     def run(self):
         all_rooms = []
         
@@ -46,15 +46,30 @@ class RoomLoaderThread(QThread):
                 f.write(self.devtools.driver.page_source[:10000])  # 처음 10000자만 저장
                 
             self.progress_signal.emit("디버깅 정보 page_debug.log 파일에 저장됨", 0)
-             # iframe으로 전환
-            self.progress_signal.emit("iframe으로 전환 중...", 0)
             
-            # iframe으로 전환한 후 iframe 내부 구조 로깅 (두 번째 로깅 코드)
+            # 메인 컨텐츠로 전환 보장
+            try:
+                self.devtools.driver.switch_to.default_content()
+                time.sleep(1)  # 전환 안정화 대기
+            except Exception as e:
+                self.progress_signal.emit(f"기본 컨텐츠 전환 중 오류: {str(e)}", 0)
+            
+            # iframe 여부 다시 확인
+            iframes = self.devtools.driver.find_elements("css selector", "iframe")
+            
+            # iframe이 있으면 전환
             if len(iframes) > 0:
+                self.progress_signal.emit("iframe으로 전환 중...", 0)
                 iframe = iframes[0]
-                self.devtools.driver.switch_to.frame(iframe)
-                time.sleep(2)  # 로드 대기 시간 증가
-                
+                try:
+                    self.devtools.driver.switch_to.frame(iframe)
+                    time.sleep(2)  # 로드 대기 시간 증가
+                except Exception as e:
+                    self.progress_signal.emit(f"iframe 전환 중 오류: {str(e)}", 0)
+                    # 오류 발생 시 기본 컨텐츠로 돌아가기
+                    self.devtools.driver.switch_to.default_content()
+                    
+                # iframe 내부 구조 로깅
                 with open("iframe_debug.log", "w", encoding="utf-8") as f:
                     f.write("==== iframe 내부 HTML ====\n")
                     f.write(self.devtools.driver.page_source[:10000])
@@ -70,6 +85,8 @@ class RoomLoaderThread(QThread):
                             f.write(f"첫 번째 요소 HTML: {elements[0].get_attribute('outerHTML')}\n")
                             
                 self.progress_signal.emit("iframe 내부 디버깅 정보 iframe_debug.log 파일에 저장됨", 0)
+            else:
+                self.progress_signal.emit("iframe을 찾을 수 없습니다. 직접 페이지 요소 확인 시도", 0)
 
             # 필터 유형에 따른 처리
             if self.filter_type == "speed":
@@ -79,9 +96,20 @@ class RoomLoaderThread(QThread):
             self.progress_signal.emit("스크롤 컨테이너 찾는 중...", 0)
             scroll_container = self._find_scroll_container()
             
-            # 초기 방 개수 체크
-            initial_rooms = len(self.devtools.driver.find_elements("css selector", ".tile--5d2e6"))
-            self.progress_signal.emit(f"초기 방 개수: {initial_rooms}개", initial_rooms)
+            # 초기 방 개수 체크 - 여러 선택자 시도
+            initial_rooms = 0
+            for selector in [".tile--5d2e6", ".game-tile", "[data-role='game-tile']", "[class*='tile']"]:
+                room_elements = self.devtools.driver.find_elements("css selector", selector)
+                if room_elements:
+                    initial_rooms = len(room_elements)
+                    self.progress_signal.emit(f"초기 방 개수: {initial_rooms}개 (선택자: {selector})", initial_rooms)
+                    break
+            
+            # 아무 방도 찾지 못한 경우 기본 선택자 사용
+            if initial_rooms == 0:
+                self.progress_signal.emit("기본 선택자로 방 검색 시도", 0)
+                initial_rooms = len(self.devtools.driver.find_elements("css selector", ".tile--5d2e6"))
+                self.progress_signal.emit(f"기본 선택자로 찾은 방 개수: {initial_rooms}개", initial_rooms)
             
             # 스크롤하면서 방 목록 수집
             max_scroll_attempts = 20
@@ -95,7 +123,12 @@ class RoomLoaderThread(QThread):
                     break
                 
                 # 현재 방 개수 저장
-                current_rooms = len(self.devtools.driver.find_elements("css selector", ".tile--5d2e6"))
+                current_rooms = 0
+                for selector in [".tile--5d2e6", ".game-tile", "[data-role='game-tile']", "[class*='tile']"]:
+                    room_elements = self.devtools.driver.find_elements("css selector", selector)
+                    if room_elements:
+                        current_rooms = len(room_elements)
+                        break
                 
                 # 스크롤 방법 1: 스크롤 컨테이너까지 스크롤
                 self.devtools.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scroll_container)
@@ -104,7 +137,13 @@ class RoomLoaderThread(QThread):
                 self.devtools.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 
                 # 스크롤 방법 3: 가장 아래 요소로 스크롤
-                room_elements = self.devtools.driver.find_elements("css selector", ".tile--5d2e6")
+                room_elements = []
+                for selector in [".tile--5d2e6", ".game-tile", "[data-role='game-tile']", "[class*='tile']"]:
+                    elements = self.devtools.driver.find_elements("css selector", selector)
+                    if elements:
+                        room_elements = elements
+                        break
+                
                 if room_elements:
                     last_element = room_elements[-1]
                     self.devtools.driver.execute_script("arguments[0].scrollIntoView(true);", last_element)
@@ -113,7 +152,12 @@ class RoomLoaderThread(QThread):
                 time.sleep(3)  # 로딩 대기 시간
                 
                 # 새로운 방 개수 확인
-                new_rooms = len(self.devtools.driver.find_elements("css selector", ".tile--5d2e6"))
+                new_rooms = 0
+                for selector in [".tile--5d2e6", ".game-tile", "[data-role='game-tile']", "[class*='tile']"]:
+                    elements = self.devtools.driver.find_elements("css selector", selector)
+                    if elements:
+                        new_rooms = len(elements)
+                        break
                 
                 # 현재 보이는 방 가져오기
                 visible_rooms = self._get_current_visible_rooms()
@@ -144,7 +188,10 @@ class RoomLoaderThread(QThread):
             filtered_rooms = self._filter_rooms(all_rooms)
             
             # iframe에서 나오기
-            self.devtools.driver.switch_to.default_content()
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except Exception as e:
+                self.progress_signal.emit(f"기본 컨텐츠 전환 중 오류: {str(e)}", 0)
             
             # 최종 결과 반환 (각 방에 대해 {"name": 방이름, "checked": True} 형태로)
             result_rooms = [{"name": room, "checked": True} for room in filtered_rooms]
@@ -162,7 +209,7 @@ class RoomLoaderThread(QThread):
                 pass
                 
             self.finished_signal.emit([])  # 빈 목록 전달
-    
+            
     def _apply_speed_filter(self):
         """스피드 필터 적용"""
         self.progress_signal.emit("스피드 필터 찾는 중...", 0)
