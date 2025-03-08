@@ -2,6 +2,8 @@ import sys
 from PyQt6.QtWidgets import QApplication, QStackedWidget
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
+import urllib3
+urllib3.PoolManager(maxsize=10)  # 기본값 1에서 10으로 증가
 
 # 전역 변수로 메인 윈도우 인스턴스 저장
 global_main_window = None

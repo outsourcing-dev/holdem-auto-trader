@@ -1,10 +1,16 @@
+# utils/room_manager.py 수정
+
 import json
 import os
-from PyQt6.QtWidgets import QTableWidgetItem, QCheckBox, QMessageBox
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (QTableWidgetItem, QCheckBox, QMessageBox, QLabel,
+                           QProgressBar, QHeaderView, QWidget, QHBoxLayout)
+from PyQt6.QtCore import Qt, QTimer
 import time
 import re
 import random
+
+# RoomLoaderThread 클래스 import
+from utils.room_loader import RoomLoaderThread
 
 ROOM_DATA_FILE = "room_settings.json"
 
@@ -14,13 +20,18 @@ def clean_text(text):
     return text.strip()
 
 class RoomManager:
-    # utils/room_manager.py의 RoomManager 클래스에 추가
     def __init__(self, main_window):
         self.main_window = main_window
         self.devtools = main_window.devtools
         self.rooms_data = []  # 방 데이터를 저장할 리스트 ([{"name": "방이름", "checked": True}, ...])
         self.room_visit_queue = []  # 방문할 방들의 순서 (랜덤하게 섞인 배열)
         self.load_room_settings()  # 저장된 방 설정 불러오기
+        
+        # 로딩 메시지 박스 참조 (자동 닫기용)
+        self.loading_msgbox = None
+        
+        # 로딩 스레드
+        self.room_loader_thread = None
 
     def generate_visit_order(self):
         """
@@ -77,8 +88,185 @@ class RoomManager:
             # 로깅 방식 변경
             print(f"[INFO] '{room_name}'을 방문 큐에서 제거 (남은 방: {len(self.room_visit_queue)}개)")
 
+    def show_loading_msgbox(self, message):
+        """메시지 박스 표시 후 자동으로 닫히도록 설정"""
+        self.loading_msgbox = QMessageBox(self.main_window)
+        self.loading_msgbox.setWindowTitle("알림")
+        self.loading_msgbox.setText(message)
+        self.loading_msgbox.setStandardButtons(QMessageBox.StandardButton.NoButton)  # 버튼 없음
+        
+        # 진행 상태 표시 추가
+        progress_bar = QProgressBar(self.loading_msgbox)
+        progress_bar.setRange(0, 0)  # 무한 진행 표시
+        progress_bar.setFixedHeight(15)
+        progress_bar.setTextVisible(False)
+        self.loading_msgbox.layout().addWidget(progress_bar, 1, 0)
+        
+        # 타이머로 2.5초 후에 자동 닫기
+        QTimer.singleShot(2500, self.loading_msgbox.accept)
+        
+        # 논블로킹 모드로 표시
+        self.loading_msgbox.show()
+    
+    def merge_room_data(self, new_room_names, reset_existing=False):
+        """
+        새로 가져온 방 목록과 기존 저장된 방 목록을 병합합니다.
+        
+        Args:
+            new_room_names (list): 새로 가져온 방 이름 목록 (dict 또는 str 형식)
+            reset_existing (bool): True일 경우 기존 방 목록을 초기화하고 새 목록으로 교체
+        """
+        if reset_existing:
+            # 입력이 dict 형식인지 str 형식인지 확인
+            self.rooms_data = []
+            
+            if new_room_names and isinstance(new_room_names[0], dict):
+                # dict 형식이면 그대로 사용
+                self.rooms_data = new_room_names
+            else:
+                # str 형식이면 dict로 변환 (모든 방의 체크 상태를 True로 설정)
+                for name in new_room_names:
+                    self.rooms_data.append({"name": name, "checked": True})
+                    
+            print(f"[INFO] 방 목록을 모두 초기화하고 새로운 {len(self.rooms_data)}개 방으로 교체했습니다. (모두 선택됨)")
+        else:
+            # 기존 방식대로 병합
+            existing_names = {room["name"] for room in self.rooms_data}
+            
+            # 새로운 방 추가
+            if new_room_names and isinstance(new_room_names[0], dict):
+                # dict 형식이면 name 추출
+                for room_data in new_room_names:
+                    name = room_data["name"]
+                    if name not in existing_names:
+                        self.rooms_data.append(room_data)
+                        existing_names.add(name)
+            else:
+                # str 형식이면 dict로 변환
+                for name in new_room_names:
+                    if name not in existing_names:
+                        self.rooms_data.append({"name": name, "checked": False})
+                        existing_names.add(name)
+
+    def show_room_list_dialog(self):
+        """
+        방 목록 불러오기 다이얼로그 표시
+        - 기존 방 불러오기 또는 새로운 방 불러오기 선택 가능
+        """
+        # 1. 기존 저장된 방 목록을 불러올지 묻기
+        reply = QMessageBox.question(
+            self.main_window,
+            "방 목록 불러오기",
+            "기존 저장된 방 목록을 불러오시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # 저장된 JSON 파일에서 불러오기
+            print("[INFO] 저장된 방 목록 불러오기 선택")
+            self.load_room_settings()
+            self.load_rooms_into_table(self.rooms_data)
+            return
+        
+        # 2. 새로운 방 목록을 불러올지 묻기
+        reply = QMessageBox.question(
+            self.main_window,
+            "방 목록 불러오기",
+            "현재 사이트의 '스피드' 방을 모두 불러와서 저장하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # 카지노 창으로 전환
+            if not self.main_window.switch_to_casino_window():
+                QMessageBox.warning(self.main_window, "오류", "카지노 창을 찾을 수 없습니다.")
+                return
+                
+            # 2.5초 후 자동으로 닫히는 로딩 메시지 표시
+            self.show_loading_msgbox("스피드 방 목록을 불러옵니다. 잠시만 기다려주세요.")
+            
+            # 스피드 방 목록 로딩 스레드 생성 및 시작
+            self.start_room_loader_thread()
+                
+            # 카지노 로비 창으로 포커싱 확실히 유지
+            self.main_window.switch_to_casino_window()
+    
+    # RoomManager 클래스의 update_loading_progress 함수 수정
+    def update_loading_progress(self, message, count):
+        """방 로딩 진행 상황 업데이트 (로그만 남기고 UI에는 표시 안 함)"""
+        # 로그에만 기록
+        print(f"[INFO] 방 목록 불러오는 중: {message} (발견 방: {count}개)")
+
+    # RoomManager 클래스의 on_room_loading_finished 함수 수정
+
+    def on_room_loading_finished(self, rooms_data):
+        """방 로딩 완료 시 호출되는 콜백"""
+        # 로딩 결과가 있는 경우
+        if rooms_data:
+            # rooms_data는 [{"name": 방이름, "checked": True}, ...] 형태
+            # 기존 방 목록을 초기화하고 새 목록으로 교체
+            self.merge_room_data(rooms_data, reset_existing=True)
+            
+            # 테이블에 로드
+            self.load_rooms_into_table(self.rooms_data)
+            
+            # 성공적으로 파싱했다면 자동으로 저장하기
+            save_result = self.save_room_settings()
+            
+            # 결과 출력
+            if save_result:
+                print(f"[INFO] 총 {len(self.rooms_data)}개의 스피드 방 목록을 불러와 저장했습니다.")
+                
+                # 성공 메시지 (2초 후 자동 닫힘)
+                msgbox = QMessageBox(self.main_window)
+                msgbox.setWindowTitle("방 목록 저장 완료")
+                msgbox.setText(f"총 {len(self.rooms_data)}개의 방 목록을 불러와 저장했습니다.")
+                msgbox.setStandardButtons(QMessageBox.StandardButton.Ok)
+                QTimer.singleShot(2000, msgbox.accept)
+                msgbox.show()
+            else:
+                print("[ERROR] 방 목록 저장 실패")
+                
+                # 실패 메시지
+                QMessageBox.warning(
+                    self.main_window, 
+                    "저장 실패",
+                    "방 목록을 저장하는 데 실패했습니다."
+                )
+        else:
+            # 방 목록을 가져오지 못한 경우
+            print("[ERROR] 방 목록을 불러오지 못했습니다.")
+            
+            QMessageBox.warning(
+                self.main_window, 
+                "오류", 
+                "방 목록을 불러오는 데 실패했습니다."
+            )
+
+    # RoomManager 클래스의 start_room_loader_thread 함수 수정
+
+    def start_room_loader_thread(self):
+        """방 목록 로딩 스레드 시작"""
+        # 기존 스레드가 있으면 중단
+        if self.room_loader_thread and self.room_loader_thread.isRunning():
+            self.room_loader_thread.stop()
+            self.room_loader_thread.wait()
+        
+        # 새 스레드 생성
+        self.room_loader_thread = RoomLoaderThread(self.devtools, "speed")
+        
+        # 시그널 연결
+        self.room_loader_thread.progress_signal.connect(self.update_loading_progress)
+        self.room_loader_thread.finished_signal.connect(self.on_room_loading_finished)
+        
+        # 스레드 시작
+        self.room_loader_thread.start()
+        print("[INFO] 방 목록 로딩 스레드 시작됨")
+        
     def get_all_rooms(self):
-        """iframe 내에서 방 정보 가져오기"""
+        """iframe 내에서 방 정보 가져오기 (기존 기능, 수정 없음)"""
         print("[DEBUG] get_all_rooms() 메서드 시작")
 
         try:
@@ -91,18 +279,18 @@ class RoomManager:
 
             all_rooms = set()
 
-            # ✅ 특정 클래스(tile--5d2e6) 방 이름 요소 찾기
+            # 특정 클래스(tile--5d2e6) 방 이름 요소 찾기
             name_elements = self.devtools.driver.find_elements("css selector", ".tile--5d2e6")
             print(f"[INFO] 현재 보이는 방 개수: {len(name_elements)}")
 
             for idx, element in enumerate(name_elements):
                 try:
                     full_text = element.text.strip()
-                    clean_full_text = clean_text(full_text)  # ✅ 숨겨진 문자 제거
+                    clean_full_text = clean_text(full_text)  # 숨겨진 문자 제거
                     lines = [line.strip() for line in clean_full_text.splitlines() if line.strip()]
 
                     if lines:
-                        room_name = clean_text(lines[0])  # ✅ 첫 번째 줄(방 이름)만 추출 후 클리닝
+                        room_name = clean_text(lines[0])  # 첫 번째 줄(방 이름)만 추출 후 클리닝
 
                         print(f"[DEBUG] room[{idx}] 원본 데이터: {repr(full_text)}")  
                         print(f"[DEBUG] room[{idx}] 첫 줄 (클린): {repr(room_name)}")  
@@ -132,19 +320,7 @@ class RoomManager:
             except:
                 pass
             return []
-    
-    def merge_room_data(self, new_room_names):
-        """새로 가져온 방 목록과 기존 저장된 방 목록을 병합"""
-        # 새로운 방은 기본적으로 체크 해제 상태로 추가
-        existing_names = {room["name"] for room in self.rooms_data}
-        
-        # 새로운 방 추가
-        for name in new_room_names:
-            if name not in existing_names:
-                self.rooms_data.append({"name": name, "checked": False})
-                existing_names.add(name)
-    
-    # utils/room_manager.py에 메서드 추가
+            
     def load_rooms_into_table(self, rooms_data=None):
         """방 목록을 테이블에 업데이트"""
         print("[DEBUG] load_rooms_into_table() 실행됨")
@@ -176,10 +352,42 @@ class RoomManager:
 
         # 테이블 설정 업데이트 (체크박스 열 추가)
         room_table = self.main_window.room_table
+        
+        # 테이블 스타일 설정 - 전체 배경을 흰색으로 설정
+        room_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                gridline-color: #DDDDDD;
+                border: 1px solid #CCCCCC;
+            }
+            QTableWidget::item {
+                background-color: white;
+                padding: 4px;
+                text-align: center;
+            }
+            QTableWidget QHeaderView::section {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                padding: 4px;
+                border: 1px solid #2E7D32;
+                text-align: center;
+            }
+            QCheckBox {
+                background-color: white;
+            }
+        """)
+        
+        # 테이블 설정
         room_table.setColumnCount(2)  # 체크박스, 방 이름
         room_table.setHorizontalHeaderLabels(["선택", "방 이름"])
+        
+        # 조정 가능한 너비 대신 비율 설정 (전체 너비에 맞추기)
+        room_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        room_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        
+        # 체크박스 열 너비 설정
         room_table.setColumnWidth(0, 50)  # 체크박스 열 너비
-        room_table.setColumnWidth(1, 200)  # 방 이름 열 너비
         
         # 테이블 행 개수 설정
         room_table.setRowCount(len(rooms_data))
@@ -187,15 +395,26 @@ class RoomManager:
         # 체크박스와 방 이름 설정
         for row, room_data in enumerate(rooms_data):
             # 체크박스 생성 (centralized using a widget)
+            checkbox_container = QWidget()
+            checkbox_layout = QHBoxLayout(checkbox_container)
+            checkbox_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)  # 여백 제거
+            
             checkbox = QCheckBox()
             checkbox.setChecked(room_data["checked"])
             checkbox.stateChanged.connect(lambda state, r=row: self.on_checkbox_changed(r, state))
             
-            # 체크박스를 테이블 중앙에 배치
-            self.main_window.room_table.setCellWidget(row, 0, checkbox)
+            # 체크박스 스타일 설정 - 배경을 흰색으로
+            checkbox.setStyleSheet("QCheckBox { background-color: white; }")
             
-            # 방 이름 설정
+            checkbox_layout.addWidget(checkbox)
+            
+            # 체크박스를 테이블 중앙에 배치
+            self.main_window.room_table.setCellWidget(row, 0, checkbox_container)
+            
+            # 방 이름 설정 - 중앙 정렬
             name_item = QTableWidgetItem(room_data["name"])
+            name_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 중앙 정렬
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # 편집 불가능하게 설정
             room_table.setItem(row, 1, name_item)
         

@@ -1,106 +1,6 @@
 [
     {
-        "name": "엠퍼러 스피드 바카라 A",
-        "checked": true
-    },
-    {
-        "name": "코리안 번영의 나무 바카라",
-        "checked": false
-    },
-    {
-        "name": "Xclusive스피드 바카라 E",
-        "checked": true
-    },
-    {
-        "name": "드래곤 타이거",
-        "checked": false
-    },
-    {
-        "name": "Xclusive스피드 바카라 I",
-        "checked": true
-    },
-    {
-        "name": "코리안 스피드 바카라 B",
-        "checked": true
-    },
-    {
-        "name": "엠퍼러 드래곤 타이거",
-        "checked": false
-    },
-    {
-        "name": "본자이 스피드 바카라 B",
-        "checked": true
-    },
-    {
-        "name": "바카라 B",
-        "checked": false
-    },
-    {
-        "name": "본자이 스피드 바카라 C",
-        "checked": true
-    },
-    {
-        "name": "코리안 스피드 바카라 E",
-        "checked": true
-    },
-    {
-        "name": "올웨이즈 8 바카라",
-        "checked": false
-    },
-    {
-        "name": "코리안 스피드 바카라 D",
-        "checked": true
-    },
-    {
-        "name": "Xclusive스피드 바카라 G",
-        "checked": true
-    },
-    {
-        "name": "슈퍼 스피드 바카라",
-        "checked": false
-    },
-    {
-        "name": "본자이 스피드 바카라 A",
-        "checked": true
-    },
-    {
-        "name": "Xclusive스피드 바카라 A",
-        "checked": true
-    },
-    {
-        "name": "라이트닝 바카라",
-        "checked": false
-    },
-    {
-        "name": "Xclusive스피드 바카라 B",
-        "checked": true
-    },
-    {
-        "name": "코리안 스피드 바카라 A",
-        "checked": true
-    },
-    {
-        "name": "스퀴즈 바카라",
-        "checked": false
-    },
-    {
-        "name": "컨트롤 스퀴즈 바카라",
-        "checked": false
-    },
-    {
-        "name": "Xclusive스피드 바카라 D",
-        "checked": true
-    },
-    {
-        "name": "Xclusive스피드 바카라 H",
-        "checked": true
-    },
-    {
-        "name": "익스클루지브 코리안 스피드 바카라 A",
-        "checked": true
-    },
-    {
-        "name": "Xclusive스피드 바카라 F",
+        "name": "스피드 바카라 12",
         "checked": true
     },
     {
@@ -108,15 +8,223 @@
         "checked": true
     },
     {
-        "name": "바카라 A",
+        "name": "코리안 스피드 바카라 D",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 D",
         "checked": false
     },
     {
-        "name": "코리안 풍성한 골든 바카라",
-        "checked": false
+        "name": "스피드 바카라 V",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 1",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 C",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 Z",
+        "checked": true
+    },
+    {
+        "name": "엠퍼러 스피드 바카라 B",
+        "checked": true
+    },
+    {
+        "name": "Xclusive스피드 바카라 F",
+        "checked": true
+    },
+    {
+        "name": "Xclusive스피드 바카라 G",
+        "checked": true
+    },
+    {
+        "name": "코리안 스피드 바카라 E",
+        "checked": true
+    },
+    {
+        "name": "본자이 스피드 바카라 C",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 2",
+        "checked": true
+    },
+    {
+        "name": "코리안 스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 N",
+        "checked": true
+    },
+    {
+        "name": "코리안 스피드 바카라 B",
+        "checked": true
+    },
+    {
+        "name": "Xclusive스피드 바카라 H",
+        "checked": true
+    },
+    {
+        "name": "Xclusive스피드 바카라 D",
+        "checked": true
+    },
+    {
+        "name": "엠퍼러 스피드 바카라 C",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 3",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 R",
+        "checked": true
+    },
+    {
+        "name": "힌디어 스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 G",
+        "checked": true
+    },
+    {
+        "name": "본자이 스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 7",
+        "checked": true
+    },
+    {
+        "name": "Xclusive스피드 바카라 I",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 B",
+        "checked": true
     },
     {
         "name": "Xclusive스피드 바카라 C",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 W",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 L",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 T",
+        "checked": true
+    },
+    {
+        "name": "익스클루지브 코리안 스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 10",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 8",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 H",
+        "checked": true
+    },
+    {
+        "name": "엠퍼러 스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 E",
+        "checked": true
+    },
+    {
+        "name": "엠퍼러 스피드 바카라 D",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 9",
+        "checked": true
+    },
+    {
+        "name": "Xclusive스피드 바카라 B",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 X",
+        "checked": true
+    },
+    {
+        "name": "힌디어 스피드 바카라 B",
+        "checked": true
+    },
+    {
+        "name": "본자이 스피드 바카라 B",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 I",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 U",
+        "checked": true
+    },
+    {
+        "name": "타이 스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 F",
+        "checked": true
+    },
+    {
+        "name": "Xclusive스피드 바카라 E",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 J",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 S",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 11",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 5",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 6",
+        "checked": true
+    },
+    {
+        "name": "로투스 스피드 바카라 A",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 Q",
         "checked": true
     }
 ]
