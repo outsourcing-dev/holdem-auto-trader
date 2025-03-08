@@ -60,12 +60,12 @@ class BettingService:
             self.devtools.driver.switch_to.default_content()
             iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
             self.devtools.driver.switch_to.frame(iframe)
-            
+
             # 칩 클릭 가능 여부로 베팅 상태 확인
             max_attempts = 15  # 최대 30초 대기 (2초 간격)
             attempts = 0
             chip_clickable = False
-            
+
             while attempts < max_attempts:
                 try:
                     # 1000원 칩 요소 찾기
@@ -82,8 +82,47 @@ class BettingService:
                                 # 실제로 클릭 가능한지 테스트 (현재는 클릭하지 않고 클릭 가능성만 확인)
                                 self.logger.info("1000원 칩 클릭 가능 상태 감지됨")
                                 chip_clickable = True
+                                
+                                # 중요: 베팅 가능 상태가 되면 최신 게임 결과 다시 확인
+                                try:
+                                    # 게임 상태 다시 확인하여 최신 결과 업데이트
+                                    game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state(log_always=False)
+                                    if game_state:
+                                        latest_result = game_state.get('latest_result')
+                                        self.logger.info(f"베팅 가능 상태 감지 후 최신 결과 재확인: {latest_result}")
+                                        
+                                        # 최신 결과가 있으면 엑셀에 반영
+                                        if latest_result:
+                                            # 엑셀 트레이딩 서비스를 통해 결과 처리
+                                            result = self.main_window.trading_manager.excel_trading_service.process_game_results(
+                                                game_state, 
+                                                self.main_window.trading_manager.game_count, 
+                                                self.main_window.trading_manager.current_room_name,
+                                                log_on_change=True
+                                            )
+                                            
+                                            # 결과 처리 성공 시 게임 카운트와 PICK 값 업데이트
+                                            if result[0] is not None:
+                                                last_column, new_game_count, recent_results, next_pick = result
+                                                if new_game_count > self.main_window.trading_manager.game_count:
+                                                    self.logger.info(f"게임 카운트 업데이트: {self.main_window.trading_manager.game_count} -> {new_game_count}")
+                                                    # 이전 게임 결과 처리
+                                                    self.main_window.trading_manager._process_previous_game_result(game_state, new_game_count)
+                                                    # 게임 카운트 업데이트
+                                                    self.main_window.trading_manager.game_count = new_game_count
+                                                    
+                                                    # 새로운 PICK 값이 있으면 현재 PICK 값 업데이트 및 UI 갱신
+                                                    if next_pick in ['P', 'B']:
+                                                        self.logger.info(f"최신 PICK 값 업데이트: {next_pick}")
+                                                        self.main_window.trading_manager.current_pick = next_pick
+                                                        self.main_window.update_betting_status(pick=next_pick)
+                                                        # PICK 값 변경에 따라 베팅 타입 업데이트
+                                                        bet_type = next_pick
+                                except Exception as e:
+                                    self.logger.error(f"베팅 가능 상태 후 최신 결과 확인 중 오류: {e}")
+                                
                                 break
-                    
+                        
                     self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempts+1}/{max_attempts}")
                     attempts += 1
                     time.sleep(3)
@@ -274,6 +313,8 @@ class BettingService:
         """현재 라운드에 베팅했는지 확인"""
         return self.has_bet_current_round and self.current_bet_round == current_round
     
+    # services/betting_service.py의 check_betting_result 메서드 수정
+
     def check_betting_result(self, bet_type, latest_result, current_room_name, result_count, step=None):
         """
         베팅 결과를 직접 확인합니다.
@@ -334,7 +375,7 @@ class BettingService:
             # 오류 로깅
             self.logger.error(f"베팅 결과 확인 중 오류 발생: {e}", exc_info=True)
             return "error", result_count
-
+        
     def get_last_bet(self):
         """마지막 베팅 정보 반환"""
         if not self.has_bet_current_round:

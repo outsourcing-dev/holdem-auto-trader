@@ -800,3 +800,23 @@ class ExcelManager:
         except Exception as e:
             print(f"[ERROR] Excel 애플리케이션 저장 중 오류 발생: {e}")
             return False
+        
+    def get_prev_column_letter(self, column):
+        """
+        지정된 열의 이전 열 문자를 반환합니다.
+        
+        Args:
+            column (str): 열 문자 (예: 'C')
+            
+        Returns:
+            str: 이전 열 문자 (예: 'B') 또는 열이 'A'인 경우 None
+        """
+        try:
+            col_idx = openpyxl.utils.column_index_from_string(column)
+            if col_idx <= 1:  # 'A' 이하면 이전 열이 없음
+                return None
+            return openpyxl.utils.get_column_letter(col_idx - 1)
+        except Exception as e:
+            print(f"[ERROR] 이전 열 문자 가져오기 실패: {e}")
+            return None
+        

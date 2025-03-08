@@ -4,11 +4,6 @@ import time
 import logging
 import openpyxl
 from PyQt6.QtWidgets import QMessageBox
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from utils.parser import HTMLParser
-from modules.game_detector import GameDetector
 from utils.game_controller import GameController
 from services.room_entry_service import RoomEntryService
 from services.excel_trading_service import ExcelTradingService
@@ -39,6 +34,8 @@ class TradingManager:
         self.current_pick = None  # 현재 베팅 타입 저장 변수 추가
         self.should_move_to_next_room = False  # 방 이동 예약 플래그 추가
         self.target_checker = TargetAmountChecker(main_window)
+        self.processed_rounds = set()  # 이미 처리한 라운드 ID 세트
+
 
         # 서비스 클래스 초기화
         self.betting_service = BettingService(
@@ -328,11 +325,13 @@ class TradingManager:
                         self.logger.info("목표 금액 도달로 자동 매매를 중지합니다.")
                         return  # 여기서 함수 종료 - 더 이상 처리하지 않음
                 
-                # 방 이동이 필요한지 확인 (승리 시에만)
-                if result_status == "win" and self.martin_service.should_change_room():
-                    self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
-                    time.sleep(1)  # 1초 대기
-                    self.should_move_to_next_room = True
+                # 방 이동이 필요한지 확인 (승리 시에만 확인)
+                if result_status == "win":
+                    if self.martin_service.should_change_room():
+                        self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
+                        time.sleep(1)  # 1초 대기
+                        self.should_move_to_next_room = True
+                        self.logger.info("방 이동 플래그 설정됨: should_move_to_next_room = True")
         
         # 베팅 상태 초기화 (새 라운드 번호로)
         self.betting_service.reset_betting_state(new_round=new_game_count)
@@ -343,6 +342,7 @@ class TradingManager:
             room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
             pick=self.current_pick
         )
+        
     # utils/trading_manager.py의 _place_bet 메서드 수정
     def _place_bet(self, pick_value, game_count):
         """베팅 실행"""
@@ -509,12 +509,25 @@ class TradingManager:
                 self.logger.error("현재 방을 닫는데 실패했습니다.")
                 return False
             
+            # 방 이동 전 Excel 파일 초기화 (추가된 부분)
+            try:
+                self.logger.info("방 이동을 위해 Excel 파일 초기화 중...")
+                self.excel_trading_service.excel_manager.initialize_excel()
+                self.logger.info("Excel 파일 초기화 완료")
+            except Exception as e:
+                self.logger.error(f"Excel 파일 초기화 중 오류 발생: {e}")
+                # 초기화 실패해도 계속 진행
+            
             # 방 이동 전 상태 초기화 (베팅 위젯의 결과는 유지)
             self.game_count = 0
             self.result_count = 0
             self.current_pick = None
             self.betting_service.reset_betting_state()
             
+            # 중요: processed_rounds 세트 초기화 - 새 방 입장 시 이전 방의 결과 정보 제거
+            self.processed_rounds = set()
+            self.logger.info("처리된 결과 추적 세트 초기화")
+
             # 이 시점에서 카지노 로비 창으로 포커싱이 전환됨
             
             # 새 방 입장 (방문 큐에서 다음 방 선택)
@@ -537,9 +550,41 @@ class TradingManager:
                 pick=""
             )
             
+            self.current_room_name = new_room_name
+            self.main_window.update_betting_status(
+                room_name=self.current_room_name,
+                pick=""
+            )
+
+            # 새 방 입장 후 게임 상태 확인 및 최근 결과 기록
+            try:
+                self.logger.info("새 방 입장 후 최근 결과 확인 중...")
+                # 게임 상태 확인 (충분한 시간 대기 후)
+                time.sleep(2)  # 방 입장 후 게임 데이터 로드 대기
+                game_state = self.game_monitoring_service.get_current_game_state(log_always=True)
+                
+                if game_state:
+                    self.game_count = game_state.get('round', 0)
+                    self.logger.info(f"새 방 게임 카운트: {self.game_count}")
+                    
+                    # 첫 입장 시 Excel에 기록하기 위해 game_count를 0으로 전달
+                    temp_game_count = 0
+                    
+                    # 최근 결과 가져와서 Excel에 기록
+                    result = self.excel_trading_service.process_game_results(
+                        game_state, 
+                        temp_game_count,  # 첫 입장으로 인식시키기 위해 0 전달
+                        self.current_room_name,
+                        log_on_change=True
+                    )
+                    
+                    if result[0] is not None:
+                        self.logger.info(f"새 방에 최근 결과 기록 완료: {result[2]}")
+            except Exception as e:
+                self.logger.error(f"새 방 최근 결과 기록 중 오류 발생: {e}", exc_info=True)
+
             self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료, 테이블 초기화됨, 게임 카운트 초기화: {self.game_count}")
             return True
-                
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")

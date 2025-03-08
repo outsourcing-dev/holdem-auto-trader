@@ -31,6 +31,7 @@ class MartinBettingService:
         self.total_bet_amount = 0
         self.win_count = 0
         self.lose_count = 0
+        self.tie_count = 0  # TIE 카운트 추가
         
     def get_current_bet_amount(self):
         """
@@ -77,6 +78,7 @@ class MartinBettingService:
             self.logger.info(f"베팅 성공: 마틴 단계 초기화 (금액: {current_bet:,}원)")
         elif result_status == "tie":
             # 무승부 시 마틴 단계 유지 (변경 없음)
+            self.tie_count += 1  # TIE 카운트 증가
             self.logger.info(f"베팅 무승부: 마틴 단계 유지 (금액: {current_bet:,}원)")
         else:  # "lose"
             # 패배 시 다음 마틴 단계로 진행
@@ -106,8 +108,9 @@ class MartinBettingService:
             bool: 방 이동 필요 여부
         """
         # 배팅에 1번이라도 성공하면 방 이동
-        if self.consecutive_losses == 0 and self.current_step == 0 and self.win_count > 0:
-            self.logger.info("베팅 성공으로 방 이동 필요")
+        # win_count가 0보다 크면 적어도 한 번 이상 이겼다는 의미
+        if self.win_count > 0:
+            self.logger.info(f"베팅 성공 횟수: {self.win_count}, 방 이동 필요")
             return True
         return False
     
@@ -117,6 +120,9 @@ class MartinBettingService:
         """
         self.current_step = 0
         self.consecutive_losses = 0
+        self.win_count = 0
+        self.lose_count = 0
+        self.tie_count = 0  # TIE 카운트도 초기화
         self.logger.info("마틴 베팅 상태 초기화 완료")
     
     def update_settings(self):
