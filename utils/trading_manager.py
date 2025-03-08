@@ -26,6 +26,9 @@ class TradingManager:
         self.devtools = main_window.devtools
         self.room_manager = main_window.room_manager
         
+        # 설정 매니저 추가
+        self.settings_manager = SettingsManager()
+        
         # 상태 관리 속성
         self.is_trading_active = False
         self.current_room_name = ""
@@ -77,7 +80,35 @@ class TradingManager:
         # 게임 컨트롤러
         self.game_controller = None
 
-    # utils/trading_manager.py의 start_trading 메서드 수정
+    def _check_martin_balance(self, balance):
+        """
+        현재 잔고가 마틴 배팅을 하기에 충분한지 확인합니다.
+        
+        Args:
+            balance (int): 현재 잔고
+            
+        Returns:
+            bool: 마틴 배팅 가능 여부 (True: 가능, False: 불가능)
+        """
+        try:
+            # 마틴 설정 가져오기 (최신 설정 사용)
+            martin_count, martin_amounts = self.settings_manager.get_martin_settings()
+            
+            # 마틴 금액 총합 계산
+            total_martin_amount = sum(martin_amounts)
+            
+            # 잔고와 비교
+            if balance < total_martin_amount:
+                self.logger.warning(f"현재 잔고({balance:,}원)가 마틴 배팅 총액({total_martin_amount:,}원)보다 적습니다.")
+                return False
+            
+            self.logger.info(f"마틴 배팅 가능: 현재 잔고 {balance:,}원, 필요 금액 {total_martin_amount:,}원")
+            return True
+        
+        except Exception as e:
+            self.logger.error(f"마틴 잔고 확인 중 오류 발생: {e}", exc_info=True)
+            return False  # 오류 발생 시 안전하게 False 반환
+        
     def start_trading(self):
         """자동 매매 시작 로직"""
         try:
@@ -103,38 +134,47 @@ class TradingManager:
                 self.martin_service.martin_count, self.martin_service.martin_amounts = self.martin_service.settings_manager.get_martin_settings()
                 self.logger.info(f"[INFO] 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
 
-            # 방문 순서 초기화 및 생성
-            self.room_manager.generate_visit_order()
-            
-            # 방 선택 및 입장
-            self.current_room_name = self.room_entry_service.enter_room()
-            
-            # 방 입장에 실패한 경우
-            if not self.current_room_name:
-                return
-
-            # 기존 잔액 및 UI 초기화
-            self.main_window.reset_ui()
-
             # 브라우저 실행 확인
             if not self.devtools.driver:
                 self.devtools.start_browser()
                 
-            # 게임 컨트롤러 초기화
-            self.game_controller = GameController(self.devtools.driver)
-
             # 창 개수 확인
             window_handles = self.devtools.driver.window_handles
             if len(window_handles) < 2:
                 QMessageBox.warning(self.main_window, "오류", "창 개수가 부족합니다. 최소 2개의 창이 필요합니다.")
                 return
 
-            # 잔액 확인
-            balance = self.balance_service.get_iframe_balance()
-
+            # 중요 변경: 자동 매매 시작 전에 로비 창에서 잔액 가져오기
+            # 카지노 로비 창(2번 창)으로 전환
+            if len(window_handles) >= 2:
+                self.devtools.driver.switch_to.window(window_handles[1])
+                self.logger.info("카지노 로비 창으로 포커싱 전환")
+            
+            # 로비 iframe에서 잔액 가져오기
+            balance = self.balance_service.get_lobby_balance()
+            
             if balance is None:
-                QMessageBox.warning(self.main_window, "오류", "게임 내 잔액 정보를 찾을 수 없습니다.")
+                QMessageBox.warning(self.main_window, "오류", "로비에서 잔액 정보를 찾을 수 없습니다.")
                 return
+
+            # UI에 현재 잔액 표시 (이 부분을 마틴 검증 전으로 이동)
+            self.main_window.reset_ui()  # UI 초기화
+            self.main_window.update_user_data(
+                username=self.main_window.username,
+                start_amount=balance,
+                current_amount=balance
+            )
+
+            # 마틴 배팅을 위한 잔고 충분한지 확인
+            if not self._check_martin_balance(balance):
+                QMessageBox.warning(self.main_window, "오류", "현재 잔고가 마틴 배팅을 하기에 부족합니다.")
+                return
+
+            # 기존 잔액 및 UI 초기화
+            self.main_window.reset_ui()
+                    
+            # 게임 컨트롤러 초기화
+            self.game_controller = GameController(self.devtools.driver)
 
             # 사용자 이름은 기본값 사용
             username = self.main_window.username
@@ -162,6 +202,17 @@ class TradingManager:
             # 추가 검증: 자동 매매가 중지되었는지 확인
             if not self.is_trading_active:
                 self.logger.info("목표 금액 도달로 자동 매매가 이미 중지되었습니다.")
+                return
+
+            # 방문 순서 초기화 및 생성
+            self.room_manager.generate_visit_order()
+            
+            # 방 선택 및 입장
+            self.current_room_name = self.room_entry_service.enter_room()
+            
+            # 방 입장에 실패한 경우
+            if not self.current_room_name:
+                self.stop_trading()
                 return
             
             # 남은 시간 설정 (임시: 1시간)
@@ -202,7 +253,6 @@ class TradingManager:
         self.logger.info(f"선택된 방 {len(checked_rooms)}개: {[room['name'] for room in checked_rooms]}")
         return True
     
-    # 2. analyze_current_game 메서드 수정
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
         try:
@@ -261,8 +311,8 @@ class TradingManager:
             self.logger.error(f"게임 상태 분석 중 오류 발생: {e}", exc_info=True)
             import traceback
             traceback.print_exc()
-            
-    # utils/trading_manager.py의 _process_previous_game_result 메서드 수정
+    
+    # _process_previous_game_result 메서드 수정 부분 (베팅 결과에 따른 잔액 업데이트)
     def _process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 및 배팅 상태 초기화"""
         # 이전 베팅 정보 가져오기
@@ -316,8 +366,8 @@ class TradingManager:
                 # 마틴 베팅 단계 업데이트 (결과에 따라 단계 변경)
                 self.martin_service.process_bet_result(result_status)
                 
-                # 현재 잔액 업데이트 (베팅 결과 확인 후)
-                current_balance = self.balance_service.update_balance_after_bet_result()
+                # 수정: 승패 여부에 따라 잔액 업데이트 (성공 시 지연)
+                current_balance = self.balance_service.update_balance_after_bet_result(is_win=is_win)
                 
                 # 중요: 목표 금액 체크 - 잔액이 제대로 가져와진 경우에만
                 if current_balance:
@@ -342,8 +392,8 @@ class TradingManager:
             room_name=f"{self.current_room_name} (게임 수: {new_game_count})",
             pick=self.current_pick
         )
-        
-    # utils/trading_manager.py의 _place_bet 메서드 수정
+
+    # _place_bet 메서드 수정 부분 (베팅 전 잔액 확인)
     def _place_bet(self, pick_value, game_count):
         """베팅 실행"""
         try:
@@ -364,6 +414,19 @@ class TradingManager:
             if balance:
                 # 현재 잔액 업데이트
                 self.main_window.update_user_data(current_amount=balance)
+                
+                # 마틴 배팅을 위한 잔고 충분한지 확인
+                if not self._check_martin_balance(balance):
+                    self.logger.warning("현재 잔고가 마틴 배팅을 하기에 부족합니다. 자동 매매를 중지합니다.")
+                    # 자동 매매 중지
+                    self.stop_trading()
+                    # 사용자에게 메시지 표시
+                    QMessageBox.warning(
+                        self.main_window, 
+                        "자동 매매 중지", 
+                        "현재 잔고가 마틴 배팅을 하기에 부족합니다."
+                    )
+                    return False
                 
                 # 목표 금액 체크 (체크 결과가 True면 베팅 중단)
                 if self.balance_service.check_target_amount(balance):
@@ -430,7 +493,6 @@ class TradingManager:
                 f"자동 매매 중 심각한 오류가 발생했습니다.\n자동 매매가 중지됩니다.\n오류: {str(e)}"
             )
 
-    # utils/trading_manager.py의 stop_trading 메서드 수정
     def stop_trading(self):
         """자동 매매 중지"""
         try:
@@ -495,105 +557,105 @@ class TradingManager:
             )
 
     def change_room(self):
-        """
-        현재 방을 나가고 새로운 방으로 이동합니다.
-        """
-        try:
-            self.logger.info("배팅 성공 후 방 이동 준비 중...")
-
-            # 방 이동 플래그 초기화
-            self.should_move_to_next_room = False
-            
-            # 현재 방 닫기
-            if not self.game_monitoring_service.close_current_room():
-                self.logger.error("현재 방을 닫는데 실패했습니다.")
-                return False
-            
-            # 방 이동 전 Excel 파일 초기화 (추가된 부분)
+            """
+            현재 방을 나가고 새로운 방으로 이동합니다.
+            """
             try:
-                self.logger.info("방 이동을 위해 Excel 파일 초기화 중...")
-                self.excel_trading_service.excel_manager.initialize_excel()
-                self.logger.info("Excel 파일 초기화 완료")
-            except Exception as e:
-                self.logger.error(f"Excel 파일 초기화 중 오류 발생: {e}")
-                # 초기화 실패해도 계속 진행
-            
-            # 방 이동 전 상태 초기화 (베팅 위젯의 결과는 유지)
-            self.game_count = 0
-            self.result_count = 0
-            self.current_pick = None
-            self.betting_service.reset_betting_state()
-            
-            # 중요: processed_rounds 세트 초기화 - 새 방 입장 시 이전 방의 결과 정보 제거
-            self.processed_rounds = set()
-            self.logger.info("처리된 결과 추적 세트 초기화")
+                self.logger.info("배팅 성공 후 방 이동 준비 중...")
 
-            # 이 시점에서 카지노 로비 창으로 포커싱이 전환됨
-            
-            # 새 방 입장 (방문 큐에서 다음 방 선택)
-            new_room_name = self.room_entry_service.enter_room()
-            
-            # 방 입장 실패 시 매매 중단
-            if not new_room_name:
-                self.stop_trading()
-                QMessageBox.warning(self.main_window, "오류", "새 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
-                return False
-            
-            # 이제 확실히 새 방에 입장했으므로 이 시점에서 베팅 위젯 초기화 (이전 방의 결과 기록 보존은 끝)
-            self.main_window.betting_widget.reset_step_markers()
-            self.main_window.betting_widget.reset_room_results()
-            
-            # 입장한 새 방 정보로 UI 업데이트
-            self.current_room_name = new_room_name
-            self.main_window.update_betting_status(
-                room_name=self.current_room_name,
-                pick=""
-            )
-            
-            self.current_room_name = new_room_name
-            self.main_window.update_betting_status(
-                room_name=self.current_room_name,
-                pick=""
-            )
-
-            # 새 방 입장 후 게임 상태 확인 및 최근 결과 기록
-            try:
-                self.logger.info("새 방 입장 후 최근 결과 확인 중...")
-                # 게임 상태 확인 (충분한 시간 대기 후)
-                time.sleep(2)  # 방 입장 후 게임 데이터 로드 대기
-                game_state = self.game_monitoring_service.get_current_game_state(log_always=True)
+                # 방 이동 플래그 초기화
+                self.should_move_to_next_room = False
                 
-                if game_state:
-                    self.game_count = game_state.get('round', 0)
-                    self.logger.info(f"새 방 게임 카운트: {self.game_count}")
-                    
-                    # 첫 입장 시 Excel에 기록하기 위해 game_count를 0으로 전달
-                    temp_game_count = 0
-                    
-                    # 최근 결과 가져와서 Excel에 기록
-                    result = self.excel_trading_service.process_game_results(
-                        game_state, 
-                        temp_game_count,  # 첫 입장으로 인식시키기 위해 0 전달
-                        self.current_room_name,
-                        log_on_change=True
-                    )
-                    
-                    if result[0] is not None:
-                        self.logger.info(f"새 방에 최근 결과 기록 완료: {result[2]}")
-            except Exception as e:
-                self.logger.error(f"새 방 최근 결과 기록 중 오류 발생: {e}", exc_info=True)
+                # 현재 방 닫기
+                if not self.game_monitoring_service.close_current_room():
+                    self.logger.error("현재 방을 닫는데 실패했습니다.")
+                    return False
+                
+                # 방 이동 전 Excel 파일 초기화 (추가된 부분)
+                try:
+                    self.logger.info("방 이동을 위해 Excel 파일 초기화 중...")
+                    self.excel_trading_service.excel_manager.initialize_excel()
+                    self.logger.info("Excel 파일 초기화 완료")
+                except Exception as e:
+                    self.logger.error(f"Excel 파일 초기화 중 오류 발생: {e}")
+                    # 초기화 실패해도 계속 진행
+                
+                # 방 이동 전 상태 초기화 (베팅 위젯의 결과는 유지)
+                self.game_count = 0
+                self.result_count = 0
+                self.current_pick = None
+                self.betting_service.reset_betting_state()
+                
+                # 중요: processed_rounds 세트 초기화 - 새 방 입장 시 이전 방의 결과 정보 제거
+                self.processed_rounds = set()
+                self.logger.info("처리된 결과 추적 세트 초기화")
 
-            self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료, 테이블 초기화됨, 게임 카운트 초기화: {self.game_count}")
-            return True
-        except Exception as e:
-            self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
-            QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")
-            return False
-        
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+                # 이 시점에서 카지노 로비 창으로 포커싱이 전환됨
+                
+                # 새 방 입장 (방문 큐에서 다음 방 선택)
+                new_room_name = self.room_entry_service.enter_room()
+                
+                # 방 입장 실패 시 매매 중단
+                if not new_room_name:
+                    self.stop_trading()
+                    QMessageBox.warning(self.main_window, "오류", "새 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
+                    return False
+                
+                # 이제 확실히 새 방에 입장했으므로 이 시점에서 베팅 위젯 초기화 (이전 방의 결과 기록 보존은 끝)
+                self.main_window.betting_widget.reset_step_markers()
+                self.main_window.betting_widget.reset_room_results()
+                
+                # 입장한 새 방 정보로 UI 업데이트
+                self.current_room_name = new_room_name
+                self.main_window.update_betting_status(
+                    room_name=self.current_room_name,
+                    pick=""
+                )
+                
+                self.current_room_name = new_room_name
+                self.main_window.update_betting_status(
+                    room_name=self.current_room_name,
+                    pick=""
+                )
+
+                # 새 방 입장 후 게임 상태 확인 및 최근 결과 기록
+                try:
+                    self.logger.info("새 방 입장 후 최근 결과 확인 중...")
+                    # 게임 상태 확인 (충분한 시간 대기 후)
+                    time.sleep(2)  # 방 입장 후 게임 데이터 로드 대기
+                    game_state = self.game_monitoring_service.get_current_game_state(log_always=True)
+                    
+                    if game_state:
+                        self.game_count = game_state.get('round', 0)
+                        self.logger.info(f"새 방 게임 카운트: {self.game_count}")
+                        
+                        # 첫 입장 시 Excel에 기록하기 위해 game_count를 0으로 전달
+                        temp_game_count = 0
+                        
+                        # 최근 결과 가져와서 Excel에 기록
+                        result = self.excel_trading_service.process_game_results(
+                            game_state, 
+                            temp_game_count,  # 첫 입장으로 인식시키기 위해 0 전달
+                            self.current_room_name,
+                            log_on_change=True
+                        )
+                        
+                        if result[0] is not None:
+                            self.logger.info(f"새 방에 최근 결과 기록 완료: {result[2]}")
+                except Exception as e:
+                    self.logger.error(f"새 방 최근 결과 기록 중 오류 발생: {e}", exc_info=True)
+
+                self.logger.info(f"새 방 '{self.current_room_name}'으로 이동 완료, 테이블 초기화됨, 게임 카운트 초기화: {self.game_count}")
+                return True
+            except Exception as e:
+                self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
+                QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")
+                return False
+            
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler()
+        ]
+    )

@@ -171,15 +171,18 @@ class MainWindow(QMainWindow):
         self.room_panel.addLayout(room_buttons_layout)
 
     def reset_ui(self):
-        """UI의 모든 값을 초기화 (0원)"""
+        """UI의 모든 값을 초기화 (사용자 이름 유지)"""
+        # 금액 관련 값들만 초기화
         self.start_amount = 0
         self.current_amount = 0
         self.total_bet_amount = 0
         self.profit_amount = 0
-        self.username = ""
         
-        # HeaderWidget 초기화
+        # HeaderWidget 초기화 - 사용자 이름은 유지
+        current_username = self.header.user_value.text()  # 현재 표시된 사용자 이름 저장
         self.header.reset_values()
+        if current_username != "로그인 필요":  # 의미 있는 사용자 이름이 있을 때만 복원
+            self.header.user_value.setText(current_username)
         
         # BettingWidget 초기화
         self.betting_widget.clear_results()

@@ -1,5 +1,6 @@
 # services/balance_service.py
 import logging
+import time
 from utils.parser import HTMLParser
 from utils.settings_manager import SettingsManager
 from PyQt6.QtWidgets import QMessageBox
@@ -19,7 +20,56 @@ class BalanceService:
         
         self.devtools = devtools
         self.main_window = main_window
-        self.settings_manager = SettingsManager()  # 설정 매니저 추가
+        self.settings_manager = SettingsManager()
+
+    def get_lobby_balance(self):
+        """
+        카지노 로비 페이지의 iframe에서 잔액을 가져옵니다.
+        
+        Returns:
+            int: 현재 잔액 또는 None (실패 시)
+        """
+        try:
+            # 현재 페이지 소스 가져오기
+            html = self.devtools.get_page_source()
+            
+            if not html:
+                self.logger.error("페이지 소스를 가져올 수 없습니다.")
+                return None
+            
+            # iframe 찾기 및 전환
+            self.devtools.driver.switch_to.default_content()
+            iframe = self.devtools.driver.find_element("css selector", "iframe")
+            self.devtools.driver.switch_to.frame(iframe)
+            
+            # iframe 내부 소스 가져오기
+            iframe_html = self.devtools.driver.page_source
+            
+            # 잔액 요소 찾기 (iframe 내부에서 잔액을 표시하는 요소)
+            # 아래 selector는 예시이며, 실제 사이트의 구조에 맞게 수정 필요
+            balance_element = self.devtools.driver.find_element("css selector", "span[data-role='header-balance']")
+            balance_text = balance_element.text
+            
+            # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+            balance = int(balance_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+            
+            self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원")
+            
+            # 기본 컨텐츠로 돌아가기
+            self.devtools.driver.switch_to.default_content()
+            
+            return balance
+            
+        except Exception as e:
+            self.logger.error(f"로비 iframe에서 잔액 가져오기 실패: {e}", exc_info=True)
+            
+            # 기본 컨텐츠로 돌아가기 시도
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except:
+                pass
+            
+            return None
 
     def get_current_balance_and_username(self):
         """
@@ -122,14 +172,22 @@ class BalanceService:
             
             return None
         
-    def update_balance_after_bet_result(self):
+    def update_balance_after_bet_result(self, is_win=False):
         """
         베팅 결과 확인 후 잔액을 업데이트합니다.
+        
+        Args:
+            is_win (bool): 베팅 성공 여부 (성공 시 지연 적용)
         
         Returns:
             int: 업데이트된 잔액 또는 None (실패 시)
         """
         try:
+            # 성공 시 3~4초 지연
+            if is_win:
+                self.logger.info("베팅 성공! 잔액 업데이트 전 3초 대기...")
+                time.sleep(3)
+            
             self.logger.info("베팅 결과 후 잔액 확인")
             
             # iframe으로 전환
@@ -168,7 +226,6 @@ class BalanceService:
             
             return None
         
-    # services/balance_service.py의 check_target_amount 메서드 수정
     def check_target_amount(self, current_balance, source="BalanceService"):
         """
         현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
