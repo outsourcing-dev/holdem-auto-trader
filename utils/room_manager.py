@@ -89,7 +89,7 @@ class RoomManager:
             print(f"[INFO] '{room_name}'을 방문 큐에서 제거 (남은 방: {len(self.room_visit_queue)}개)")
 
     def show_loading_msgbox(self, message):
-        """메시지 박스 표시 후 자동으로 닫히도록 설정"""
+        """로딩 메시지 박스 표시 (멀티 스레딩 작업이 완료될 때까지 유지)"""
         self.loading_msgbox = QMessageBox(self.main_window)
         self.loading_msgbox.setWindowTitle("알림")
         self.loading_msgbox.setText(message)
@@ -101,9 +101,6 @@ class RoomManager:
         progress_bar.setFixedHeight(15)
         progress_bar.setTextVisible(False)
         self.loading_msgbox.layout().addWidget(progress_bar, 1, 0)
-        
-        # 타이머로 2.5초 후에 자동 닫기
-        QTimer.singleShot(2500, self.loading_msgbox.accept)
         
         # 논블로킹 모드로 표시
         self.loading_msgbox.show()
@@ -203,65 +200,51 @@ class RoomManager:
 
     def on_room_loading_finished(self, rooms_data):
         """방 로딩 완료 시 호출되는 콜백"""
+        if self.loading_msgbox:  
+            self.loading_msgbox.accept()  # 로딩 메시지 박스 닫기
+            self.loading_msgbox = None  # 변수 초기화
+
         # 로딩 결과가 있는 경우
         if rooms_data:
-            # rooms_data는 [{"name": 방이름, "checked": True}, ...] 형태
-            # 기존 방 목록을 초기화하고 새 목록으로 교체
             self.merge_room_data(rooms_data, reset_existing=True)
-            
-            # 테이블에 로드
             self.load_rooms_into_table(self.rooms_data)
             
-            # 성공적으로 파싱했다면 자동으로 저장하기
             save_result = self.save_room_settings()
             
-            # 결과 출력
             if save_result:
                 print(f"[INFO] 총 {len(self.rooms_data)}개의 스피드 방 목록을 불러와 저장했습니다.")
                 
-                # 성공 메시지 (2초 후 자동 닫힘)
-                msgbox = QMessageBox(self.main_window)
-                msgbox.setWindowTitle("방 목록 저장 완료")
-                msgbox.setText(f"총 {len(self.rooms_data)}개의 방 목록을 불러와 저장했습니다.")
-                msgbox.setStandardButtons(QMessageBox.StandardButton.Ok)
-                QTimer.singleShot(2000, msgbox.accept)
-                msgbox.show()
+                # 성공 메시지
+                QMessageBox.information(
+                    self.main_window,
+                    "방 목록 저장 완료",
+                    f"총 {len(self.rooms_data)}개의 방 목록을 불러와 저장했습니다."
+                )
             else:
                 print("[ERROR] 방 목록 저장 실패")
-                
-                # 실패 메시지
-                QMessageBox.warning(
-                    self.main_window, 
-                    "저장 실패",
-                    "방 목록을 저장하는 데 실패했습니다."
-                )
+                QMessageBox.warning(self.main_window, "저장 실패", "방 목록을 저장하는 데 실패했습니다.")
         else:
-            # 방 목록을 가져오지 못한 경우
             print("[ERROR] 방 목록을 불러오지 못했습니다.")
-            
-            QMessageBox.warning(
-                self.main_window, 
-                "오류", 
-                "방 목록을 불러오는 데 실패했습니다."
-            )
+            QMessageBox.warning(self.main_window, "오류", "방 목록을 불러오는 데 실패했습니다.")
+
 
     # RoomManager 클래스의 start_room_loader_thread 함수 수정
 
     def start_room_loader_thread(self):
         """방 목록 로딩 스레드 시작"""
-        # 기존 스레드가 있으면 중단
         if self.room_loader_thread and self.room_loader_thread.isRunning():
             self.room_loader_thread.stop()
             self.room_loader_thread.wait()
-        
-        # 새 스레드 생성
+
         self.room_loader_thread = RoomLoaderThread(self.devtools, "speed")
         
         # 시그널 연결
         self.room_loader_thread.progress_signal.connect(self.update_loading_progress)
         self.room_loader_thread.finished_signal.connect(self.on_room_loading_finished)
-        
-        # 스레드 시작
+
+        # 로딩 메시지 박스 표시 (이제 스레드가 끝날 때까지 유지됨)
+        self.show_loading_msgbox("스피드 방 목록을 불러옵니다. 잠시만 기다려주세요.")
+
         self.room_loader_thread.start()
         print("[INFO] 방 목록 로딩 스레드 시작됨")
         
