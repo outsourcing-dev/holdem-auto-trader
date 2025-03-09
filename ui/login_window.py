@@ -51,17 +51,32 @@ class LoginWindow(QDialog):
         layout.addWidget(self.login_button)
 
         # 스타일시트 적용 (스타일에서 padding 값 조정)
-        with open("ui/style.qss", "r", encoding="utf-8") as f:
-            custom_style = f.read()
-            # 로그인 창에만 적용될 특별 스타일 추가
-            custom_style += """
-            #LoginWindow QPushButton {
-                padding: 3px;
-            }
-            #LoginWindow QLineEdit {
-                padding: 3px;
-            }
-            """
+        import os
+
+        # 현재 파일의 디렉토리 경로 가져오기
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        style_path = os.path.join(current_dir, "style.qss")
+
+        # 그래도 못 찾으면 다양한 경로 시도
+        if not os.path.exists(style_path):
+            # 프로젝트 루트 기준 시도
+            root_dir = os.path.dirname(current_dir)  # ui 폴더의 상위 폴더 (프로젝트 루트)
+            style_path = os.path.join(root_dir, "ui", "style.qss")
+            
+            # 여전히 못 찾으면 또 다른 상대 경로 시도
+            if not os.path.exists(style_path):
+                style_path = os.path.join("ui", "style.qss")
+
+        try:
+            with open(style_path, "r", encoding="utf-8") as f:
+                custom_style = f.read()
+                # 로그를 출력하여 어떤 경로로 파일을 읽었는지 확인
+                print(f"스타일시트 파일을 성공적으로 읽었습니다: {style_path}")
+        except FileNotFoundError:
+            print(f"스타일시트 파일을 찾을 수 없습니다: {style_path}")
+            print(f"현재 작업 디렉토리: {os.getcwd()}")
+            # 오류가 발생해도 프로그램은 계속 실행되도록 빈 스타일시트 설정
+            custom_style = ""
             self.setStyleSheet(custom_style)
 
         # 사이즈 정책 설정

@@ -7,7 +7,7 @@ from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
 import urllib3
 import logging
-from encrypt_excel import simple_decrypt_file
+from utils.encrypt_excel import EncryptExcel  # simple_decrypt_file 대신 EncryptExcel 클래스 임포트
 
 # 전역 변수 - 임시 파일 경로
 temp_excel_path = None
@@ -36,7 +36,7 @@ def prepare_excel_file():
     original_excel_path = os.path.join(base_path, "AUTO.xlsx")
     
     # 암호화된 파일 경로
-    encrypted_path = os.path.join(base_path, "AUTO.dat")
+    encrypted_path = os.path.join(base_path, "AUTO.encrypted")
     
     # 1. 원본 Excel 파일이 있는지 확인 (개발 환경용)
     if os.path.exists(original_excel_path):
@@ -55,9 +55,10 @@ def prepare_excel_file():
     # 4. 암호화 키
     SECRET_KEY = "holdem2025_secret_key"
     
-    # 5. 복호화
+    # 5. 복호화 - EncryptExcel 클래스 사용
     try:
-        if simple_decrypt_file(encrypted_path, temp_excel_path, SECRET_KEY):
+        encryptor = EncryptExcel()
+        if encryptor.decrypt_file(encrypted_path, temp_excel_path, SECRET_KEY):
             logging.info(f"Excel 파일 복호화 완료: {temp_excel_path}")
             return temp_excel_path
         else:

@@ -48,7 +48,7 @@ if not exist room_settings.json (
 
 REM 수정된 spec 파일 사용하여 빌드
 echo PyInstaller로 빌드 시작...
-pyinstaller --clean holdem_auto_trader_fixed.spec
+pyinstaller --clean holdem_auto_trader.spec
 
 echo.
 echo 빌드 완료!
