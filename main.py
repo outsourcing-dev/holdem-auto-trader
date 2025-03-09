@@ -3,6 +3,16 @@ from PyQt6.QtWidgets import QApplication, QStackedWidget
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
 import urllib3
+import logging
+
+# Excel 프로세스 정리 유틸리티 가져오기 (시작 전 정리용)
+try:
+    from utils.excel_cleanup import cleanup_excel_on_startup
+    # 프로그램 시작 시 실행 중인 Excel 프로세스 정리
+    cleanup_excel_on_startup()
+except ImportError:
+    logging.warning("Excel 정리 유틸리티를 가져올 수 없습니다.")
+
 urllib3.PoolManager(maxsize=10)  # 기본값 1에서 10으로 증가
 
 # 전역 변수로 메인 윈도우 인스턴스 저장
@@ -45,5 +55,11 @@ class MainApp(QApplication):
         self.main_window.show()
 
 if __name__ == "__main__":
+    # 기본 로깅 설정
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
     app = MainApp(sys.argv)
     sys.exit(app.exec())

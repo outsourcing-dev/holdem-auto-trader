@@ -4,9 +4,9 @@
     "site3": "www.ygosu.com",
     "martin_count": 3,
     "martin_amounts": [
-        1000,
-        1000,
-        2000
+        2000,
+        3000,
+        4000
     ],
     "target_amount": 80000
 }
