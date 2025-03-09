@@ -4,6 +4,10 @@ import time
 from utils.parser import HTMLParser
 from utils.settings_manager import SettingsManager
 from PyQt6.QtWidgets import QMessageBox
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import re
 
 class BalanceService:
     def __init__(self, devtools, main_window, logger=None):
@@ -45,20 +49,83 @@ class BalanceService:
             # iframe 내부 소스 가져오기
             iframe_html = self.devtools.driver.page_source
             
-            # 잔액 요소 찾기 (iframe 내부에서 잔액을 표시하는 요소)
-            # 아래 selector는 예시이며, 실제 사이트의 구조에 맞게 수정 필요
-            balance_element = self.devtools.driver.find_element("css selector", "span[data-role='header-balance']")
-            balance_text = balance_element.text
+            # 방법 1: data-role="header-balance" 속성을 가진 요소 찾기
+            try:
+                balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "[data-role='header-balance']")
+                if balance_element:
+                    balance_text = balance_element.text
+                    self.logger.info(f"data-role='header-balance' 속성을 가진 요소에서 잔액 텍스트: {balance_text}")
+                    # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+                    balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                    self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (header-balance)")
+                    
+                    # 기본 컨텐츠로 돌아가기
+                    self.devtools.driver.switch_to.default_content()
+                    return balance
+            except Exception as e:
+                self.logger.warning(f"header-balance로 잔액 가져오기 실패: {e}")
             
-            # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
-            balance = int(balance_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+            # 방법 2: 기존 방식 (백업)
+            try:
+                # 잔액 요소 찾기 (iframe 내부에서 잔액을 표시하는 요소)
+                balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='balance-label-value']")
+                if balance_element:
+                    balance_text = balance_element.text
+                    # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+                    balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                    self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (balance-label-value)")
+                    
+                    # 기본 컨텐츠로 돌아가기
+                    self.devtools.driver.switch_to.default_content()
+                    return balance
+            except Exception as e:
+                self.logger.warning(f"balance-label-value로 잔액 가져오기 실패: {e}")
             
-            self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원")
+            # 방법 3: Typography 클래스를 가진 요소 찾기
+            try:
+                # 클래스 이름으로 잔액 요소 찾기 시도
+                balance_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, ".Typography--d2c9a")
+                for element in balance_elements:
+                    balance_text = element.text
+                    if '₩' in balance_text or '원' in balance_text:
+                        self.logger.info(f"Typography 클래스에서 잔액 후보 텍스트: {balance_text}")
+                        # 숫자만 추출
+                        balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                        self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (Typography)")
+                        
+                        # 기본 컨텐츠로 돌아가기
+                        self.devtools.driver.switch_to.default_content()
+                        return balance
+            except Exception as e:
+                self.logger.warning(f"Typography 클래스로 잔액 가져오기 실패: {e}")
+            
+            # 방법 4: 내용에 '₩' 또는 '원'이 있는 모든 요소 검색
+            try:
+                # XPath로 검색
+                xpath_expr = "//*[contains(text(), '₩') or contains(text(), '원')]"
+                balance_candidates = self.devtools.driver.find_elements(By.XPATH, xpath_expr)
+                
+                for element in balance_candidates:
+                    balance_text = element.text
+                    self.logger.info(f"₩/원 포함 요소 발견: {balance_text}")
+                    # 숫자만 추출
+                    numbers = re.findall(r'\d+', re.sub(r'[,\.]', '', balance_text))
+                    if numbers:
+                        largest_number = max([int(num) for num in numbers])
+                        if largest_number > 100:  # 잔액은 보통 큰 숫자이므로 필터링
+                            self.logger.info(f"로비 iframe에서 가져온 잔액: {largest_number:,}원 (XPath)")
+                            
+                            # 기본 컨텐츠로 돌아가기
+                            self.devtools.driver.switch_to.default_content()
+                            return largest_number
+            except Exception as e:
+                self.logger.warning(f"XPath로 잔액 가져오기 실패: {e}")
             
             # 기본 컨텐츠로 돌아가기
             self.devtools.driver.switch_to.default_content()
             
-            return balance
+            self.logger.error("모든 방법으로 잔액을 찾을 수 없습니다.")
+            return None
             
         except Exception as e:
             self.logger.error(f"로비 iframe에서 잔액 가져오기 실패: {e}", exc_info=True)
@@ -147,19 +214,68 @@ class BalanceService:
             iframe = self.devtools.driver.find_element("css selector", "iframe")
             self.devtools.driver.switch_to.frame(iframe)
             
-            # 잔액 요소 찾기
-            balance_element = self.devtools.driver.find_element("css selector", "span[data-role='balance-label-value']")
-            balance_text = balance_element.text
+            # 방법 1: 기본 잔액 요소 찾기
+            try:
+                balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='balance-label-value']")
+                balance_text = balance_element.text
+                
+                # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+                balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                
+                self.logger.info(f"iframe에서 가져온 잔액: {balance:,}원 (balance-label-value)")
+                
+                # 기본 컨텐츠로 돌아가기
+                self.devtools.driver.switch_to.default_content()
+                
+                return balance
+            except Exception as e:
+                self.logger.warning(f"balance-label-value로 iframe 잔액 가져오기 실패: {e}")
             
-            # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
-            balance = int(balance_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+            # 방법 2: 다른 속성 찾기
+            try:
+                # 다른 속성으로 시도
+                balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "[data-role='header-balance']")
+                balance_text = balance_element.text
+                
+                # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+                balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                
+                self.logger.info(f"iframe에서 가져온 잔액: {balance:,}원 (header-balance)")
+                
+                # 기본 컨텐츠로 돌아가기
+                self.devtools.driver.switch_to.default_content()
+                
+                return balance
+            except Exception as e:
+                self.logger.warning(f"header-balance로 iframe 잔액 가져오기 실패: {e}")
             
-            self.logger.info(f"iframe에서 가져온 잔액: {balance:,}원")
+            # 방법 3: 내용에 '₩' 또는 '원'이 있는 모든 요소 검색
+            try:
+                # XPath로 검색
+                xpath_expr = "//*[contains(text(), '₩') or contains(text(), '원')]"
+                balance_candidates = self.devtools.driver.find_elements(By.XPATH, xpath_expr)
+                
+                for element in balance_candidates:
+                    balance_text = element.text
+                    self.logger.info(f"₩/원 포함 요소 발견: {balance_text}")
+                    # 숫자만 추출
+                    numbers = re.findall(r'\d+', re.sub(r'[,\.]', '', balance_text))
+                    if numbers:
+                        largest_number = max([int(num) for num in numbers])
+                        if largest_number > 100:  # 잔액은 보통 큰 숫자이므로 필터링
+                            self.logger.info(f"iframe에서 가져온 잔액: {largest_number:,}원 (XPath)")
+                            
+                            # 기본 컨텐츠로 돌아가기
+                            self.devtools.driver.switch_to.default_content()
+                            return largest_number
+            except Exception as e:
+                self.logger.warning(f"XPath로 iframe 잔액 가져오기 실패: {e}")
             
             # 기본 컨텐츠로 돌아가기
             self.devtools.driver.switch_to.default_content()
             
-            return balance
+            self.logger.error("모든 방법으로 iframe 잔액을 찾을 수 없습니다.")
+            return None
             
         except Exception as e:
             self.logger.error(f"iframe에서 잔액 가져오기 실패: {e}", exc_info=True)
@@ -190,17 +306,12 @@ class BalanceService:
             
             self.logger.info("베팅 결과 후 잔액 확인")
             
-            # iframe으로 전환
-            self.devtools.driver.switch_to.default_content()
-            iframe = self.devtools.driver.find_element("css selector", "iframe")
-            self.devtools.driver.switch_to.frame(iframe)
+            # iframe 내에서 잔액 가져오기
+            balance = self.get_iframe_balance()
             
-            # 잔액 요소 찾기
-            balance_element = self.devtools.driver.find_element("css selector", "span[data-role='balance-label-value']")
-            balance_text = balance_element.text
-            
-            # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
-            balance = int(balance_text.replace('₩', '').replace(',', '').replace('⁩', '').replace('⁦', '').strip() or '0')
+            if balance is None:
+                self.logger.error("iframe에서 잔액을 가져올 수 없습니다.")
+                return None
             
             self.logger.info(f"현재 잔액: {balance:,}원")
             
@@ -209,21 +320,11 @@ class BalanceService:
             
             # 목표 금액 확인하여 도달 시 자동 매매 중지
             self.check_target_amount(balance, source="베팅 결과")
-
-            # 기본 컨텐츠로 돌아가기
-            self.devtools.driver.switch_to.default_content()
             
             return balance
             
         except Exception as e:
             self.logger.error(f"잔액 확인 중 오류 발생: {e}")
-            
-            # 기본 컨텐츠로 돌아가기 시도
-            try:
-                self.devtools.driver.switch_to.default_content()
-            except:
-                pass
-            
             return None
         
     def check_target_amount(self, current_balance, source="BalanceService"):

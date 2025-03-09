@@ -3,7 +3,6 @@ import logging
 from utils.settings_manager import SettingsManager
 
 class MartinBettingService:
-# services/martin_service.py
     def __init__(self, main_window, logger=None):
         """
         마틴 베팅 서비스 초기화
@@ -32,6 +31,9 @@ class MartinBettingService:
         self.win_count = 0
         self.lose_count = 0
         self.tie_count = 0  # TIE 카운트 추가
+        
+        # 결과 표시용 카운터 (방 내에서의 순차적 위치)
+        self.result_counter = 0  # 같은 방 내에서의 결과 위치 카운터
         
     def get_current_bet_amount(self):
         """
@@ -64,11 +66,15 @@ class MartinBettingService:
             result_status (str): 'win'(승리), 'lose'(패배), 'tie'(무승부)
                 
         Returns:
-            tuple: (현재 단계, 연속 패배 수)
+            tuple: (현재 단계, 연속 패배 수, 결과 위치)
         """
         # 현재 베팅 금액 기록
         current_bet = self.get_current_bet_amount()
         self.total_bet_amount += current_bet
+        
+        # 결과 표시 위치 카운터 증가 (방 내에서만 유효한 순차적 위치)
+        self.result_counter += 1
+        current_result_position = self.result_counter
         
         if result_status == "win":
             # 승리 시 마틴 단계 초기화
@@ -98,7 +104,7 @@ class MartinBettingService:
             total_bet=self.total_bet_amount
         )
         
-        return self.current_step, self.consecutive_losses
+        return self.current_step, self.consecutive_losses, current_result_position
 
     def should_change_room(self):
         """
@@ -123,7 +129,8 @@ class MartinBettingService:
         self.win_count = 0
         self.lose_count = 0
         self.tie_count = 0  # TIE 카운트도 초기화
-        self.logger.info("마틴 베팅 상태 초기화 완료")
+        self.result_counter = 0  # 결과 위치 카운터도 초기화 (방 이동 시)
+        self.logger.info("마틴 베팅 상태 및 결과 카운터 초기화 완료")
     
     def update_settings(self):
         """

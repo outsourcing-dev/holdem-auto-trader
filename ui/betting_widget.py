@@ -115,7 +115,7 @@ class BettingWidget(QWidget):
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         
         # 테이블 열 개수 업데이트
-        max_columns = max(20, self.martin_count + 5)
+        max_columns = max(30, self.martin_count + 5)  # 최소 30개 컬럼 또는 마틴 단계 + 5
         current_columns = self.progress_table.columnCount() - 1  # PICK 열 제외
         
         # 열 수가 부족하면 추가
@@ -189,6 +189,14 @@ class BettingWidget(QWidget):
         """단계별 마커 설정 (X, O, T, 빈칸)"""
         print(f"[DEBUG] set_step_marker 호출됨 - 단계: {step}, 마커: {marker}")
         
+        # step이 정수가 아니면 정수로 변환 시도
+        if not isinstance(step, int):
+            try:
+                step = int(step)
+            except (ValueError, TypeError):
+                print(f"[ERROR] 단계 번호가 정수가 아닙니다: {step}")
+                return
+        
         # 마커 설정
         if step in self.step_items:
             item = self.step_items[step]
@@ -239,18 +247,45 @@ class BettingWidget(QWidget):
             print(f"[DEBUG] UI 업데이트 완료: 단계 {step}에 {marker} 마커 설정됨")
         else:
             print(f"[WARNING] 잘못된 단계 번호: {step} (step_items 키에 없음)")
-            # 가능한 step 키 목록 출력
             print(f"[DEBUG] 가능한 step_items 키: {list(self.step_items.keys())}")
             
-            # 범위를 벗어난 경우 가능한 범위 내에서 설정 시도
+            # 동적으로 스텝 추가 (기존 범위를 벗어난 경우)
             if isinstance(step, int) and step > 0:
-                max_step = max(self.step_items.keys()) if self.step_items else 0
-                if max_step > 0 and step > max_step:
-                    print(f"[INFO] 범위를 벗어난 단계({step})를 최대 단계({max_step})로 설정합니다.")
-                    self.set_step_marker(max_step, marker)
-                elif 1 in self.step_items and step < 1:
-                    print(f"[INFO] 범위를 벗어난 단계({step})를 최소 단계(1)로 설정합니다.")
-                    self.set_step_marker(1, marker)
+                # 현재 테이블의 열 수 확인
+                current_cols = self.progress_table.columnCount()
+                
+                # 필요한 경우 테이블에 열 추가
+                if step >= current_cols:
+                    new_cols_needed = step - current_cols + 2  # 여유있게 추가
+                    print(f"[INFO] 테이블에 새 열 {new_cols_needed}개 추가 중...")
+                    
+                    new_total_cols = current_cols + new_cols_needed
+                    self.progress_table.setColumnCount(new_total_cols)
+                    
+                    # 새 열 초기화
+                    for i in range(current_cols, new_total_cols):
+                        # 헤더 행 - 숫자
+                        col_num = i  # PICK(0) 열을 고려하여 조정
+                        num_item = QTableWidgetItem(str(col_num))
+                        num_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                        num_item.setBackground(QColor("#f0f0f0"))
+                        num_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+                        self.progress_table.setItem(0, i, num_item)
+                        
+                        # 마커 행 - 초기에는 빈 값
+                        marker_item = QTableWidgetItem("")
+                        marker_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                        marker_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+                        self.progress_table.setItem(1, i, marker_item)
+                        self.step_items[col_num] = marker_item
+                        
+                        # 열 너비 설정
+                        self.progress_table.setColumnWidth(i, 60)
+                
+                # 범위가 확장되었으므로 다시 시도
+                if step in self.step_items:
+                    print(f"[INFO] 새로 확장된 범위에서 단계 {step} 설정 시도")
+                    self.set_step_marker(step, marker)
             
     def reset_step_markers(self):
         """모든 단계 마커 초기화"""
@@ -312,8 +347,10 @@ class BettingWidget(QWidget):
         self.progress_table.clear()
         self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
         
-        # 숫자 열 추가 (1부터 20 또는 더 많이)
-        max_columns = max(20, self.martin_count + 5)
+        # 설정에서 마틴 단계 수 가져오기 (최소 30개 이상 확보)
+        martin_count, _ = self.settings_manager.get_martin_settings()
+        max_columns = max(30, martin_count + 10)  # 마틴 단계보다 여유있게 설정
+        
         self.progress_table.setColumnCount(max_columns + 1)  # PICK + 숫자 열
         
         # PICK 열 추가
@@ -360,3 +397,4 @@ class BettingWidget(QWidget):
         self.progress_table.setRowHeight(1, 60)  # 마커 행
         
         print(f"[DEBUG] 베팅 위젯 초기화 완료 - step_items 키: {list(self.step_items.keys())}")
+        print(f"[DEBUG] 테이블 열 개수: {self.progress_table.columnCount()}")
