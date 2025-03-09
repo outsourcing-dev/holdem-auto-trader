@@ -182,7 +182,7 @@ class RoomManager:
                 return
                 
             # 2.5초 후 자동으로 닫히는 로딩 메시지 표시
-            self.show_loading_msgbox("스피드 방 목록을 불러옵니다. 잠시만 기다려주세요.")
+            # self.show_loading_msgbox("스피드 방 목록을 불러옵니다. 잠시만 기다려주세요.")
             
             # 스피드 방 목록 로딩 스레드 생성 및 시작
             self.start_room_loader_thread()
