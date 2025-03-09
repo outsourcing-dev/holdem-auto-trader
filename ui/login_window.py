@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QSizePolicy
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QSize
+import os
+import sys
 
 class LoginWindow(QDialog):
     def __init__(self, app):
@@ -50,40 +52,57 @@ class LoginWindow(QDialog):
         self.login_button.clicked.connect(self.authenticate)
         layout.addWidget(self.login_button)
 
-        # 스타일시트 적용 (스타일에서 padding 값 조정)
-        import os
-
-        # 현재 파일의 디렉토리 경로 가져오기
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        style_path = os.path.join(current_dir, "style.qss")
-
-        # 그래도 못 찾으면 다양한 경로 시도
-        if not os.path.exists(style_path):
-            # 프로젝트 루트 기준 시도
-            root_dir = os.path.dirname(current_dir)  # ui 폴더의 상위 폴더 (프로젝트 루트)
-            style_path = os.path.join(root_dir, "ui", "style.qss")
-            
-            # 여전히 못 찾으면 또 다른 상대 경로 시도
-            if not os.path.exists(style_path):
-                style_path = os.path.join("ui", "style.qss")
-
-        try:
-            with open(style_path, "r", encoding="utf-8") as f:
-                custom_style = f.read()
-                # 로그를 출력하여 어떤 경로로 파일을 읽었는지 확인
-                print(f"스타일시트 파일을 성공적으로 읽었습니다: {style_path}")
-        except FileNotFoundError:
-            print(f"스타일시트 파일을 찾을 수 없습니다: {style_path}")
-            print(f"현재 작업 디렉토리: {os.getcwd()}")
-            # 오류가 발생해도 프로그램은 계속 실행되도록 빈 스타일시트 설정
-            custom_style = ""
-            self.setStyleSheet(custom_style)
+        # 스타일시트 적용
+        self.apply_stylesheet()
 
         # 사이즈 정책 설정
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         
         # 레이아웃 설정
         self.setLayout(layout)
+        
+    def apply_stylesheet(self):
+        """스타일시트를 적용합니다."""
+        try:
+            style_path = self.get_style_path()
+            if os.path.exists(style_path):
+                with open(style_path, "r", encoding="utf-8") as f:
+                    custom_style = f.read()
+                    self.setStyleSheet(custom_style)
+                    print(f"스타일시트 파일을 성공적으로 읽었습니다: {style_path}")
+            else:
+                print(f"스타일시트 파일을 찾을 수 없습니다: {style_path}")
+                # 기본 스타일 적용 (간단한 스타일)
+                self.setStyleSheet("""
+                    QDialog {
+                        background-color: #F5F5F5;
+                    }
+                    QPushButton {
+                        background-color: #4CAF50;
+                        color: white;
+                        border-radius: 6px;
+                        padding: 5px;
+                    }
+                    QLineEdit {
+                        border: 1px solid #4CAF50;
+                        border-radius: 5px;
+                        padding: 5px;
+                    }
+                """)
+        except Exception as e:
+            print(f"스타일시트 적용 중 오류 발생: {e}")
+    
+    def get_style_path(self):
+        """스타일시트 경로를 가져옵니다."""
+        # PyInstaller 번들인지 확인
+        if getattr(sys, 'frozen', False):
+            # 실행 파일 기준 경로
+            base_dir = os.path.dirname(sys.executable)
+            return os.path.join(base_dir, "ui", "style.qss")
+        else:
+            # 현재 파일의 디렉터리 기준 경로
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            return os.path.join(current_dir, "style.qss")
         
     def sizeHint(self):
         # 기본 크기 힌트 재정의

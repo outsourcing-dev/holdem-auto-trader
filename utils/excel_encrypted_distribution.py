@@ -1,5 +1,5 @@
 # utils 폴더 내부에서 encrypt_excel을 임포트하는 경우, 상대 경로 임포트 사용
-from encrypt_excel import EncryptExcel  # 동일 폴더의 파일은 직접 임포트
+from .encrypt_excel import EncryptExcel  # 상대 경로 사용
 
 def encrypt_excel_for_distribution(input_path, output_path=None):
     """

@@ -33,16 +33,52 @@ class ExcelManager:
         Args:
             excel_path (str): 엑셀 파일 경로 (None이면 자동 탐지)
         """
-        # 경로가 지정되지 않은 경우 자동 탐지
-        if excel_path is None:
-            self.excel_path = self.get_excel_path("AUTO.xlsx")
-        else:
-            self.excel_path = excel_path
-        
+        # Excel 관련 속성 초기화
         self.excel_app = None
         self.workbook = None
-        self.is_excel_open = False
+        self.is_excel_open = False  # 이 속성 추가
         
+        # 명시적으로 경로 지정된 경우
+        if excel_path is not None:
+            self.excel_path = excel_path
+            logger.info(f"지정된 Excel 파일 경로 사용: {self.excel_path}")
+        else:
+            # 환경 변수에서 경로 가져오기 시도
+            env_path = os.environ.get("AUTO_EXCEL_PATH")
+            if env_path and os.path.exists(env_path):
+                self.excel_path = env_path
+                logger.info(f"환경 변수에서 Excel 파일 경로 가져옴: {self.excel_path}")
+            else:
+                # 환경 변수 없을 경우 main.py의 전역 변수 확인
+                try:
+                    import sys
+                    main_module = sys.modules.get('__main__')
+                    if main_module and hasattr(main_module, 'global_excel_path'):
+                        self.excel_path = main_module.global_excel_path
+                        logger.info(f"전역 변수에서 Excel 파일 경로 가져옴: {self.excel_path}")
+                    else:
+                        # 마지막으로 AUTO.xlsx, AUTO.encrypted 확인
+                        self.excel_path = self.get_excel_path("AUTO.xlsx")
+                        
+                        if not os.path.exists(self.excel_path):
+                            # AUTO.encrypted 파일 경로 확인
+                            encrypted_path = self.get_excel_path("AUTO.encrypted")
+                            if os.path.exists(encrypted_path):
+                                # 임시 파일 생성
+                                temp_dir = tempfile.gettempdir()
+                                temp_excel_path = os.path.join(temp_dir, f"AUTO_temp_{os.getpid()}.xlsx")
+                                
+                                # 복호화 시도
+                                encryptor = EncryptExcel()
+                                if encryptor.decrypt_file(encrypted_path, temp_excel_path, "holdem2025_secret_key"):
+                                    self.excel_path = temp_excel_path
+                                    logger.info(f"AUTO.encrypted 파일 자체 복호화 성공: {self.excel_path}")
+                                else:
+                                    logger.error(f"AUTO.encrypted 파일 자체 복호화 실패")
+                except Exception as e:
+                    logger.error(f"Excel 파일 경로 자동 감지 중 오류: {e}")
+                    self.excel_path = self.get_excel_path("AUTO.xlsx")
+                    
         # Excel 암호화 관리자
         self.encryptor = EncryptExcel()
         
@@ -63,16 +99,15 @@ class ExcelManager:
         if HAS_WIN32COM:
             self.open_excel_once()
 
+    # utils/excel_manager.py의 get_excel_path 메서드 수정
     def get_excel_path(self, filename="AUTO.xlsx"):
         """
         실행 환경에 따라 Excel 파일의 적절한 경로를 반환합니다.
-        
-        Args:
-            filename (str): Excel 파일 이름 (기본값: "AUTO.xlsx")
-            
-        Returns:
-            str: 절대 경로
         """
+        # 암호화된 파일을 찾는 경우 파일명 수정
+        if filename == "AUTO.xlsx.enc":
+            filename = "AUTO.encrypted"  # 이름 통일
+            
         if getattr(sys, 'frozen', False):
             # PyInstaller로 빌드된 실행 파일인 경우
             base_dir = os.path.dirname(sys.executable)
@@ -88,7 +123,7 @@ class ExcelManager:
             logger.warning(f"Excel 파일을 찾을 수 없습니다: {excel_path}")
         
         return excel_path
-        
+
     def _check_and_decrypt_excel(self):
         """암호화된 Excel 파일이 있는지 확인하고 필요시 복호화"""
         if not USE_ENCRYPTED_EXCEL:

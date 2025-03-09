@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QMessageBox, QTableWidget, 
-                             QSizePolicy,QHeaderView)
+                             QSizePolicy, QHeaderView)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QGuiApplication
 
@@ -14,7 +14,8 @@ from utils.ui_updater import UIUpdater
 from ui.room_log_widget import RoomLogWidget
 
 import time
-
+import os
+import sys
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -60,8 +61,7 @@ class MainWindow(QMainWindow):
         self.username = ""
 
         # 스타일 적용
-        with open("ui/style.qss", "r", encoding="utf-8") as f:
-            self.setStyleSheet(f.read())
+        self.apply_stylesheet()
 
         # UI 구성
         self.setup_ui()
@@ -70,7 +70,54 @@ class MainWindow(QMainWindow):
         self.room_manager = RoomManager(self)
         self.trading_manager = TradingManager(self)
         self.ui_updater = UIUpdater(self)
-
+        
+    def apply_stylesheet(self):
+        """스타일시트를 적용합니다."""
+        try:
+            style_path = self.get_style_path()
+            if os.path.exists(style_path):
+                with open(style_path, "r", encoding="utf-8") as f:
+                    custom_style = f.read()
+                    self.setStyleSheet(custom_style)
+                    print(f"스타일시트 파일을 성공적으로 읽었습니다: {style_path}")
+            else:
+                print(f"스타일시트 파일을 찾을 수 없습니다: {style_path}")
+                print(f"현재 작업 디렉토리: {os.getcwd()}")
+                # 기본 스타일 적용 (간단한 스타일)
+                self.setStyleSheet("""
+                    QMainWindow {
+                        background-color: #F5F5F5;
+                    }
+                    QPushButton {
+                        background-color: #4CAF50;
+                        color: white;
+                        border-radius: 6px;
+                        padding: 5px;
+                    }
+                    QTableWidget {
+                        background-color: white;
+                        border: 1px solid #CCCCCC;
+                    }
+                """)
+        except Exception as e:
+            print(f"스타일시트 적용 중 오류 발생: {e}")
+    
+    def get_style_path(self):
+        """스타일시트 경로를 가져옵니다."""
+        # PyInstaller 번들인지 확인
+        if getattr(sys, 'frozen', False):
+            # 실행 파일 기준 경로
+            base_dir = os.path.dirname(sys.executable)
+            style_path = os.path.join(base_dir, "ui", "style.qss")
+            print(f"[DEBUG] frozen 환경, 스타일 경로: {style_path}")
+            return style_path
+        else:
+            # 현재 파일의 디렉터리 기준 경로
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            style_path = os.path.join(current_dir, "style.qss")
+            print(f"[DEBUG] 개발 환경, 스타일 경로: {style_path}")
+            return style_path
+        
     # ui/main_window.py의 setup_ui 메서드에서 수정할 부분
     def setup_ui(self):
         """UI 구성"""

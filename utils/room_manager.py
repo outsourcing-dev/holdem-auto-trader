@@ -450,3 +450,14 @@ class RoomManager:
         except Exception as e:
             print(f"[ERROR] 방 설정 불러오기 중 오류 발생: {e}")
             self.rooms_data = []
+            
+    def get_checked_rooms(self):
+        """체크된 방 목록을 반환합니다."""
+        checked_rooms = []
+        
+        for room_data in self.rooms_data:
+            if room_data.get("checked", False):
+                checked_rooms.append(room_data)
+        
+        print(f"[INFO] 체크된 방 {len(checked_rooms)}개 반환")
+        return checked_rooms

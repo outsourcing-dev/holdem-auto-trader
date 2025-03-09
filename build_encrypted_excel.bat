@@ -22,11 +22,9 @@ if not exist AUTO.xlsx (
     goto :end
 )
 
-echo AUTO.xlsx 파일을 암호화합니다...
-python -c "from utils.excel_encrypted_distribution import encrypt_excel_for_distribution; encrypt_excel_for_distribution('AUTO.xlsx')"
-
-REM 암호화 성공 확인
-if not exist AUTO.encrypted (
+REM Excel 파일 암호화 코드 수정
+echo Excel 파일을 암호화합니다...
+python -c "from utils.excel_encrypted_distribution import encrypt_excel_for_distribution; encrypt_excel_for_distribution('AUTO.xlsx')" || (
     echo Excel 파일 암호화에 실패했습니다.
     echo 빌드를 중단합니다.
     goto :end
@@ -66,6 +64,11 @@ if exist dist\holdem_auto_trader (
     
     REM 암호화된 Excel 파일만 복사 (원본 Excel은 복사하지 않음)
     copy /Y AUTO.encrypted dist\holdem_auto_trader\
+    
+    REM style.qss 파일 복사 (추가된 부분)
+    if not exist dist\holdem_auto_trader\ui mkdir dist\holdem_auto_trader\ui
+    copy /Y ui\style.qss dist\holdem_auto_trader\ui\
+    echo UI 스타일 파일 복사 완료!
     
     echo 파일 복사 완료!
 
