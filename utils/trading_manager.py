@@ -2,7 +2,7 @@
 import random
 import time
 import logging
-import openpyxl
+import os
 from PyQt6.QtWidgets import QMessageBox
 from utils.game_controller import GameController
 from services.room_entry_service import RoomEntryService
@@ -174,7 +174,10 @@ class TradingManager:
             self.main_window.reset_ui()
                     
             # 게임 컨트롤러 초기화
-            self.game_controller = GameController(self.devtools.driver)
+                    # 중요: os.environ에서 Excel 파일 경로를 가져와 전달
+            excel_path = os.environ.get("AUTO_EXCEL_PATH")
+            self.logger.info(f"GameController에 Excel 경로 전달: {excel_path}")
+            self.game_controller = GameController(self.devtools.driver, excel_path)
 
             # 사용자 이름은 기본값 사용
             username = self.main_window.username

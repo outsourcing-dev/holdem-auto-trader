@@ -1,10 +1,12 @@
 {
     "site1": "https://drdr-1230.com/",
-    "site2": "www.daum.net",
+    "site2": "https://drdr-1230.com/",
     "site3": "www.ygosu.com",
-    "martin_count": 1,
+    "martin_count": 3,
     "martin_amounts": [
-        1000
+        2000,
+        3000,
+        4000
     ],
     "target_amount": 80000
 }

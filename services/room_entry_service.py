@@ -112,35 +112,49 @@ class RoomEntryService:
         except Exception as e:
             self.logger.error(f"iframe 전환 중 오류: {e}", exc_info=True)
             raise
-
+        
     def _search_and_enter_room(self, room_name):
-        """
-        방을 검색하고 입장합니다.
-        
-        Args:
-            room_name (str): 입장할 방 이름
-        
-        Raises:
-            Exception: 방 검색 또는 입장 중 오류 발생 시
-        """
         try:
+            # 방 이름 전처리 - 첫 줄만 사용
+            search_name = room_name.split('\n')[0].strip()
+            self.logger.info(f"검색할 방 이름: '{search_name}' (원본: '{room_name}')")
+            
             # 검색 입력 필드 찾기
             search_input = self.devtools.driver.find_element(
                 By.CSS_SELECTOR, "input.TableTextInput--464ac"
             )
             search_input.clear()
-            search_input.send_keys(room_name)
-            self.logger.info(f"방 이름 '{room_name}' 입력 완료")
-
-            # 검색 결과 대기 및 첫 번째 결과 클릭
-            wait = WebDriverWait(self.devtools.driver, 5)
-            first_result = wait.until(
-                EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, "div[data-role='search-result']")
-                )
+            search_input.send_keys(search_name)
+            self.logger.info(f"방 이름 '{search_name}' 입력 완료")
+            
+            # 검색 결과가 나타날 때까지 충분히 대기
+            time.sleep(2)
+            
+            # 정확히 지정된 선택자를 사용하여 검색 결과들 찾기
+            search_results = self.devtools.driver.find_elements(
+                By.CSS_SELECTOR, "div.SearchResult--28235[data-role='search-result']"
             )
-            first_result.click()
-            self.logger.info("첫 번째 검색 결과 클릭 완료")
+            
+            # 검색 결과가 있는지 확인
+            if search_results and len(search_results) > 0:
+                # 첫 번째 요소 클릭 (배열의 0번 인덱스)
+                self.logger.info(f"검색 결과 {len(search_results)}개 발견, 첫 번째 결과 클릭")
+                search_results[0].click()
+            else:
+                # 결과가 없으면 JavaScript로 다시 시도
+                self.logger.info("JavaScript로 검색 결과 찾기 시도")
+                js_script = """
+                    var results = document.querySelectorAll("div[data-role='search-result']");
+                    if (results && results.length > 0) {
+                        results[0].click();
+                        return true;
+                    }
+                    return false;
+                """
+                clicked = self.devtools.driver.execute_script(js_script)
+                
+                if not clicked:
+                    raise Exception(f"'{search_name}' 검색 결과가 없습니다")
 
             # 새 창으로 전환
             time.sleep(2)
@@ -153,6 +167,8 @@ class RoomEntryService:
                 # UI 업데이트
                 self.main_window.update_betting_status(room_name=room_name)
                 self.logger.info(f"방 '{room_name}' 성공적으로 입장")
+            else:
+                raise Exception("새 창이 열리지 않았습니다")
 
         except Exception as e:
             self.logger.error(f"방 검색 및 입장 중 오류: {e}", exc_info=True)
