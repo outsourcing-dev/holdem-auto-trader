@@ -9,3 +9,5 @@ openpyxl
 pywin32
 psutil  # 프로세스 관리에 필요한 라이브러리
 pythoncom  # pywin32의 일부지만 명시적으로 추가
+pyinstaller  # exe 파일로 변환
+pycryptodome

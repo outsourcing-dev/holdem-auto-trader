@@ -1,21 +1,19 @@
-# utils/excel_manager.py
-"""
-엑셀 파일 관리 모듈 (최적화 버전)
-- 게임 결과 저장 (3행)
-- PICK 데이터 읽기 (12행)
-- 결과 데이터 읽기 (16행)
-- Excel COM 인스턴스 재사용으로 성능 최적화
-"""
-import openpyxl
+from utils.encrypt_excel import EncryptExcel, decrypt_auto_excel
 import os
-from typing import Dict, Any, Optional, Tuple
-import time
-import atexit
 import logging
+import time
+import openpyxl
+from typing import Dict, Any, Optional, Tuple
+import atexit
+import sys
 
 # 로거 설정
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# 암호화된 Excel 사용 여부 (True면 암호화 기능 사용)
+USE_ENCRYPTED_EXCEL = True
+EXCEL_PASSWORD = "holdem2025"  # 기본 암호
 
 # Windows에서만 사용 가능한 COM 인터페이스
 try:
@@ -28,29 +26,90 @@ except ImportError:
     logger.info("Excel COM 인터페이스 사용 불가 - win32com 라이브러리 없음")
 
 class ExcelManager:
-    def __init__(self, excel_path: str = "AUTO.xlsx"):
+    def __init__(self, excel_path: str = None):
         """
         엑셀 파일 관리자 초기화
         
         Args:
-            excel_path (str): 엑셀 파일 경로 (기본값: "AUTO.xlsx")
+            excel_path (str): 엑셀 파일 경로 (None이면 자동 탐지)
         """
-        self.excel_path = excel_path
+        # 경로가 지정되지 않은 경우 자동 탐지
+        if excel_path is None:
+            self.excel_path = self.get_excel_path("AUTO.xlsx")
+        else:
+            self.excel_path = excel_path
+        
         self.excel_app = None
         self.workbook = None
         self.is_excel_open = False
         
+        # Excel 암호화 관리자
+        self.encryptor = EncryptExcel()
+        
         # 프로그램 종료 시 Excel 종료 보장
         atexit.register(self.close_excel)
         
+        # 암호화된 Excel 파일 확인 및 복호화
+        self._check_and_decrypt_excel()
+        
         # 엑셀 파일이 존재하는지 확인
-        if not os.path.exists(excel_path):
-            raise FileNotFoundError(f"엑셀 파일을 찾을 수 없습니다: {excel_path}")
+        if not os.path.exists(self.excel_path):
+            logger.error(f"엑셀 파일을 찾을 수 없습니다: {self.excel_path}")
+            raise FileNotFoundError(f"엑셀 파일을 찾을 수 없습니다: {self.excel_path}")
+        
+        logger.info(f"Excel 매니저 초기화 완료 - 파일 경로: {self.excel_path}")
         
         # 프로그램 시작 시 Excel 열기 시도
         if HAS_WIN32COM:
             self.open_excel_once()
+
+    def get_excel_path(self, filename="AUTO.xlsx"):
+        """
+        실행 환경에 따라 Excel 파일의 적절한 경로를 반환합니다.
+        
+        Args:
+            filename (str): Excel 파일 이름 (기본값: "AUTO.xlsx")
             
+        Returns:
+            str: 절대 경로
+        """
+        if getattr(sys, 'frozen', False):
+            # PyInstaller로 빌드된 실행 파일인 경우
+            base_dir = os.path.dirname(sys.executable)
+            excel_path = os.path.join(base_dir, filename)
+            logger.info(f"PyInstaller 환경에서 Excel 파일 경로: {excel_path}")
+        else:
+            # 일반 Python 스크립트로 실행되는 경우
+            excel_path = filename
+            logger.info(f"일반 Python 환경에서 Excel 파일 경로: {excel_path}")
+        
+        # 파일 존재 여부 확인
+        if not os.path.exists(excel_path):
+            logger.warning(f"Excel 파일을 찾을 수 없습니다: {excel_path}")
+        
+        return excel_path
+        
+    def _check_and_decrypt_excel(self):
+        """암호화된 Excel 파일이 있는지 확인하고 필요시 복호화"""
+        if not USE_ENCRYPTED_EXCEL:
+            return
+            
+        # 암호화된 파일 경로
+        encrypted_excel_path = self.get_excel_path("AUTO.xlsx.enc")
+        
+        # 암호화된 파일이 있고 일반 파일이 없으면 복호화
+        if os.path.exists(encrypted_excel_path) and not os.path.exists(self.excel_path):
+            logger.info(f"암호화된 Excel 파일 발견: {encrypted_excel_path}, 복호화 시도...")
+            
+            # 복호화 시도
+            if decrypt_auto_excel(EXCEL_PASSWORD):
+                logger.info("Excel 파일 복호화 완료")
+            else:
+                logger.error("Excel 파일 복호화 실패")
+                raise FileNotFoundError("Excel 파일을 복호화할 수 없습니다")
+
+    # 이하 기존 메서드들...
+    
     def __del__(self):
         """객체 소멸 시 Excel 종료 보장"""
         self.close_excel()
@@ -122,6 +181,13 @@ class ExcelManager:
                 pass
             
             self.is_excel_open = False
+            
+            # 종료 시 자동 암호화 
+            if USE_ENCRYPTED_EXCEL:
+                # 종료 후 원본 파일 암호화 (기존 암호화 파일 덮어쓰기)
+                encrypted_path = self.get_excel_path("AUTO.xlsx.enc")
+                self.encryptor.encrypt_file(self.excel_path, encrypted_path, EXCEL_PASSWORD)
+                logger.info(f"Excel 파일 '{self.excel_path}'를 종료 시 자동 암호화 완료")
         except Exception as e:
             logger.warning(f"Excel 종료 중 오류: {e}")
     

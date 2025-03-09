@@ -11,9 +11,21 @@ import random
 
 # RoomLoaderThread 클래스 import
 from utils.room_loader import RoomLoaderThread
+import json
+import os
+import sys
 
-ROOM_DATA_FILE = "room_settings.json"
-
+# 기존 상수 정의를 함수로 대체
+def get_room_data_file_path():
+    """실행 환경에 따라 적절한 room_settings.json 파일 경로 반환"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller로 빌드된 실행 파일인 경우
+        base_dir = os.path.dirname(sys.executable)
+        return os.path.join(base_dir, 'room_settings.json')
+    else:
+        # 일반 Python 스크립트로 실행되는 경우
+        return 'room_settings.json'
+    
 def clean_text(text):
     """숨겨진 특수 문자 제거"""
     text = re.sub(r'[\u200c\u2066\u2069]', '', text)  # 보이지 않는 문자 삭제
@@ -415,9 +427,10 @@ class RoomManager:
     def save_room_settings(self):
         """방 설정을 JSON 파일로 저장"""
         try:
-            with open(ROOM_DATA_FILE, "w", encoding="utf-8") as f:
+            room_data_file = get_room_data_file_path()
+            with open(room_data_file, "w", encoding="utf-8") as f:
                 json.dump(self.rooms_data, f, ensure_ascii=False, indent=4)
-            print(f"[INFO] 방 설정 저장 완료: {len(self.rooms_data)}개 방")
+            print(f"[INFO] 방 설정 저장 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에 저장")
             return True
         except Exception as e:
             print(f"[ERROR] 방 설정 저장 중 오류 발생: {e}")
@@ -425,18 +438,15 @@ class RoomManager:
     
     def load_room_settings(self):
         """저장된 방 설정을 JSON 파일에서 불러오기"""
-        if not os.path.exists(ROOM_DATA_FILE):
-            print("[INFO] 저장된 방 설정 파일이 없습니다.")
+        room_data_file = get_room_data_file_path()
+        if not os.path.exists(room_data_file):
+            print(f"[INFO] 저장된 방 설정 파일 '{room_data_file}'이 없습니다.")
             return
             
         try:
-            with open(ROOM_DATA_FILE, "r", encoding="utf-8") as f:
+            with open(room_data_file, "r", encoding="utf-8") as f:
                 self.rooms_data = json.load(f)
-            print(f"[INFO] 방 설정 불러오기 완료: {len(self.rooms_data)}개 방")
+            print(f"[INFO] 방 설정 불러오기 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에서 로드")
         except Exception as e:
             print(f"[ERROR] 방 설정 불러오기 중 오류 발생: {e}")
             self.rooms_data = []
-    
-    def get_checked_rooms(self):
-        """체크된 방 목록 반환"""
-        return [room for room in self.rooms_data if room["checked"]]

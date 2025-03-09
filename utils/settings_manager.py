@@ -1,7 +1,28 @@
+# utils/settings_manager.py에 추가할 수정 코드
 import json
 import os
+import sys
 
-SETTINGS_FILE = "settings.json"
+# 기존 상수 정의 대신 함수 사용
+def get_settings_file_path():
+    """실행 환경에 따라 적절한 settings.json 파일 경로 반환"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller로 빌드된 실행 파일인 경우
+        base_dir = os.path.dirname(sys.executable)
+        return os.path.join(base_dir, 'settings.json')
+    else:
+        # 일반 Python 스크립트로 실행되는 경우
+        return 'settings.json'
+
+def get_room_settings_file_path():
+    """실행 환경에 따라 적절한 room_settings.json 파일 경로 반환"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller로 빌드된 실행 파일인 경우
+        base_dir = os.path.dirname(sys.executable)
+        return os.path.join(base_dir, 'room_settings.json')
+    else:
+        # 일반 Python 스크립트로 실행되는 경우
+        return 'room_settings.json'
 
 class SettingsManager:
     def __init__(self):
@@ -9,7 +30,8 @@ class SettingsManager:
 
     def load_settings(self):
         """JSON 파일에서 설정을 불러오기 (항상 디스크에서 새로 읽음)"""
-        if not os.path.exists(SETTINGS_FILE):
+        settings_file = get_settings_file_path()
+        if not os.path.exists(settings_file):
             # 기본 설정
             return {
                 "site1": "", 
@@ -21,7 +43,7 @@ class SettingsManager:
         
         # 파일 내용 읽기
         try:
-            with open(SETTINGS_FILE, "r", encoding="utf-8") as file:
+            with open(settings_file, "r", encoding="utf-8") as file:
                 settings = json.load(file)
                 
                 # 마틴 설정이 없을 경우 기본값 추가
@@ -30,10 +52,10 @@ class SettingsManager:
                 if "martin_amounts" not in settings:
                     settings["martin_amounts"] = [1000, 2000, 4000]
                     
-                print(f"[DEBUG] 설정 파일에서 읽은 마틴 금액: {settings['martin_amounts']}")
+                print(f"[DEBUG] 설정 파일 '{settings_file}'에서 읽은 마틴 금액: {settings['martin_amounts']}")
                 return settings
         except Exception as e:
-            print(f"[ERROR] 설정 파일 읽기 오류: {e}")
+            print(f"[ERROR] 설정 파일 '{settings_file}' 읽기 오류: {e}")
             # 오류 발생 시 기본 설정 반환
             return {
                 "site1": "", 
@@ -57,9 +79,11 @@ class SettingsManager:
             "target_amount": target_amount
         }
         
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as file:
+        settings_file = get_settings_file_path()
+        with open(settings_file, "w", encoding="utf-8") as file:
             json.dump(self.settings, file, indent=4)
-            
+            print(f"[INFO] 설정이 '{settings_file}'에 저장되었습니다.")
+
     def get_sites(self):
         """저장된 사이트 목록 반환"""
         return (
@@ -75,7 +99,6 @@ class SettingsManager:
             self.settings.get("martin_amounts", [1000, 2000, 4000])
         )
     
-    # utils/settings_manager.py에 메서드 추가
     def get_target_amount(self):
         """목표 금액 설정 반환 (항상 파일에서 새로 불러옴)"""
         # 설정 파일에서 다시 읽기
