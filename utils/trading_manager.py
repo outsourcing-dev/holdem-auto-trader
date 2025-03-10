@@ -391,6 +391,9 @@ class TradingManager:
                     result_text = "무승부"
                     result_marker = "T"
                     result_status = "tie"
+                    self.betting_service.has_bet_current_round = False
+                    self.logger.info(f"타이(T) 결과 감지: 현재 라운드({self.game_count})에 재베팅 가능하도록 상태 초기화")
+
                 elif is_win:
                     result_text = "적중"
                     result_marker = "O"
