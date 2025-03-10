@@ -19,7 +19,7 @@ class BettingWidget(QWidget):
         
         # 진행 섹션 (현재 방 + PICK 표시 + 현재 방 배팅 결과)
         progress_group = QGroupBox("진행")
-        progress_group.setMinimumHeight(200)  # 최소 높이 설정
+        progress_group.setMinimumHeight(100)  # 최소 높이 설정
         progress_layout = QVBoxLayout()
         
         # 현재 방 표시

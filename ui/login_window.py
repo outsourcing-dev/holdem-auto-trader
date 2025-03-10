@@ -12,7 +12,7 @@ class LoginWindow(QDialog):
 
         # 창 설정
         self.setWindowTitle("로그인")
-        self.setFixedSize(250, 180)  # 고정 크기 설정 (setGeometry 대신)
+        self.setFixedSize(250, 220)  # 고정 크기 설정 (setGeometry 대신)
         self.setObjectName("LoginWindow")
         
         # 레이아웃 설정
@@ -31,7 +31,7 @@ class LoginWindow(QDialog):
 
         self.username_input = QLineEdit()
         self.username_input.setFont(input_font)
-        self.username_input.setFixedHeight(25)
+        self.username_input.setFixedHeight(30)
         layout.addWidget(self.username_input)
 
         # 비밀번호 입력
@@ -42,13 +42,13 @@ class LoginWindow(QDialog):
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.setFont(input_font)
-        self.password_input.setFixedHeight(25)
+        self.password_input.setFixedHeight(30)
         layout.addWidget(self.password_input)
 
         # 로그인 버튼
         self.login_button = QPushButton("🔑 로그인")
         self.login_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-        self.login_button.setFixedHeight(30)
+        self.login_button.setFixedHeight(40)
         self.login_button.clicked.connect(self.authenticate)
         layout.addWidget(self.login_button)
 
