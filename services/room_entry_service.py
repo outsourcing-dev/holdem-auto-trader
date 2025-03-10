@@ -43,13 +43,16 @@ class RoomEntryService:
                 QMessageBox.warning(self.main_window, "알림", "자동 매매를 시작할 방을 선택해주세요.")
                 return None
             
+            # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
+            display_name = room_name.split('\n')[0] if '\n' in room_name else room_name
+            
             # 로깅
-            self.logger.info(f"선택된 방: {room_name}")
+            self.logger.info(f"선택된 방: {display_name}")
 
             # iframe으로 전환
             self._switch_to_iframe()
 
-            # 방 검색 및 입장
+            # 방 검색 및 입장 (원본 방 이름 전체 사용)
             self._search_and_enter_room(room_name)
             
             # 방 입장 후 게임 수 확인 (2초 대기 후)
@@ -59,7 +62,7 @@ class RoomEntryService:
             game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
             if game_state:
                 game_count = game_state.get('round', 0)
-                self.logger.info(f"방 {room_name}의 현재 게임 수: {game_count}")
+                self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
                 
                 # 게임 수가 10판 미만이거나 45판 이상인 경우 방 나가기
                 if game_count < 10 or game_count >= 45:
@@ -81,6 +84,7 @@ class RoomEntryService:
                         self.logger.error("방 나가기 실패")
                         return None
             
+            # 성공한 경우 원본 방 이름 반환 (전체 정보 유지)
             return room_name
 
         except Exception as e:
@@ -92,7 +96,7 @@ class RoomEntryService:
                 f"선택한 방에 입장할 수 없습니다.\n오류: {str(e)}"
             )
             return None
-        
+            
     def _switch_to_iframe(self):
         """
         iframe으로 전환합니다.

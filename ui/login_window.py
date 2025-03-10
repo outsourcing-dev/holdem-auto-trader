@@ -98,11 +98,24 @@ class LoginWindow(QDialog):
         if getattr(sys, 'frozen', False):
             # 실행 파일 기준 경로
             base_dir = os.path.dirname(sys.executable)
-            return os.path.join(base_dir, "ui", "style.qss")
+            # 여러 경로 후보 확인
+            paths = [
+                os.path.join(base_dir, "ui", "style.qss"),       # 기존 경로
+                os.path.join(base_dir, "style.qss"),            # 루트 경로
+                os.path.join(base_dir, "_internal", "ui", "style.qss")  # _internal 내부 경로
+            ]
+            
+            # 존재하는 첫 번째 경로 반환
+            for path in paths:
+                if os.path.exists(path):
+                    return path
+                    
+            return os.path.join(base_dir, "ui", "style.qss")  # 기본 경로 반환
         else:
             # 현재 파일의 디렉터리 기준 경로
             current_dir = os.path.dirname(os.path.abspath(__file__))
             return os.path.join(current_dir, "style.qss")
+        
         
     def sizeHint(self):
         # 기본 크기 힌트 재정의

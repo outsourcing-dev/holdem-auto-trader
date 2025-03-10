@@ -34,7 +34,8 @@ class MartinBettingService:
         
         # 결과 표시용 카운터 (방 내에서의 순차적 위치)
         self.result_counter = 0  # 같은 방 내에서의 결과 위치 카운터
-        
+        self.current_game_position = {}  # 게임 라운드별 위치 추적용 딕셔너리 추가
+
     def get_current_bet_amount(self):
         """
         현재 마틴 단계에 따른 베팅 금액을 반환합니다.
@@ -58,7 +59,8 @@ class MartinBettingService:
         
         return bet_amount
     
-    def process_bet_result(self, result_status):
+    # services/martin_service.py의 관련 메서드 수정
+    def process_bet_result(self, result_status, game_count=None):
         """
         베팅 결과에 따라 마틴 단계를 조정합니다.
         
@@ -75,17 +77,26 @@ class MartinBettingService:
         # 결과 표시 위치 카운터 증가 (방 내에서만 유효한 순차적 위치)
         self.result_counter += 1
         current_result_position = self.result_counter
+        # 게임 카운트가 제공된 경우, 해당 게임의 위치 기록
+        if game_count is not None:
+            self.current_game_position[game_count] = current_result_position
+            self.logger.info(f"[마틴] 게임 {game_count}의 결과 위치를 {current_result_position}으로 기록")
+            
+            
+        # 로그 추가
+        self.logger.info(f"[마틴] 베팅 결과 처리: {result_status}, 현재 단계: {self.current_step}, 단계값: {current_bet:,}원")
+        
         
         if result_status == "win":
             # 승리 시 마틴 단계 초기화
             self.current_step = 0
             self.consecutive_losses = 0
             self.win_count += 1
-            self.logger.info(f"베팅 성공: 마틴 단계 초기화 (금액: {current_bet:,}원)")
+            self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화 (금액: {current_bet:,}원), 총 성공 수: {self.win_count}")
         elif result_status == "tie":
             # 무승부 시 마틴 단계 유지 (변경 없음)
             self.tie_count += 1  # TIE 카운트 증가
-            self.logger.info(f"베팅 무승부: 마틴 단계 유지 (금액: {current_bet:,}원)")
+            self.logger.info(f"[마틴] 베팅 무승부: 마틴 단계 유지 (금액: {current_bet:,}원), 총 무승부 수: {self.tie_count}")
         else:  # "lose"
             # 패배 시 다음 마틴 단계로 진행
             self.consecutive_losses += 1
@@ -94,17 +105,39 @@ class MartinBettingService:
             
             # 최대 마틴 단계 제한
             if self.current_step >= self.martin_count:
-                self.logger.warning(f"최대 마틴 단계({self.martin_count})에 도달했습니다. 다음 베팅에서 초기화됩니다.")
+                self.logger.warning(f"[마틴] 최대 마틴 단계({self.martin_count})에 도달했습니다. 다음 베팅에서 초기화됩니다.")
                 self.current_step = 0
             
-            self.logger.info(f"베팅 실패: 마틴 단계 증가 -> {self.current_step}/{self.martin_count} (금액: {current_bet:,}원)")
+            self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 증가 -> {self.current_step}/{self.martin_count} (금액: {current_bet:,}원), 총 실패 수: {self.lose_count}")
         
         # UI 업데이트
         self.main_window.update_user_data(
             total_bet=self.total_bet_amount
         )
         
+        # 로그 추가
+        self.logger.info(f"[마틴] 현재 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
+        
         return self.current_step, self.consecutive_losses, current_result_position
+
+    def get_result_position_for_game(self, game_count):
+        """
+        특정 게임 카운트에 해당하는 결과 위치를 반환합니다.
+        기록에 없으면 현재 결과 카운터 값을 반환합니다.
+        
+        Args:
+            game_count (int): 게임 카운트
+            
+        Returns:
+            int: 결과 위치
+        """
+        # 게임 카운트에 해당하는 위치가 있으면 반환
+        if game_count in self.current_game_position:
+            return self.current_game_position[game_count]
+        
+        # 기록에 없으면 현재 결과 카운터 반환
+        return self.result_counter
+    
 
     def should_change_room(self):
         """
@@ -116,21 +149,32 @@ class MartinBettingService:
         # 배팅에 1번이라도 성공하면 방 이동
         # win_count가 0보다 크면 적어도 한 번 이상 이겼다는 의미
         if self.win_count > 0:
-            self.logger.info(f"베팅 성공 횟수: {self.win_count}, 방 이동 필요")
+            self.logger.info(f"[마틴] 베팅 성공 횟수: {self.win_count}, 방 이동 필요")
+            # 추가 로그로 더 명확하게 정보 출력
+            self.logger.info(f"[마틴] 방 이동 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
             return True
+        
+        # 타이가 있었는지 로그
+        if self.tie_count > 0:
+            self.logger.info(f"[마틴] 무승부가 있었지만 승리가 없어 방 이동하지 않음 (무승부 수: {self.tie_count})")
+        
         return False
-    
+
     def reset(self):
         """
         마틴 베팅 상태를 초기화합니다.
         """
+        # 기존 초기화 코드...
+        
         self.current_step = 0
         self.consecutive_losses = 0
         self.win_count = 0
         self.lose_count = 0
-        self.tie_count = 0  # TIE 카운트도 초기화
-        self.result_counter = 0  # 결과 위치 카운터도 초기화 (방 이동 시)
-        self.logger.info("마틴 베팅 상태 및 결과 카운터 초기화 완료")
+        self.tie_count = 0
+        self.result_counter = 0
+        self.current_game_position = {}  # 게임 위치 기록도 초기화
+        self.logger.info("[마틴] 마틴 베팅 상태 및 결과 카운터 초기화 완료")
+    
     
     def update_settings(self):
         """

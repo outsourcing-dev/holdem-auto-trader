@@ -146,16 +146,18 @@ def get_style_path():
     # PyInstaller로 패키징된 경우
     if getattr(sys, 'frozen', False):
         base_dir = os.path.dirname(sys.executable)
+        # 여러 경로 후보를 확인 (우선순위 순서대로)
         paths = [
-            os.path.join(base_dir, "ui", "style.qss"),  # 기본 경로
-            os.path.join(base_dir, "style.qss"),        # 루트 경로
+            os.path.join(base_dir, "ui", "style.qss"),       # 기존 경로
+            os.path.join(base_dir, "style.qss"),            # 루트 경로
+            os.path.join(base_dir, "_internal", "ui", "style.qss")  # _internal 내부 경로
         ]
     else:
         # 개발 환경인 경우
         base_dir = os.path.dirname(os.path.abspath(__file__))
         paths = [
-            os.path.join(base_dir, "ui", "style.qss"),  # 기본 경로
-            os.path.join(base_dir, "style.qss"),        # 루트 경로
+            os.path.join(base_dir, "ui", "style.qss"),      # 기존 경로
+            os.path.join(base_dir, "style.qss"),           # 루트 경로
         ]
     
     # 존재하는 첫 번째 경로 반환

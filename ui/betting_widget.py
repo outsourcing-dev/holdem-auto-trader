@@ -146,7 +146,27 @@ class BettingWidget(QWidget):
     
     def update_current_room(self, room_name):
         """현재 방 이름 업데이트"""
-        self.current_room.setText(room_name)
+        # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
+        if '\n' in room_name:
+            # 방 이름에 게임 수나 베팅 정보가 포함된 경우 처리
+            if '(' in room_name and ')' in room_name:
+                # "방이름 (게임 수: N, 베팅: X)" 형식인 경우
+                parts = room_name.split('(')
+                base_name = parts[0].strip()
+                info = '(' + parts[1]  # 괄호 정보 유지
+                
+                # 기본 이름에서 첫 번째 줄만 추출
+                base_name = base_name.split('\n')[0]
+                
+                # 정보와 함께 업데이트
+                self.current_room.setText(f"{base_name} {info}")
+            else:
+                # 단순히 여러 줄로 된 방 이름인 경우
+                display_name = room_name.split('\n')[0]
+                self.current_room.setText(display_name)
+        else:
+            # 이미 한 줄인 경우 그대로 표시
+            self.current_room.setText(room_name)
     
     def reset_room_results(self):
         """현재 방 결과 초기화"""
@@ -196,6 +216,15 @@ class BettingWidget(QWidget):
             except (ValueError, TypeError):
                 print(f"[ERROR] 단계 번호가 정수가 아닙니다: {step}")
                 return
+        
+        # 마커 설정 - 음수나 0은 1로 처리 (안전 장치)
+        if step <= 0:
+            step = 1
+            print(f"[WARNING] 0 또는 음수 단계 감지, 1로 조정: {step}")
+        
+        # 단계가 너무 큰 경우 동적으로 열 추가
+        if step >= self.progress_table.columnCount():
+            self._ensure_column_exists(step)
         
         # 마커 설정
         if step in self.step_items:
@@ -249,44 +278,45 @@ class BettingWidget(QWidget):
             print(f"[WARNING] 잘못된 단계 번호: {step} (step_items 키에 없음)")
             print(f"[DEBUG] 가능한 step_items 키: {list(self.step_items.keys())}")
             
-            # 동적으로 스텝 추가 (기존 범위를 벗어난 경우)
-            if isinstance(step, int) and step > 0:
-                # 현재 테이블의 열 수 확인
-                current_cols = self.progress_table.columnCount()
-                
-                # 필요한 경우 테이블에 열 추가
-                if step >= current_cols:
-                    new_cols_needed = step - current_cols + 2  # 여유있게 추가
-                    print(f"[INFO] 테이블에 새 열 {new_cols_needed}개 추가 중...")
-                    
-                    new_total_cols = current_cols + new_cols_needed
-                    self.progress_table.setColumnCount(new_total_cols)
-                    
-                    # 새 열 초기화
-                    for i in range(current_cols, new_total_cols):
-                        # 헤더 행 - 숫자
-                        col_num = i  # PICK(0) 열을 고려하여 조정
-                        num_item = QTableWidgetItem(str(col_num))
-                        num_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                        num_item.setBackground(QColor("#f0f0f0"))
-                        num_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-                        self.progress_table.setItem(0, i, num_item)
-                        
-                        # 마커 행 - 초기에는 빈 값
-                        marker_item = QTableWidgetItem("")
-                        marker_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                        marker_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-                        self.progress_table.setItem(1, i, marker_item)
-                        self.step_items[col_num] = marker_item
-                        
-                        # 열 너비 설정
-                        self.progress_table.setColumnWidth(i, 60)
-                
-                # 범위가 확장되었으므로 다시 시도
-                if step in self.step_items:
-                    print(f"[INFO] 새로 확장된 범위에서 단계 {step} 설정 시도")
-                    self.set_step_marker(step, marker)
+            # 동적으로 스텝 추가 시도
+            self._ensure_column_exists(step)
             
+            # 새로 추가된 후 다시 시도
+            if step in self.step_items:
+                print(f"[INFO] 새로 확장된 범위에서 단계 {step} 설정 시도")
+                self.set_step_marker(step, marker)
+    
+    def _ensure_column_exists(self, step):
+        """필요한 경우 테이블에 열 추가"""
+        current_cols = self.progress_table.columnCount()
+    
+        if step >= current_cols:
+            new_cols_needed = step - current_cols + 5  # 여유있게 추가
+            print(f"[INFO] 테이블에 새 열 {new_cols_needed}개 추가 중...")
+            
+            new_total_cols = current_cols + new_cols_needed
+            self.progress_table.setColumnCount(new_total_cols)
+            
+            # 새 열 초기화
+            for i in range(current_cols, new_total_cols):
+                # 헤더 행 - 숫자
+                col_num = i  # PICK(0) 열을 고려하여 조정
+                num_item = QTableWidgetItem(str(col_num))
+                num_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                num_item.setBackground(QColor("#f0f0f0"))
+                num_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+                self.progress_table.setItem(0, i, num_item)
+                
+                # 마커 행 - 초기에는 빈 값
+                marker_item = QTableWidgetItem("")
+                marker_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                marker_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+                self.progress_table.setItem(1, i, marker_item)
+                self.step_items[col_num] = marker_item
+                
+                # 열 너비 설정
+                self.progress_table.setColumnWidth(i, 60)
+                           
     def reset_step_markers(self):
         """모든 단계 마커 초기화"""
         for step, item in self.step_items.items():

@@ -1,4 +1,5 @@
-# ui/settings_window.py에 목표 금액 설정 UI 추가
+import os
+import sys
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, 
                              QPushButton, QGroupBox, QHBoxLayout, QSpinBox, 
                              QTableWidget, QTableWidgetItem, QHeaderView)
@@ -14,9 +15,17 @@ class SettingsWindow(QWidget):
         self.setGeometry(200, 200, 600, 800)
         self.setObjectName("SettingsWindow")  # QSS 스타일 적용을 위한 ID 지정
         
-        # 스타일 적용
-        with open("ui/style.qss", "r", encoding="utf-8") as f:
-            self.setStyleSheet(f.read())
+        # 스타일 적용 - 경로 로직 수정
+        style_path = self.get_style_path()
+        if style_path and os.path.exists(style_path):
+            try:
+                with open(style_path, "r", encoding="utf-8") as f:
+                    self.setStyleSheet(f.read())
+                    print(f"[INFO] 설정 창에 스타일시트 적용 완료: {style_path}")
+            except Exception as e:
+                print(f"[ERROR] 스타일시트 파일 읽기 오류: {e}")
+        else:
+            print(f"[WARNING] 스타일시트 파일을 찾을 수 없습니다: {style_path}")
 
         self.settings_manager = SettingsManager()
         site1, site2, site3 = self.settings_manager.get_sites()
@@ -148,6 +157,41 @@ class SettingsWindow(QWidget):
 
         self.setLayout(main_layout)
 
+    def get_style_path(self):
+        """스타일시트 파일 경로를 결정합니다."""
+        # PyInstaller로 패키징된 경우
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+            # 여러 경로 후보를 확인 (우선순위 순서대로)
+            paths = [
+                os.path.join(base_dir, "ui", "style.qss"),       # 기존 경로
+                os.path.join(base_dir, "style.qss"),            # 루트 경로
+                os.path.join(base_dir, "_internal", "ui", "style.qss")  # _internal 내부 경로
+            ]
+            
+            # 존재하는 첫 번째 경로 반환
+            for path in paths:
+                if os.path.exists(path):
+                    print(f"[INFO] 스타일시트 파일 발견: {path}")
+                    return path
+                    
+            print(f"[WARNING] 패키지 환경에서 스타일시트 파일을 찾을 수 없습니다.")
+            return os.path.join(base_dir, "ui", "style.qss")  # 기본 경로 반환
+        else:
+            # 개발 환경인 경우
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = os.path.dirname(current_dir)  # 상위 디렉토리 (프로젝트 루트)
+            style_path = os.path.join(current_dir, "style.qss")
+            
+            # 현재 디렉토리에 없으면 ui 폴더 확인
+            if not os.path.exists(style_path):
+                style_path = os.path.join(base_dir, "ui", "style.qss")
+                
+            print(f"[INFO] 개발 환경, 스타일 경로: {style_path}")
+            return style_path
+    
+    # 나머지 메서드들은 변경 없음...
+    
     def validate_target_amount(self, text):
         """목표 금액 입력값 검증 - 숫자만 허용"""
         if text and not text.isdigit():

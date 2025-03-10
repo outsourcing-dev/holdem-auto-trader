@@ -18,6 +18,7 @@ datas = [
     ('settings.json', '.'),
     ('room_settings.json', '.'),
     ('AUTO.encrypted', '.'),
+    # 스타일시트를 직접 _internal/ui 경로에 포함시킵니다
     ('ui/style.qss', 'ui'),
     ('db/users.db', 'db')
 ]

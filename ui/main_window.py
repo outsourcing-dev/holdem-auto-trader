@@ -108,8 +108,20 @@ class MainWindow(QMainWindow):
         if getattr(sys, 'frozen', False):
             # 실행 파일 기준 경로
             base_dir = os.path.dirname(sys.executable)
+            paths = [
+                os.path.join(base_dir, "ui", "style.qss"),       # 기존 경로
+                os.path.join(base_dir, "style.qss"),            # 루트 경로
+                os.path.join(base_dir, "_internal", "ui", "style.qss")  # _internal 내부 경로
+            ]
+            
+            # 존재하는 첫 번째 경로 반환
+            for path in paths:
+                if os.path.exists(path):
+                    print(f"[DEBUG] frozen 환경, 스타일 경로 발견: {path}")
+                    return path
+                    
             style_path = os.path.join(base_dir, "ui", "style.qss")
-            print(f"[DEBUG] frozen 환경, 스타일 경로: {style_path}")
+            print(f"[DEBUG] frozen 환경, 기본 스타일 경로: {style_path}")
             return style_path
         else:
             # 현재 파일의 디렉터리 기준 경로

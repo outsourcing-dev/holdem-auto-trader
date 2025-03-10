@@ -65,10 +65,11 @@ if exist dist\holdem_auto_trader (
     REM 암호화된 Excel 파일만 복사 (원본 Excel은 복사하지 않음)
     copy /Y AUTO.encrypted dist\holdem_auto_trader\
     
-    REM style.qss 파일 복사 (추가된 부분)
-    if not exist dist\holdem_auto_trader\ui mkdir dist\holdem_auto_trader\ui
-    copy /Y ui\style.qss dist\holdem_auto_trader\ui\
-    echo UI 스타일 파일 복사 완료!
+    REM style.qss 수동 복사 제거 - PyInstaller에 의해 자동으로 포함됨
+    REM (주석 처리로 변경 사항 표시)
+    REM if not exist dist\holdem_auto_trader\ui mkdir dist\holdem_auto_trader\ui
+    REM copy /Y ui\style.qss dist\holdem_auto_trader\ui\
+    REM echo UI 스타일 파일 복사 완료!
     
     echo 파일 복사 완료!
 

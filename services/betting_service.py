@@ -51,6 +51,14 @@ class BettingService:
                 self.logger.info("이미 현재 라운드에 베팅했습니다.")
                 return False
             
+            # bet_type 검증 - P 또는 B만 허용
+            if bet_type not in ['P', 'B']:
+                self.logger.error(f"잘못된 베팅 타입: {bet_type}. 'P' 또는 'B'만 가능합니다.")
+                return False
+            
+            # 중요: 입력받은 베팅 타입 기록 (디버깅 용)
+            self.logger.info(f"[베팅] 베팅 타입 설정: {bet_type}, 게임 수: {game_count}")
+            
             # 메모리 최적화 시도
             import gc
             gc.collect()
@@ -286,9 +294,15 @@ class BettingService:
                 self.current_bet_round = game_count  # 현재 게임 라운드 저장
                 self.last_bet_type = bet_type        # 베팅한 타입 저장
                 
+                # 로그에 베팅 정보 명확하게 기록 (디버깅용)
+                self.logger.info(f"[베팅완료] 라운드: {game_count}, 베팅타입: {bet_type}")
+                
+                # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
+                display_room_name = current_room_name.split('\n')[0] if '\n' in current_room_name else current_room_name
+                
                 # UI 업데이트
                 self.main_window.update_betting_status(
-                    room_name=f"{current_room_name} (게임 수: {game_count}, 베팅: {bet_type})",
+                    room_name=f"{display_room_name} (게임 수: {game_count}, 베팅: {bet_type})",
                     pick=bet_type  # PICK 값 직접 설정
                 )
                 
@@ -300,7 +314,7 @@ class BettingService:
             # 오류 로깅
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-        
+            
     def reset_betting_state(self, new_round=None):
         """베팅 상태 초기화"""
         self.has_bet_current_round = False
