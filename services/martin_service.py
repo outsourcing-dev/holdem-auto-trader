@@ -1,4 +1,5 @@
 # services/martin_service.py
+
 import logging
 from utils.settings_manager import SettingsManager
 
@@ -34,6 +35,7 @@ class MartinBettingService:
         
         # 결과 표시용 카운터 (방 내에서의 순차적 위치)
         self.result_counter = 0  # 같은 방 내에서의 결과 위치 카운터
+        self.betting_counter = 0  # 배팅 횟수 카운터 추가 (실제 배팅한 횟수)
         self.current_game_position = {}  # 게임 라운드별 위치 추적용 딕셔너리 추가
 
     def get_current_bet_amount(self):
@@ -59,7 +61,6 @@ class MartinBettingService:
         
         return bet_amount
     
-    # services/martin_service.py의 관련 메서드 수정
     def process_bet_result(self, result_status, game_count=None):
         """
         베팅 결과에 따라 마틴 단계를 조정합니다.
@@ -76,16 +77,19 @@ class MartinBettingService:
         
         # 결과 표시 위치 카운터 증가 (방 내에서만 유효한 순차적 위치)
         self.result_counter += 1
-        current_result_position = self.result_counter
+        
+        # 배팅 카운터 증가 (실제 배팅 횟수 - 무승부 포함)
+        self.betting_counter += 1
+        
+        current_result_position = self.betting_counter  # 배팅 카운터를 위치로 사용
+        
         # 게임 카운트가 제공된 경우, 해당 게임의 위치 기록
         if game_count is not None:
             self.current_game_position[game_count] = current_result_position
             self.logger.info(f"[마틴] 게임 {game_count}의 결과 위치를 {current_result_position}으로 기록")
-            
-            
+        
         # 로그 추가
         self.logger.info(f"[마틴] 베팅 결과 처리: {result_status}, 현재 단계: {self.current_step}, 단계값: {current_bet:,}원")
-        
         
         if result_status == "win":
             # 승리 시 마틴 단계 초기화
@@ -135,10 +139,9 @@ class MartinBettingService:
         if game_count in self.current_game_position:
             return self.current_game_position[game_count]
         
-        # 기록에 없으면 현재 결과 카운터 반환
-        return self.result_counter
+        # 기록에 없으면 배팅 카운터 반환 (변경 사항)
+        return self.betting_counter
     
-
     def should_change_room(self):
         """
         방 이동이 필요한지 확인합니다.
@@ -172,9 +175,9 @@ class MartinBettingService:
         self.lose_count = 0
         self.tie_count = 0
         self.result_counter = 0
+        self.betting_counter = 0  # 배팅 카운터 초기화
         self.current_game_position = {}  # 게임 위치 기록도 초기화
         self.logger.info("[마틴] 마틴 베팅 상태 및 결과 카운터 초기화 완료")
-    
     
     def update_settings(self):
         """

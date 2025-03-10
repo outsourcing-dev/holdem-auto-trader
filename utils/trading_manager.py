@@ -344,7 +344,6 @@ class TradingManager:
             # 오류 발생 시에도 계속 모니터링하기 위해 타이머 설정
             self.main_window.set_remaining_time(0, 0, 2)
                 
-    # trading_manager.py의 _process_previous_game_result 메소드 수정
     def _process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 및 배팅 상태 초기화"""
         # 이전 베팅 정보 가져오기
@@ -394,12 +393,13 @@ class TradingManager:
                 self.result_count += 1
                 
                 # 마틴 베팅 단계 업데이트 및 결과 위치 가져오기
-                result_position = self.martin_service.process_bet_result(
+                # 수정: 실제 배팅 결과에 해당하는 위치 값 가져오기
+                current_step, consecutive_losses, result_position = self.martin_service.process_bet_result(
                     result_status, 
                     game_count=self.game_count
-                )[2]  # 튜플의 세 번째 요소(인덱스 2)만 사용
+                )
                 
-                # 베팅 위젯에 결과 표시
+                # 베팅 위젯에 결과 표시 - 실제 배팅 횟수 기준 위치 사용
                 self.main_window.betting_widget.set_step_marker(result_position, result_marker)
                 
                 # 방 로그 위젯에 결과 추가

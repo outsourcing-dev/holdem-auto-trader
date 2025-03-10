@@ -171,3 +171,5 @@ cython_debug/
 
 settings.json
 room_settings.json
+
+~$AUTO.xlsx

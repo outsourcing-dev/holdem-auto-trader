@@ -114,8 +114,8 @@ class BettingWidget(QWidget):
         # 새로운 마틴 설정 불러오기
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         
-        # 테이블 열 개수 업데이트
-        max_columns = max(30, self.martin_count + 5)  # 최소 30개 컬럼 또는 마틴 단계 + 5
+        # 테이블 열 개수 업데이트 (첫 50개는 배팅 결과용, 그 이후는 마틴 단계용)
+        max_columns = max(50, self.martin_count + 20)  # 최소 50개 컬럼 또는 마틴 단계 + 20
         current_columns = self.progress_table.columnCount() - 1  # PICK 열 제외
         
         # 열 수가 부족하면 추가
@@ -273,6 +273,16 @@ class BettingWidget(QWidget):
             self.progress_table.repaint()
             QApplication.processEvents()
             
+            # 테이블 스크롤 위치 조정 - 새로 설정한 마커가 보이도록
+            if step > 10:  # 어느 정도 오른쪽에 있는 경우에만 스크롤 조정
+                try:
+                    # 현재 마커가 보이도록 스크롤 조정
+                    self.progress_table.horizontalScrollBar().setValue(
+                        (step - 5) * self.progress_table.columnWidth(1)  # 약간 왼쪽으로 조정
+                    )
+                except Exception as e:
+                    print(f"[WARNING] 스크롤 조정 중 오류: {e}")
+            
             print(f"[DEBUG] UI 업데이트 완료: 단계 {step}에 {marker} 마커 설정됨")
         else:
             print(f"[WARNING] 잘못된 단계 번호: {step} (step_items 키에 없음)")
@@ -358,9 +368,9 @@ class BettingWidget(QWidget):
         elif result == "무승부":
             marker = "T"
         
-        # 마커 설정 
+        # 마커 설정 - 실제 배팅한 위치(no)를 사용 
         if marker:
-            self.set_step_marker(step, marker)
+            self.set_step_marker(no, marker)
             
         # 현재 방 이름 업데이트 (첫 결과인 경우)
         if not self.current_room.text() and room_name:
@@ -377,9 +387,9 @@ class BettingWidget(QWidget):
         self.progress_table.clear()
         self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
         
-        # 설정에서 마틴 단계 수 가져오기 (최소 30개 이상 확보)
+        # 설정에서 마틴 단계 수 가져오기 (최소 50개 이상 확보)
         martin_count, _ = self.settings_manager.get_martin_settings()
-        max_columns = max(30, martin_count + 10)  # 마틴 단계보다 여유있게 설정
+        max_columns = max(50, martin_count + 20)  # 마틴 단계보다 여유있게 설정
         
         self.progress_table.setColumnCount(max_columns + 1)  # PICK + 숫자 열
         
