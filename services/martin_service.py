@@ -165,20 +165,31 @@ class MartinBettingService:
 
     def reset(self):
         """
-        마틴 베팅 상태를 초기화합니다.
+        마틴 베팅 상태를 완전히 초기화합니다.
+        모든 관련 변수를 기본값으로 재설정합니다.
         """
-        # 기존 초기화 코드...
-        
-        self.current_step = 0
+        # 마틴 단계 완전 초기화
+        self.current_step = 0  # 0 = 1단계 베팅
         self.consecutive_losses = 0
+        
+        # 카운터 초기화
         self.win_count = 0
         self.lose_count = 0
         self.tie_count = 0
         self.result_counter = 0
         self.betting_counter = 0  # 배팅 카운터 초기화
         self.current_game_position = {}  # 게임 위치 기록도 초기화
-        self.logger.info("[마틴] 마틴 베팅 상태 및 결과 카운터 초기화 완료")
-    
+        
+        # 총 베팅 금액은 초기화하지 않음 (기록 보존)
+        # self.total_bet_amount = 0  # 필요시 주석 해제
+        
+        # 로그 남기기
+        self.logger.info("[마틴] 마틴 베팅 상태 완전 초기화 완료 - 단계: 1단계, 연속 패배: 0, 베팅 카운터: 0")
+        
+        # 마틴 설정 최신 상태로 다시 로드 (선택적)
+        self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
+        self.logger.info(f"[마틴] 설정 재로드 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
+        
     def update_settings(self):
         """
         설정이 변경된 경우 마틴 설정을 다시 로드합니다.
