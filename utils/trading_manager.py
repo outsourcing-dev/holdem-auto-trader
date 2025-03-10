@@ -750,10 +750,10 @@ class TradingManager:
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")
             return False
             
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler()
-        ]
-    )
+    # logging.basicConfig(
+    #     level=logging.INFO,
+    #     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    #     handlers=[
+    #         logging.StreamHandler()
+    #     ]
+    # )

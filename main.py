@@ -251,9 +251,9 @@ class MainApp(QApplication):
             QMessageBox.critical(None, "오류", f"메인 창을 표시할 수 없습니다.\n오류: {str(e)}")
             
 if __name__ == "__main__":
-    # 로깅 설정
-    # log_file = setup_logging()
-    
+    if getattr(sys, 'frozen', False):  # PyInstaller에서 실행될 때
+        sys.stdout = None  # ✅ 콘솔 창 출력 방지
+        sys.stderr = None  # ✅ 에러 메시지도 숨김
     try:
         logging.info("애플리케이션 시작")
         app = MainApp(sys.argv)
@@ -262,5 +262,5 @@ if __name__ == "__main__":
         logging.critical(f"애플리케이션 실행 중 치명적 오류: {e}", exc_info=True)
         
         # 오류 메시지와 함께 로그 파일 위치 안내
-        error_msg = f"프로그램 실행 중 오류가 발생했습니다.\n\n로그 파일 위치:\n{log_file}"
+        error_msg = f"프로그램 실행 중 오류가 발생했습니다."
         QMessageBox.critical(None, "치명적 오류", error_msg)
