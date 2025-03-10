@@ -1,11 +1,10 @@
 {
     "site1": "https://drdr-1230.com/",
-    "site2": "https://drdr-1230.com/",
+    "site2": "https://cb-7979.com/casino",
     "site3": "www.naver.com",
-    "martin_count": 2,
+    "martin_count": 1,
     "martin_amounts": [
-        1000,
-        2000
+        1000
     ],
     "target_amount": 80000
 }

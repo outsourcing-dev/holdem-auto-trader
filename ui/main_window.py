@@ -294,11 +294,12 @@ class MainWindow(QMainWindow):
         print(f"[INFO] 사이트 열기: {url}")
 
     def switch_to_casino_window(self):
-        """카지노 창(2번 창)으로 전환 - 로직 강화"""
+        """가장 최근에 열린 카지노 창으로 전환"""
         if not self.devtools.driver:
             QMessageBox.warning(self, "알림", "브라우저가 실행되지 않았습니다. 먼저 브라우저를 실행해주세요.")
             return False
             
+        # 현재 열린 모든 창의 핸들 가져오기
         window_handles = self.devtools.driver.window_handles
         
         # 창이 2개 이상인지 확인
@@ -309,60 +310,37 @@ class MainWindow(QMainWindow):
         # 로그에 모든 창 정보 출력 (디버깅 용도)
         print(f"[INFO] 현재 열려있는 창 개수: {len(window_handles)}")
         
-        # 각 창의 URL 확인
-        casino_window_index = None
-        for i, handle in enumerate(window_handles):
-            # 현재 창 핸들로 전환하여 URL 확인
-            self.devtools.driver.switch_to.window(handle)
-            current_url = self.devtools.driver.current_url
-            current_title = self.devtools.driver.title
-            print(f"[INFO] 창 #{i+1} (핸들: {handle[:8]}...) URL: {current_url}, 제목: {current_title}")
-            
-            # 카지노 관련 URL인지 확인 (각 사이트마다 다를 수 있음)
-            casino_related = any(keyword in current_url.lower() for keyword in 
-                                ["evo-games", "evolution", "casino", "live", "game"])
-            
-            # URL 기반으로 찾지 못한 경우 페이지 제목 확인
-            if not casino_related:
-                casino_related = any(keyword in current_title.lower() for keyword in 
-                                    ["casino", "evolution", "evo", "라이브", "카지노"])
-            
-            if casino_related:
-                casino_window_index = i
-                print(f"[INFO] 카지노 관련 창 발견! URL: {current_url}, 제목: {current_title}")
-                break
+        # 1. 가장 최근에 열린 창으로 전환 (마지막 인덱스의 창)
+        # window_handles는 열린 순서대로 리스트에 추가되므로 마지막 요소가 가장 최근 창
+        latest_window = window_handles[-1]
+        self.devtools.driver.switch_to.window(latest_window)
         
-        # 카지노 창을 찾았으면 해당 창으로 전환
-        if casino_window_index is not None:
-            self.devtools.driver.switch_to.window(window_handles[casino_window_index])
-            print(f"[INFO] 카지노 창으로 성공적으로 전환했습니다.")
-            
-            # 현재 창이 iframe을 포함하는지 확인하고 메인 컨텐츠로 전환
-            try:
-                self.devtools.driver.switch_to.default_content()
-                time.sleep(0.5)  # 창 전환 안정화 대기
-            except Exception as e:
-                print(f"[WARNING] 메인 컨텐츠 전환 중 오류: {e}")
-            
-            return True
+        current_url = self.devtools.driver.current_url
+        current_title = self.devtools.driver.title
+        print(f"[INFO] 가장 최근에 열린 창 - URL: {current_url}, 제목: {current_title}")
         
-        # 카지노 창을 못 찾았다면 기본적으로 두 번째 창으로 시도
-        if len(window_handles) >= 2:
-            print("[INFO] 카지노 창을 식별할 수 없어 기본값(두 번째 창)으로 전환합니다.")
-            self.devtools.driver.switch_to.window(window_handles[1])
-            
-            # 메인 컨텐츠로 전환
-            try:
-                self.devtools.driver.switch_to.default_content()
-                time.sleep(0.5)  # 창 전환 안정화 대기
-            except Exception as e:
-                print(f"[WARNING] 메인 컨텐츠 전환 중 오류: {e}")
-                
-            current_url = self.devtools.driver.current_url
-            print(f"[INFO] 전환된 창 URL: {current_url}")
-            return True
+        # 2. 전환된 창이 카지노 관련 창인지 확인 (검증용)
+        casino_related = any(keyword in current_url.lower() for keyword in 
+                            ["evo-games", "evolution", "casino", "live", "game"])
         
-        return False
+        # URL 기반으로 찾지 못한 경우 페이지 제목 확인
+        if not casino_related:
+            casino_related = any(keyword in current_title.lower() for keyword in 
+                                ["casino", "evolution", "evo", "라이브", "카지노"])
+        
+        if casino_related:
+            print(f"[INFO] 성공적으로 카지노 창으로 전환했습니다.")
+        else:
+            print(f"[WARNING] 마지막 창이 카지노 창이 아닐 수 있습니다. 그래도 이 창을 사용합니다.")
+            
+        # 현재 창이 iframe을 포함하는지 확인하고 메인 컨텐츠로 전환
+        try:
+            self.devtools.driver.switch_to.default_content()
+            time.sleep(0.5)  # 창 전환 안정화 대기
+        except Exception as e:
+            print(f"[WARNING] 메인 컨텐츠 전환 중 오류: {e}")
+        
+        return True
 
     def switch_to_main_window(self):
         """메인 창(1번 창)으로 전환"""

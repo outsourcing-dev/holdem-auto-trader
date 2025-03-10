@@ -51,20 +51,32 @@ class GameDetector:
                 # 결과 유형 파싱 - HTML 소스에서 직접 확인
                 result_type = "unknown"
                 
-                # 요소 내용에 name 속성이 있는지 확인
+                # 요소 내용에 <text> 태그 내용 찾기
                 element_str = str(element)
                 
-                # 정규 표현식으로 name 속성 추출 시도
-                name_match = re.search(r'name="([^"]+)"', element_str)
+                # 정규식으로 <text> 태그 내용 추출 시도
+                text_match = re.search(r'<text[^>]*>([^<]+)</text>', element_str)
                 
-                if name_match:
-                    item_name = name_match.group(1).lower()
-                    if "player" in item_name:
+                if text_match:
+                    # <text> 태그 내용 직접 사용
+                    text_content = text_match.group(1).strip()
+                    if text_content == "P":
                         result_type = "P"
-                    elif "banker" in item_name:
+                    elif text_content == "B":
                         result_type = "B"
-                    elif "tie" in item_name:
+                    elif text_content == "T":
                         result_type = "T"
+                else:
+                    # <text> 태그를 찾지 못한 경우 기존 방식으로 백업
+                    name_match = re.search(r'name="([^"]+)"', element_str)
+                    if name_match:
+                        item_name = name_match.group(1).lower()
+                        if "tie" in item_name:
+                            result_type = "T"
+                        elif "player" in item_name:
+                            result_type = "P"
+                        elif "banker" in item_name:
+                            result_type = "B"
                 
                 results.append((x, y, result_type, game_number))
                 
@@ -97,7 +109,7 @@ class GameDetector:
             "recent_results": recent_results,
             "game_results": game_results
         }
-
+        
     def detect_game_state(self, html_content):
         """
         현재 게임 상태를 감지합니다.
@@ -134,24 +146,15 @@ class GameDetector:
         
         # 결과에서 TIE를 제외한 P/B만의 결과 필터링
         filtered_results = []
-        tie_count = 0
-        total_needed = 0
         
-        # 뒤에서부터(최신 결과부터) 개수 세기
+        # 뒤에서부터(최신 결과부터) 개수 세기 - TIE 완전히 제외
         for result in reversed(recent_results):
             if result in ['P', 'B']:
                 filtered_results.insert(0, result)  # 최신 결과를 앞에 추가
-            elif result == 'T':
-                tie_count += 1
-            
-            total_needed += 1
             
             # TIE 제외 결과가 10개면 충분
             if len(filtered_results) >= desired_pb_count:
                 break
-        
-        # 원본 데이터에서 total_needed만큼만 가져와서 다시 필터링
-        actual_results = recent_results[-total_needed:] if total_needed <= len(recent_results) else recent_results
         
         # 최신 게임의 좌표 정보
         latest_coords = None
@@ -165,9 +168,6 @@ class GameDetector:
             'latest_game_coords': latest_coords,
             'recent_results': recent_results,             # 모든 결과(TIE 포함)
             'filtered_results': filtered_results,         # TIE를 제외한 결과 (최대 10개)
-            'actual_results': actual_results,             # TIE 포함 10+tie_count개 결과
-            'tie_count': tie_count,                       # TIE 개수
-            'total_needed': total_needed,                 # 필요한 총 결과 개수
             'game_results': game_info.get("game_results", [])  # 게임 번호별 결과
         }
         

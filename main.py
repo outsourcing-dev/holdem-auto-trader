@@ -11,41 +11,41 @@ from utils.encrypt_excel import EncryptExcel  # simple_decrypt_file 대신 Encry
 # main.py 파일의 시작 부분에 추가
 import os
 import logging
-from logging.handlers import RotatingFileHandler
+# from logging.handlers import RotatingFileHandler
 
-def setup_logging():
-    """로깅 설정을 초기화합니다."""
-    # 로그 폴더 생성 (실행 파일 또는 스크립트와 같은 위치)
-    base_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
-    log_dir = os.path.join(base_dir, 'logs')
-    os.makedirs(log_dir, exist_ok=True)
+# def setup_logging():
+#     """로깅 설정을 초기화합니다."""
+#     # 로그 폴더 생성 (실행 파일 또는 스크립트와 같은 위치)
+#     base_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
+#     log_dir = os.path.join(base_dir, 'logs')
+#     os.makedirs(log_dir, exist_ok=True)
     
-    # 로그 파일 경로
-    log_file = os.path.join(log_dir, 'holdem_auto_trader.log')
+#     # 로그 파일 경로
+#     log_file = os.path.join(log_dir, 'holdem_auto_trader.log')
     
-    # 로그 핸들러 설정 (파일 및 콘솔)
-    file_handler = RotatingFileHandler(
-        log_file, 
-        maxBytes=5*1024*1024,  # 5MB
-        backupCount=3,
-        encoding='utf-8'
-    )
-    console_handler = logging.StreamHandler()
+#     # 로그 핸들러 설정 (파일 및 콘솔)
+#     file_handler = RotatingFileHandler(
+#         log_file, 
+#         maxBytes=5*1024*1024,  # 5MB
+#         backupCount=3,
+#         encoding='utf-8'
+#     )
+#     console_handler = logging.StreamHandler()
     
-    # 포맷터 설정
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+#     # 포맷터 설정
+#     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#     file_handler.setFormatter(formatter)
+#     console_handler.setFormatter(formatter)
     
-    # 루트 로거 설정
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)  # DEBUG 레벨로 설정
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
+#     # 루트 로거 설정
+#     root_logger = logging.getLogger()
+#     root_logger.setLevel(logging.DEBUG)  # DEBUG 레벨로 설정
+#     root_logger.addHandler(file_handler)
+#     root_logger.addHandler(console_handler)
     
-    # 시작 로그 메시지
-    logging.info(f"로깅 시작 - 로그 파일 위치: {log_file}")
-    return log_file
+#     # 시작 로그 메시지
+#     logging.info(f"로깅 시작 - 로그 파일 위치: {log_file}")
+#     return log_file
 
 
 def get_default_style():
@@ -252,7 +252,7 @@ class MainApp(QApplication):
             
 if __name__ == "__main__":
     # 로깅 설정
-    log_file = setup_logging()
+    # log_file = setup_logging()
     
     try:
         logging.info("애플리케이션 시작")

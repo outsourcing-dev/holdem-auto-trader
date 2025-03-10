@@ -65,7 +65,24 @@ class BalanceService:
             except Exception as e:
                 self.logger.warning(f"header-balance로 잔액 가져오기 실패: {e}")
             
-            # 방법 2: 기존 방식 (백업)
+            # 방법 2: Typography 클래스를 가진 header-balance 요소 찾기 (추가된 방법)
+            try:
+                typography_selector = "span.Typography--d2c9a[data-role='header-balance']"
+                balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, typography_selector)
+                if balance_element:
+                    balance_text = balance_element.text
+                    self.logger.info(f"Typography 클래스의 header-balance에서 잔액 텍스트: {balance_text}")
+                    # 숫자만 추출
+                    balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                    self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (Typography header-balance)")
+                    
+                    # 기본 컨텐츠로 돌아가기
+                    self.devtools.driver.switch_to.default_content()
+                    return balance
+            except Exception as e:
+                self.logger.warning(f"Typography header-balance로 잔액 가져오기 실패: {e}")
+            
+            # 방법 3: 기존 balance-label-value 방식 (백업)
             try:
                 # 잔액 요소 찾기 (iframe 내부에서 잔액을 표시하는 요소)
                 balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='balance-label-value']")
@@ -81,7 +98,7 @@ class BalanceService:
             except Exception as e:
                 self.logger.warning(f"balance-label-value로 잔액 가져오기 실패: {e}")
             
-            # 방법 3: Typography 클래스를 가진 요소 찾기
+            # 방법 4: 클래스 이름으로 Typography 요소 찾기
             try:
                 # 클래스 이름으로 잔액 요소 찾기 시도
                 balance_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, ".Typography--d2c9a")
@@ -99,7 +116,7 @@ class BalanceService:
             except Exception as e:
                 self.logger.warning(f"Typography 클래스로 잔액 가져오기 실패: {e}")
             
-            # 방법 4: 내용에 '₩' 또는 '원'이 있는 모든 요소 검색
+            # 방법 5: 내용에 '₩' 또는 '원'이 있는 모든 요소 검색
             try:
                 # XPath로 검색
                 xpath_expr = "//*[contains(text(), '₩') or contains(text(), '원')]"
@@ -137,7 +154,7 @@ class BalanceService:
                 pass
             
             return None
-
+        
     def get_current_balance_and_username(self):
         """
         현재 잔액과 사용자 이름을 가져옵니다.

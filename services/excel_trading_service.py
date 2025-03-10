@@ -25,7 +25,7 @@ class ExcelTradingService:
         new_game_count = game_state['round']
         latest_result = game_state.get('latest_result')
         recent_results = game_state.get('recent_results', [])
-        actual_results = game_state.get('actual_results', [])
+        filtered_results = game_state.get('filtered_results', [])  # TIE를 제외한 P/B 결과만
         
         # 결과 중복 처리 방지 - 유니크 ID 생성 (라운드 번호 + 결과 값)
         if latest_result:
@@ -47,21 +47,21 @@ class ExcelTradingService:
         is_first_run = game_count == 0
         
         # 첫 실행 시 처리 (방 입장 직후)
-        if is_first_run and actual_results:
-            self.logger.info(f"첫 실행 감지: 엑셀에 최근 결과 {len(actual_results)}개 기록")
+        if is_first_run and filtered_results:  # filtered_results 사용
+            self.logger.info(f"첫 실행 감지: 엑셀에 최근 결과 {len(filtered_results)}개 기록 (TIE 제외)")
             # 전체 결과 초기화 및 기록
-            success = self.excel_manager.write_filtered_game_results([], actual_results)
+            success = self.excel_manager.write_filtered_game_results([], filtered_results)  # filtered_results 전달
             if success:
                 # 마지막 열 계산
-                last_column_idx = 1 + len(actual_results)
+                last_column_idx = 1 + len(filtered_results)
                 last_column = openpyxl.utils.get_column_letter(last_column_idx)
                 # 다음 열의 PICK 값 확인
                 next_pick = self.excel_manager.check_next_column_pick(last_column)
                 
                 # 결과 처리 성공 시 processed_rounds에 추가
                 if hasattr(self.main_window, 'trading_manager'):
-                    for i, res in enumerate(actual_results):
-                        result_id = f"{new_game_count-len(actual_results)+i+1}_{res}"
+                    for i, res in enumerate(filtered_results):
+                        result_id = f"{new_game_count-len(filtered_results)+i+1}_{res}"
                         self.main_window.trading_manager.processed_rounds.add(result_id)
                     
                 return last_column, new_game_count, recent_results, next_pick
@@ -83,6 +83,11 @@ class ExcelTradingService:
             self.logger.warning("기록할 빈 열을 찾을 수 없음")
             return None, new_game_count, recent_results, None
         
+        # TIE 결과는 기록하지 않음
+        if latest_result == 'T':
+            self.logger.info(f"TIE 결과는 엑셀에 기록하지 않습니다.")
+            return None, new_game_count, recent_results, None
+        
         # 중요: 이미 결과가 기록되어 있는지 확인
         # current_column 열의 3행 값 확인
         existing_value = self.excel_manager.read_cell_value(current_column, 3)
@@ -94,17 +99,20 @@ class ExcelTradingService:
             next_pick = self.excel_manager.check_next_column_pick(current_column)
             return current_column, new_game_count, recent_results, next_pick
 
-        # 새 결과 기록
-        self.logger.info(f"{current_column}3에 새 결과 '{latest_result}' 기록 중...")
-        self.excel_manager.write_game_result(current_column, latest_result)
-        last_column = current_column
-        
-        # 처리된 결과 추적 - ID 추가
-        if hasattr(self.main_window, 'trading_manager') and latest_result:
-            result_id = f"{new_game_count}_{latest_result}"
-            self.main_window.trading_manager.processed_rounds.add(result_id)
+        # 새 결과 기록 (TIE가 아닌 경우에만)
+        if latest_result in ['P', 'B']:
+            self.logger.info(f"{current_column}3에 새 결과 '{latest_result}' 기록 중...")
+            self.excel_manager.write_game_result(current_column, latest_result)
+            last_column = current_column
+            
+            # 처리된 결과 추적 - ID 추가
+            if hasattr(self.main_window, 'trading_manager'):
+                result_id = f"{new_game_count}_{latest_result}"
+                self.main_window.trading_manager.processed_rounds.add(result_id)
 
-        # 다음 열의 PICK 값 확인
-        next_pick = self.excel_manager.check_next_column_pick(last_column)
+            # 다음 열의 PICK 값 확인
+            next_pick = self.excel_manager.check_next_column_pick(last_column)
+            
+            return last_column, new_game_count, recent_results, next_pick
         
-        return last_column, new_game_count, recent_results, next_pick
+        return None, new_game_count, recent_results, None
