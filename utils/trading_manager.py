@@ -95,15 +95,22 @@ class TradingManager:
             # 마틴 설정 가져오기 (최신 설정 사용)
             martin_count, martin_amounts = self.settings_manager.get_martin_settings()
             
-            # 마틴 금액 총합 계산
-            total_martin_amount = sum(martin_amounts)
+            # 마틴 1단계(첫 번째 단계) 금액
+            first_martin_amount = martin_amounts[0] if martin_amounts else 1000
             
-            # 잔고와 비교
-            if balance < total_martin_amount:
-                self.logger.warning(f"현재 잔고({balance:,}원)가 마틴 배팅 총액({total_martin_amount:,}원)보다 적습니다.")
+            # 현재 잔액이 마틴 1단계 금액보다 적은지 확인
+            if balance < first_martin_amount:
+                self.logger.warning(f"현재 잔고({balance:,}원)가 마틴 1단계 금액({first_martin_amount:,}원)보다 적습니다.")
+                
+                # 적절한 메시지를 QMessageBox로 표시
+                QMessageBox.warning(
+                    self.main_window, 
+                    "잔액 부족",
+                    f"현재 잔고({balance:,}원)가 마틴 1단계 금액({first_martin_amount:,}원)보다 적습니다."
+                )
                 return False
             
-            self.logger.info(f"마틴 배팅 가능: 현재 잔고 {balance:,}원, 필요 금액 {total_martin_amount:,}원")
+            self.logger.info(f"마틴 배팅 가능: 현재 잔고 {balance:,}원, 마틴 1단계 금액: {first_martin_amount:,}원")
             return True
         
         except Exception as e:
@@ -131,9 +138,13 @@ class TradingManager:
 
             # 마틴 서비스의 설정 매니저 갱신
             if hasattr(self, 'martin_service'):
+                # 마틴 서비스 완전 초기화 - 중요 수정 사항: 매번 새로 시작할 때 마틴 단계 리셋
+                self.martin_service.reset()
+                
                 self.martin_service.settings_manager = self.settings_manager
                 self.martin_service.martin_count, self.martin_service.martin_amounts = self.martin_service.settings_manager.get_martin_settings()
                 self.logger.info(f"[INFO] 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
+                self.logger.info(f"[INFO] 마틴 단계 초기화 완료 - 현재 단계: {self.martin_service.current_step} (0 = 1단계)")
 
             # 브라우저 실행 확인
             if not self.devtools.driver:
@@ -167,8 +178,8 @@ class TradingManager:
             )
 
             # 마틴 배팅을 위한 잔고 충분한지 확인
+            # (_check_martin_balance 메서드 내에서 이미 경고 메시지를 표시함)
             if not self._check_martin_balance(balance):
-                QMessageBox.warning(self.main_window, "오류", "현재 잔고가 마틴 배팅을 하기에 부족합니다.")
                 return
 
             # 기존 잔액 및 UI 초기화
@@ -210,6 +221,9 @@ class TradingManager:
 
             # 방문 순서 초기화 및 생성
             self.room_manager.generate_visit_order()
+            
+            # 중요: 이전 게임 처리 기록 초기화
+            self.processed_rounds = set()
             
             # 방 선택 및 입장
             self.current_room_name = self.room_entry_service.enter_room()
@@ -343,8 +357,20 @@ class TradingManager:
                 not self.should_move_to_next_room and
                 self.game_count > 0):
                 
+                # 베팅 상태 명시적 초기화 (추가된 부분)
+                self.betting_service.has_bet_current_round = False
+                
                 self.logger.info(f"무승부(T) 감지, 이전 PICK 값({self.current_pick})으로 베팅 시도")
-                self._place_bet(self.current_pick, self.game_count)
+                bet_success = self._place_bet(self.current_pick, self.game_count)
+                
+                # 베팅 결과 확인 및 로깅 (추가된 부분)
+                if bet_success:
+                    self.logger.info(f"TIE 이후 베팅 성공: {self.current_pick}")
+                else:
+                    self.logger.warning(f"TIE 이후 베팅 실패. 다음 상태 확인에서 재시도")
+                    # 빠른 재시도를 위해 상태 확인 간격 단축
+                    self.main_window.set_remaining_time(0, 0, 1)
+                    
             
             # 10. 2초마다 분석 수행 (기본 간격)
             self.main_window.set_remaining_time(0, 0, 2)
@@ -377,6 +403,9 @@ class TradingManager:
                     result_text = "무승부"
                     result_marker = "T"
                     result_status = "tie"
+                    self.betting_service.has_bet_current_round = False
+                    self.logger.info(f"타이(T) 결과 감지: 현재 라운드({self.game_count})에 재베팅 가능하도록 상태 초기화")
+
                 elif is_win:
                     result_text = "적중"
                     result_marker = "O"
@@ -474,7 +503,6 @@ class TradingManager:
             pick=self.current_pick
         )
         
-    # _place_bet 메서드 수정 부분 (베팅 전 잔액 확인)
     def _place_bet(self, pick_value, game_count):
         """베팅 실행"""
         try:
@@ -498,15 +526,8 @@ class TradingManager:
                 
                 # 마틴 배팅을 위한 잔고 충분한지 확인
                 if not self._check_martin_balance(balance):
-                    self.logger.warning("현재 잔고가 마틴 배팅을 하기에 부족합니다. 자동 매매를 중지합니다.")
-                    # 자동 매매 중지
+                    # 자동 매매 중지 (_check_martin_balance 함수에서 이미 경고 메시지를 표시)
                     self.stop_trading()
-                    # 사용자에게 메시지 표시
-                    QMessageBox.warning(
-                        self.main_window, 
-                        "자동 매매 중지", 
-                        "현재 잔고가 마틴 배팅을 하기에 부족합니다."
-                    )
                     return False
                 
                 # 목표 금액 체크 (체크 결과가 True면 베팅 중단)
@@ -543,6 +564,7 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
+        
         
     def run_auto_trading(self):
         """자동 매매 루프"""

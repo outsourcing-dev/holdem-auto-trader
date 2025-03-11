@@ -1,7 +1,7 @@
 import os
 import sys
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, 
-                             QPushButton, QGroupBox, QHBoxLayout, QSpinBox, 
+                             QPushButton, QGroupBox, QHBoxLayout, 
                              QTableWidget, QTableWidgetItem, QHeaderView)
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
@@ -100,13 +100,94 @@ class SettingsWindow(QWidget):
         count_layout = QHBoxLayout()
         self.martin_count_label = QLabel("마틴 횟수:")
         self.martin_count_label.setFont(label_font)
-        self.martin_count_spinner = QSpinBox()
-        self.martin_count_spinner.setMinimum(1)
-        self.martin_count_spinner.setMaximum(30)  # 최대 마틴 단계 수
-        self.martin_count_spinner.setValue(martin_count)
-        self.martin_count_spinner.valueChanged.connect(self.update_martin_table)
+        self.martin_count_label.setStyleSheet("QLabel { font-size: 14px; font-weight: bold; }")
+        
+        # 현재 스피너 값
+        self.martin_count_value = martin_count
+        
+        # 커스텀 스피너 구현 (값 입력 필드 왼쪽, +/- 버튼 둘 다 오른쪽에 배치)
+        spinner_layout = QHBoxLayout()
+        spinner_layout.setContentsMargins(0, 0, 0, 0)
+        spinner_layout.setSpacing(5)  # 적당한 간격
+
+        # 왼쪽 여백 추가 (스트레치로 여백 넣기)
+        spinner_layout.addStretch(1)
+
+        # 값 표시 필드 (중앙)
+        self.martin_value_display = QLineEdit(str(martin_count))
+        self.martin_value_display.setFixedHeight(30)
+        self.martin_value_display.setFixedWidth(60)
+        self.martin_value_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.martin_value_display.setReadOnly(True)
+        self.martin_value_display.setStyleSheet("""
+            QLineEdit {
+                background-color: #FFFFFF;
+                color: #333333;
+                border: 2px solid #4CAF50;
+                border-radius: 3px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+        """)
+
+        # 오른쪽 여백과 버튼 사이 공간 (조정 가능)
+        spinner_layout.addWidget(self.martin_value_display)
+        spinner_layout.addStretch(1)  # 중앙과 오른쪽 버튼 사이 여백
+
+        # 오른쪽 버튼들 (기존과 동일)
+        # 증가 버튼 (+)
+        self.increase_btn = QPushButton("+")
+        self.increase_btn.setFixedSize(30, 30)
+        self.increase_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: black;
+                font-weight: bold;
+                font-size: 16px;
+                border: 1px solid #333333;
+                border-radius: 3px;
+                padding: 0px;
+                margin: 0px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+        """)
+
+        # 감소 버튼 (-)
+        self.decrease_btn = QPushButton("-")
+        self.decrease_btn.setFixedSize(30, 30)
+        self.decrease_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: black;
+                font-weight: bold;
+                font-size: 16px;
+                border: 1px solid #333333;
+                border-radius: 3px;
+                padding: 0px;
+                margin: 0px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+        """)
+
+        # 버튼 클릭 이벤트 연결
+        self.decrease_btn.clicked.connect(self.decrease_value)
+        self.increase_btn.clicked.connect(self.increase_value)
+
+        # 위젯 배치 - 입력 필드가 중앙, 버튼들이 오른쪽으로 배치
+        spinner_layout.addWidget(self.increase_btn)
+        spinner_layout.addWidget(self.decrease_btn)
+
+        # 스피너 컨테이너 생성
+        spinner_container = QWidget()
+        spinner_container.setLayout(spinner_layout)
+        
+        # 레이아웃에 추가
         count_layout.addWidget(self.martin_count_label)
-        count_layout.addWidget(self.martin_count_spinner)
+        count_layout.addWidget(spinner_container)
         martin_layout.addLayout(count_layout)
         
         # 마틴 금액 테이블
@@ -157,6 +238,20 @@ class SettingsWindow(QWidget):
 
         self.setLayout(main_layout)
 
+    def decrease_value(self):
+        """마틴 횟수 감소"""
+        if self.martin_count_value > 1:
+            self.martin_count_value -= 1
+            self.martin_value_display.setText(str(self.martin_count_value))
+            self.update_martin_table()
+    
+    def increase_value(self):
+        """마틴 횟수 증가"""
+        if self.martin_count_value < 30:
+            self.martin_count_value += 1
+            self.martin_value_display.setText(str(self.martin_count_value))
+            self.update_martin_table()
+
     def get_style_path(self):
         """스타일시트 파일 경로를 결정합니다."""
         # PyInstaller로 패키징된 경우
@@ -190,8 +285,6 @@ class SettingsWindow(QWidget):
             print(f"[INFO] 개발 환경, 스타일 경로: {style_path}")
             return style_path
     
-    # 나머지 메서드들은 변경 없음...
-    
     def validate_target_amount(self, text):
         """목표 금액 입력값 검증 - 숫자만 허용"""
         if text and not text.isdigit():
@@ -204,7 +297,8 @@ class SettingsWindow(QWidget):
 
     def update_martin_table(self):
         """마틴 테이블 업데이트"""
-        count = self.martin_count_spinner.value()
+        # 현재 스피너 값 사용
+        count = self.martin_count_value
         self.martin_table.setRowCount(count)
         
         # 테이블 아이템 변경 이벤트 처리 일시 중지
@@ -292,7 +386,7 @@ class SettingsWindow(QWidget):
         site2 = self.site2_input.text()
         site3 = self.site3_input.text()
         
-        martin_count = self.martin_count_spinner.value()
+        martin_count = self.martin_count_value  # 직접 구현한 스피너에서 값 가져오기
         martin_amounts = self.collect_martin_amounts()
         
         # 목표 금액 가져오기
