@@ -357,8 +357,20 @@ class TradingManager:
                 not self.should_move_to_next_room and
                 self.game_count > 0):
                 
+                # 베팅 상태 명시적 초기화 (추가된 부분)
+                self.betting_service.has_bet_current_round = False
+                
                 self.logger.info(f"무승부(T) 감지, 이전 PICK 값({self.current_pick})으로 베팅 시도")
-                self._place_bet(self.current_pick, self.game_count)
+                bet_success = self._place_bet(self.current_pick, self.game_count)
+                
+                # 베팅 결과 확인 및 로깅 (추가된 부분)
+                if bet_success:
+                    self.logger.info(f"TIE 이후 베팅 성공: {self.current_pick}")
+                else:
+                    self.logger.warning(f"TIE 이후 베팅 실패. 다음 상태 확인에서 재시도")
+                    # 빠른 재시도를 위해 상태 확인 간격 단축
+                    self.main_window.set_remaining_time(0, 0, 1)
+                    
             
             # 10. 2초마다 분석 수행 (기본 간격)
             self.main_window.set_remaining_time(0, 0, 2)

@@ -86,6 +86,15 @@ class ExcelTradingService:
         # TIE 결과는 기록하지 않음
         if latest_result == 'T':
             self.logger.info(f"TIE 결과는 엑셀에 기록하지 않습니다.")
+            
+            # 현재 열의 이전 열(이미 데이터가 있는 열)에서 PICK 값 확인
+            prev_column = self.excel_manager.get_prev_column_letter(current_column)
+            if prev_column:
+                next_pick = self.excel_manager.check_next_column_pick(prev_column)
+                self.logger.info(f"TIE 결과 감지 후 이전 PICK 값 확인: {next_pick}")
+                # PICK 값을 반환하여 TIE 후에도 베팅할 수 있게 함
+                return prev_column, new_game_count, recent_results, next_pick
+            
             return None, new_game_count, recent_results, None
         
         # 중요: 이미 결과가 기록되어 있는지 확인
