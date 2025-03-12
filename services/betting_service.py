@@ -41,6 +41,12 @@ class BettingService:
             bool: 성공 여부
         """
         try:
+            if hasattr(self, 'last_bet_time'):
+                elapsed = time.time() - self.last_bet_time
+                if elapsed < 5.0:  # 5초 이내 재배팅 방지
+                    self.logger.warning(f"마지막 배팅 후 {elapsed:.1f}초밖에 지나지 않았습니다. 최소 5초 대기가 필요합니다.")
+                    return False
+            
             # 자동 매매 활성화 상태 확인
             if not is_trading_active:
                 self.logger.info("자동 매매가 활성화되지 않았습니다.")
@@ -70,7 +76,7 @@ class BettingService:
             self.devtools.driver.switch_to.frame(iframe)
 
             # 칩 클릭 가능 여부로 베팅 상태 확인
-            max_attempts = 15  # 최대 30초 대기 (2초 간격)
+            max_attempts = 30  # 최대 30초 대기 (2초 간격)
             attempts = 0
             chip_clickable = False
 
@@ -133,7 +139,7 @@ class BettingService:
                         
                     self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempts+1}/{max_attempts}")
                     attempts += 1
-                    time.sleep(3)
+                    time.sleep(2)
                     
                 except Exception as e:
                     self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
@@ -265,7 +271,7 @@ class BettingService:
                     self.logger.error(f"{chip_value:,}원 칩 선택 또는 베팅 영역 클릭 중 오류: {e}")
                     return False
             
-            # 베팅 후 총 베팅 금액 변경 확인 (1.5초 대기)
+            # 베팅 후 총 베팅 금액 변경 확인
             time.sleep(1)
             try:
                 total_bet_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='total-bet-label-value']")
@@ -306,6 +312,7 @@ class BettingService:
                     pick=bet_type  # PICK 값 직접 설정
                 )
                 
+                self.last_bet_time = time.time()
                 return True
             else:
                 return False
@@ -317,12 +324,13 @@ class BettingService:
             
     def reset_betting_state(self, new_round=None):
         """베팅 상태 초기화"""
-        self.has_bet_current_round = False
+        self.has_bet_current_round = False  # 항상 False로 초기화
         # 새 라운드가 지정되면 저장, 아니면 0으로 초기화
         self.current_bet_round = new_round if new_round is not None else 0
         self.last_bet_type = None
-        self.logger.info(f"베팅 상태 초기화 완료 (라운드: {self.current_bet_round})")
-    
+        self.logger.info(f"베팅 상태 완전 초기화 완료 (라운드: {self.current_bet_round})")
+        
+
     def check_is_bet_for_current_round(self, current_round):
         """현재 라운드에 베팅했는지 확인"""
         # 무승부 발생 시 베팅 상태가 초기화된 경우를 처리

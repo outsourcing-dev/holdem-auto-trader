@@ -150,6 +150,10 @@ class TradingManager:
             if hasattr(self, 'betting_service'):
                 self.betting_service.reset_betting_state()
                 self.logger.info("[INFO] 자동 매매 시작 시 베팅 상태 초기화 완료")
+
+            # 중요: 이전 게임 처리 기록 초기화
+            self.processed_rounds = set()
+            self.logger.info("[INFO] 자동 매매 시작 시 처리된 결과 추적 세트 초기화")
             
             # 브라우저 실행 확인
             if not self.devtools.driver:
@@ -257,7 +261,8 @@ class TradingManager:
                 self.main_window, 
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
-            )                 
+            )       
+                      
     def _validate_trading_prerequisites(self):
         """자동 매매 시작 전 사전 검증"""
         if self.is_trading_active:
@@ -514,6 +519,17 @@ class TradingManager:
                         time.sleep(1)  # 1초 대기
                         self.should_move_to_next_room = True
                         self.logger.info("방 이동 플래그 설정됨: should_move_to_next_room = True")
+                        
+        elif last_bet:
+            # 중요한 추가: 라운드가 달라진 경우에도 베팅이 있었다면 처리
+            self.logger.info(f"[알림] 이전 베팅({last_bet['round']})과 현재 게임({self.game_count})의 라운드가 불일치합니다. 베팅 결과 확인을 건너뜁니다.")
+            # 베팅 상태를 강제로 초기화하여 중복 배팅 방지
+            self.betting_service.has_bet_current_round = False
+            self.betting_service.current_bet_round = new_game_count
+            # 마틴 단계를 이전 상태로 유지 (단계 증가 방지)
+            if hasattr(self, 'martin_service') and self.martin_service.current_step > 0:
+                self.martin_service.current_step = 0
+                self.logger.info("[중요] 라운드 불일치로 마틴 단계를 1단계로 강제 초기화")
         
         # 베팅 상태 초기화 (새 라운드 번호로)
         self.betting_service.reset_betting_state(new_round=new_game_count)
