@@ -483,10 +483,15 @@ class TradingManager:
                 else:
                     self.logger.error("베팅 결과 후 잔액을 업데이트할 수 없습니다.")
                 
-                # 방 이동이 필요한지 확인 (승리 시에만 확인)
-                if result_status == "win":
+                # 방 이동이 필요한지 확인 (승리 시 또는 마틴 실패 시)
+                if result_status == "win" or result_status == "lose":
                     if self.martin_service.should_change_room():
-                        self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
+                        # 성공 또는 마틴 실패에 따라 로그 메시지 다르게 표시
+                        if result_status == "win":
+                            self.logger.info("배팅 성공으로 방 이동이 필요합니다.")
+                        else:
+                            self.logger.info("마틴 단계 모두 실패로 방 이동이 필요합니다.")
+                        
                         time.sleep(1)  # 1초 대기
                         self.should_move_to_next_room = True
                         self.logger.info("방 이동 플래그 설정됨: should_move_to_next_room = True")

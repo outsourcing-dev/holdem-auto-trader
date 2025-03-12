@@ -149,11 +149,16 @@ class MartinBettingService:
         Returns:
             bool: 방 이동 필요 여부
         """
-        # 배팅에 1번이라도 성공하면 방 이동
-        # win_count가 0보다 크면 적어도 한 번 이상 이겼다는 의미
+        # 조건 1: 배팅에 1번이라도 성공하면 방 이동
         if self.win_count > 0:
             self.logger.info(f"[마틴] 베팅 성공 횟수: {self.win_count}, 방 이동 필요")
             # 추가 로그로 더 명확하게 정보 출력
+            self.logger.info(f"[마틴] 방 이동 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
+            return True
+        
+        # 조건 2: 최대 마틴 단계에 도달하여 실패한 경우 방 이동 (새로 추가된 로직)
+        if self.current_step >= self.martin_count - 1 and self.consecutive_losses > 0:
+            self.logger.info(f"[마틴] 최대 마틴 단계({self.martin_count})에 도달하여 실패함, 방 이동 필요")
             self.logger.info(f"[마틴] 방 이동 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
             return True
         
