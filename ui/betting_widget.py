@@ -115,7 +115,7 @@ class BettingWidget(QWidget):
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         
         # 테이블 열 개수 업데이트 (첫 50개는 배팅 결과용, 그 이후는 마틴 단계용)
-        max_columns = max(50, self.martin_count + 20)  # 최소 50개 컬럼 또는 마틴 단계 + 20
+        max_columns = max(10, self.martin_count + 5)  # 최소 50개 컬럼 또는 마틴 단계 + 20
         current_columns = self.progress_table.columnCount() - 1  # PICK 열 제외
         
         # 열 수가 부족하면 추가

@@ -1,10 +1,10 @@
-# utils/room_manager.py 수정
+# utils/room_manager.py
 
 import json
 import os
-from PyQt6.QtWidgets import (QTableWidgetItem, QCheckBox, QMessageBox, QLabel,
+from PyQt6.QtWidgets import (QTableWidgetItem, QCheckBox, QMessageBox,
                            QProgressBar, QHeaderView, QWidget, QHBoxLayout)
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt
 import time
 import re
 import random
