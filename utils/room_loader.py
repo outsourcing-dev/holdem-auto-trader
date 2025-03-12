@@ -1,10 +1,27 @@
 from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtWidgets import QMessageBox
+
 import time
 import re
 
 def clean_text(text):
     """숨겨진 특수 문자 제거"""
     return re.sub(r'[\u200c\u2066\u2069]', '', text).strip()
+
+def extract_room_base_name(room_name):
+    """
+    방 이름에서 기본 이름만 추출 (끝 숫자와 가격 제외)
+    
+    Args:
+        room_name (str): 전체 방 이름 (예: "스피드 바카라 Z\n₩1,000\n27")
+    
+    Returns:
+        str: 기본 방 이름 (예: "스피드 바카라 Z")
+    """
+    # 줄바꿈으로 분리하고 첫 번째 부분만 사용
+    if '\n' in room_name:
+        return room_name.split('\n')[0].strip()
+    return room_name.strip()
 
 class RoomLoaderThread(QThread):
     progress_signal = pyqtSignal(str, int)  
@@ -273,9 +290,11 @@ class RoomLoaderThread(QThread):
                 
         return all_elements
 
-    def _get_current_visible_rooms(self, elements):
-        """현재 화면에 보이는 방 이름 목록 가져오기"""
-        rooms = set()
+    def get_current_visible_rooms(self, elements):
+        """
+        현재 화면에 보이는 방 이름 목록 가져오기 (중복 제거 개선)
+        """
+        rooms = {}  # base_name을 키로 사용하는 딕셔너리로 변경
         
         for element in elements:
             try:
@@ -290,18 +309,24 @@ class RoomLoaderThread(QThread):
                 if not text:
                     continue
                     
+                # 기본 방 이름 추출 (중복 확인용)
+                base_name = extract_room_base_name(text)
+                
                 # 스피드 필터 적용 (filter_type에 따라)
                 if self.filter_type == "speed":
                     if "스피드" in text and "슈퍼 스피드" not in text:
-                        rooms.add(text)
+                        # 기존 방이 없거나 현재 방이 더 많은 정보를 가지고 있으면 갱신
+                        if base_name not in rooms or len(text) > len(rooms[base_name]):
+                            rooms[base_name] = text
                 else:
-                    # 다른 필터 없이 모든 방 추가
-                    rooms.add(text)
+                    # 다른 필터 없이 모든 방 추가 (중복 방의 경우 더 많은 정보를 가진 것 선택)
+                    if base_name not in rooms or len(text) > len(rooms[base_name]):
+                        rooms[base_name] = text
                     
             except:
                 continue
                 
-        return list(rooms)
+        return list(rooms.values())  # 값 목록만 반환
 
     def _scroll_down_enhanced(self, container):
         """개선된 스크롤 다운 메서드"""
@@ -347,3 +372,76 @@ class RoomLoaderThread(QThread):
         if self.filter_type == "speed":
             return [room for room in all_rooms if "스피드" in room and "슈퍼 스피드" not in room]
         return all_rooms
+    
+    def _get_current_visible_rooms(self, elements):
+        """현재 화면에 보이는 방 이름 목록 가져오기 (중복 처리 개선)"""
+        rooms = {}  # 딕셔너리로 변경 - 키는 base_name, 값은 전체 방 이름
+        
+        for element in elements:
+            try:
+                # 요소가 보이는지 확인
+                if not element.is_displayed():
+                    continue
+                    
+                # 텍스트 추출 및 정리
+                text = clean_text(element.text)
+                
+                # 빈 텍스트 무시
+                if not text:
+                    continue
+                
+                # 방 이름만 추출 (첫 번째 줄)
+                base_name = extract_room_base_name(text)
+                
+                # 스피드 필터 적용 (filter_type에 따라)
+                if self.filter_type == "speed":
+                    if "스피드" in text and "슈퍼 스피드" not in text:
+                        # 이미 같은 기본 이름의 방이 있는지 확인
+                        if base_name not in rooms or len(text) > len(rooms[base_name]):
+                            # 더 긴 정보를 가진 방으로 업데이트 (또는 새로 추가)
+                            rooms[base_name] = text
+                            self.progress_signal.emit(f"방 발견: '{base_name}'", len(rooms))
+                else:
+                    # 다른 필터 없이 모든 방 추가
+                    if base_name not in rooms or len(text) > len(rooms[base_name]):
+                        rooms[base_name] = text
+                        self.progress_signal.emit(f"방 발견: '{base_name}'", len(rooms))
+                    
+            except Exception as e:
+                self.progress_signal.emit(f"방 정보 추출 중 오류: {str(e)}", len(rooms))
+                continue
+                
+        result_list = list(rooms.values())  # 값 목록만 반환
+        self.progress_signal.emit(f"중복 제거 후 {len(result_list)}개 방 발견", len(result_list))
+        return result_list
+
+
+    def on_room_loading_finished(self, rooms_data):
+        """방 로딩 완료 시 호출되는 콜백 (중복 제거 적용)"""
+        # 로딩 메시지 박스 닫기
+        if self.loading_msgbox:  
+            self.loading_msgbox.accept()
+            self.loading_msgbox = None
+            
+        # 결과가 있는 경우
+        if rooms_data:
+            # 중복 제거된 결과로 병합
+            self.merge_room_data(rooms_data, reset_existing=True)
+            self.load_rooms_into_table(self.rooms_data)
+            
+            # 저장
+            save_result = self.save_room_settings()
+            
+            if save_result:
+                print(f"[INFO] 총 {len(self.rooms_data)}개의 스피드 방 목록을 불러와 저장했습니다.")
+                QMessageBox.information(
+                    self.main_window,
+                    "방 목록 저장 완료",
+                    f"총 {len(self.rooms_data)}개의 방 목록을 불러와 저장했습니다."
+                )
+            else:
+                print("[ERROR] 방 목록 저장 실패")
+                QMessageBox.warning(self.main_window, "저장 실패", "방 목록을 저장하는 데 실패했습니다.")
+        else:
+            print("[ERROR] 방 목록을 불러오지 못했습니다.")
+            QMessageBox.warning(self.main_window, "오류", "방 목록을 불러오는 데 실패했습니다.")

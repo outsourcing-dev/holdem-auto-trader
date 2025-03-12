@@ -31,6 +31,64 @@ def clean_text(text):
     text = re.sub(r'[\u200c\u2066\u2069]', '', text)  # 보이지 않는 문자 삭제
     return text.strip()
 
+def extract_room_base_name(room_name):
+    """
+    방 이름에서 기본 이름만 추출 (가격과 마지막 숫자 제외)
+    
+    Args:
+        room_name (str): 전체 방 이름 (예: "스피드 바카라 Z\n₩1,000\n27")
+    
+    Returns:
+        str: 기본 방 이름 (예: "스피드 바카라 Z")
+    """
+    # 줄바꿈으로 분리
+    parts = room_name.split('\n')
+    
+    # 첫 번째 부분만 사용 (방 이름)
+    base_name = parts[0].strip() if parts else room_name.strip()
+    
+    return base_name
+
+def deduplicate_rooms(room_list):
+    """
+    방 목록에서 중복 방을 제거합니다.
+    중복은 방 이름의 첫 번째 줄이 동일한 경우로 판단합니다.
+    
+    Args:
+        room_list (list): 방 목록 (dict 또는 str 형식의 요소들)
+        
+    Returns:
+        list: 중복이 제거된 방 목록
+    """
+    unique_rooms = {}
+    
+    for room in room_list:
+        # dict 형식인 경우 name 추출
+        if isinstance(room, dict):
+            name = room["name"]
+            checked = room.get("checked", True)
+        else:
+            # str 형식인 경우 그대로 사용
+            name = room
+            checked = True
+        
+        # 기본 방 이름으로 중복 확인
+        base_name = extract_room_base_name(name)
+        
+        # 이미 같은 기본 이름의 방이 있는 경우, 정보가 더 많은 방 선택
+        if base_name in unique_rooms:
+            existing_name = unique_rooms[base_name]["name"]
+            # 정보가 더 많은(긴) 방 이름을 선택
+            if len(name) > len(existing_name):
+                unique_rooms[base_name] = {"name": name, "checked": checked}
+        else:
+            unique_rooms[base_name] = {"name": name, "checked": checked}
+    
+    # 값 목록만 반환
+    return list(unique_rooms.values())
+
+
+
 class RoomManager:
     def __init__(self, main_window):
         self.main_window = main_window
@@ -129,47 +187,100 @@ class RoomManager:
         
         # 논블로킹 모드로 표시
         self.loading_msgbox.show()
-    
+
+    def extract_room_base_name(room_name):
+        """
+        방 이름에서 기본 이름만 추출 (가격과 마지막 숫자 제외)
+        
+        Args:
+            room_name (str): 전체 방 이름 (예: "스피드 바카라 Z\n₩1,000\n27")
+        
+        Returns:
+            str: 기본 방 이름 (예: "스피드 바카라 Z")
+        """
+        # 줄바꿈으로 분리
+        parts = room_name.split('\n')
+        
+        # 첫 번째 부분만 사용 (방 이름)
+        base_name = parts[0].strip() if parts else room_name.strip()
+        
+        return base_name
+
     def merge_room_data(self, new_room_names, reset_existing=False):
         """
         새로 가져온 방 목록과 기존 저장된 방 목록을 병합합니다.
+        중복 방 이름은 기본 이름(숫자 제외)으로 비교하여 처리합니다.
         
         Args:
             new_room_names (list): 새로 가져온 방 이름 목록 (dict 또는 str 형식)
             reset_existing (bool): True일 경우 기존 방 목록을 초기화하고 새 목록으로 교체
         """
         if reset_existing:
-            # 입력이 dict 형식인지 str 형식인지 확인
+            # 새 방 목록으로 완전히 교체 (중복 제거 적용)
+            if new_room_names:
+                self.rooms_data = deduplicate_rooms(new_room_names)
+                print(f"[INFO] 방 목록을 모두 초기화하고 새로운 {len(self.rooms_data)}개 방으로 교체했습니다. (모두 선택됨)")
+            else:
+                self.rooms_data = []
+        else:
+            # 기존 방 목록과 병합 (중복 제거 적용)
+            if new_room_names:
+                # 기존 방 이름 추출
+                existing_base_names = {extract_room_base_name(room["name"]) for room in self.rooms_data}
+                
+                # 새 방 중 기존에 없는 것만 필터링
+                filtered_new_rooms = []
+                for room in new_room_names:
+                    if isinstance(room, dict):
+                        name = room["name"]
+                    else:
+                        name = room
+                    
+                    base_name = extract_room_base_name(name)
+                    if base_name not in existing_base_names:
+                        if isinstance(room, dict):
+                            filtered_new_rooms.append(room)
+                        else:
+                            filtered_new_rooms.append({"name": room, "checked": False})
+                        existing_base_names.add(base_name)
+                
+                # 기존 방 목록에 새 방 추가
+                self.rooms_data.extend(filtered_new_rooms)
+
+    def save_room_settings(self):
+        """방 설정을 JSON 파일로 저장 (중복 제거 적용)"""
+        try:
+            # 저장 전 중복 제거 처리
+            self.rooms_data = deduplicate_rooms(self.rooms_data)
+            
+            room_data_file = get_room_data_file_path()
+            with open(room_data_file, "w", encoding="utf-8") as f:
+                json.dump(self.rooms_data, f, ensure_ascii=False, indent=4)
+            print(f"[INFO] 방 설정 저장 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에 저장")
+            return True
+        except Exception as e:
+            print(f"[ERROR] 방 설정 저장 중 오류 발생: {e}")
+            return False
+    
+    def load_room_settings(self):
+        """저장된 방 설정을 JSON 파일에서 불러오기 (중복 제거 적용)"""
+        room_data_file = get_room_data_file_path()
+        if not os.path.exists(room_data_file):
+            print(f"[INFO] 저장된 방 설정 파일 '{room_data_file}'이 없습니다.")
+            return
+            
+        try:
+            with open(room_data_file, "r", encoding="utf-8") as f:
+                loaded_data = json.load(f)
+                
+                # 중복 제거 처리
+                self.rooms_data = deduplicate_rooms(loaded_data)
+                
+            print(f"[INFO] 방 설정 불러오기 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에서 로드")
+        except Exception as e:
+            print(f"[ERROR] 방 설정 불러오기 중 오류 발생: {e}")
             self.rooms_data = []
             
-            if new_room_names and isinstance(new_room_names[0], dict):
-                # dict 형식이면 그대로 사용
-                self.rooms_data = new_room_names
-            else:
-                # str 형식이면 dict로 변환 (모든 방의 체크 상태를 True로 설정)
-                for name in new_room_names:
-                    self.rooms_data.append({"name": name, "checked": True})
-                    
-            print(f"[INFO] 방 목록을 모두 초기화하고 새로운 {len(self.rooms_data)}개 방으로 교체했습니다. (모두 선택됨)")
-        else:
-            # 기존 방식대로 병합
-            existing_names = {room["name"] for room in self.rooms_data}
-            
-            # 새로운 방 추가
-            if new_room_names and isinstance(new_room_names[0], dict):
-                # dict 형식이면 name 추출
-                for room_data in new_room_names:
-                    name = room_data["name"]
-                    if name not in existing_names:
-                        self.rooms_data.append(room_data)
-                        existing_names.add(name)
-            else:
-                # str 형식이면 dict로 변환
-                for name in new_room_names:
-                    if name not in existing_names:
-                        self.rooms_data.append({"name": name, "checked": False})
-                        existing_names.add(name)
-
     def show_room_list_dialog(self):
         """
         방 목록 불러오기 다이얼로그 표시
