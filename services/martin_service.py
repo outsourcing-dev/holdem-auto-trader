@@ -1,8 +1,6 @@
 # services/martin_service.py
-
 import logging
 from utils.settings_manager import SettingsManager
-
 class MartinBettingService:
     def __init__(self, main_window, logger=None):
         """
@@ -37,7 +35,9 @@ class MartinBettingService:
         self.result_counter = 0  # 같은 방 내에서의 결과 위치 카운터
         self.betting_counter = 0  # 배팅 횟수 카운터 추가 (실제 배팅한 횟수)
         self.current_game_position = {}  # 게임 라운드별 위치 추적용 딕셔너리 추가
-        self.need_room_change = False  # 방 이동 필요 플래그 추가
+        
+        # 방 이동 필요 플래그 추가
+        self.need_room_change = False
 
     def get_current_bet_amount(self):
         """
@@ -79,8 +79,9 @@ class MartinBettingService:
         # 결과 표시 위치 카운터 증가 (방 내에서만 유효한 순차적 위치)
         self.result_counter += 1
         
-        # 배팅 카운터 증가 (실제 배팅 횟수 - 무승부 포함)
-        self.betting_counter += 1
+        # 무승부(tie)가 아닌 경우에만 배팅 카운터 증가
+        if result_status != "tie":
+            self.betting_counter += 1
         
         current_result_position = self.betting_counter  # 배팅 카운터를 위치로 사용
         
@@ -109,10 +110,11 @@ class MartinBettingService:
             self.current_step += 1
             self.lose_count += 1
             
-            # 최대 마틴 단계 제한
+            # 최대 마틴 단계 도달 시 방 이동 플래그 설정
             if self.current_step >= self.martin_count:
                 self.logger.warning(f"[마틴] 최대 마틴 단계({self.martin_count})에 도달했습니다. 방 이동 플래그 설정!")
                 self.need_room_change = True  # 방 이동 플래그 설정
+                self.current_step = 0  # 다음 방을 위해 초기화
             
             self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 증가 -> {self.current_step}/{self.martin_count} (금액: {current_bet:,}원), 총 실패 수: {self.lose_count}")
         
@@ -122,7 +124,7 @@ class MartinBettingService:
         )
         
         # 로그 추가
-        self.logger.info(f"[마틴] 현재 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
+        self.logger.info(f"[마틴] 현재 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}, 방 이동 필요:{self.need_room_change}")
         
         return self.current_step, self.consecutive_losses, current_result_position
 
@@ -158,9 +160,9 @@ class MartinBettingService:
             self.logger.info(f"[마틴] 방 이동 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
             return True
         
-        # 조건 2: 최대 마틴 단계에 도달하여 실패한 경우 방 이동 (새로 추가된 로직)
+        # 조건 2: 방 이동 플래그 확인
         if self.need_room_change:
-            self.logger.info(f"[마틴] 최대 마틴 단계({self.martin_count})에 도달하여 실패함, 방 이동 필요")
+            self.logger.info(f"[마틴] 최대 마틴 단계({self.martin_count})에 모두 실패하여 방 이동 필요")
             self.logger.info(f"[마틴] 방 이동 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
             return True
         
@@ -187,6 +189,9 @@ class MartinBettingService:
         self.betting_counter = 0  # 배팅 카운터 초기화
         self.current_game_position = {}  # 게임 위치 기록도 초기화
         
+        # 방 이동 플래그 초기화
+        self.need_room_change = False
+        
         # 총 베팅 금액은 초기화하지 않음 (기록 보존)
         # self.total_bet_amount = 0  # 필요시 주석 해제
         
@@ -195,7 +200,6 @@ class MartinBettingService:
         
         # 마틴 설정 최신 상태로 다시 로드 (선택적)
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
-        self.need_room_change = False  # 방 이동 플래그 초기화
         self.logger.info(f"[마틴] 설정 재로드 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
         
     def update_settings(self):
@@ -216,3 +220,4 @@ class MartinBettingService:
             self.logger.info(f"  현재: 단계={self.martin_count}, 금액={self.martin_amounts}")
         else:
             self.logger.info(f"[INFO] 마틴 설정 업데이트 (변경 없음) - 단계: {self.martin_count}, 금액: {self.martin_amounts}")
+            

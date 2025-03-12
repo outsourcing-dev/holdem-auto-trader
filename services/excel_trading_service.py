@@ -17,7 +17,7 @@ class ExcelTradingService:
         self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
         self.excel_manager = ExcelManager()
-        
+
     def process_game_results(self, game_state, game_count, current_room_name, log_on_change=False):
         """
         게임 결과를 처리하고 필요한 정보를 반환합니다.
@@ -40,6 +40,26 @@ class ExcelTradingService:
                 if current_column:
                     prev_column = self.excel_manager.get_prev_column_letter(current_column)
                     next_pick = self.excel_manager.check_next_column_pick(prev_column)
+                    
+                    # PICK 값 확인 시 상세 로깅 추가
+                    if next_pick:
+                        self.logger.info(f"[DEBUG] 다음 열 PICK 값: {next_pick}, 타입: {type(next_pick)}")
+                    else:
+                        self.logger.warning(f"[WARNING] 다음 열 PICK 값이 None으로 확인됨! 열: {prev_column}")
+                        
+                        # Excel에서 직접 다시 읽기 시도
+                        try:
+                            next_col_letter = self.excel_manager.get_next_column_letter(prev_column)
+                            direct_pick = self.excel_manager.read_cell_value(next_col_letter, 12)
+                            self.logger.info(f"[DEBUG] 직접 Excel에서 읽은 PICK 값: {direct_pick}")
+                            
+                            # None이 아니고 유효한 값이면 사용
+                            if direct_pick in ['P', 'B']:
+                                next_pick = direct_pick
+                                self.logger.info(f"[DEBUG] PICK 값 직접 읽기 성공: {next_pick}")
+                        except Exception as e:
+                            self.logger.error(f"[ERROR] 직접 PICK 값 읽기 실패: {e}")
+                    
                     return prev_column, new_game_count, recent_results, next_pick
                 return None, new_game_count, recent_results, None
 
@@ -57,6 +77,25 @@ class ExcelTradingService:
                 last_column = openpyxl.utils.get_column_letter(last_column_idx)
                 # 다음 열의 PICK 값 확인
                 next_pick = self.excel_manager.check_next_column_pick(last_column)
+                
+                # PICK 값 확인 시 상세 로깅 추가
+                if next_pick:
+                    self.logger.info(f"[DEBUG] 다음 열 PICK 값: {next_pick}, 타입: {type(next_pick)}")
+                else:
+                    self.logger.warning(f"[WARNING] 다음 열 PICK 값이 None으로 확인됨! 열: {last_column}")
+                    
+                    # Excel에서 직접 다시 읽기 시도
+                    try:
+                        next_col_letter = self.excel_manager.get_next_column_letter(last_column)
+                        direct_pick = self.excel_manager.read_cell_value(next_col_letter, 12)
+                        self.logger.info(f"[DEBUG] 직접 Excel에서 읽은 PICK 값: {direct_pick}")
+                        
+                        # None이 아니고 유효한 값이면 사용
+                        if direct_pick in ['P', 'B']:
+                            next_pick = direct_pick
+                            self.logger.info(f"[DEBUG] PICK 값 직접 읽기 성공: {next_pick}")
+                    except Exception as e:
+                        self.logger.error(f"[ERROR] 직접 PICK 값 읽기 실패: {e}")
                 
                 # 결과 처리 성공 시 processed_rounds에 추가
                 if hasattr(self.main_window, 'trading_manager'):
@@ -92,6 +131,26 @@ class ExcelTradingService:
             if prev_column:
                 next_pick = self.excel_manager.check_next_column_pick(prev_column)
                 self.logger.info(f"TIE 결과 감지 후 이전 PICK 값 확인: {next_pick}")
+                
+                # PICK 값 확인 시 상세 로깅 추가
+                if next_pick:
+                    self.logger.info(f"[DEBUG] TIE 후 다음 열 PICK 값: {next_pick}, 타입: {type(next_pick)}")
+                else:
+                    self.logger.warning(f"[WARNING] TIE 후 다음 열 PICK 값이 None으로 확인됨! 열: {prev_column}")
+                    
+                    # Excel에서 직접 다시 읽기 시도
+                    try:
+                        next_col_letter = self.excel_manager.get_next_column_letter(prev_column)
+                        direct_pick = self.excel_manager.read_cell_value(next_col_letter, 12)
+                        self.logger.info(f"[DEBUG] 직접 Excel에서 읽은 PICK 값: {direct_pick}")
+                        
+                        # None이 아니고 유효한 값이면 사용
+                        if direct_pick in ['P', 'B']:
+                            next_pick = direct_pick
+                            self.logger.info(f"[DEBUG] PICK 값 직접 읽기 성공: {next_pick}")
+                    except Exception as e:
+                        self.logger.error(f"[ERROR] 직접 PICK 값 읽기 실패: {e}")
+                
                 # PICK 값을 반환하여 TIE 후에도 베팅할 수 있게 함
                 return prev_column, new_game_count, recent_results, next_pick
             
@@ -106,6 +165,26 @@ class ExcelTradingService:
             # 이미 기록된 경우 다음 열의 PICK 값만 확인
             next_column = self.excel_manager.get_next_column_letter(current_column)
             next_pick = self.excel_manager.check_next_column_pick(current_column)
+            
+            # PICK 값 확인 시 상세 로깅 추가
+            if next_pick:
+                self.logger.info(f"[DEBUG] 다음 열 PICK 값: {next_pick}, 타입: {type(next_pick)}")
+            else:
+                self.logger.warning(f"[WARNING] 다음 열 PICK 값이 None으로 확인됨! 열: {current_column}")
+                
+                # Excel에서 직접 다시 읽기 시도
+                try:
+                    next_col_letter = self.excel_manager.get_next_column_letter(current_column)
+                    direct_pick = self.excel_manager.read_cell_value(next_col_letter, 12)
+                    self.logger.info(f"[DEBUG] 직접 Excel에서 읽은 PICK 값: {direct_pick}")
+                    
+                    # None이 아니고 유효한 값이면 사용
+                    if direct_pick in ['P', 'B']:
+                        next_pick = direct_pick
+                        self.logger.info(f"[DEBUG] PICK 값 직접 읽기 성공: {next_pick}")
+                except Exception as e:
+                    self.logger.error(f"[ERROR] 직접 PICK 값 읽기 실패: {e}")
+            
             return current_column, new_game_count, recent_results, next_pick
 
         # 새 결과 기록 (TIE가 아닌 경우에만)
@@ -121,6 +200,25 @@ class ExcelTradingService:
 
             # 다음 열의 PICK 값 확인
             next_pick = self.excel_manager.check_next_column_pick(last_column)
+            
+            # PICK 값 확인 시 상세 로깅 추가
+            if next_pick:
+                self.logger.info(f"[DEBUG] 다음 열 PICK 값: {next_pick}, 타입: {type(next_pick)}")
+            else:
+                self.logger.warning(f"[WARNING] 다음 열 PICK 값이 None으로 확인됨! 열: {last_column}")
+                
+                # Excel에서 직접 다시 읽기 시도
+                try:
+                    next_col_letter = self.excel_manager.get_next_column_letter(last_column)
+                    direct_pick = self.excel_manager.read_cell_value(next_col_letter, 12)
+                    self.logger.info(f"[DEBUG] 직접 Excel에서 읽은 PICK 값: {direct_pick}")
+                    
+                    # None이 아니고 유효한 값이면 사용
+                    if direct_pick in ['P', 'B']:
+                        next_pick = direct_pick
+                        self.logger.info(f"[DEBUG] PICK 값 직접 읽기 성공: {next_pick}")
+                except Exception as e:
+                    self.logger.error(f"[ERROR] 직접 PICK 값 읽기 실패: {e}")
             
             return last_column, new_game_count, recent_results, next_pick
         

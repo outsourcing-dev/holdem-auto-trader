@@ -325,6 +325,12 @@ class BettingService:
     
     def check_is_bet_for_current_round(self, current_round):
         """현재 라운드에 베팅했는지 확인"""
+        # 무승부 발생 시 베팅 상태가 초기화된 경우를 처리
+        if self.has_bet_current_round == False and self.current_bet_round != current_round:
+            self.logger.info(f"[INFO] 새 라운드({current_round}) 감지, 이전 베팅 기록({self.current_bet_round}) 초기화")
+            self.current_bet_round = current_round
+            return False
+            
         return self.has_bet_current_round and self.current_bet_round == current_round
     
     # services/betting_service.py의 check_betting_result 메서드 수정

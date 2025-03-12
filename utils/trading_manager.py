@@ -146,6 +146,11 @@ class TradingManager:
                 self.logger.info(f"[INFO] 마틴 설정 재로드 - 단계: {self.martin_service.martin_count}, 금액: {self.martin_service.martin_amounts}")
                 self.logger.info(f"[INFO] 마틴 단계 초기화 완료 - 현재 단계: {self.martin_service.current_step} (0 = 1단계)")
 
+            # 베팅 서비스 상태 초기화 추가
+            if hasattr(self, 'betting_service'):
+                self.betting_service.reset_betting_state()
+                self.logger.info("[INFO] 자동 매매 시작 시 베팅 상태 초기화 완료")
+            
             # 브라우저 실행 확인
             if not self.devtools.driver:
                 self.devtools.start_browser()
@@ -186,7 +191,7 @@ class TradingManager:
             self.main_window.reset_ui()
                     
             # 게임 컨트롤러 초기화
-                    # 중요: os.environ에서 Excel 파일 경로를 가져와 전달
+            # 중요: os.environ에서 Excel 파일 경로를 가져와 전달
             excel_path = os.environ.get("AUTO_EXCEL_PATH")
             self.logger.info(f"GameController에 Excel 경로 전달: {excel_path}")
             self.game_controller = GameController(self.devtools.driver, excel_path)
@@ -224,6 +229,7 @@ class TradingManager:
             
             # 중요: 이전 게임 처리 기록 초기화
             self.processed_rounds = set()
+            self.logger.info("[INFO] 자동 매매 시작 시 처리된 결과 추적 세트 초기화")
             
             # 방 선택 및 입장
             self.current_room_name = self.room_entry_service.enter_room()
@@ -251,8 +257,7 @@ class TradingManager:
                 self.main_window, 
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
-            )
-                            
+            )                 
     def _validate_trading_prerequisites(self):
         """자동 매매 시작 전 사전 검증"""
         if self.is_trading_active:
@@ -283,16 +288,26 @@ class TradingManager:
                     
             # 2. 게임 상태 가져오기
             previous_game_count = self.game_count
-            game_state = self.game_monitoring_service.get_current_game_state(log_always=False)
+            game_state = self.game_monitoring_service.get_current_game_state(log_always=True)  # log_always=True로 변경
             
             if not game_state:
                 self.logger.error("게임 상태를 가져올 수 없습니다.")
+                # 로그를 더 자세하게 남기기
+                try:
+                    self.logger.error("현재 URL: " + self.devtools.driver.current_url)
+                except:
+                    self.logger.error("URL을 가져올 수 없습니다.")
                 # 다음에 다시 시도하기 위해 2초 대기 설정
                 self.main_window.set_remaining_time(0, 0, 2)
                 return
             
             # 3. 게임 카운트 및 변경 확인
             current_game_count = game_state.get('round', 0)
+            
+            # 더 자세한 게임 상태 로깅 추가
+            latest_result = game_state.get('latest_result')
+            filtered_results = game_state.get('filtered_results', [])
+            self.logger.info(f"[DEBUG] 게임 상태 - 카운트: {current_game_count}, 최신결과: {latest_result}, 필터링된 결과 수: {len(filtered_results)}")
             
             # 게임 상태 로깅
             if current_game_count != previous_game_count:
@@ -333,6 +348,9 @@ class TradingManager:
                     # 8. 게임 카운트 및 최근 결과 업데이트
                     self.game_count = new_game_count
                     self.recent_results = recent_results
+                    
+                    # 자세한 베팅 상태 로깅 추가
+                    self.logger.info(f"[DEBUG] 게임 상태 변화: {previous_game_count} → {new_game_count}, PICK: {next_pick}, 배팅 상태: {self.betting_service.has_bet_current_round}")
                 
                 # 9. 첫 입장 후 일정 시간 경과 시 베팅 (2-3초 후)
                 elif previous_game_count == 0 and self.game_count > 0 and not self.betting_service.has_bet_current_round:
@@ -372,16 +390,15 @@ class TradingManager:
                     self.logger.warning(f"TIE 이후 베팅 실패. 다음 상태 확인에서 재시도")
                     # 빠른 재시도를 위해 상태 확인 간격 단축
                     self.main_window.set_remaining_time(0, 0, 1)
-                    
             
             # 10. 2초마다 분석 수행 (기본 간격)
             self.main_window.set_remaining_time(0, 0, 2)
                     
         except Exception as e:
-            self.logger.error(f"게임 상태 분석 중 오류 발생: {e}")
+            self.logger.error(f"게임 상태 분석 중 오류 발생: {e}", exc_info=True)
             # 오류 발생 시에도 계속 모니터링하기 위해 타이머 설정
             self.main_window.set_remaining_time(0, 0, 2)
-            
+                
     def _process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 및 배팅 상태 초기화"""
         # 이전 베팅 정보 가져오기

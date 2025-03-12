@@ -34,9 +34,13 @@ class ExcelManager:
             excel_path (str): 엑셀 파일 경로 (None이면 자동 탐지)
         """
         # Excel 관련 속성 초기화
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        
+        # Excel 관련 속성 초기화
         self.excel_app = None
         self.workbook = None
-        self.is_excel_open = False  # 이 속성 추가
+        self.is_excel_open = False
         
         # 명시적으로 경로 지정된 경우
         if excel_path is not None:
@@ -684,6 +688,7 @@ class ExcelManager:
             str: 다음 열의 PICK 값 ('P', 'B', 'N' 중 하나)
         """
         if not self.reopen_excel_if_needed():
+            self.logger.warning("Excel 연결을 재설정할 수 없습니다. 기본값 'N' 반환")
             return 'N'
             
         try:
@@ -692,28 +697,73 @@ class ExcelManager:
             next_col_idx = col_idx + 1
             next_col_letter = openpyxl.utils.get_column_letter(next_col_idx)
             
-            # 수식 업데이트
+            # 수식 업데이트 - 중요: 매번 수식을 재계산하도록 함
             self.update_formulas()
+            time.sleep(0.2)  # 약간의 대기 시간 추가
             
             # 12행 값 읽기
             pick_value = self.read_cell_value(next_col_letter, 12)
             
-            # 값이 None이면 'N'으로 처리
-            if pick_value is None:
-                pick_value = 'N'
+            # 값이 None이거나 빈 문자열이면 'N'으로 처리
+            if pick_value is None or pick_value == "":
+                # 추가 검증: Excel 파일에서 다시 직접 읽어보기
+                try:
+                    # 다시 한번 시도
+                    workbook = openpyxl.load_workbook(self.excel_path, data_only=True)
+                    sheet = workbook.active
+                    direct_value = sheet[f"{next_col_letter}12"].value
+                    workbook.close()
+                    
+                    # 직접 읽은 값이 있으면 사용
+                    if direct_value not in [None, ""]:
+                        self.logger.info(f"COM 인터페이스에서 빈 값이 반환되었지만 직접 읽기에서 값 발견: {direct_value}")
+                        return str(direct_value)
+                except Exception as e:
+                    self.logger.warning(f"직접 읽기 시도 중 오류: {e}")
+                
+                # 마지막 시도: 강제로 수식 계산 후 다시 시도
+                try:
+                    if HAS_WIN32COM:
+                        excel = win32com.client.Dispatch("Excel.Application")
+                        excel.Visible = False
+                        wb = excel.Workbooks.Open(os.path.abspath(self.excel_path))
+                        excel.Calculate()  # 모든 수식 계산
+                        sheet = wb.Sheets(1)
+                        forced_value = sheet.Cells(12, next_col_idx).Value
+                        wb.Close(False)
+                        excel.Quit()
+                        
+                        if forced_value not in [None, ""]:
+                            self.logger.info(f"강제 수식 계산 후 값 발견: {forced_value}")
+                            return str(forced_value)
+                except Exception as e:
+                    self.logger.warning(f"강제 수식 계산 시도 중 오류: {e}")
+                
+                self.logger.warning(f"다음 열 {next_col_letter}12의 PICK 값이 비어있거나 없음. 'N' 반환")
+                return 'N'
+                
             # 문자열이 아니면 문자열로 변환
             elif not isinstance(pick_value, str):
                 pick_value = str(pick_value)
             
+            # PICK 값이 빈 문자열이면 'N'으로 처리
+            if pick_value.strip() == "":
+                self.logger.warning(f"다음 열 {next_col_letter}12의 PICK 값이 빈 문자열. 'N' 반환")
+                return 'N'
+                
+            # Pick 값 검증 - P, B 외의 값이 나오면 경고 로그
+            if pick_value not in ['P', 'B', 'N']:
+                self.logger.warning(f"예상치 못한 PICK 값: {pick_value}, 엑셀 파일 검증 필요")
+            
             start_time = time.time()
             elapsed = time.time() - start_time
-            logger.info(f"다음 열 {next_col_letter}12의 PICK 값: {pick_value} (소요시간: {elapsed:.2f}초)")
+            self.logger.info(f"다음 열 {next_col_letter}12의 PICK 값: {pick_value} (소요시간: {elapsed:.2f}초)")
             return pick_value
         except Exception as e:
-            logger.error(f"다음 열 PICK 값 확인 중 오류 발생: {e}")
+            self.logger.error(f"다음 열 PICK 값 확인 중 오류 발생: {e}")
             self.reopen_excel_if_needed()
             return 'N'  # 오류 발생 시 기본값 'N' 반환
-    
+        
     def write_filtered_game_results(self, filtered_results, actual_results):
         """
         TIE를 포함한 실제 사용 결과를 엑셀에 기록합니다.
