@@ -78,8 +78,11 @@ class SettingsWindow(QWidget):
         target_amount_layout = QHBoxLayout()
         self.target_amount_label = QLabel("목표 금액(원):")
         self.target_amount_label.setFont(label_font)
-        self.target_amount_input = QLineEdit(str(target_amount))
-        self.target_amount_input.setPlaceholderText("예: 1000000")
+        
+        # 개선: 목표 금액을 천 단위 구분자로 포맷팅하여 표시
+        formatted_target = f"{target_amount:,}" if target_amount > 0 else ""
+        self.target_amount_input = QLineEdit(formatted_target)
+        self.target_amount_input.setPlaceholderText("예: 200,000")
         
         # 숫자만 입력되도록 설정
         self.target_amount_input.textChanged.connect(self.validate_target_amount)
@@ -237,7 +240,7 @@ class SettingsWindow(QWidget):
         main_layout.addWidget(self.save_button)
 
         self.setLayout(main_layout)
-
+        
     def decrease_value(self):
         """마틴 횟수 감소"""
         if self.martin_count_value > 1:

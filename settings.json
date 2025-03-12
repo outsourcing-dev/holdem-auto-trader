@@ -2,14 +2,17 @@
     "site1": "https://drdr-1230.com/",
     "site2": "https://cb-7979.com/casino",
     "site3": "www.naver.com",
-    "martin_count": 6,
+    "martin_count": 9,
     "martin_amounts": [
         1000,
         2000,
         4000,
         8000,
         16000,
-        32000
+        32000,
+        64000,
+        128000,
+        256000
     ],
     "target_amount": 200000
 }

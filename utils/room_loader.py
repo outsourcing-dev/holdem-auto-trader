@@ -78,7 +78,7 @@ class RoomLoaderThread(QThread):
             self.progress_signal.emit(f"현재까지 발견된 방: {len(all_rooms)}개", len(all_rooms))
             
             # 스크롤 파라미터 설정
-            max_scroll_attempts = 6  # 최대 스크롤 시도 횟수 증가
+            max_scroll_attempts = 5  # 최대 스크롤 시도 횟수 증가
             no_new_rooms_count = 0
             scroll_attempts = 0
 

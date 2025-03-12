@@ -151,6 +151,7 @@ class MainWindow(QMainWindow):
         
         # 배팅 위젯 (현재 진행 상황 표시)
         self.betting_widget = BettingWidget()
+        self.betting_widget.setMaximumHeight(230)  # 최대 높이를 100픽셀로 제한
         self.left_panel.addWidget(self.betting_widget)
 
         # 방 로그 위젯 (새로 추가)

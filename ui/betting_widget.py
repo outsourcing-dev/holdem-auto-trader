@@ -19,7 +19,8 @@ class BettingWidget(QWidget):
         
         # 진행 섹션 (현재 방 + PICK 표시 + 현재 방 배팅 결과)
         progress_group = QGroupBox("진행")
-        progress_group.setMinimumHeight(100)  # 최소 높이 설정
+        # 최소 높이를 80으로 감소 (기존 100에서 축소)
+        progress_group.setMinimumHeight(80)  
         progress_layout = QVBoxLayout()
         
         # 현재 방 표시
@@ -34,7 +35,8 @@ class BettingWidget(QWidget):
         
         # 진행 테이블 - 스크롤 가능한 테이블 위젯
         self.progress_table = QTableWidget()
-        self.progress_table.setMinimumHeight(100)
+        # 테이블 높이도 약간 축소 (최소 높이 100에서 80으로)
+        self.progress_table.setMinimumHeight(80)
         self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
         self.progress_table.setColumnCount(1)  # 초기 열 1개 (PICK), 나중에 동적으로 추가
         
@@ -114,8 +116,9 @@ class BettingWidget(QWidget):
         # 새로운 마틴 설정 불러오기
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         
-        # 테이블 열 개수 업데이트 (첫 50개는 배팅 결과용, 그 이후는 마틴 단계용)
-        max_columns = max(10, self.martin_count + 5)  # 최소 50개 컬럼 또는 마틴 단계 + 20
+        # 테이블 열 개수 업데이트 - 마틴 단계에 맞춰 조정
+        # 핵심 변경: 마틴 단계 수만큼만 열 만들기 (추가 여유 공간은 5개로 제한)
+        max_columns = max(10, self.martin_count + 5)  # 최소 10개 또는 마틴 단계 + 5개
         current_columns = self.progress_table.columnCount() - 1  # PICK 열 제외
         
         # 열 수가 부족하면 추가
@@ -301,7 +304,14 @@ class BettingWidget(QWidget):
         current_cols = self.progress_table.columnCount()
     
         if step >= current_cols:
-            new_cols_needed = step - current_cols + 5  # 여유있게 추가
+            # 마틴 설정 갱신 - 실제 필요한 열 수 확인
+            self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
+            
+            # 필요한 열 수 계산 (최소 5개 여유 공간)
+            needed_columns = max(step + 5, self.martin_count + 5)
+            
+            # 새로 추가할 열 수 계산 (최대 마틴 단계 + 5개)
+            new_cols_needed = min(needed_columns - current_cols + 1, self.martin_count + 5)
             print(f"[INFO] 테이블에 새 열 {new_cols_needed}개 추가 중...")
             
             new_total_cols = current_cols + new_cols_needed
@@ -387,9 +397,11 @@ class BettingWidget(QWidget):
         self.progress_table.clear()
         self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
         
-        # 설정에서 마틴 단계 수 가져오기 (최소 50개 이상 확보)
+        # 설정에서 마틴 단계 수 가져오기
         martin_count, _ = self.settings_manager.get_martin_settings()
-        max_columns = max(50, martin_count + 20)  # 마틴 단계보다 여유있게 설정
+        
+        # 변경된 부분: 마틴 단계 + 여유분 5개만 표시
+        max_columns = martin_count + 10
         
         self.progress_table.setColumnCount(max_columns + 1)  # PICK + 숫자 열
         
@@ -426,15 +438,15 @@ class BettingWidget(QWidget):
             self.step_items[i] = marker_item
         
         # 첫 번째 열 너비 설정
-        self.progress_table.setColumnWidth(0, 80)  # PICK 열
+        self.progress_table.setColumnWidth(0, 60)  # PICK 열
         
         # 나머지 열 너비 설정
         for i in range(1, max_columns + 1):
-            self.progress_table.setColumnWidth(i, 60)  # 숫자 열
+            self.progress_table.setColumnWidth(i, 40)  # 숫자 열
         
         # 행 높이 설정
         self.progress_table.setRowHeight(0, 40)  # 헤더 행
-        self.progress_table.setRowHeight(1, 60)  # 마커 행
+        self.progress_table.setRowHeight(1, 40)  # 마커 행 (기존 60에서 40으로 축소)
         
         print(f"[DEBUG] 베팅 위젯 초기화 완료 - step_items 키: {list(self.step_items.keys())}")
         print(f"[DEBUG] 테이블 열 개수: {self.progress_table.columnCount()}")
