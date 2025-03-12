@@ -361,6 +361,8 @@ class TradingManager:
                 self.betting_service.has_bet_current_round = False
                 
                 self.logger.info(f"무승부(T) 감지, 이전 PICK 값({self.current_pick})으로 베팅 시도")
+                time.sleep(3)
+
                 bet_success = self._place_bet(self.current_pick, self.game_count)
                 
                 # 베팅 결과 확인 및 로깅 (추가된 부분)
@@ -508,6 +510,8 @@ class TradingManager:
             pick=self.current_pick
         )
         
+    # trading_manager.py의 _place_bet 메서드 수정 부분
+
     def _place_bet(self, pick_value, game_count):
         """베팅 실행"""
         try:
@@ -544,8 +548,11 @@ class TradingManager:
             bet_amount = self.martin_service.get_current_bet_amount()
             self.logger.info(f"마틴 단계 {self.martin_service.current_step + 1}/{self.martin_service.martin_count}: {bet_amount:,}원 베팅")
             
-            # 베팅 전에 PICK 값 UI 업데이트
-            self.main_window.update_betting_status(pick=pick_value)
+            # 베팅 전에 PICK 값과 배팅 금액 UI 업데이트
+            self.main_window.update_betting_status(
+                pick=pick_value, 
+                bet_amount=bet_amount
+            )
             
             # 베팅 실행
             bet_success = self.betting_service.place_bet(

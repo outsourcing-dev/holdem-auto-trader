@@ -14,6 +14,7 @@ class BettingWidget(QWidget):
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         self.current_martin_step = 0
         self.current_room_results = []  # 현재 방에서의 결과 기록 (O, X, T)
+        self.current_bet_amount = 0  # 현재 배팅 금액 저장 변수 추가
         
         main_layout = QVBoxLayout()
         
@@ -23,7 +24,10 @@ class BettingWidget(QWidget):
         progress_group.setMinimumHeight(80)  
         progress_layout = QVBoxLayout()
         
-        # 현재 방 표시
+        # 상단 정보 영역 (현재방, 현재 배팅 금액)
+        info_layout = QHBoxLayout()
+        
+        # 현재 방 표시 (변경: 하나의 레이아웃에 라벨과 값 함께 배치)
         room_layout = QHBoxLayout()
         room_label = QLabel("현재방:")
         room_label.setStyleSheet("font-weight: bold; font-size: 14px;")
@@ -31,7 +35,23 @@ class BettingWidget(QWidget):
         self.current_room.setStyleSheet("font-size: 14px;")
         room_layout.addWidget(room_label)
         room_layout.addWidget(self.current_room)
-        progress_layout.addLayout(room_layout)
+        room_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
+        
+        # 현재 배팅 금액 표시 (신규 추가)
+        bet_amount_layout = QHBoxLayout()
+        bet_amount_label = QLabel("현재 배팅 금액:")
+        bet_amount_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.bet_amount_value = QLabel("0")  # 초기값 0
+        self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #F44336;")  # 강조 표시
+        bet_amount_layout.addWidget(bet_amount_label)
+        bet_amount_layout.addWidget(self.bet_amount_value)
+        bet_amount_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
+        
+        # 전체 정보 레이아웃에 두 부분 추가
+        info_layout.addLayout(room_layout, 1)  # 비율 1
+        info_layout.addLayout(bet_amount_layout, 1)  # 비율 1
+        
+        progress_layout.addLayout(info_layout)
         
         # 진행 테이블 - 스크롤 가능한 테이블 위젯
         self.progress_table = QTableWidget()
@@ -171,6 +191,27 @@ class BettingWidget(QWidget):
             # 이미 한 줄인 경우 그대로 표시
             self.current_room.setText(room_name)
     
+    def update_bet_amount(self, amount):
+        """
+        현재 배팅 금액 업데이트
+        
+        Args:
+            amount (int): 배팅 금액
+        """
+        self.current_bet_amount = amount
+        
+        # 천 단위 구분자로 포맷팅하여 표시
+        formatted_amount = f"{amount:,}원"
+        self.bet_amount_value.setText(formatted_amount)
+        
+        # 금액에 따라 색상 변경 (금액이 클수록 더 붉은색으로)
+        if amount > 10000:
+            self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #D32F2F;")  # 더 강한 빨간색
+        elif amount > 5000:
+            self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #F44336;")  # 일반 빨간색
+        else:
+            self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #FF9800;")  # 주황색
+            
     def reset_room_results(self):
         """현재 방 결과 초기화"""
         self.current_room_results = []
@@ -181,6 +222,9 @@ class BettingWidget(QWidget):
         self.fail_count_label.setText("0")
         self.tie_count_label.setText("0")
         self.reset_step_markers()
+        
+        # 배팅 금액도 초기화
+        self.update_bet_amount(0)
     
     def set_pick(self, pick_value):
         """PICK 값 설정 (B, P 등)"""
@@ -401,7 +445,7 @@ class BettingWidget(QWidget):
         martin_count, _ = self.settings_manager.get_martin_settings()
         
         # 변경된 부분: 마틴 단계 + 여유분 5개만 표시
-        max_columns = martin_count + 10
+        max_columns = martin_count + 5
         
         self.progress_table.setColumnCount(max_columns + 1)  # PICK + 숫자 열
         
@@ -438,15 +482,18 @@ class BettingWidget(QWidget):
             self.step_items[i] = marker_item
         
         # 첫 번째 열 너비 설정
-        self.progress_table.setColumnWidth(0, 60)  # PICK 열
+        self.progress_table.setColumnWidth(0, 80)  # PICK 열
         
         # 나머지 열 너비 설정
         for i in range(1, max_columns + 1):
-            self.progress_table.setColumnWidth(i, 40)  # 숫자 열
+            self.progress_table.setColumnWidth(i, 60)  # 숫자 열
         
         # 행 높이 설정
         self.progress_table.setRowHeight(0, 40)  # 헤더 행
         self.progress_table.setRowHeight(1, 40)  # 마커 행 (기존 60에서 40으로 축소)
         
-        print(f"[DEBUG] 베팅 위젯 초기화 완료 - step_items 키: {list(self.step_items.keys())}")
-        print(f"[DEBUG] 테이블 열 개수: {self.progress_table.columnCount()}")
+        # 배팅 금액 초기화
+        self.update_bet_amount(0)
+        
+        # print(f"[DEBUG] 베팅 위젯 초기화 완료 - step_items 키: {list(self.step_items.keys())}")
+        # print(f"[DEBUG] 테이블 열 개수: {self.progress_table.columnCount()}")

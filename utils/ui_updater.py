@@ -66,7 +66,7 @@ class UIUpdater:
             self.main_window.total_bet_amount = total_bet
             self.main_window.header.update_total_bet(total_bet)
     
-    def update_betting_status(self, room_name=None, pick=None, step_markers=None):
+    def update_betting_status(self, room_name=None, pick=None, step_markers=None, bet_amount=None):
         """배팅 상태 업데이트 - 두 위젯 모두 업데이트"""
         if room_name is not None:
             # BettingWidget에 현재 방 이름 설정
@@ -84,7 +84,11 @@ class UIUpdater:
             # BettingWidget에 단계 마커 설정
             for step, marker in step_markers.items():
                 self.main_window.betting_widget.set_step_marker(step, marker)
-    
+        
+        if bet_amount is not None:
+            # BettingWidget에 현재 배팅 금액 설정
+            self.main_window.betting_widget.update_bet_amount(bet_amount)
+            
     def add_betting_result(self, no, room_name, step, result):
         """배팅 결과 추가 - BettingWidget 업데이트"""
         # BettingWidget에 결과 추가
