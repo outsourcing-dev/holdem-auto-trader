@@ -37,6 +37,7 @@ class MartinBettingService:
         self.result_counter = 0  # 같은 방 내에서의 결과 위치 카운터
         self.betting_counter = 0  # 배팅 횟수 카운터 추가 (실제 배팅한 횟수)
         self.current_game_position = {}  # 게임 라운드별 위치 추적용 딕셔너리 추가
+        self.need_room_change = False  # 방 이동 필요 플래그 추가
 
     def get_current_bet_amount(self):
         """
@@ -96,6 +97,7 @@ class MartinBettingService:
             self.current_step = 0
             self.consecutive_losses = 0
             self.win_count += 1
+            self.need_room_change = False  # 승리 시 플래그 초기화
             self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화 (금액: {current_bet:,}원), 총 성공 수: {self.win_count}")
         elif result_status == "tie":
             # 무승부 시 마틴 단계 유지 (변경 없음)
@@ -109,8 +111,8 @@ class MartinBettingService:
             
             # 최대 마틴 단계 제한
             if self.current_step >= self.martin_count:
-                self.logger.warning(f"[마틴] 최대 마틴 단계({self.martin_count})에 도달했습니다. 다음 베팅에서 초기화됩니다.")
-                self.current_step = 0
+                self.logger.warning(f"[마틴] 최대 마틴 단계({self.martin_count})에 도달했습니다. 방 이동 플래그 설정!")
+                self.need_room_change = True  # 방 이동 플래그 설정
             
             self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 증가 -> {self.current_step}/{self.martin_count} (금액: {current_bet:,}원), 총 실패 수: {self.lose_count}")
         
@@ -157,7 +159,7 @@ class MartinBettingService:
             return True
         
         # 조건 2: 최대 마틴 단계에 도달하여 실패한 경우 방 이동 (새로 추가된 로직)
-        if self.current_step >= self.martin_count - 1 and self.consecutive_losses > 0:
+        if self.need_room_change:
             self.logger.info(f"[마틴] 최대 마틴 단계({self.martin_count})에 도달하여 실패함, 방 이동 필요")
             self.logger.info(f"[마틴] 방 이동 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}")
             return True
@@ -193,6 +195,7 @@ class MartinBettingService:
         
         # 마틴 설정 최신 상태로 다시 로드 (선택적)
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
+        self.need_room_change = False  # 방 이동 플래그 초기화
         self.logger.info(f"[마틴] 설정 재로드 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
         
     def update_settings(self):

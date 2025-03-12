@@ -138,7 +138,7 @@ class BettingService:
                 except Exception as e:
                     self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
                     attempts += 1
-                    time.sleep(2)
+                    time.sleep(1)
             
             if not chip_clickable:
                 self.logger.warning("베팅 가능 상태 대기 시간 초과. 칩이 클릭 가능 상태가 되지 않았습니다.")

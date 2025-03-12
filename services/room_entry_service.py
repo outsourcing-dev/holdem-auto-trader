@@ -56,7 +56,7 @@ class RoomEntryService:
             self._search_and_enter_room(room_name)
             
             # 방 입장 후 게임 수 확인 (2초 대기 후)
-            time.sleep(2)
+            time.sleep(1)
             
             # 게임 상태 확인
             game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
@@ -64,8 +64,8 @@ class RoomEntryService:
                 game_count = game_state.get('round', 0)
                 self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
                 
-                # 게임 수가 10판 미만이거나 45판 이상인 경우 방 나가기
-                if game_count < 10 or game_count >= 45:
+                # 게임 수가 10판 미만이거나 50판 이상인 경우 방 나가기
+                if game_count < 10 or game_count > 50:
                     self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
                     
                     # 방 나가기
@@ -166,7 +166,7 @@ class RoomEntryService:
             
             if len(new_window_handles) > 1:
                 self.devtools.driver.switch_to.window(new_window_handles[-1])
-                time.sleep(5)
+                time.sleep(2)
                 
                 # UI 업데이트
                 self.main_window.update_betting_status(room_name=room_name)

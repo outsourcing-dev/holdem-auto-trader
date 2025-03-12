@@ -319,7 +319,7 @@ class BalanceService:
             # 성공 시 3~4초 지연
             if is_win:
                 self.logger.info("베팅 성공! 잔액 업데이트 전 3초 대기...")
-                time.sleep(3)
+                time.sleep(2)
             
             self.logger.info("베팅 결과 후 잔액 확인")
             
