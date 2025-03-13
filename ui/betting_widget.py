@@ -226,93 +226,92 @@ class BettingWidget(QWidget):
         # 배팅 금액도 초기화
         self.update_bet_amount(0)
     
-    def set_pick(self, pick_value):
-        """PICK 값 설정 (B, P 등)"""
-        # None이나 빈 문자열 처리
-        if pick_value is None or pick_value == "":
-            pick_value = "N"
-        
-        # N 값 처리
-        if pick_value == "N":
-            self.pick_item.setText(pick_value)
-            self.pick_item.setBackground(QColor("#9E9E9E"))  # 회색
-            self.pick_item.setForeground(QColor("white"))
-            return
-            
-        self.pick_item.setText(pick_value)
-        
-        # 배경색 설정 (기본: 회색)
-        if pick_value == "B":
-            self.pick_item.setBackground(QColor("#F44336"))  # 빨간색
-            self.pick_item.setForeground(QColor("white"))
-        elif pick_value == "P":
-            self.pick_item.setBackground(QColor("#2196F3"))  # 파란색
-            self.pick_item.setForeground(QColor("white"))
-        else:
-            self.pick_item.setBackground(QColor("#9E9E9E"))  # 회색
-            self.pick_item.setForeground(QColor("white"))
+# PICK 값 설정 함수 수정 (P는 파란색 동그라미 안에 흰색 글씨로 P, B도 동일하게)
+def set_pick(self, pick_value):
+    """PICK 값 설정 (B, P 등)"""
+    # None이나 빈 문자열 처리
+    if pick_value is None or pick_value == "":
+        pick_value = "N"
     
-    def set_step_marker(self, step, marker):
-        """단계별 마커 설정 (X, O, T, 빈칸)"""
-        print(f"[DEBUG] set_step_marker 호출됨 - 단계: {step}, 마커: {marker}")
+    # N 값 처리
+    if pick_value == "N":
+        self.pick_item.setText(pick_value)
+        self.pick_item.setBackground(QColor("#9E9E9E"))  # 회색
+        self.pick_item.setForeground(QColor("white"))
+        return
         
-        # step이 정수가 아니면 정수로 변환 시도
-        if not isinstance(step, int):
-            try:
-                step = int(step)
-            except (ValueError, TypeError):
-                print(f"[ERROR] 단계 번호가 정수가 아닙니다: {step}")
-                return
+    # 변경된 부분: P와 B는 모두 파란색 동그라미 안에 흰색 글씨
+    if pick_value == "P" or pick_value == "B":
+        self.pick_item.setText(pick_value)
+        self.pick_item.setBackground(QColor("#2196F3"))  # 파란색 배경
+        self.pick_item.setForeground(QColor("white"))
+        # 둥근 모양 표현을 위한 스타일시트
+        self.pick_item.setData(Qt.ItemDataRole.UserRole, "circle")
+    else:
+        self.pick_item.setText(pick_value)
+        self.pick_item.setBackground(QColor("#9E9E9E"))  # 회색
+        self.pick_item.setForeground(QColor("white"))
+
+# 단계별 마커 설정 함수 수정 (O는 파란색, X는 빨간색 진한 글씨)
+def set_step_marker(self, step, marker):
+    """단계별 마커 설정 (X, O, T, 빈칸)"""
+    # step이 정수가 아니면 정수로 변환 시도
+    if not isinstance(step, int):
+        try:
+            step = int(step)
+        except (ValueError, TypeError):
+            print(f"[ERROR] 단계 번호가 정수가 아닙니다: {step}")
+            return
+    
+    # 마커 설정 - 음수나 0은 1로 처리 (안전 장치)
+    if step <= 0:
+        step = 1
+        print(f"[WARNING] 0 또는 음수 단계 감지, 1로 조정: {step}")
+    
+    # 단계가 너무 큰 경우 동적으로 열 추가
+    if step >= self.progress_table.columnCount():
+        self._ensure_column_exists(step)
+    
+    # 마커 설정
+    if step in self.step_items:
+        item = self.step_items[step]
         
-        # 마커 설정 - 음수나 0은 1로 처리 (안전 장치)
-        if step <= 0:
-            step = 1
-            print(f"[WARNING] 0 또는 음수 단계 감지, 1로 조정: {step}")
+        # 기존 아이템 텍스트 및 색상 설정
+        item.setText(marker)
         
-        # 단계가 너무 큰 경우 동적으로 열 추가
-        if step >= self.progress_table.columnCount():
-            self._ensure_column_exists(step)
-        
-        # 마커 설정
-        if step in self.step_items:
-            item = self.step_items[step]
-            print(f"[DEBUG] step_items에서 해당 단계 항목 찾음: {step}")
-            
-            # 기존 아이템 텍스트 및 색상 설정
-            item.setText(marker)
-            
-            # 마커에 따른 색상 설정
-            if marker == "X":
-                item.setBackground(QColor("#F44336"))  # 빨간색
-                item.setForeground(QColor("white"))
-                # 실패 수 증가
-                self.fail_count += 1
-                self.fail_count_label.setText(str(self.fail_count))
-                # 결과 기록
-                self.current_room_results.append("X")
-                print(f"[DEBUG] 실패(X) 마커 설정 완료 - 총 실패 수: {self.fail_count}")
-            elif marker == "O":
-                item.setBackground(QColor("#2196F3"))  # 파란색
-                item.setForeground(QColor("white"))
-                # 성공 수 증가
-                self.success_count += 1
-                self.success_count_label.setText(str(self.success_count))
-                # 결과 기록
-                self.current_room_results.append("O")
-                print(f"[DEBUG] 성공(O) 마커 설정 완료 - 총 성공 수: {self.success_count}")
-            elif marker == "T":
-                item.setBackground(QColor("#4CAF50"))  # 초록색
-                item.setForeground(QColor("white"))
-                # 타이 수 증가
-                self.tie_count += 1
-                self.tie_count_label.setText(str(self.tie_count))
-                # 결과 기록
-                self.current_room_results.append("T")
-                print(f"[DEBUG] 무승부(T) 마커 설정 완료 - 총 무승부 수: {self.tie_count}")
-            else:
-                item.setBackground(QColor("white"))
-                item.setForeground(QColor("black"))
-                print(f"[DEBUG] 빈 마커 설정 완료")
+        # 마커에 따른 색상 설정 - 변경된 부분
+        if marker == "X":
+            # X는 빨간색 글씨로 표시
+            item.setBackground(QColor("white"))  # 흰색 배경
+            item.setForeground(QColor("#F44336"))  # 빨간색 글씨
+            item.setFont(QFont("Arial", 12, QFont.Weight.Bold))  # 진한 글씨
+            # 실패 수 증가
+            self.fail_count += 1
+            self.fail_count_label.setText(str(self.fail_count))
+            # 결과 기록
+            self.current_room_results.append("X")
+        elif marker == "O":
+            # O는 파란색 글씨로 표시
+            item.setBackground(QColor("white"))  # 흰색 배경
+            item.setForeground(QColor("#2196F3"))  # 파란색 글씨
+            item.setFont(QFont("Arial", 12, QFont.Weight.Bold))  # 진한 글씨
+            # 성공 수 증가
+            self.success_count += 1
+            self.success_count_label.setText(str(self.success_count))
+            # 결과 기록
+            self.current_room_results.append("O")
+        elif marker == "T":
+            # T는 녹색으로 유지
+            item.setBackground(QColor("#4CAF50"))  # 녹색 배경
+            item.setForeground(QColor("white"))  # 흰색 글씨
+            # 타이 수 증가
+            self.tie_count += 1
+            self.tie_count_label.setText(str(self.tie_count))
+            # 결과 기록
+            self.current_room_results.append("T")
+        else:
+            item.setBackground(QColor("white"))
+            item.setForeground(QColor("black"))
             
             # UI 업데이트 강제 실행 (명시적으로 업데이트)
             from PyQt6.QtWidgets import QApplication
