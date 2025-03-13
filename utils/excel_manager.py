@@ -20,10 +20,10 @@ try:
     import win32com.client
     import pythoncom
     HAS_WIN32COM = True
-    logger.info("Excel COM 인터페이스 사용 가능")
+    # logger.info("Excel COM 인터페이스 사용 가능")
 except ImportError:
     HAS_WIN32COM = False
-    logger.info("Excel COM 인터페이스 사용 불가 - win32com 라이브러리 없음")
+    # logger.info("Excel COM 인터페이스 사용 불가 - win32com 라이브러리 없음")
 
 class ExcelManager:
     def __init__(self, excel_path: str = None):
@@ -45,13 +45,13 @@ class ExcelManager:
         # 명시적으로 경로 지정된 경우
         if excel_path is not None:
             self.excel_path = excel_path
-            logger.info(f"지정된 Excel 파일 경로 사용: {self.excel_path}")
+            # logger.info(f"지정된 Excel 파일 경로 사용: {self.excel_path}")
         else:
             # 환경 변수에서 경로 가져오기 시도
             env_path = os.environ.get("AUTO_EXCEL_PATH")
             if env_path and os.path.exists(env_path):
                 self.excel_path = env_path
-                logger.info(f"환경 변수에서 Excel 파일 경로 가져옴: {self.excel_path}")
+                # logger.info(f"환경 변수에서 Excel 파일 경로 가져옴: {self.excel_path}")
             else:
                 # 환경 변수 없을 경우 main.py의 전역 변수 확인
                 try:
@@ -59,7 +59,7 @@ class ExcelManager:
                     main_module = sys.modules.get('__main__')
                     if main_module and hasattr(main_module, 'global_excel_path'):
                         self.excel_path = main_module.global_excel_path
-                        logger.info(f"전역 변수에서 Excel 파일 경로 가져옴: {self.excel_path}")
+                        # logger.info(f"전역 변수에서 Excel 파일 경로 가져옴: {self.excel_path}")
                     else:
                         # 마지막으로 AUTO.xlsx, AUTO.encrypted 확인
                         self.excel_path = self.get_excel_path("AUTO.xlsx")
@@ -76,7 +76,7 @@ class ExcelManager:
                                 encryptor = EncryptExcel()
                                 if encryptor.decrypt_file(encrypted_path, temp_excel_path, "holdem2025_secret_key"):
                                     self.excel_path = temp_excel_path
-                                    logger.info(f"AUTO.encrypted 파일 자체 복호화 성공: {self.excel_path}")
+                                    # logger.info(f"AUTO.encrypted 파일 자체 복호화 성공: {self.excel_path}")
                                 else:
                                     logger.error(f"AUTO.encrypted 파일 자체 복호화 실패")
                 except Exception as e:
@@ -97,7 +97,7 @@ class ExcelManager:
             logger.error(f"엑셀 파일을 찾을 수 없습니다: {self.excel_path}")
             raise FileNotFoundError(f"엑셀 파일을 찾을 수 없습니다: {self.excel_path}")
         
-        logger.info(f"Excel 매니저 초기화 완료 - 파일 경로: {self.excel_path}")
+        # logger.info(f"Excel 매니저 초기화 완료 - 파일 경로: {self.excel_path}")
         
         # 프로그램 시작 시 Excel 열기 시도
         if HAS_WIN32COM:
@@ -116,11 +116,11 @@ class ExcelManager:
             # PyInstaller로 빌드된 실행 파일인 경우
             base_dir = os.path.dirname(sys.executable)
             excel_path = os.path.join(base_dir, filename)
-            logger.info(f"PyInstaller 환경에서 Excel 파일 경로: {excel_path}")
+            # logger.info(f"PyInstaller 환경에서 Excel 파일 경로: {excel_path}")
         else:
             # 일반 Python 스크립트로 실행되는 경우
             excel_path = filename
-            logger.info(f"일반 Python 환경에서 Excel 파일 경로: {excel_path}")
+            # logger.info(f"일반 Python 환경에서 Excel 파일 경로: {excel_path}")
         
         # 파일 존재 여부 확인
         if not os.path.exists(excel_path):
@@ -138,16 +138,15 @@ class ExcelManager:
         
         # 암호화된 파일이 있고 일반 파일이 없으면 복호화
         if os.path.exists(encrypted_excel_path) and not os.path.exists(self.excel_path):
-            logger.info(f"암호화된 Excel 파일 발견: {encrypted_excel_path}, 복호화 시도...")
+            # logger.info(f"암호화된 Excel 파일 발견: {encrypted_excel_path}, 복호화 시도...")
             
             # 복호화 시도
             if decrypt_auto_excel(EXCEL_PASSWORD):
-                logger.info("Excel 파일 복호화 완료")
+                # logger.info("Excel 파일 복호화 완료")
+                pass
             else:
                 logger.error("Excel 파일 복호화 실패")
                 raise FileNotFoundError("Excel 파일을 복호화할 수 없습니다")
-
-    # 이하 기존 메서드들...
     
     def __del__(self):
         """객체 소멸 시 Excel 종료 보장"""
@@ -179,7 +178,7 @@ class ExcelManager:
             self.workbook = self.excel_app.Workbooks.Open(abs_path)
             
             self.is_excel_open = True
-            logger.info("Excel 애플리케이션 시작 및 파일 로드 완료")
+            # logger.info("Excel 애플리케이션 시작 및 파일 로드 완료")
             return True
         except Exception as e:
             logger.error(f"Excel 애플리케이션 시작 실패: {e}")
@@ -192,13 +191,13 @@ class ExcelManager:
             if self.workbook:
                 try:
                     self.workbook.Save()
-                    logger.info("Excel 파일 저장 완료")
+                    # logger.info("Excel 파일 저장 완료")
                 except Exception as e:
                     logger.warning(f"Excel 저장 중 오류: {e}")
                 
                 try:
                     self.workbook.Close(True)  # True: 변경 사항 저장
-                    logger.info("Excel 워크북 닫기 완료")
+                    # logger.info("Excel 워크북 닫기 완료")
                 except Exception as e:
                     logger.warning(f"Excel 닫기 중 오류: {e}")
                 
@@ -207,7 +206,7 @@ class ExcelManager:
             if self.excel_app:
                 try:
                     self.excel_app.Quit()
-                    logger.info("Excel 애플리케이션 종료 완료")
+                    # logger.info("Excel 애플리케이션 종료 완료")
                 except Exception as e:
                     logger.warning(f"Excel 종료 중 오류: {e}")
                 
@@ -226,14 +225,14 @@ class ExcelManager:
                 # 종료 후 원본 파일 암호화 (기존 암호화 파일 덮어쓰기)
                 encrypted_path = self.get_excel_path("AUTO.xlsx.enc")
                 self.encryptor.encrypt_file(self.excel_path, encrypted_path, EXCEL_PASSWORD)
-                logger.info(f"Excel 파일 '{self.excel_path}'를 종료 시 자동 암호화 완료")
+                # logger.info(f"Excel 파일 '{self.excel_path}'를 종료 시 자동 암호화 완료")
         except Exception as e:
             logger.warning(f"Excel 종료 중 오류: {e}")
     
     def reopen_excel_if_needed(self):
         """필요한 경우 Excel을 다시 엽니다"""
         if not self.is_excel_open or not self.excel_app or not self.workbook:
-            logger.info("Excel 재연결이 필요하여 다시 여는 중...")
+            # logger.info("Excel 재연결이 필요하여 다시 여는 중...")
             return self.open_excel_once()
         return True
         
@@ -259,7 +258,7 @@ class ExcelManager:
             start_time = time.time()
             self.workbook.Save()
             elapsed = time.time() - start_time
-            logger.info(f"Excel 파일 저장 완료 (소요시간: {elapsed:.2f}초)")
+            # logger.info(f"Excel 파일 저장 완료 (소요시간: {elapsed:.2f}초)")
             return True
         except Exception as e:
             logger.error(f"파일 저장 실패: {e}")
@@ -387,7 +386,7 @@ class ExcelManager:
             self.update_formulas()
             
             elapsed = time.time() - start_time
-            logger.info(f"{column}3에 '{result}' 기록 완료 (소요시간: {elapsed:.2f}초)")
+            # logger.info(f"{column}3에 '{result}' 기록 완료 (소요시간: {elapsed:.2f}초)")
             return True
         except Exception as e:
             logger.error(f"엑셀 파일에 게임 결과 쓰기 실패: {e}")
@@ -576,7 +575,7 @@ class ExcelManager:
             # 저장
             self.save_without_close()
             
-            logger.info(f"{row_number}행 {start_col}~{end_col} 열 초기화 완료 (COM)")
+            # logger.info(f"{row_number}행 {start_col}~{end_col} 열 초기화 완료 (COM)")
             return True
         except Exception as e:
             logger.error(f"{row_number}행 초기화 실패: {e}")
@@ -616,13 +615,13 @@ class ExcelManager:
             start_col = 2  # B열(인덱스 2)
             end_col = 75   # BW열(인덱스 75)
             
-            logger.info("3행 초기화 중...")
+            # logger.info("3행 초기화 중...")
             clear_range = sheet.Range(
                 sheet.Cells(3, start_col), 
                 sheet.Cells(3, end_col)
             )
             clear_range.ClearContents()
-            logger.info("3행 초기화 완료")
+            # logger.info("3행 초기화 완료")
             
             # 결과 시퀀스 기록
             for idx, result in enumerate(results):
@@ -633,7 +632,7 @@ class ExcelManager:
             self.workbook.Save()
             self.update_formulas()
             
-            logger.info(f"총 {len(results)}개의 결과를 Excel COM으로 기록 완료")
+            # logger.info(f"총 {len(results)}개의 결과를 Excel COM으로 기록 완료")
             return True
         except Exception as e:
             logger.error(f"게임 결과 시퀀스 기록 중 오류 발생: {e}")
@@ -716,7 +715,7 @@ class ExcelManager:
                     
                     # 직접 읽은 값이 있으면 사용
                     if direct_value not in [None, ""]:
-                        self.logger.info(f"COM 인터페이스에서 빈 값이 반환되었지만 직접 읽기에서 값 발견: {direct_value}")
+                        # self.logger.info(f"COM 인터페이스에서 빈 값이 반환되었지만 직접 읽기에서 값 발견: {direct_value}")
                         return str(direct_value)
                 except Exception as e:
                     self.logger.warning(f"직접 읽기 시도 중 오류: {e}")
@@ -734,7 +733,7 @@ class ExcelManager:
                         excel.Quit()
                         
                         if forced_value not in [None, ""]:
-                            self.logger.info(f"강제 수식 계산 후 값 발견: {forced_value}")
+                            # self.logger.info(f"강제 수식 계산 후 값 발견: {forced_value}")
                             return str(forced_value)
                 except Exception as e:
                     self.logger.warning(f"강제 수식 계산 시도 중 오류: {e}")
@@ -757,7 +756,7 @@ class ExcelManager:
             
             start_time = time.time()
             elapsed = time.time() - start_time
-            self.logger.info(f"다음 열 {next_col_letter}12의 PICK 값: {pick_value} (소요시간: {elapsed:.2f}초)")
+            #self.logger.info(f"다음 열 {next_col_letter}12의 PICK 값: {pick_value} (소요시간: {elapsed:.2f}초)")
             return pick_value
         except Exception as e:
             self.logger.error(f"다음 열 PICK 값 확인 중 오류 발생: {e}")

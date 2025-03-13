@@ -3,6 +3,7 @@ import logging
 from selenium.webdriver.common.by import By
 from modules.game_detector import GameDetector
 import time
+
 class GameMonitoringService:
     def __init__(self, devtools, main_window, logger=None):
         """
@@ -56,48 +57,100 @@ class GameMonitoringService:
             return None
 
     # services/game_monitoring_service.py 수정
+
     def close_current_room(self):
         """현재 열린 방을 종료하고 카지노 로비 창으로 포커싱 전환"""
         try:
-            # 방 나가기 전 최종 잔액 업데이트
+            # 방 나가기 전 최종 잔액 업데이트 - 실패해도 계속 진행
             try:
                 balance = self.main_window.trading_manager.balance_service.update_balance_after_bet_result()
                 self.logger.info(f"방 나가기 전 최종 잔액: {balance:,}원")
             except Exception as e:
                 self.logger.warning(f"방 나가기 전 잔액 확인 실패: {e}")
+                # 실패해도 계속 진행
+            
+            # 현재 창이 몇 개인지 확인
+            window_handles = self.devtools.driver.window_handles
+            self.logger.info(f"현재 열린 창 개수: {len(window_handles)}")
             
             # iframe 내부로 이동하여 종료 버튼 찾기
-            self.devtools.driver.switch_to.default_content()
-            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
-            self.devtools.driver.switch_to.frame(iframe)
-            self.logger.info("iframe 내부에서 종료 버튼 탐색 중...")
+            try:
+                self.devtools.driver.switch_to.default_content()
+                iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                self.devtools.driver.switch_to.frame(iframe)
+                self.logger.info("iframe 내부에서 종료 버튼 탐색 중...")
 
-            # 종료 버튼 찾기 및 클릭
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            close_button = WebDriverWait(self.devtools.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-role='close-button']"))
-            )
-            close_button.click()
-            self.logger.info("방 종료 버튼 클릭 완료!")
-
-            # 다시 메인 프레임으로 전환
-            self.devtools.driver.switch_to.default_content()
+                # 정확한 종료 버튼 선택자 사용
+                try:
+                    # 기존 코드와 동일하게 WebDriverWait 사용
+                    from selenium.webdriver.support.ui import WebDriverWait
+                    from selenium.webdriver.support import expected_conditions as EC
+                    
+                    close_button = WebDriverWait(self.devtools.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-role='close-button']"))
+                    )
+                    close_button.click()
+                    self.logger.info("방 종료 버튼 클릭 완료!")
+                    # 클릭 후 약간의 대기시간 추가
+                    time.sleep(1)
+                except Exception as e:
+                    self.logger.warning(f"종료 버튼 클릭 실패: {e}")
+                    # 실패해도 계속 진행
+            except Exception as e:
+                self.logger.warning(f"iframe 전환 또는 종료 버튼 찾기 실패: {e}")
+                # 실패해도 계속 진행
             
-            # 약간의 시간 지연 후 창 핸들 확인
-            time.sleep(2)
-            window_handles = self.devtools.driver.window_handles
+            # 메인 프레임으로 전환 시도
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except:
+                self.logger.warning("메인 프레임 전환 실패")
             
-            # 카지노 로비 창(2번 창)으로 포커싱 전환
-            if len(window_handles) >= 2:
-                self.devtools.driver.switch_to.window(window_handles[1])
-                self.logger.info("카지노 로비 창으로 포커싱 전환 완료")
-                return True
-            else:
-                self.logger.warning("카지노 로비 창을 찾을 수 없습니다.")
+            # 현재 창의 상태 다시 확인
+            try:
+                current_url = self.devtools.driver.current_url
+                self.logger.info(f"현재 URL: {current_url}")
+                
+                # URL로 이미 로비에 있는지 확인
+                if "game" not in current_url.lower() and "live" not in current_url.lower():
+                    self.logger.info("이미 로비 또는 다른 페이지에 있는 것으로 감지됨")
+                
+                # 현재 창이 몇 개인지 다시 확인
+                window_handles = self.devtools.driver.window_handles
+                
+                # 로비 창으로 전환 (일반적으로 두 번째 창)
+                if len(window_handles) >= 2:
+                    self.devtools.driver.switch_to.window(window_handles[1])
+                    self.logger.info("카지노 로비 창으로 포커싱 전환 완료")
+                    return True
+                elif len(window_handles) == 1:
+                    # 창이 하나만 있으면 그 창을 사용
+                    self.devtools.driver.switch_to.window(window_handles[0])
+                    self.logger.info("단일 창으로 포커싱 전환")
+                    return True
+                else:
+                    self.logger.warning("열린 창이 없습니다.")
+                    return False
+            except Exception as e:
+                self.logger.error(f"창 전환 실패: {e}")
                 return False
 
         except Exception as e:
-            # 오류 로깅
-            self.logger.error(f"방 종료 실패: {e}", exc_info=True)
+            self.logger.error(f"방 종료 시도 중 전체 오류: {e}", exc_info=True)
+            
+            # 오류 발생 시에도 최대한 로비 창으로 복귀 시도
+            try:
+                self.devtools.driver.switch_to.default_content()
+                window_handles = self.devtools.driver.window_handles
+                if len(window_handles) >= 2:
+                    self.devtools.driver.switch_to.window(window_handles[1])
+                    self.logger.info("오류 후 복구: 카지노 로비 창으로 포커싱 전환")
+                    return True
+                elif len(window_handles) == 1:
+                    self.devtools.driver.switch_to.window(window_handles[0])
+                    self.logger.info("오류 후 복구: 단일 창으로 포커싱 전환")
+                    return True
+            except:
+                pass
+                
             return False

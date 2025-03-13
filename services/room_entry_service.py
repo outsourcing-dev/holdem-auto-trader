@@ -35,7 +35,7 @@ class RoomEntryService:
         Returns:
             str: 선택된 방 이름 또는 None
         """
-        max_attempts = 5  # 최대 방 찾기 시도 횟수
+        max_attempts = 10  # 최대 방 찾기 시도 횟수 증가
         attempts = 0
         
         while attempts < max_attempts:
@@ -53,8 +53,24 @@ class RoomEntryService:
                 # 로깅
                 self.logger.info(f"선택된 방: {display_name} (시도 {attempts + 1}/{max_attempts})")
 
-                # iframe으로 전환
-                self._switch_to_iframe()
+                # 카지노 로비 상태 초기화 시도 (시도 횟수가 증가한 경우에만)
+                if attempts > 0:
+                    try:
+                        # 창 목록 확인
+                        window_handles = self.devtools.driver.window_handles
+                        if len(window_handles) >= 2:
+                            # 카지노 로비 창으로 전환 시도
+                            self.devtools.driver.switch_to.window(window_handles[1])
+                            self.logger.info("카지노 로비 창으로 포커싱 전환")
+                            time.sleep(1)
+                            
+                            # 페이지 새로고침 시도 (필요시)
+                            if attempts % 3 == 0:  # 3번마다 한 번씩 새로고침
+                                self.logger.info("카지노 로비 페이지 새로고침")
+                                self.devtools.driver.refresh()
+                                time.sleep(3)
+                    except Exception as e:
+                        self.logger.warning(f"카지노 로비 초기화 시도 중 오류: {e}")
 
                 # 방 검색 및 입장 (원본 방 이름 전체 사용)
                 # 수정: 성공 여부 반환값 확인
@@ -66,11 +82,24 @@ class RoomEntryService:
                     self.room_manager.mark_current_room_visited(room_name)
                     continue
                 
-                # 방 입장 후 게임 수 확인 (21초 대기 후)
-                time.sleep(1)
+                # 방 입장 후 게임 수 확인
+                time.sleep(2)  # 방 입장 후 충분히 대기
                 
                 # 게임 상태 확인
-                game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
+                retry_state_check = 3
+                game_state = None
+                
+                # 게임 상태 확인 여러 번 시도
+                for i in range(retry_state_check):
+                    try:
+                        game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
+                        if game_state:
+                            break
+                        time.sleep(1)
+                    except Exception as e:
+                        self.logger.warning(f"게임 상태 확인 {i+1}번째 시도 실패: {e}")
+                        time.sleep(1)
+                
                 if game_state:
                     game_count = game_state.get('round', 0)
                     self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
@@ -114,8 +143,9 @@ class RoomEntryService:
                     return None
                 
                 self.logger.info(f"다음 방 시도 중... ({attempts}/{max_attempts})")
+                time.sleep(2)  # 다음 시도 전 잠시 대기
                 continue
-                
+                    
         return None  # 모든 시도 실패
 
     def _switch_to_iframe(self):
@@ -138,70 +168,163 @@ class RoomEntryService:
             self.logger.error(f"iframe 전환 중 오류: {e}", exc_info=True)
             raise
         
-    def _search_and_enter_room(self, room_name):
-        try:
-            # 방 이름 전처리 - 첫 줄만 사용
-            search_name = room_name.split('\n')[0].strip()
-            self.logger.info(f"검색할 방 이름: '{search_name}' (원본: '{room_name}')")
-            
-            # 검색 입력 필드 찾기
-            search_input = self.devtools.driver.find_element(
-                By.CSS_SELECTOR, "input.TableTextInput--464ac"
-            )
-            time.sleep(2)
-            search_input.clear()
-            search_input.send_keys(search_name)
-            self.logger.info(f"방 이름 '{search_name}' 입력 완료")
-            
-            # 검색 결과가 나타날 때까지 충분히 대기
-            time.sleep(2)
-            
-            # 정확히 지정된 선택자를 사용하여 검색 결과들 찾기
-            search_results = self.devtools.driver.find_elements(
-                By.CSS_SELECTOR, "div.SearchResult--28235[data-role='search-result']"
-            )
-            
-            # 검색 결과가 있는지 확인
-            if search_results and len(search_results) > 0:
-                # 첫 번째 요소 클릭 (배열의 0번 인덱스)
-                self.logger.info(f"검색 결과 {len(search_results)}개 발견, 첫 번째 결과 클릭")
-                search_results[0].click()
-            else:
-                # 결과가 없으면 JavaScript로 다시 시도
-                self.logger.info("JavaScript로 검색 결과 찾기 시도")
-                js_script = """
-                    var results = document.querySelectorAll("div[data-role='search-result']");
-                    if (results && results.length > 0) {
-                        results[0].click();
-                        return true;
-                    }
-                    return false;
-                """
-                clicked = self.devtools.driver.execute_script(js_script)
+    def _search_and_enter_room(self, room_name, max_retries=3):
+        """방 검색 및 입장 (재시도 로직 포함)"""
+        for retry_count in range(max_retries):
+            try:
+                # 방 이름 전처리 - 첫 줄만 사용
+                search_name = room_name.split('\n')[0].strip()
+                self.logger.info(f"검색할 방 이름: '{search_name}' (원본: '{room_name}') - 시도 {retry_count+1}/{max_retries}")
                 
-                if not clicked:
-                    # 수정: 예외를 발생시키는 대신 False 반환
-                    self.logger.warning(f"'{search_name}' 검색 결과가 없습니다. 다른 방 찾기로 넘어갑니다.")
+                # 페이지 새로고침 (첫 시도가 아닌 경우)
+                if retry_count > 0:
+                    try:
+                        self.logger.info(f"페이지 새로고침 후 재시도 중...")
+                        self.devtools.driver.refresh()
+                        time.sleep(3)  # 페이지 로드 대기
+                    except Exception as e:
+                        self.logger.warning(f"페이지 새로고침 중 오류: {e}")
+                
+                # iframe으로 전환
+                try:
+                    self.devtools.driver.switch_to.default_content()
+                    # 명시적 대기 추가
+                    WebDriverWait(self.devtools.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe"))
+                    )
+                    iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                    self.devtools.driver.switch_to.frame(iframe)
+                    self.logger.info("iframe으로 성공적으로 전환")
+                    time.sleep(1)  # iframe 전환 후 추가 대기
+                except Exception as e:
+                    self.logger.warning(f"iframe 전환 중 오류: {e}")
+                    continue  # 다음 재시도로 넘어감
+                
+                # 검색 입력 필드 찾기 - 명시적 대기 추가
+                try:
+                    # 여러 선택자 시도 (대체 전략)
+                    search_selectors = [
+                        "input.TableTextInput--464ac",
+                        "input[data-role='search-input']",
+                        "input[placeholder='찾기']",
+                        "input.search-input"
+                    ]
+                    
+                    search_input = None
+                    for selector in search_selectors:
+                        try:
+                            self.logger.info(f"검색 입력 필드 선택자 시도: {selector}")
+                            search_input = WebDriverWait(self.devtools.driver, 3).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                            )
+                            if search_input:
+                                self.logger.info(f"검색 입력 필드 발견: {selector}")
+                                break
+                        except:
+                            continue
+                    
+                    if not search_input:
+                        raise Exception("모든 검색 입력 필드 선택자가 실패했습니다.")
+                    
+                    time.sleep(1)  # 검색 입력 필드 발견 후 추가 대기
+                    search_input.clear()
+                    search_input.send_keys(search_name)
+                    self.logger.info(f"방 이름 '{search_name}' 입력 완료")
+                    
+                    # 검색 결과가 나타날 때까지 충분히 대기
+                    time.sleep(3)
+                except Exception as e:
+                    self.logger.warning(f"검색 입력 필드 찾기 또는 입력 중 오류: {e}")
+                    continue  # 다음 재시도로 넘어감
+                
+                # 검색 결과 찾기 시도
+                try:
+                    # 여러 선택자로 검색 결과 찾기
+                    result_selectors = [
+                        "div.SearchResult--28235[data-role='search-result']",
+                        "div[data-role='search-result']",
+                        "div.search-result",
+                        "div.game-result-item"
+                    ]
+                    
+                    search_results = []
+                    for selector in result_selectors:
+                        try:
+                            results = WebDriverWait(self.devtools.driver, 3).until(
+                                EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
+                            )
+                            if results:
+                                search_results = results
+                                self.logger.info(f"검색 결과 발견 ({len(results)}개): {selector}")
+                                break
+                        except:
+                            continue
+                    
+                    # 검색 결과가 있는지 확인
+                    if search_results and len(search_results) > 0:
+                        # 첫 번째 요소 클릭 (배열의 0번 인덱스)
+                        self.logger.info(f"검색 결과 {len(search_results)}개 발견, 첫 번째 결과 클릭")
+                        search_results[0].click()
+                    else:
+                        # JavaScript로 다시 시도
+                        self.logger.info("JavaScript로 검색 결과 찾기 시도")
+                        js_script = """
+                            var selectors = [
+                                "div[data-role='search-result']",
+                                "div.SearchResult--28235",
+                                "div.search-result",
+                                "div.game-result-item"
+                            ];
+                            
+                            for (var i = 0; i < selectors.length; i++) {
+                                var results = document.querySelectorAll(selectors[i]);
+                                if (results && results.length > 0) {
+                                    results[0].click();
+                                    return true;
+                                }
+                            }
+                            return false;
+                        """
+                        clicked = self.devtools.driver.execute_script(js_script)
+                        
+                        if not clicked:
+                            # 수정: 예외를 발생시키는 대신 False 반환
+                            self.logger.warning(f"'{search_name}' 검색 결과가 없습니다. 다른 방법을 시도합니다.")
+                            continue  # 다음 재시도로 넘어감
+                except Exception as e:
+                    self.logger.warning(f"검색 결과 처리 중 오류: {e}")
+                    continue  # 다음 재시도로 넘어감
+
+                # 새 창으로 전환
+                try:
+                    time.sleep(3)  # 새 창이 로드될 때까지 충분히 대기
+                    new_window_handles = self.devtools.driver.window_handles
+                    
+                    if len(new_window_handles) > 1:
+                        self.devtools.driver.switch_to.window(new_window_handles[-1])
+                        time.sleep(2)
+                        
+                        # UI 업데이트
+                        self.main_window.update_betting_status(room_name=room_name)
+                        self.logger.info(f"방 '{room_name}' 성공적으로 입장")
+                        return True
+                    else:
+                        self.logger.warning("새 창이 열리지 않았습니다. 다시 시도합니다.")
+                        continue  # 다음 재시도로 넘어감
+                except Exception as e:
+                    self.logger.warning(f"창 전환 중 오류: {e}")
+                    continue  # 다음 재시도로 넘어감
+
+            except Exception as e:
+                self.logger.error(f"방 검색 및 입장 중 오류: {e}")
+                # 마지막 시도가 아니면 재시도
+                if retry_count < max_retries - 1:
+                    self.logger.info(f"재시도 중... ({retry_count+1}/{max_retries})")
+                    time.sleep(2)  # 재시도 전 대기
+                else:
+                    # 모든 시도 실패
+                    self.logger.warning(f"최대 시도 횟수 초과로 방 '{room_name}' 입장 실패")
                     return False
-
-            # 새 창으로 전환
-            time.sleep(2)
-            new_window_handles = self.devtools.driver.window_handles
-            
-            if len(new_window_handles) > 1:
-                self.devtools.driver.switch_to.window(new_window_handles[-1])
-                time.sleep(2)
-                
-                # UI 업데이트
-                self.main_window.update_betting_status(room_name=room_name)
-                self.logger.info(f"방 '{room_name}' 성공적으로 입장")
-                return True
-            else:
-                # 수정: 예외를 발생시키는 대신 False 반환
-                self.logger.warning("새 창이 열리지 않았습니다. 다른 방 찾기로 넘어갑니다.")
-                return False
-
-        except Exception as e:
-            self.logger.error(f"방 검색 및 입장 중 오류: {e}", exc_info=True)
-            # 수정: 예외를 상위로 전파하지 않고 False 반환
-            return False
+        
+        # 모든 시도 실패
+        return False
