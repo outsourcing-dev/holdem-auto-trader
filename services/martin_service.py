@@ -79,9 +79,9 @@ class MartinBettingService:
         # 결과 표시 위치 카운터 증가 (방 내에서만 유효한 순차적 위치)
         self.result_counter += 1
         
-        # 무승부(tie)가 아닌 경우에만 배팅 카운터 증가
-        if result_status != "tie":
-            self.betting_counter += 1
+        # 중요: 무승부(tie)도 배팅 카운터 증가하도록 수정
+        # 모든 결과(승리, 패배, 무승부)에 대해 배팅 카운터 증가
+        self.betting_counter += 1
         
         current_result_position = self.betting_counter  # 배팅 카운터를 위치로 사용
         

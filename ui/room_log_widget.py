@@ -97,7 +97,8 @@ class RoomLogWidget(QWidget):
             str: 생성된 방문 ID
         """
         self.visit_counter += 1
-        visit_id = f"{self.visit_counter}_{room_name}"
+        # 정렬을 위해 숫자 부분을 0으로 패딩 (최대 4자리)
+        visit_id = f"{self.visit_counter:04d}_{room_name}"
         return visit_id
     
     def add_bet_result(self, room_name, is_win, is_tie=False):
@@ -163,11 +164,19 @@ class RoomLogWidget(QWidget):
         valid_logs = {visit_id: data for visit_id, data in self.room_logs.items() 
                     if data['attempts'] > 0}
         
-        # 각 방의 로그 데이터를 행으로 추가 (오래된 방문부터 표시)
-        # 방문 ID에 대해 오름차순 정렬하여 가장 오래된 방문이 먼저 표시되도록 함
+        # 방문 ID 숫자로 정렬 (형식: "숫자_방이름")
+        # 숫자 부분만 추출하여 정수로 변환하여 정렬
+        def get_visit_number(visit_id):
+            try:
+                # 첫 번째 '_' 앞에 있는 숫자 추출
+                return int(visit_id.split('_')[0])
+            except (ValueError, IndexError):
+                return 0  # 숫자로 변환할 수 없는 경우 기본값 0 반환
+        
+        # 방문 순서대로 정렬 (방문 ID의 숫자 부분 기준 오름차순)
         sorted_logs = sorted(valid_logs.items(), 
-                            key=lambda x: x[0], 
-                            reverse=False)  # reverse=False로 오름차순 정렬
+                            key=lambda x: get_visit_number(x[0]), 
+                            reverse=False)  # 오래된 방문(낮은 숫자)이 먼저 표시되도록 정렬
         
         for visit_id, data in sorted_logs:
             row_position = self.log_table.rowCount()
@@ -206,7 +215,7 @@ class RoomLogWidget(QWidget):
             self.log_table.setItem(row_position, 2, win_item)
             self.log_table.setItem(row_position, 3, lose_item)
             self.log_table.setItem(row_position, 4, success_rate_item)
-            
+                   
     def get_room_log(self, visit_id):
         """특정 방문의 로그 데이터 반환"""
         return self.room_logs.get(visit_id, None)
