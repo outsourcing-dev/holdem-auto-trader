@@ -35,68 +35,89 @@ class RoomEntryService:
         Returns:
             str: 선택된 방 이름 또는 None
         """
-        try:
-            # 다음에 방문할 방 가져오기
-            room_name = self.room_manager.get_next_room_to_visit()
-            
-            if not room_name:
-                QMessageBox.warning(self.main_window, "알림", "자동 매매를 시작할 방을 선택해주세요.")
-                return None
-            
-            # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
-            display_name = room_name.split('\n')[0] if '\n' in room_name else room_name
-            
-            # 로깅
-            self.logger.info(f"선택된 방: {display_name}")
-
-            # iframe으로 전환
-            self._switch_to_iframe()
-
-            # 방 검색 및 입장 (원본 방 이름 전체 사용)
-            self._search_and_enter_room(room_name)
-            
-            # 방 입장 후 게임 수 확인 (2초 대기 후)
-            time.sleep(1)
-            
-            # 게임 상태 확인
-            game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
-            if game_state:
-                game_count = game_state.get('round', 0)
-                self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
+        max_attempts = 5  # 최대 방 찾기 시도 횟수
+        attempts = 0
+        
+        while attempts < max_attempts:
+            try:
+                # 다음에 방문할 방 가져오기
+                room_name = self.room_manager.get_next_room_to_visit()
                 
-                # 게임 수가 10판 미만이거나 50판 이상인 경우 방 나가기
-                if game_count < 10 or game_count > 50:
-                    self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
-                    
-                    # 방 나가기
-                    if self.main_window.trading_manager.game_monitoring_service.close_current_room():
-                        self.logger.info("방을 성공적으로 나갔습니다.")
-                        
-                        # 2번 창(카지노 로비)으로 포커싱
-                        window_handles = self.devtools.driver.window_handles
-                        if len(window_handles) >= 2:
-                            self.devtools.driver.switch_to.window(window_handles[1])
-                            self.logger.info("카지노 로비 창으로 포커싱 전환")
-                            
-                        # 재귀적으로 다른 방 찾기
-                        return self.enter_room()
-                    else:
-                        self.logger.error("방 나가기 실패")
-                        return None
-            
-            # 성공한 경우 원본 방 이름 반환 (전체 정보 유지)
-            return room_name
+                if not room_name:
+                    QMessageBox.warning(self.main_window, "알림", "자동 매매를 시작할 방을 선택해주세요.")
+                    return None
+                
+                # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
+                display_name = room_name.split('\n')[0] if '\n' in room_name else room_name
+                
+                # 로깅
+                self.logger.info(f"선택된 방: {display_name} (시도 {attempts + 1}/{max_attempts})")
 
-        except Exception as e:
-            # 오류 로깅 및 처리
-            self.logger.error(f"방 입장 중 오류 발생: {e}", exc_info=True)
-            QMessageBox.warning(
-                self.main_window, 
-                "방 입장 실패", 
-                f"선택한 방에 입장할 수 없습니다.\n오류: {str(e)}"
-            )
-            return None
-            
+                # iframe으로 전환
+                self._switch_to_iframe()
+
+                # 방 검색 및 입장 (원본 방 이름 전체 사용)
+                # 수정: 성공 여부 반환값 확인
+                if not self._search_and_enter_room(room_name):
+                    # 검색 실패 시 다음 방 시도
+                    self.logger.warning(f"방 '{display_name}' 입장 실패, 다음 방 시도")
+                    attempts += 1
+                    # 방문 처리하여 다음 방을 가져오도록 함
+                    self.room_manager.mark_current_room_visited(room_name)
+                    continue
+                
+                # 방 입장 후 게임 수 확인 (21초 대기 후)
+                time.sleep(1)
+                
+                # 게임 상태 확인
+                game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
+                if game_state:
+                    game_count = game_state.get('round', 0)
+                    self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
+                    
+                    # 게임 수가 10판 미만이거나 50판 이상인 경우 방 나가기
+                    if game_count < 10 or game_count > 50:
+                        self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
+                        
+                        # 방 나가기
+                        if self.main_window.trading_manager.game_monitoring_service.close_current_room():
+                            self.logger.info("방을 성공적으로 나갔습니다.")
+                            
+                            # 2번 창(카지노 로비)으로 포커싱
+                            window_handles = self.devtools.driver.window_handles
+                            if len(window_handles) >= 2:
+                                self.devtools.driver.switch_to.window(window_handles[1])
+                                self.logger.info("카지노 로비 창으로 포커싱 전환")
+                            
+                            # 방문 처리하여 다음 방을 가져오도록 함
+                            self.room_manager.mark_current_room_visited(room_name)
+                            attempts += 1
+                            continue
+                        else:
+                            self.logger.error("방 나가기 실패")
+                            return None
+                
+                # 성공한 경우 원본 방 이름 반환 (전체 정보 유지)
+                return room_name
+
+            except Exception as e:
+                # 오류 로깅 및 처리
+                self.logger.error(f"방 입장 중 오류 발생: {e}", exc_info=True)
+                
+                attempts += 1
+                if attempts >= max_attempts:
+                    QMessageBox.warning(
+                        self.main_window, 
+                        "방 입장 실패", 
+                        f"여러 방에 입장을 시도했으나 모두 실패했습니다.\n최대 시도 횟수({max_attempts}회)를 초과했습니다."
+                    )
+                    return None
+                
+                self.logger.info(f"다음 방 시도 중... ({attempts}/{max_attempts})")
+                continue
+                
+        return None  # 모든 시도 실패
+     
     def _switch_to_iframe(self):
         """
         iframe으로 전환합니다.
@@ -127,9 +148,8 @@ class RoomEntryService:
             search_input = self.devtools.driver.find_element(
                 By.CSS_SELECTOR, "input.TableTextInput--464ac"
             )
-            search_input.clear()
             time.sleep(2)
-
+            search_input.clear()
             search_input.send_keys(search_name)
             self.logger.info(f"방 이름 '{search_name}' 입력 완료")
             
@@ -160,7 +180,9 @@ class RoomEntryService:
                 clicked = self.devtools.driver.execute_script(js_script)
                 
                 if not clicked:
-                    raise Exception(f"'{search_name}' 검색 결과가 없습니다")
+                    # 수정: 예외를 발생시키는 대신 False 반환
+                    self.logger.warning(f"'{search_name}' 검색 결과가 없습니다. 다른 방 찾기로 넘어갑니다.")
+                    return False
 
             # 새 창으로 전환
             time.sleep(2)
@@ -173,9 +195,13 @@ class RoomEntryService:
                 # UI 업데이트
                 self.main_window.update_betting_status(room_name=room_name)
                 self.logger.info(f"방 '{room_name}' 성공적으로 입장")
+                return True
             else:
-                raise Exception("새 창이 열리지 않았습니다")
+                # 수정: 예외를 발생시키는 대신 False 반환
+                self.logger.warning("새 창이 열리지 않았습니다. 다른 방 찾기로 넘어갑니다.")
+                return False
 
         except Exception as e:
             self.logger.error(f"방 검색 및 입장 중 오류: {e}", exc_info=True)
-            raise
+            # 수정: 예외를 상위로 전파하지 않고 False 반환
+            return False
