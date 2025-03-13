@@ -1,10 +1,94 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, 
-                            QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView, 
-                            QGroupBox, QScrollArea, QApplication)
+                            QTableWidget, QTableWidgetItem, QHeaderView, 
+                            QGroupBox)
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt,QRect
 from PyQt6.QtGui import QColor, QFont
 from utils.settings_manager import SettingsManager
+from PyQt6.QtWidgets import QStyledItemDelegate, QStyle
+from PyQt6.QtGui import QPen, QBrush
+
+class CircleStyleTable(QTableWidget):
+    """원 스타일을 지원하는 테이블 위젯"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+    
+    def paintEvent(self, event):
+        """기본 paintEvent를 오버라이드하지 않고 별도 처리"""
+        super().paintEvent(event)
+        
+    def drawItemWithCircle(self, painter, option, index):
+        """원형 배경으로 아이템 그리기"""
+        painter.save()
+        
+        # 배경 색상 및 텍스트 색상 가져오기
+        bgColor = index.data(Qt.ItemDataRole.BackgroundRole)
+        fgColor = index.data(Qt.ItemDataRole.ForegroundRole)
+        text = index.data(Qt.ItemDataRole.DisplayRole)
+        
+        # 원 그리기 영역 계산
+        rect = option.rect
+        diameter = min(rect.width(), rect.height()) - 8  # 마진 8픽셀
+        circle_rect = QRect(
+            rect.left() + (rect.width() - diameter) // 2,
+            rect.top() + (rect.height() - diameter) // 2,
+            diameter, diameter
+        )
+        
+        # 원 그리기
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(bgColor))
+        painter.drawEllipse(circle_rect)
+        
+        # 텍스트 그리기
+        painter.setPen(QColor(fgColor))
+        painter.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+        
+        painter.restore()
+
+# 테이블 아이템 델리게이트 클래스 추가 (원 그리기 기능 구현)
+class CircleItemDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        """아이템 그리기 - B와 P에 따라 색상을 다르게 설정"""
+        pick_type = index.data(Qt.ItemDataRole.UserRole)
+
+        # P와 B에 따른 배경색 설정
+        if pick_type == "circle-P":
+            bgColor = QColor("#2196F3")  # 파란색
+            fgColor = QColor("white")    # 흰색 글씨
+        elif pick_type == "circle-B":
+            bgColor = QColor("#F44336")  # 빨간색
+            fgColor = QColor("white")    # 흰색 글씨
+        else:
+            super().paint(painter, option, index)
+            return
+
+        # 선택 상태 처리 (선택 시 강조)
+        if option.state & QStyle.StateFlag.State_Selected:
+            painter.fillRect(option.rect, option.palette.highlight())
+
+        # 원형 영역 계산
+        rect = option.rect
+        diameter = min(rect.width(), rect.height()) - 8  # 8px 마진
+        circle_rect = QRect(
+            rect.left() + (rect.width() - diameter) // 2,
+            rect.top() + (rect.height() - diameter) // 2,
+            diameter, diameter
+        )
+
+        # 원 그리기
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(bgColor)  # 원 배경색
+        painter.drawEllipse(circle_rect)
+
+        # 텍스트 그리기
+        text = index.data(Qt.ItemDataRole.DisplayRole)
+        painter.setPen(fgColor)  # 글씨색
+        painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+
+        painter.restore()
 
 class BettingWidget(QWidget):
     def __init__(self):
@@ -228,29 +312,39 @@ class BettingWidget(QWidget):
     
     # PICK 값 설정 함수 수정 (P는 파란색 동그라미 안에 흰색 글씨로 P, B도 동일하게)
     def set_pick(self, pick_value):
-        """PICK 값 설정 (B, P 등)"""
+        """PICK 값 설정 (B, P 등) - 원 안에 문자 표시"""
         # None이나 빈 문자열 처리
         if pick_value is None or pick_value == "":
             pick_value = "N"
-        
-        # N 값 처리
+
+        # N 값 처리 (회색)
         if pick_value == "N":
             self.pick_item.setText(pick_value)
             self.pick_item.setBackground(QColor("#9E9E9E"))  # 회색
             self.pick_item.setForeground(QColor("white"))
+            self.pick_item.setData(Qt.ItemDataRole.UserRole, None)
             return
-            
-        # 변경된 부분: P와 B는 모두 파란색 동그라미 안에 흰색 글씨
-        if pick_value == "P" or pick_value == "B":
+
+        # P와 B는 원 안에 표시
+        if pick_value == "P":
             self.pick_item.setText(pick_value)
             self.pick_item.setBackground(QColor("#2196F3"))  # 파란색 배경
-            self.pick_item.setForeground(QColor("white"))
-            # 둥근 모양 표현을 위한 스타일시트
-            self.pick_item.setData(Qt.ItemDataRole.UserRole, "circle")
+            self.pick_item.setForeground(QColor("white"))    # 흰색 글씨
+            self.pick_item.setData(Qt.ItemDataRole.UserRole, "circle-P")  # 구분을 위해 "circle-P" 사용
+        elif pick_value == "B":
+            self.pick_item.setText(pick_value)
+            self.pick_item.setBackground(QColor("#F44336"))  # 빨간색 배경
+            self.pick_item.setForeground(QColor("white"))    # 흰색 글씨
+            self.pick_item.setData(Qt.ItemDataRole.UserRole, "circle-B")  # 구분을 위해 "circle-B" 사용
         else:
+            # 기타 값 처리 (기본 회색)
             self.pick_item.setText(pick_value)
             self.pick_item.setBackground(QColor("#9E9E9E"))  # 회색
             self.pick_item.setForeground(QColor("white"))
+            self.pick_item.setData(Qt.ItemDataRole.UserRole, None)
+
+        # UI 강제 업데이트
+        self.progress_table.viewport().update()
 
     # 단계별 마커 설정 함수 수정 (O는 파란색, X는 빨간색 진한 글씨)
     def set_step_marker(self, step, marker):
@@ -461,6 +555,9 @@ class BettingWidget(QWidget):
         self.pick_item.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         self.progress_table.setItem(1, 0, self.pick_item)
         
+        # 추가: 원형 아이템 델리게이트 설정
+        self.progress_table.setItemDelegate(CircleItemDelegate(self.progress_table))
+        
         # 초기화된 step_items 딕셔너리
         self.step_items = {}
         
@@ -493,6 +590,3 @@ class BettingWidget(QWidget):
         
         # 배팅 금액 초기화
         self.update_bet_amount(0)
-        
-        # print(f"[DEBUG] 베팅 위젯 초기화 완료 - step_items 키: {list(self.step_items.keys())}")
-        # print(f"[DEBUG] 테이블 열 개수: {self.progress_table.columnCount()}")
