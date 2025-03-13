@@ -103,15 +103,38 @@ class RoomLogWidget(QWidget):
     def add_bet_result(self, room_name, is_win, is_tie=False):
         """
         배팅 결과 추가 - 방별로 한 행씩만 표시하고 통계 업데이트
+        베팅이 발생한 경우에만 로그에 추가
         
         Args:
             room_name (str): 방 이름
             is_win (bool): 승리 여부
             is_tie (bool): 타이(무승부) 여부
         """
-        # 방문 ID가 없는 경우 아무 작업도 하지 않음
-        if self.current_visit_id is None or self.current_visit_id not in self.room_logs:
-            return
+        # 방문 ID가 없는 경우 먼저 생성
+        if self.current_visit_id is None:
+            if room_name:
+                base_room_name = room_name.split('\n')[0].split('(')[0].strip()
+            else:
+                base_room_name = "알 수 없는 방"
+            self.current_visit_id = self.create_new_visit_id(base_room_name)
+        
+        # 현재 방문 ID에 해당하는 로그가 없으면 새로 생성
+        if self.current_visit_id not in self.room_logs:
+            # 방 이름에서 기본 이름 추출
+            if room_name:
+                base_room_name = room_name.split('\n')[0].split('(')[0].strip()
+            else:
+                base_room_name = "알 수 없는 방"
+                
+            # 새 방문 로그 초기화
+            self.room_logs[self.current_visit_id] = {
+                'room_name': base_room_name,
+                'attempts': 0,
+                'win': 0,
+                'lose': 0,
+                'tie': 0
+            }
+            print(f"방 '{base_room_name}'에 첫 베팅 결과 기록을 시작합니다.")
         
         # 현재 방문 로그 카운트 증가
         self.room_logs[self.current_visit_id]['attempts'] += 1
@@ -130,16 +153,21 @@ class RoomLogWidget(QWidget):
         
         # 테이블 업데이트
         self.update_table()
-    
+        
     def update_table(self):
-        """로그 테이블 업데이트"""
+        """로그 테이블 업데이트 - 오래된 방 방문 순서대로 정렬"""
         # 테이블 초기화
         self.log_table.setRowCount(0)
         
-        # 각 방의 로그 데이터를 행으로 추가 (최신 방문부터 표시)
-        sorted_logs = sorted(self.room_logs.items(), 
+        # 실제 베팅이 있는 방만 필터링 (시도 횟수가 1 이상인 방)
+        valid_logs = {visit_id: data for visit_id, data in self.room_logs.items() 
+                    if data['attempts'] > 0}
+        
+        # 각 방의 로그 데이터를 행으로 추가 (오래된 방문부터 표시)
+        # 방문 ID에 대해 오름차순 정렬하여 가장 오래된 방문이 먼저 표시되도록 함
+        sorted_logs = sorted(valid_logs.items(), 
                             key=lambda x: x[0], 
-                            reverse=False)
+                            reverse=False)  # reverse=False로 오름차순 정렬
         
         for visit_id, data in sorted_logs:
             row_position = self.log_table.rowCount()
@@ -178,7 +206,7 @@ class RoomLogWidget(QWidget):
             self.log_table.setItem(row_position, 2, win_item)
             self.log_table.setItem(row_position, 3, lose_item)
             self.log_table.setItem(row_position, 4, success_rate_item)
-    
+            
     def get_room_log(self, visit_id):
         """특정 방문의 로그 데이터 반환"""
         return self.room_logs.get(visit_id, None)
@@ -192,10 +220,11 @@ class RoomLogWidget(QWidget):
         self.win_count_label.setText("0")
         self.lose_count_label.setText("0")
         self.log_table.setRowCount(0)
-        
+    
     def set_current_room(self, room_name):
         """
         현재 방 이름 설정 - 방 이름이 변경된 경우에만 새 방문 ID 생성
+        단, 실제 베팅이 발생하기 전까지는 로그에 추가하지 않음
         
         Args:
             room_name (str): 방 이름
@@ -206,26 +235,17 @@ class RoomLogWidget(QWidget):
         else:
             base_room_name = "알 수 없는 방"
         
-        # 이전 방문이 없거나 방 이름이 변경된 경우에만 새 방문 ID 생성
-        create_new_visit = False
-        
+        # 이전 방문이 없는 경우에만 새 방문 ID 생성
         if self.current_visit_id is None:
-            create_new_visit = True
-        elif self.current_visit_id in self.room_logs:
-            # 기본 방 이름만 비교 (게임 수와 베팅 정보 무시)
-            current_base_name = self.room_logs[self.current_visit_id]['room_name'].split('\n')[0].split('(')[0].strip()
-            create_new_visit = current_base_name != base_room_name
-        
-        if create_new_visit:
             self.current_visit_id = self.create_new_visit_id(base_room_name)
-            # 새 방문 로그 초기화
-            self.room_logs[self.current_visit_id] = {
-                'room_name': base_room_name,
-                'attempts': 0,
-                'win': 0,
-                'lose': 0,
-                'tie': 0
-            }
-            
-            # 테이블 업데이트
-            self.update_table()
+            # 로그에 설명 추가 - 방 변경 사항만 저장
+            print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
+        else:
+            # 기존 방문이 있는 경우, 방 이름이 변경되었는지 확인
+            if self.current_visit_id in self.room_logs:
+                # 기본 방 이름만 비교 (게임 수와 베팅 정보 무시)
+                current_base_name = self.room_logs[self.current_visit_id]['room_name'].split('\n')[0].split('(')[0].strip()
+                if current_base_name != base_room_name:
+                    # 방 이름이 변경된 경우에만 새 방문 ID 생성
+                    self.current_visit_id = self.create_new_visit_id(base_room_name)
+                    print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")

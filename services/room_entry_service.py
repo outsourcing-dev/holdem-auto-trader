@@ -128,6 +128,8 @@ class RoomEntryService:
                 By.CSS_SELECTOR, "input.TableTextInput--464ac"
             )
             search_input.clear()
+            time.sleep(2)
+
             search_input.send_keys(search_name)
             self.logger.info(f"방 이름 '{search_name}' 입력 완료")
             
