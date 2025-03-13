@@ -117,7 +117,7 @@ class RoomEntryService:
                 continue
                 
         return None  # 모든 시도 실패
-     
+
     def _switch_to_iframe(self):
         """
         iframe으로 전환합니다.

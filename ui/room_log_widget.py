@@ -176,7 +176,7 @@ class RoomLogWidget(QWidget):
         # 방문 순서대로 정렬 (방문 ID의 숫자 부분 기준 오름차순)
         sorted_logs = sorted(valid_logs.items(), 
                             key=lambda x: get_visit_number(x[0]), 
-                            reverse=False)  # 오래된 방문(낮은 숫자)이 먼저 표시되도록 정렬
+                            reverse=True)  # 최신 입장이 가장 상단으로.
         
         for visit_id, data in sorted_logs:
             row_position = self.log_table.rowCount()

@@ -403,7 +403,7 @@ class TradingManager:
             self.logger.error(f"게임 상태 분석 중 오류 발생: {e}", exc_info=True)
             # 오류 발생 시에도 계속 모니터링하기 위해 타이머 설정
             self.main_window.set_remaining_time(0, 0, 2)
-                
+            
     def _process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 및 배팅 상태 초기화"""
         # 이전 베팅 정보 가져오기

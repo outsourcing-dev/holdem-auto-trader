@@ -107,3 +107,17 @@ class DevToolsController:
             print("[ERROR] WebDriver가 실행되지 않음")
             return None
         return self.driver.current_url  # 현재 URL 반환
+    
+    # utils/devtools.py에 메서드 추가
+    def clear_browser_cache(self):
+        """브라우저 캐시 및 쿠키 삭제"""
+        try:
+            if self.driver:
+                self.driver.execute_cdp_cmd('Network.clearBrowserCache', {})
+                self.driver.execute_cdp_cmd('Network.clearBrowserCookies', {})
+                self.logger.info("브라우저 캐시 및 쿠키 삭제 완료")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"캐시 삭제 중 오류: {e}")
+            return False
