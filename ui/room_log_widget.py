@@ -139,7 +139,7 @@ class RoomLogWidget(QWidget):
         # 각 방의 로그 데이터를 행으로 추가 (최신 방문부터 표시)
         sorted_logs = sorted(self.room_logs.items(), 
                             key=lambda x: x[0], 
-                            reverse=True)
+                            reverse=False)
         
         for visit_id, data in sorted_logs:
             row_position = self.log_table.rowCount()

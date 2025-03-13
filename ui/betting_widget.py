@@ -37,7 +37,7 @@ class BettingWidget(QWidget):
         room_layout.addWidget(self.current_room)
         room_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
         
-        # 현재 배팅 금액 표시 (신규 추가)
+        # 현재 배팅 금액 표시
         bet_amount_layout = QHBoxLayout()
         bet_amount_label = QLabel("현재 배팅 금액:")
         bet_amount_label.setStyleSheet("font-weight: bold; font-size: 14px;")
