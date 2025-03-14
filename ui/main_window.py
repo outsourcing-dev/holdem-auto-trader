@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QMessageBox, QTableWidget, 
-                             QSizePolicy, QHeaderView)
-from PyQt6.QtCore import Qt, QTimer
+                             QTableWidgetItem, QSizePolicy, QHeaderView)
+from PyQt6.QtCore import Qt, QTimer, QDateTime
 from PyQt6.QtGui import QGuiApplication
 
 from ui.header_widget import HeaderWidget
@@ -49,9 +49,14 @@ class MainWindow(QMainWindow):
         # 유틸리티 클래스 초기화
         self.devtools = DevToolsController()
         self.settings_manager = SettingsManager()
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_remaining_time)
-        self.remaining_seconds = 0
+        
+        # 사용자 남은 시간(초) 변수 추가
+        self.user_remaining_seconds = 0
+        self.user_time_active = False
+        
+        # 사용자 라이센스 타이머 생성
+        self.license_timer = QTimer()
+        self.license_timer.timeout.connect(self.update_license_time)
         
         # 상태 변수 초기화
         self.start_amount = 0
@@ -130,7 +135,6 @@ class MainWindow(QMainWindow):
             print(f"[DEBUG] 개발 환경, 스타일 경로: {style_path}")
             return style_path
         
-    # ui/main_window.py의 setup_ui 메서드에서 수정할 부분
     def setup_ui(self):
         """UI 구성"""
         # 메인 위젯 및 레이아웃 설정
@@ -157,14 +161,16 @@ class MainWindow(QMainWindow):
         # 방 로그 위젯 (새로 추가)
         self.room_log_widget = RoomLogWidget()
         self.left_panel.addWidget(self.room_log_widget)
-
-        # 남은 시간 표시
-        remaining_time_layout = QHBoxLayout()
-        self.remaining_time_label = QLabel("남은시간")
-        self.remaining_time_value = QLabel("00 : 00 : 00")
-        remaining_time_layout.addWidget(self.remaining_time_label)
-        remaining_time_layout.addWidget(self.remaining_time_value)
-        self.left_panel.addLayout(remaining_time_layout)
+        
+        # 남은 라이센스 시간 표시 추가
+        license_time_layout = QHBoxLayout()
+        self.license_time_label = QLabel("사용 가능 시간:")
+        self.license_time_label.setStyleSheet("font-weight: bold; color: #333333;")
+        self.license_time_value = QLabel("00 : 00 : 00")
+        self.license_time_value.setStyleSheet("font-weight: bold; color: #FF5722;")
+        license_time_layout.addWidget(self.license_time_label)
+        license_time_layout.addWidget(self.license_time_value)
+        self.left_panel.addLayout(license_time_layout)
 
         # 사이트 이동 버튼
         site1, site2, site3 = self.settings_manager.get_sites()
@@ -416,8 +422,8 @@ class MainWindow(QMainWindow):
         # 사용자 정보 UI 업데이트
         self.update_user_data(username=username)
         
-        # 남은 사용 기간 UI 추가 및 업데이트
-        self.add_days_left_display(days_left)
+        # 남은 시간 설정 및 타이머 시작
+        self.set_license_remaining_time(days_left)
 
     def add_days_left_display(self, days_left):
         """남은 사용 기간 표시 영역 추가"""
@@ -459,4 +465,114 @@ class MainWindow(QMainWindow):
         else:
             # 이미 있으면 값만 업데이트
             self.days_left_value.setText(f"{days_left}일")
+    
+    def set_license_remaining_time(self, days_left):
+        """남은 라이센스 시간 설정 및 타이머 시작"""
+        # 타이머가 이미 실행 중이면 일단 중지
+        if self.license_timer.isActive():
+            self.license_timer.stop()
+            print(f"라이센스 타이머 재설정: 이전 타이머 중지")
+        
+        # 개발 편의를 위해 일수를 시간으로 변환 (1일 = 24시간)
+        # 테스트용 - 분 단위로 설정 (1일 = 10분)
+        # self.user_remaining_seconds = days_left * 10 * 60
+        
+        # 실제 운영용 - 일 단위로 설정 (1일 = 24시간)
+        self.user_remaining_seconds = days_left * 24 * 60 * 60
+        
+        print(f"라이센스 타이머 설정: {days_left}일 ({self.user_remaining_seconds}초)")
+        
+        # 남은 시간 표시 강제 업데이트
+        self.update_license_time_display()
+        
+        # 타이머 시작
+        if self.user_remaining_seconds > 0:
+            self.user_time_active = True
+            self.license_timer.start(1000)  # 1초마다 업데이트
             
+            # 버튼 활성화
+            self.enable_application_features(True)
+            print(f"라이센스 타이머 시작: 남은 시간 {days_left}일")
+        else:
+            # 시간이 이미 0이하면 기능 비활성화
+            self.user_time_active = False
+            self.enable_application_features(False)
+            QMessageBox.critical(self, "사용 기간 만료", "사용 가능 시간이 만료되었습니다.\n관리자에게 문의하세요.")
+            print(f"라이센스 타이머 경고: 남은 시간이 0일 이하 ({days_left}일)")
+            
+    def update_license_time(self):
+        """타이머에 의해 호출되는 라이센스 남은 시간 업데이트"""
+        if self.user_time_active and self.user_remaining_seconds > 0:
+            self.user_remaining_seconds -= 1
+            self.update_license_time_display()
+            
+            # 남은 시간이 0이 되면 기능 비활성화
+            if self.user_remaining_seconds <= 0:
+                self.user_time_active = False
+                self.license_timer.stop()
+                self.enable_application_features(False)
+                QMessageBox.critical(self, "사용 기간 만료", "사용 가능 시간이 만료되었습니다.\n관리자에게 문의하세요.")
+    
+    def update_license_time_display(self):
+        """남은 라이센스 시간 표시 업데이트"""
+        days = self.user_remaining_seconds // (24 * 3600)
+        hours = (self.user_remaining_seconds % (24 * 3600)) // 3600
+        minutes = (self.user_remaining_seconds % 3600) // 60
+        seconds = self.user_remaining_seconds % 60
+        
+        # 일수가 있으면 DD일 HH:MM:SS 형식으로, 없으면 HH:MM:SS 형식으로 표시
+        if days > 0:
+            time_str = f"{days}일 {hours:02}:{minutes:02}:{seconds:02}"
+        else:
+            time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
+            
+            # 24시간 미만일 때 강조 표시
+            self.license_time_value.setStyleSheet("font-weight: bold; color: red;")
+            
+        self.license_time_value.setText(time_str)
+        
+        # 임시 저장 - 1시간마다 남은 시간 저장
+        if minutes == 0 and seconds == 0:
+            self.save_remaining_time()
+    
+    def enable_application_features(self, enabled=True):
+        """애플리케이션 주요 기능 활성화/비활성화"""
+        # 시간이 만료되면 비활성화할 버튼들
+        self.site1_button.setEnabled(enabled)
+        self.site2_button.setEnabled(enabled)
+        self.site3_button.setEnabled(enabled)
+        self.start_button.setEnabled(enabled)
+        self.stop_button.setEnabled(enabled)
+        self.update_room_button.setEnabled(enabled)
+        self.save_room_button.setEnabled(enabled)
+        
+        if not enabled:
+            # 현재 진행 중인 자동 매매가 있다면 중지
+            if hasattr(self, 'trading_manager') and self.trading_manager.is_trading_active:
+                self.trading_manager.stop_trading()
+    
+    def save_remaining_time(self):
+        """남은 시간 정보를 DB나 파일에 저장 (선택적 구현)"""
+        # 여기에 남은 시간을 DB에 저장하는 코드 추가 가능
+        # 사용자 종료 후 재접속 시 이어서 사용 가능하도록
+        pass
+    
+    def closeEvent(self, event):
+            """프로그램 종료 시 호출되는 이벤트"""
+            # 남은 시간 저장 (선택적 구현)
+            if self.user_time_active:
+                self.save_remaining_time()
+            
+            # 타이머 정지
+            if self.license_timer.isActive():
+                self.license_timer.stop()
+            
+            # 브라우저 종료
+            if hasattr(self, 'devtools') and self.devtools.driver:
+                try:
+                    self.devtools.close_browser()
+                except:
+                    pass
+            
+            # 기본 이벤트 처리
+            super().closeEvent(event)

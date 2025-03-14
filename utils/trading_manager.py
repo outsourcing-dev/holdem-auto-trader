@@ -124,7 +124,48 @@ class TradingManager:
             if not self._validate_trading_prerequisites():
                 return
 
-            # 중요: 설정을 강제로 다시 로드
+            # 중요: DB에서 남은 일수 재확인 (추가된 부분)
+            from utils.db_manager import DBManager
+            db_manager = DBManager()
+            
+            # 현재 로그인된 사용자 이름 가져오기
+            username = self.main_window.username
+            if not username:
+                QMessageBox.warning(self.main_window, "오류", "로그인 정보를 찾을 수 없습니다.")
+                return
+                
+            # DB에서 사용자 정보 재확인
+            user_info = db_manager.get_user(username)
+            if not user_info:
+                QMessageBox.warning(self.main_window, "오류", "사용자 정보를 DB에서 찾을 수 없습니다.")
+                return
+                
+            # 사용 기간 확인 (종료일로부터 남은 일수 계산)
+            end_date = user_info[2]  # 사용자 정보의 3번째 항목이 종료일
+            days_left = db_manager.calculate_days_left(end_date)
+            
+            # 남은 일수가 없으면 종료
+            if days_left <= 0:
+                QMessageBox.warning(self.main_window, "사용 기간 만료", "관리자에 의해 사용 기간이 만료되었습니다.")
+                # 라이센스 시간 UI 업데이트 - 만료 상태로 표시
+                self.main_window.set_license_remaining_time(0)
+                # 기능 비활성화
+                self.main_window.enable_application_features(False)
+                return
+                
+            # 로그에 남은 일수 기록
+            self.logger.info(f"DB에서 확인한 남은 사용 기간: {days_left}일")
+            
+            # 라이센스 시간 재설정 (기존 카운트다운 타이머 리셋)
+            if hasattr(self.main_window, 'set_license_remaining_time'):
+                self.main_window.set_license_remaining_time(days_left)
+                
+                # 사용 가능 시간 UI 업데이트 확인 (로그용)
+                if hasattr(self.main_window, 'user_remaining_seconds'):
+                    days = self.main_window.user_remaining_seconds // (24 * 3600)
+                    hours = (self.main_window.user_remaining_seconds % (24 * 3600)) // 3600
+                    self.logger.info(f"사용 가능 시간 UI 업데이트 완료: {days}일 {hours}시간")
+            
             self.logger.info("[INFO] 자동 매매 시작 전 설정 강제 재로드")
             
             # 설정 매니저 새로 생성하여 파일에서 설정 다시 로드

@@ -6,12 +6,12 @@ import sys
 
 from utils.db_manager import DBManager
 
-
 class LoginWindow(QDialog):
     def __init__(self, app):
         super().__init__()
 
         self.app = app  # MainApp 객체 가져오기
+        self.db_manager = DBManager()  # DB 관리자 생성
 
         # 창 설정
         self.setWindowTitle("로그인")
@@ -119,7 +119,6 @@ class LoginWindow(QDialog):
             current_dir = os.path.dirname(os.path.abspath(__file__))
             return os.path.join(current_dir, "style.qss")
         
-        
     def sizeHint(self):
         # 기본 크기 힌트 재정의
         return QSize(250, 180)
@@ -142,11 +141,17 @@ class LoginWindow(QDialog):
             QMessageBox.warning(self, "로그인 실패", "비밀번호를 입력해주세요.")
             return
 
-        # 테스트용 인증
-        if username == "admin" and password == "1234":
-            QMessageBox.information(self, "로그인 성공", "환영합니다! 😊")
-            self.app.show_main_window(username=username)
+        # # 테스트용 관리자 계정 (개발 디버깅용)
+        # if username == "admin" and password == "1234":
+        #     QMessageBox.information(self, "로그인 성공", "관리자로 로그인 되었습니다! 😊")
+        #     self.app.show_main_window(username=username, days_left=365)  # 관리자는 365일 부여
+        #     return
+
+        # DB에서 사용자 인증
+        success, days_left, message = self.db_manager.authenticate_user(username, password)
+        
+        if success:
+            QMessageBox.information(self, "로그인 성공", f"{username}님 환영합니다! 😊\n남은 사용 기간: {days_left}일")
+            self.app.show_main_window(username=username, days_left=days_left)
         else:
-            # 실제 DB 검증 대신 일단 바로 로그인 허용
-            QMessageBox.information(self, "로그인 성공", f"{username}님 환영합니다! 😊")
-            self.app.show_main_window(username=username)
+            QMessageBox.warning(self, "로그인 실패", message)
