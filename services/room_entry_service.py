@@ -112,14 +112,15 @@ class RoomEntryService:
                         if self.main_window.trading_manager.game_monitoring_service.close_current_room():
                             self.logger.info("방을 성공적으로 나갔습니다.")
                             
+                            # 방문 처리하여 다음에 다시 시도하지 않도록 함
+                            self.room_manager.mark_room_visited(room_name)
+                            
                             # 2번 창(카지노 로비)으로 포커싱
                             window_handles = self.devtools.driver.window_handles
                             if len(window_handles) >= 2:
                                 self.devtools.driver.switch_to.window(window_handles[1])
                                 self.logger.info("카지노 로비 창으로 포커싱 전환")
                             
-                            # 방문 처리하여 다음 방을 가져오도록 함
-                            self.room_manager.mark_current_room_visited(room_name)
                             attempts += 1
                             continue
                         else:

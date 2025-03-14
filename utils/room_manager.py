@@ -585,3 +585,28 @@ class RoomManager:
         
         print(f"[INFO] 체크된 방 {len(checked_rooms)}개 반환")
         return checked_rooms
+    
+    def reset_visit_queue(self):
+        """방문 기록 초기화 및 체크된 방으로 새 방문 순서 생성"""
+        # 방문 기록 초기화
+        self.visited_rooms.clear()
+        
+        # 체크된 방 목록 가져오기
+        checked_rooms = self.get_checked_rooms()
+        
+        # 체크된 방이 없으면 False 반환
+        if not checked_rooms:
+            print("[INFO] 체크된 방이 없습니다.")
+            return False
+        
+        # 방 이름만 추출
+        room_names = [room['name'] for room in checked_rooms]
+        
+        # 랜덤하게 순서 섞기
+        random.shuffle(room_names)
+        
+        # 방문 큐 설정
+        self.room_visit_queue = room_names
+        print(f"[INFO] 방문 큐 리셋 완료: {len(self.room_visit_queue)}개 방")
+        
+        return len(self.room_visit_queue) > 0

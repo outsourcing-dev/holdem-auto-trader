@@ -754,9 +754,14 @@ class TradingManager:
             
             # 방 입장 실패 시 매매 중단
             if not new_room_name:
-                self.stop_trading()
-                QMessageBox.warning(self.main_window, "오류", "새 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
-                return False
+                # 방문 큐 리셋
+                if self.room_manager.reset_visit_queue():
+                    self.logger.info("방 입장 실패. 방문 큐를 리셋하고 다시 시도합니다.")
+                    return self.change_room()  # 재귀적으로 다시 시도
+                else:
+                    self.stop_trading()
+                    QMessageBox.warning(self.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
+                    return False
             
             # 이제 확실히 새 방에 입장했으므로 이 시점에서 베팅 위젯 초기화 (이전 방의 결과 기록 보존은 끝)
             self.main_window.betting_widget.reset_step_markers()
