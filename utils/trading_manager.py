@@ -402,7 +402,8 @@ class TradingManager:
                 elif previous_game_count == 0 and self.game_count > 0 and not self.betting_service.has_bet_current_round:
                     if hasattr(self, '_first_entry_time'):
                         elapsed = time.time() - self._first_entry_time
-                        if elapsed > 3.0 and next_pick in ['P', 'B']:  # 3초 이상 지난 경우에만 베팅
+                        # 대기 시간을 3초에서 1초로 줄임
+                        if elapsed > 1.0 and next_pick in ['P', 'B']:
                             self.logger.info(f"첫 입장 후 {elapsed:.1f}초 경과, 베팅 실행: {next_pick}")
                             self.current_pick = next_pick
                             self.main_window.update_betting_status(pick=next_pick)

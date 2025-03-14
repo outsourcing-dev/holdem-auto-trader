@@ -3,40 +3,43 @@ class UIUpdater:
         self.main_window = main_window
     
     def set_remaining_time(self, hours, minutes, seconds):
-        # """남은 시간 설정"""
-        # self.main_window.remaining_seconds = hours * 3600 + minutes * 60 + seconds
+        """남은 시간 설정"""
+        self.main_window.remaining_seconds = hours * 3600 + minutes * 60 + seconds
+        
+        # UI 업데이트 부분 생략 (UI 요소가 없으므로)
         # self.update_remaining_time_display()
         
-        # # 타이머가 작동 중이 아니면 시작
-        # if not self.main_window.timer.isActive():
-        #     self.main_window.timer.start(1000)  # 1초마다 업데이트
-        pass
+        # 타이머가 없으면 생성
+        if not hasattr(self.main_window, 'timer'):
+            from PyQt6.QtCore import QTimer
+            self.main_window.timer = QTimer()
+            self.main_window.timer.timeout.connect(self.update_remaining_time)
+        
+        # 타이머가 작동 중이 아니면 시작
+        if not self.main_window.timer.isActive():
+            self.main_window.timer.start(1000)  # 1초마다 업데이트
     
     def update_remaining_time(self):
-        # """타이머에 의해 호출되는 남은 시간 업데이트"""
-        # if self.main_window.remaining_seconds > 0:
-        #     self.main_window.remaining_seconds -= 1
-        #     self.update_remaining_time_display()
-        # else:
-        #     # 자동 매매 활성화 상태인지 확인
-        #     if hasattr(self.main_window, 'trading_manager') and self.main_window.trading_manager.is_trading_active:
-        #         # 게임 분석 실행
-        #         self.main_window.trading_manager.analyze_current_game()
-        #         # 다시 타이머 설정 (2초 간격으로 계속 모니터링)
-        #         self.set_remaining_time(0, 0, 2)
-        #     else:
-        #         # 자동 매매가 활성화되지 않은 경우 타이머 정지
-        #         self.main_window.timer.stop()
-        pass
+        """타이머에 의해 호출되는 남은 시간 업데이트"""
+        if not hasattr(self.main_window, 'remaining_seconds'):
+            self.main_window.remaining_seconds = 0
+            
+        if self.main_window.remaining_seconds > 0:
+            self.main_window.remaining_seconds -= 1
+            # UI 업데이트 부분 생략 (UI 요소가 없으므로)
+            # self.update_remaining_time_display()
+        else:
+            # 자동 매매 활성화 상태인지 확인
+            if hasattr(self.main_window, 'trading_manager') and self.main_window.trading_manager.is_trading_active:
+                # 게임 분석 실행
+                self.main_window.trading_manager.analyze_current_game()
+                # 다시 타이머 설정 (2초 간격으로 계속 모니터링)
+                self.set_remaining_time(0, 0, 2)
+            else:
+                # 자동 매매가 활성화되지 않은 경우 타이머 정지
+                self.main_window.timer.stop()
             
     def update_remaining_time_display(self):
-        # """남은 시간 표시 업데이트"""
-        # hours = self.main_window.remaining_seconds // 3600
-        # minutes = (self.main_window.remaining_seconds % 3600) // 60
-        # seconds = self.main_window.remaining_seconds % 60
-        
-        # time_str = f"{hours:02} : {minutes:02} : {seconds:02}"
-        # self.main_window.remaining_time_value.setText(time_str)
         pass
     
     def update_user_data(self, username=None, start_amount=None, current_amount=None, profit_amount=None, total_bet=None):

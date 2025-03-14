@@ -26,6 +26,8 @@ class BettingService:
 
     # services/betting_service.py
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
+        self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 활성화: {is_trading_active}, 금액: {bet_amount}")
+
         """
         베팅 타입(P 또는 B)에 따라 적절한 베팅 영역을 클릭합니다.
         중복 클릭 방지를 위해 베팅 상태를 기록합니다.
@@ -76,6 +78,8 @@ class BettingService:
             self.devtools.driver.switch_to.frame(iframe)
 
             # 칩 클릭 가능 여부로 베팅 상태 확인
+            self.logger.info("베팅 가능 상태 확인 시작...")
+
             max_attempts = 30  # 최대 30초 대기 (2초 간격)
             attempts = 0
             chip_clickable = False
@@ -227,6 +231,8 @@ class BettingService:
             
             try:
                 # 베팅 영역 요소 미리 찾기
+                self.logger.info(f"{bet_type} 베팅 영역 찾기 시도...")
+
                 bet_element = WebDriverWait(self.devtools.driver, 5).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                 )
