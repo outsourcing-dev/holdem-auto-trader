@@ -533,7 +533,9 @@ class BettingWidget(QWidget):
         # 테이블 초기화
         self.progress_table.clear()
         self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
-        
+        # 열 번호(헤더) 숨기기
+        self.progress_table.verticalHeader().setVisible(False)
+
         # 설정에서 마틴 단계 수 가져오기
         martin_count, _ = self.settings_manager.get_martin_settings()
         
