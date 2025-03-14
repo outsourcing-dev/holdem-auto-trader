@@ -80,7 +80,13 @@ class TradingManager:
         
         # 게임 컨트롤러
         self.game_controller = None
-
+        
+        # 스레드 객체 관리를 위한 속성 추가
+        self.room_entry_thread = None
+        self.game_monitoring_thread = None
+        self.betting_thread = None
+        self.room_change_thread = None
+        
     def _check_martin_balance(self, balance):
         """
         현재 잔고가 마틴 배팅을 하기에 충분한지 확인합니다.
