@@ -4,6 +4,9 @@ from PyQt6.QtCore import Qt, QSize
 import os
 import sys
 
+from utils.db_manager import DBManager
+
+
 class LoginWindow(QDialog):
     def __init__(self, app):
         super().__init__()
@@ -134,7 +137,7 @@ class LoginWindow(QDialog):
         if not username:
             QMessageBox.warning(self, "로그인 실패", "아이디를 입력해주세요.")
             return
-            
+                
         if not password:
             QMessageBox.warning(self, "로그인 실패", "비밀번호를 입력해주세요.")
             return

@@ -407,3 +407,56 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "알림", "방 목록 설정이 저장되었습니다.")
         else:
             QMessageBox.warning(self, "오류", "방 목록 설정 저장 중 오류가 발생했습니다.")
+            
+    def set_user_info(self, username, days_left):
+        """사용자 정보 및 남은 사용 기간 설정"""
+        self.username = username
+        self.days_left = days_left
+        
+        # 사용자 정보 UI 업데이트
+        self.update_user_data(username=username)
+        
+        # 남은 사용 기간 UI 추가 및 업데이트
+        self.add_days_left_display(days_left)
+
+    def add_days_left_display(self, days_left):
+        """남은 사용 기간 표시 영역 추가"""
+        # days_left가 None인 경우 기본값으로 대체
+        if days_left is None:
+            days_left = 0  # 또는 적절한 기본값 설정
+        
+        # 기존 남은 시간 영역 가져오기 (있으면)
+        if hasattr(self, 'remaining_time_layout'):
+            layout = self.remaining_time_layout
+        else:
+            # 없으면 새로 생성
+            layout = QHBoxLayout()
+            self.remaining_time_layout = layout
+        
+        # 기존 구성요소가 없으면 (아직 없을 경우에만 추가)
+        if not hasattr(self, 'days_left_label'):
+            # 사용 기간 레이블과 값 추가
+            self.days_left_label = QLabel("남은 사용 기간:")
+            self.days_left_value = QLabel(f"{days_left}일")
+            
+            # 스타일 설정
+            self.days_left_label.setStyleSheet("font-weight: bold;")
+            if days_left < 7:
+                self.days_left_value.setStyleSheet("color: red; font-weight: bold;")
+            elif days_left < 15:
+                self.days_left_value.setStyleSheet("color: orange; font-weight: bold;")
+            else:
+                self.days_left_value.setStyleSheet("color: green; font-weight: bold;")
+            
+            # 레이아웃에 추가
+            layout.addWidget(self.days_left_label)
+            layout.addWidget(self.days_left_value)
+            
+            # 해당 레이아웃을 메인 레이아웃에 추가 (아직 없다면)
+            if hasattr(self, 'left_panel'):
+                # 기존 남은 시간 레이아웃 아래에 배치
+                self.left_panel.addLayout(layout)
+        else:
+            # 이미 있으면 값만 업데이트
+            self.days_left_value.setText(f"{days_left}일")
+            

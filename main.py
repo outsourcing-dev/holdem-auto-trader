@@ -211,7 +211,7 @@ class MainApp(QApplication):
         self.login_window.show()
         self.main_window = None  # 필요할 때 생성
     
-    def show_main_window(self, username=None):
+    def show_main_window(self, username=None, days_left=None):
         """로그인 성공 시 메인 화면으로 이동하고 사용자명 설정"""
         try:
             # 로그인 창 닫기
@@ -221,10 +221,10 @@ class MainApp(QApplication):
             if self.main_window is None:
                 self.main_window = MainWindow()
             
-            # 사용자명 설정
+            # 사용자명과 남은 일수 설정
             if username:
                 self.username = username
-                self.main_window.update_user_data(username=username)
+                self.main_window.set_user_info(username, days_left)
             
             # 메인 창 표시
             self.main_window.show()
