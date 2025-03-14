@@ -140,15 +140,18 @@ class TradingManager:
                 QMessageBox.warning(self.main_window, "오류", "로그인 정보를 찾을 수 없습니다.")
                 return
                 
-            # DB에서 사용자 정보 재확인
-            user_info = db_manager.get_user(username)
-            if not user_info:
-                QMessageBox.warning(self.main_window, "오류", "사용자 정보를 DB에서 찾을 수 없습니다.")
-                return
-                
-            # 사용 기간 확인 (종료일로부터 남은 일수 계산)
-            end_date = user_info[2]  # 사용자 정보의 3번째 항목이 종료일
-            days_left = db_manager.calculate_days_left(end_date)
+            # 관리자 계정인 경우 무제한 일수 부여
+            if username == "coreashield":
+                days_left = 99999  # 매우 큰 값 설정
+            else:
+                user_info = db_manager.get_user(username)
+                if not user_info:
+                    QMessageBox.warning(self.main_window, "오류", "사용자 정보를 DB에서 찾을 수 없습니다.")
+                    return
+                    
+                # 사용 기간 확인 (종료일로부터 남은 일수 계산)
+                end_date = user_info[2]  # 사용자 정보의 3번째 항목이 종료일
+                days_left = db_manager.calculate_days_left(end_date)
             
             # 남은 일수가 없으면 종료
             if days_left <= 0:

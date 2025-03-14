@@ -3,6 +3,7 @@ import logging
 from selenium.webdriver.common.by import By
 from modules.game_detector import GameDetector
 import time
+from utils.iframe_utils import IframeManager, switch_to_iframe_with_retry  # 추가: iframe 유틸리티 임포트
 
 class GameMonitoringService:
     def __init__(self, devtools, main_window, logger=None):
@@ -21,8 +22,8 @@ class GameMonitoringService:
         self.main_window = main_window
         self.game_detector = GameDetector()
         
-
-    # services/game_monitoring_service.py에 수정 추가
+        # 추가: iframe 매니저 초기화
+        self.iframe_manager = None
 
     def get_current_game_state(self, log_always=True):
         """
@@ -38,10 +39,36 @@ class GameMonitoringService:
             if log_always:
                 self.logger.info("현재 게임 상태 분석 중...")
             
-            # iframe으로 전환
+            # 추가: iframe 매니저 초기화
+            self.iframe_manager = IframeManager(self.devtools.driver)
+            
+            # 기본 프레임으로 전환
             self.devtools.driver.switch_to.default_content()
-            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
-            self.devtools.driver.switch_to.frame(iframe)
+            
+            # 방법 1: 기존 방식으로 iframe 전환 시도
+            iframe_switched = False
+            try:
+                iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                self.devtools.driver.switch_to.frame(iframe)
+                iframe_switched = True
+                
+                # 중첩된 iframe 확인
+                nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                if nested_iframes:
+                    self.logger.info("중첩된 iframe이 발견되어 전환 시도")
+                    self.devtools.driver.switch_to.frame(nested_iframes[0])
+            except Exception as e:
+                self.logger.warning(f"기본 iframe 전환 실패: {e}")
+                self.devtools.driver.switch_to.default_content()
+            
+            # 방법 2: 실패 시 유틸리티 함수 사용
+            if not iframe_switched:
+                self.logger.info("자동 iframe 전환 시도")
+                iframe_switched = switch_to_iframe_with_retry(self.devtools.driver)
+                
+                if not iframe_switched:
+                    self.logger.error("모든 iframe 전환 방법 실패")
+                    return None
             
             # 페이지 소스 가져오기
             html_content = self.devtools.driver.page_source
@@ -54,9 +81,14 @@ class GameMonitoringService:
         except Exception as e:
             # 오류 로깅
             self.logger.error(f"게임 상태 분석 중 오류 발생: {e}", exc_info=True)
+            
+            # 오류 발생 시 기본 프레임으로 복귀 시도
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except:
+                pass
+                
             return None
-
-    # services/game_monitoring_service.py 수정
 
     def close_current_room(self):
         """현재 열린 방을 종료하고 카지노 로비 창으로 포커싱 전환"""
@@ -73,11 +105,35 @@ class GameMonitoringService:
             window_handles = self.devtools.driver.window_handles
             self.logger.info(f"현재 열린 창 개수: {len(window_handles)}")
             
+            # 추가: iframe 매니저 초기화
+            self.iframe_manager = IframeManager(self.devtools.driver)
+            
             # iframe 내부로 이동하여 종료 버튼 찾기
             try:
+                # 기본 프레임으로 전환
                 self.devtools.driver.switch_to.default_content()
-                iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
-                self.devtools.driver.switch_to.frame(iframe)
+                
+                # 방법 1: 기존 방식으로 iframe 전환 시도
+                iframe_switched = False
+                try:
+                    iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                    self.devtools.driver.switch_to.frame(iframe)
+                    iframe_switched = True
+                    
+                    # 중첩된 iframe 확인
+                    nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                    if nested_iframes:
+                        self.logger.info("종료 버튼 찾기: 중첩된 iframe이 발견되어 전환")
+                        self.devtools.driver.switch_to.frame(nested_iframes[0])
+                except Exception as e:
+                    self.logger.warning(f"종료 버튼 찾기: iframe 전환 실패: {e}")
+                    self.devtools.driver.switch_to.default_content()
+                
+                # 방법 2: 실패 시 유틸리티 함수 사용
+                if not iframe_switched:
+                    self.logger.info("종료 버튼 찾기: 자동 iframe 전환 시도")
+                    iframe_switched = switch_to_iframe_with_retry(self.devtools.driver)
+                
                 self.logger.info("iframe 내부에서 종료 버튼 탐색 중...")
 
                 # 정확한 종료 버튼 선택자 사용

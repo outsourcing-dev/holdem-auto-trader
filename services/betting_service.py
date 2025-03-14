@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
+from utils.iframe_utils import IframeManager, switch_to_iframe_with_retry  # 추가: iframe 유틸리티 임포트
 
 class BettingService:
     def __init__(self, devtools, main_window, logger=None):
@@ -23,8 +24,10 @@ class BettingService:
         self.has_bet_current_round = False
         self.current_bet_round = 0  # 현재 베팅한 라운드 번호
         self.last_bet_type = None   # 마지막으로 베팅한 타입
+        
+        # 추가: iframe 매니저 초기화
+        self.iframe_manager = None
 
-    # services/betting_service.py
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 활성화: {is_trading_active}, 금액: {bet_amount}")
 
@@ -72,10 +75,36 @@ class BettingService:
             gc.collect()
             time.sleep(0.5)  # 시스템에 최적화 시간 제공
             
-            # iframe으로 전환
+            # 추가: iframe 매니저 초기화
+            self.iframe_manager = IframeManager(self.devtools.driver)
+            
+            # 기본 프레임으로 전환
             self.devtools.driver.switch_to.default_content()
-            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
-            self.devtools.driver.switch_to.frame(iframe)
+            
+            # 방법 1: 기존 방식으로 iframe 전환 시도
+            iframe_switched = False
+            try:
+                iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                self.devtools.driver.switch_to.frame(iframe)
+                iframe_switched = True
+                
+                # 중첩된 iframe 확인
+                nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                if nested_iframes:
+                    self.logger.info("베팅: 중첩된 iframe이 발견되어 전환")
+                    self.devtools.driver.switch_to.frame(nested_iframes[0])
+            except Exception as e:
+                self.logger.warning(f"베팅: iframe 전환 실패: {e}")
+                self.devtools.driver.switch_to.default_content()
+            
+            # 방법 2: 실패 시 유틸리티 함수 사용
+            if not iframe_switched:
+                self.logger.info("베팅: 자동 iframe 전환 시도")
+                iframe_switched = switch_to_iframe_with_retry(self.devtools.driver)
+                
+                if not iframe_switched:
+                    self.logger.error("모든 iframe 전환 방법 실패")
+                    return False
 
             # 칩 클릭 가능 여부로 베팅 상태 확인
             self.logger.info("베팅 가능 상태 확인 시작...")
@@ -347,8 +376,6 @@ class BettingService:
             
         return self.has_bet_current_round and self.current_bet_round == current_round
     
-    # services/betting_service.py의 check_betting_result 메서드 수정
-
     def check_betting_result(self, bet_type, latest_result, current_room_name, result_count, step=None):
         """
         베팅 결과를 직접 확인합니다.
@@ -422,6 +449,37 @@ class BettingService:
     def update_balance_after_bet(self):
         """베팅 후 잔액 변경 확인 및 UI 업데이트"""
         try:
+            # 추가: iframe 매니저 초기화
+            self.iframe_manager = IframeManager(self.devtools.driver)
+            
+            # 기본 프레임으로 전환
+            self.devtools.driver.switch_to.default_content()
+            
+            # 방법 1: 기존 방식으로 iframe 전환 시도
+            iframe_switched = False
+            try:
+                iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                self.devtools.driver.switch_to.frame(iframe)
+                iframe_switched = True
+                
+                # 중첩된 iframe 확인
+                nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                if nested_iframes:
+                    self.logger.info("잔액 확인: 중첩된 iframe이 발견되어 전환")
+                    self.devtools.driver.switch_to.frame(nested_iframes[0])
+            except Exception as e:
+                self.logger.warning(f"잔액 확인: iframe 전환 실패: {e}")
+                self.devtools.driver.switch_to.default_content()
+            
+            # 방법 2: 실패 시 유틸리티 함수 사용
+            if not iframe_switched:
+                self.logger.info("잔액 확인: 자동 iframe 전환 시도")
+                iframe_switched = switch_to_iframe_with_retry(self.devtools.driver)
+                
+                if not iframe_switched:
+                    self.logger.error("모든 iframe 전환 방법 실패")
+                    return None
+                    
             # iframe 내에서 잔액 가져오기
             balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='balance-label-value']")
             balance_text = balance_element.text
@@ -434,7 +492,17 @@ class BettingService:
             
             self.logger.info(f"현재 잔액 업데이트: {current_balance:,}원")
             
+            # 기본 컨텐츠로 돌아가기
+            self.devtools.driver.switch_to.default_content()
+            
             return current_balance
         except Exception as e:
             self.logger.error(f"잔액 업데이트 실패: {e}")
+            
+            # 기본 컨텐츠로 돌아가기 시도
+            try:
+                self.devtools.driver.switch_to.default_content()
+            except:
+                pass
+                
             return None

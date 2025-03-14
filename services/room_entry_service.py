@@ -1,11 +1,12 @@
-# services/room_entry_service.py
 import random
 import time
 import logging
+import re
 from PyQt6.QtWidgets import QMessageBox
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from utils.iframe_utils import IframeManager, switch_to_iframe_with_retry
 
 class RoomEntryService:
     def __init__(self, devtools, main_window, room_manager, logger=None):
@@ -26,6 +27,9 @@ class RoomEntryService:
         self.devtools = devtools
         self.main_window = main_window
         self.room_manager = room_manager
+        
+        # iframe 매니저 초기화
+        self.iframe_manager = None
 
     def enter_room(self):
         """
@@ -37,6 +41,9 @@ class RoomEntryService:
         """
         max_attempts = 10  # 최대 방 찾기 시도 횟수 증가
         attempts = 0
+        
+        # iframe 매니저 초기화 (driver 객체가 변경될 수 있으므로 여기서 다시 초기화)
+        self.iframe_manager = IframeManager(self.devtools.driver)
         
         while attempts < max_attempts:
             try:
@@ -105,7 +112,7 @@ class RoomEntryService:
                     self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
                     
                     # 게임 수가 10판 미만이거나 50판 이상인 경우 방 나가기
-                    if game_count < 10 or game_count > 50:
+                    if game_count < 10 or game_count > 57:
                         self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
                         
                         # 방 나가기
@@ -149,26 +156,6 @@ class RoomEntryService:
                     
         return None  # 모든 시도 실패
 
-    def _switch_to_iframe(self):
-        """
-        iframe으로 전환합니다.
-        
-        Raises:
-            Exception: iframe 전환 중 오류 발생 시
-        """
-        try:
-            # 기본 컨텍스트로 전환
-            self.devtools.driver.switch_to.default_content()
-            
-            # iframe 찾기 및 전환
-            iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
-            self.devtools.driver.switch_to.frame(iframe)
-            
-            self.logger.info("iframe으로 성공적으로 전환")
-        except Exception as e:
-            self.logger.error(f"iframe 전환 중 오류: {e}", exc_info=True)
-            raise
-        
     def _search_and_enter_room(self, room_name, max_retries=3):
         """방 검색 및 입장 (재시도 로직 포함)"""
         for retry_count in range(max_retries):
@@ -186,57 +173,69 @@ class RoomEntryService:
                     except Exception as e:
                         self.logger.warning(f"페이지 새로고침 중 오류: {e}")
                 
-                # iframe으로 전환
+                # 기본 프레임으로 전환
+                self.devtools.driver.switch_to.default_content()
+                self.logger.info("기본 프레임으로 전환 완료")
+                
+                # iframe 처리를 위한 flag
+                inside_iframe = False
+                
+                # **수정된 부분: iframe 중첩 처리**
+                self.logger.info("중첩된 iframe 전환 시도")
                 try:
-                    self.devtools.driver.switch_to.default_content()
-                    # 명시적 대기 추가
-                    WebDriverWait(self.devtools.driver, 5).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe"))
-                    )
-                    iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
-                    self.devtools.driver.switch_to.frame(iframe)
-                    self.logger.info("iframe으로 성공적으로 전환")
-                    time.sleep(1)  # iframe 전환 후 추가 대기
+                    # 기본 컨텐츠에서 모든 iframe 태그 찾기
+                    iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                    
+                    if len(iframes) > 0:
+                        self.logger.info(f"최상위에서 {len(iframes)}개의 iframe 발견")
+                        
+                        # 첫 번째 iframe으로 전환
+                        self.devtools.driver.switch_to.frame(iframes[0])
+                        self.logger.info("첫 번째 iframe으로 전환 완료")
+                        inside_iframe = True
+                        
+                        # 중첩된 iframe이 있는지 확인
+                        nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                        
+                        if len(nested_iframes) > 0:
+                            self.logger.info(f"첫 번째 iframe 내부에서 {len(nested_iframes)}개의 중첩 iframe 발견")
+                            
+                            # 첫 번째 중첩 iframe으로 전환
+                            self.devtools.driver.switch_to.frame(nested_iframes[0])
+                            self.logger.info("중첩된 iframe으로 전환 완료")
+                    else:
+                        self.logger.warning("최상위에서 iframe을 찾을 수 없음")
                 except Exception as e:
                     self.logger.warning(f"iframe 전환 중 오류: {e}")
-                    continue  # 다음 재시도로 넘어감
+                    # 오류 발생 시 기본 컨텐츠로 복귀
+                    self.devtools.driver.switch_to.default_content()
+                    inside_iframe = False
                 
-                # 검색 입력 필드 찾기 - 명시적 대기 추가
-                try:
-                    # 여러 선택자 시도 (대체 전략)
-                    search_selectors = [
-                        "input.TableTextInput--464ac",
-                        "input[data-role='search-input']",
-                        "input[placeholder='찾기']",
-                        "input.search-input"
-                    ]
+                # iframe 전환 실패 시 유틸리티 사용
+                if not inside_iframe:
+                    self.logger.info("iframe 전환 실패, 유틸리티 사용 시도")
+                    inside_iframe = switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2)
                     
-                    search_input = None
-                    for selector in search_selectors:
-                        try:
-                            self.logger.info(f"검색 입력 필드 선택자 시도: {selector}")
-                            search_input = WebDriverWait(self.devtools.driver, 3).until(
-                                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                            )
-                            if search_input:
-                                self.logger.info(f"검색 입력 필드 발견: {selector}")
-                                break
-                        except:
-                            continue
-                    
-                    if not search_input:
-                        raise Exception("모든 검색 입력 필드 선택자가 실패했습니다.")
-                    
-                    time.sleep(1)  # 검색 입력 필드 발견 후 추가 대기
-                    search_input.clear()
-                    search_input.send_keys(search_name)
-                    self.logger.info(f"방 이름 '{search_name}' 입력 완료")
-                    
-                    # 검색 결과가 나타날 때까지 충분히 대기
-                    time.sleep(3)
-                except Exception as e:
-                    self.logger.warning(f"검색 입력 필드 찾기 또는 입력 중 오류: {e}")
-                    continue  # 다음 재시도로 넘어감
+                    if not inside_iframe:
+                        self.logger.warning("모든 iframe 전환 방법 실패. 기본 컨텐츠 상태로 계속 진행")
+                
+                # 검색 입력 필드 찾기
+                search_input = self._find_search_input()
+                
+                if not search_input:
+                    self.logger.warning("검색 입력 필드를 찾을 수 없음. 다음 시도로 넘어감")
+                    # 기본 컨텐츠로 복귀 시도
+                    self.devtools.driver.switch_to.default_content()
+                    continue
+                
+                # 검색 입력 필드에 방 이름 입력
+                time.sleep(1)
+                search_input.clear()
+                search_input.send_keys(search_name)
+                self.logger.info(f"방 이름 '{search_name}' 입력 완료")
+                
+                # 검색 결과가 나타날 때까지 충분히 대기
+                time.sleep(3)
                 
                 # 검색 결과 찾기 시도
                 try:
@@ -329,3 +328,112 @@ class RoomEntryService:
         
         # 모든 시도 실패
         return False
+
+    def _find_search_input(self):
+        """검색 입력 필드를 다양한 방법으로 찾는 헬퍼 메서드"""
+        search_input = None
+        
+        # 방법 1: 기본 선택자들
+        search_selectors = [
+            "input.TableTextInput--464ac",
+            "input[data-role='search-input']",
+            "input[placeholder='찾기']",
+            "input.search-input"
+        ]
+        
+        for selector in search_selectors:
+            try:
+                self.logger.info(f"검색 입력 필드 선택자 시도: {selector}")
+                search_input = self.devtools.driver.find_element(By.CSS_SELECTOR, selector)
+                if search_input:
+                    self.logger.info(f"검색 입력 필드 발견: {selector}")
+                    return search_input
+            except:
+                continue
+        
+        # 방법 2: 복합 선택자
+        try:
+            self.logger.info("정확한 복합 선택자로 검색 입력 필드 찾기 시도")
+            composite_selector = "input.TableTextInput--464ac[placeholder='찾기'][data-role='search-input']"
+            search_input = self.devtools.driver.find_element(By.CSS_SELECTOR, composite_selector)
+            if search_input:
+                self.logger.info("정확한 복합 선택자로 검색 입력 필드 발견")
+                return search_input
+        except:
+            pass
+        
+        # 방법 3: 모든 input 요소 확인
+        try:
+            self.logger.info("모든 input 요소 검색")
+            all_inputs = self.devtools.driver.find_elements(By.TAG_NAME, "input")
+            self.logger.info(f"총 {len(all_inputs)}개의 input 요소 발견")
+            
+            for input_el in all_inputs:
+                try:
+                    input_type = input_el.get_attribute("type") or ""
+                    input_class = input_el.get_attribute("class") or ""
+                    input_placeholder = input_el.get_attribute("placeholder") or ""
+                    
+                    # 검색 관련 특징 확인
+                    if (input_type.lower() == "text" or input_type == "") and \
+                    (input_placeholder.lower() == "찾기" or \
+                        "search" in input_class.lower() or \
+                        "search" in input_placeholder.lower()):
+                        self.logger.info(f"검색 특성을 가진 input 요소 발견: class='{input_class}', placeholder='{input_placeholder}'")
+                        return input_el
+                except:
+                    continue
+        except Exception as e:
+            self.logger.warning(f"모든 input 요소 검색 실패: {e}")
+        
+        # 방법 4: XPath 사용
+        try:
+            self.logger.info("XPath로 검색 입력 필드 찾기 시도")
+            xpath_expressions = [
+                "//input[@placeholder='찾기']",
+                "//input[@data-role='search-input']",
+                "//input[contains(@class, 'TableTextInput')]",
+                "//input[contains(@class, 'search')]",
+                "//div[contains(@class, 'search')]//input"
+            ]
+            
+            for xpath in xpath_expressions:
+                try:
+                    input_el = self.devtools.driver.find_element(By.XPATH, xpath)
+                    if input_el:
+                        self.logger.info(f"XPath로 검색 입력 필드 발견: {xpath}")
+                        return input_el
+                except:
+                    continue
+        except Exception as e:
+            self.logger.warning(f"XPath 검색 실패: {e}")
+        
+        # 방법 5: JavaScript로 검색
+        try:
+            self.logger.info("JavaScript로 검색 입력 필드 찾기 시도")
+            js_code = """
+            // 모든 input 요소 찾기
+            var inputs = document.getElementsByTagName('input');
+            
+            // 검색 관련 input 필터링
+            for (var i = 0; i < inputs.length; i++) {
+                var input = inputs[i];
+                if (input.placeholder === '찾기' || 
+                    input.getAttribute('data-role') === 'search-input' ||
+                    (input.className && input.className.includes('TableTextInput'))) {
+                    return input;
+                }
+            }
+            
+            // 아무 input이라도 있으면 첫 번째 반환
+            return inputs.length > 0 ? inputs[0] : null;
+            """
+            
+            input_el = self.devtools.driver.execute_script(js_code)
+            if input_el:
+                self.logger.info("JavaScript로 검색 입력 필드 발견")
+                return input_el
+        except Exception as e:
+            self.logger.warning(f"JavaScript 검색 실패: {e}")
+        
+        return None
