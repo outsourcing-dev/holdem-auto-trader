@@ -205,7 +205,7 @@ class RoomLogWidget(QWidget):
             
             # 승패에 따른 색상 설정
             if data['win'] > 0:
-                win_item.setForeground(QColor("green"))
+                win_item.setForeground(QColor("blue"))
             if data['lose'] > 0:
                 lose_item.setForeground(QColor("red"))
             

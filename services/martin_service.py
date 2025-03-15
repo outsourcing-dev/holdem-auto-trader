@@ -1,4 +1,5 @@
-# services/martin_service.py
+# services/martin_service.py 수정
+
 import logging
 from utils.settings_manager import SettingsManager
 
@@ -129,19 +130,7 @@ class MartinBettingService:
                 # 패배 후 다음 단계로 진행하기 위해 방 이동 필요
                 self.need_room_change = True
                 self.logger.info(f"[마틴] 베팅 실패로 방 이동 필요 설정 (다음 단계: {self.current_step+1})")
-            
-            self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 증가 -> {self.current_step+1}/{self.martin_count} (금액: {current_bet:,}원), 총 실패 수: {self.lose_count}")
-        
-        # UI 업데이트
-        self.main_window.update_user_data(
-            total_bet=self.total_bet_amount
-        )
-        
-        # 로그 추가
-        self.logger.info(f"[마틴] 현재 상태: 성공:{self.win_count}, 실패:{self.lose_count}, 무승부:{self.tie_count}, 방 이동 필요:{self.need_room_change}")
-        
-        return self.current_step, self.consecutive_losses, current_result_position
-
+                
     def get_result_position_for_game(self, game_count):
         """
         특정 게임 카운트에 해당하는 결과 위치를 반환합니다.

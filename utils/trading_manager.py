@@ -518,10 +518,22 @@ class TradingManager:
                 
                 # 마틴 베팅 단계 업데이트 및 결과 위치 가져오기
                 # 수정: 실제 배팅 결과에 해당하는 위치 값 가져오기
-                current_step, consecutive_losses, result_position = self.martin_service.process_bet_result(
+                result = self.martin_service.process_bet_result(
                     result_status, 
                     game_count=self.game_count
                 )
+                if result:  # None이 아닌 경우에만 언패킹
+                    current_step, consecutive_losses, result_position = result
+                    # 베팅 위젯에 결과 표시 - 실제 배팅 횟수 기준 위치 사용
+                    self.main_window.betting_widget.set_step_marker(result_position, result_marker)
+                else:
+                    # 결과가 None인 경우 처리
+                    self.logger.warning(f"마틴 베팅 결과 처리 실패: None 반환")
+                    # 기본값 설정 (선택적)
+                    current_step = self.martin_service.current_step
+                    consecutive_losses = self.martin_service.consecutive_losses
+                    result_position = 1  # 기본 위치
+                
                 
                 # 베팅 위젯에 결과 표시 - 실제 배팅 횟수 기준 위치 사용
                 self.main_window.betting_widget.set_step_marker(result_position, result_marker)
@@ -616,7 +628,7 @@ class TradingManager:
                 # 현재 마틴 단계 디버깅
                 self.logger.info(f"[DEBUG] 현재 마틴 단계: {self.martin_service.current_step} (0부터 시작)")
                 self.logger.info(f"[DEBUG] 현재 베팅 단계 (UI 표시용): {self.martin_service.current_step + 1}")
-                self.logger.info(f"[DEBUG] 진행 중인 step_items 키: {list(self.main_window.betting_widget.step_items.keys())}")
+                self.logger.info(f"[DEBUG] 현재 방 마커 위치 카운터: {self.main_window.betting_widget.room_position_counter}")
             
             # 중요: 베팅 전 현재 잔액 확인 및 목표 금액 체크
             balance = self.balance_service.get_iframe_balance()
@@ -672,7 +684,7 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-        
+            
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:
@@ -772,6 +784,7 @@ class TradingManager:
         수정된 베팅 전략 적용:
         - 한 방에서 한 번만 배팅하고 이동
         - 마틴 단계는 방 간에 연속적으로 적용
+        - 방 이동 시 베팅 위젯 초기화
         """
         try:
             self.logger.info("방 이동 준비 중...")
@@ -831,9 +844,12 @@ class TradingManager:
                     QMessageBox.warning(self.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다. 자동 매매를 중지합니다.")
                     return False
             
-            # 이제 확실히 새 방에 입장했으므로 이 시점에서 베팅 위젯 초기화 (이전 방의 결과 기록 보존은 끝)
-            self.main_window.betting_widget.reset_step_markers()
-            self.main_window.betting_widget.reset_room_results()
+            # 중요: 새 방 입장 시 베팅 위젯 초기화
+            # 이제 확실히 새 방에 입장했으므로 이 시점에서 베팅 위젯 초기화
+            # 수정: 마커만 초기화하는 함수에서 위치 카운터도 초기화하도록 변경
+            self.main_window.betting_widget.reset_step_markers()  # 마커와 위치 카운터 초기화
+            self.main_window.betting_widget.reset_room_results()  # 모든 결과 카운터 초기화
+            self.logger.info("새 방 입장: 베팅 위젯 마커와 결과 카운터 초기화 완료")
             
             # 입장한 새 방 정보로 UI 업데이트
             self.current_room_name = new_room_name
@@ -891,11 +907,3 @@ class TradingManager:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패: {str(e)}")
             return False
-            
-    # logging.basicConfig(
-    #     level=logging.INFO,
-    #     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    #     handlers=[
-    #         logging.StreamHandler()
-    #     ]
-    # )
