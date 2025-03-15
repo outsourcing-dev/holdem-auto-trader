@@ -27,14 +27,6 @@ class RoomLogWidget(QWidget):
         log_group = QGroupBox("방 로그")
         log_layout = QVBoxLayout()
         
-        # 로그 테이블
-        # self.log_table = QTableWidget()
-        # self.log_table.setMinimumHeight(300)  # 최소 높이 설정
-        # self.log_table.setColumnCount(5)  # 방 이름, 시도 횟수, 승, 패, 성공률
-        # self.log_table.setHorizontalHeaderLabels(["방 이름", "시도", "승", "패", "성공률"])
-        # self.log_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        # self.log_table.setRowCount(0)  # 초기에는 데이터 없음
-        
         self.log_table = QTableWidget()
         self.log_table.setMinimumHeight(300)  # 최소 높이 설정
         self.log_table.setColumnCount(5)  # 방 이름, 시도 횟수, 승, 패, 성공률
@@ -63,7 +55,7 @@ class RoomLogWidget(QWidget):
         # ✅ 총 적중 수
         win_layout = QHBoxLayout()
         win_label = QLabel("적중")
-        win_label.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; font-size: 14px; border-radius: 4px;")
+        win_label.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 8px; font-size: 14px; border-radius: 4px;")
         win_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 🔥 라벨 중앙 정렬
         self.win_count_label = QLabel("0")  # 초기값 0
         self.win_count_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 8px;")
@@ -74,7 +66,7 @@ class RoomLogWidget(QWidget):
         # ✅ 총 실패 수
         lose_layout = QHBoxLayout()
         lose_label = QLabel("실패")
-        lose_label.setStyleSheet("background-color: #F44336; color: white; padding: 8px; font-size: 14px; border-radius: 4px;")
+        lose_label.setStyleSheet("background-color: #F44336; color: white; font-weight: bold; padding: 8px; font-size: 14px; border-radius: 4px;")
         lose_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 🔥 라벨 중앙 정렬
         self.lose_count_label = QLabel("0")  # 초기값 0
         self.lose_count_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 8px;")
