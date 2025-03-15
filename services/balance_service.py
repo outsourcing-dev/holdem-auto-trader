@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import re
+from utils.iframe_utils import IframeManager, switch_to_iframe_with_retry  # 추가: iframe 유틸리티 임포트
 
 class BalanceService:
     def __init__(self, devtools, main_window, logger=None):
@@ -25,6 +26,9 @@ class BalanceService:
         self.devtools = devtools
         self.main_window = main_window
         self.settings_manager = SettingsManager()
+        
+        # 추가: iframe 매니저 초기화
+        self.iframe_manager = None
 
     def get_lobby_balance(self):
         """
@@ -41,15 +45,54 @@ class BalanceService:
                 self.logger.error("페이지 소스를 가져올 수 없습니다.")
                 return None
             
-            # iframe 찾기 및 전환
+            # 추가: iframe 매니저 초기화
+            self.iframe_manager = IframeManager(self.devtools.driver)
+            
+            # 기본 컨텐츠로 전환
             self.devtools.driver.switch_to.default_content()
-            iframe = self.devtools.driver.find_element("css selector", "iframe")
-            self.devtools.driver.switch_to.frame(iframe)
             
-            # iframe 내부 소스 가져오기
-            iframe_html = self.devtools.driver.page_source
+            # 방법 1: 기존 방식으로 iframe 전환 시도
+            iframe_switched = False
+            try:
+                iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                self.devtools.driver.switch_to.frame(iframe)
+                iframe_switched = True
+                
+                # 중첩된 iframe 확인
+                nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                if nested_iframes:
+                    self.logger.info("잔액 확인: 중첩된 iframe이 발견되어 전환")
+                    self.devtools.driver.switch_to.frame(nested_iframes[0])
+            except Exception as e:
+                self.logger.warning(f"잔액 확인: iframe 전환 실패: {e}")
+                self.devtools.driver.switch_to.default_content()
             
-            # 방법 1: data-role="header-balance" 속성을 가진 요소 찾기
+            # 방법 2: 실패 시 유틸리티 함수 사용
+            if not iframe_switched:
+                self.logger.info("잔액 확인: 자동 iframe 전환 시도")
+                iframe_switched = switch_to_iframe_with_retry(self.devtools.driver)
+                
+                if not iframe_switched:
+                    self.logger.error("모든 iframe 전환 방법 실패")
+                    return None
+            
+            # 기존 코드 (방법 1): balance-label-value 방식 - 항상 첫번째로 시도
+            try:
+                # 잔액 요소 찾기 (iframe 내부에서 잔액을 표시하는 요소)
+                balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='balance-label-value']")
+                if balance_element:
+                    balance_text = balance_element.text
+                    # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
+                    balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                    self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (balance-label-value)")
+                    
+                    # 기본 컨텐츠로 돌아가기
+                    self.devtools.driver.switch_to.default_content()
+                    return balance
+            except Exception as e:
+                self.logger.warning(f"balance-label-value로 잔액 가져오기 실패: {e}")
+            
+            # 방법 2: data-role="header-balance" 속성을 가진 요소 찾기
             try:
                 balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "[data-role='header-balance']")
                 if balance_element:
@@ -65,7 +108,7 @@ class BalanceService:
             except Exception as e:
                 self.logger.warning(f"header-balance로 잔액 가져오기 실패: {e}")
             
-            # 방법 2: Typography 클래스를 가진 header-balance 요소 찾기 (추가된 방법)
+            # 방법 3: Typography 클래스를 가진 header-balance 요소 찾기
             try:
                 typography_selector = "span.Typography--d2c9a[data-role='header-balance']"
                 balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, typography_selector)
@@ -82,61 +125,110 @@ class BalanceService:
             except Exception as e:
                 self.logger.warning(f"Typography header-balance로 잔액 가져오기 실패: {e}")
             
-            # 방법 3: 기존 balance-label-value 방식 (백업)
-            try:
-                # 잔액 요소 찾기 (iframe 내부에서 잔액을 표시하는 요소)
-                balance_element = self.devtools.driver.find_element(By.CSS_SELECTOR, "span[data-role='balance-label-value']")
-                if balance_element:
-                    balance_text = balance_element.text
-                    # 숫자만 추출 (₩과 콤마, 특수 문자 제거)
-                    balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
-                    self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (balance-label-value)")
-                    
-                    # 기본 컨텐츠로 돌아가기
-                    self.devtools.driver.switch_to.default_content()
-                    return balance
-            except Exception as e:
-                self.logger.warning(f"balance-label-value로 잔액 가져오기 실패: {e}")
-            
             # 방법 4: 클래스 이름으로 Typography 요소 찾기
             try:
                 # 클래스 이름으로 잔액 요소 찾기 시도
                 balance_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, ".Typography--d2c9a")
                 for element in balance_elements:
-                    balance_text = element.text
-                    if '₩' in balance_text or '원' in balance_text:
-                        self.logger.info(f"Typography 클래스에서 잔액 후보 텍스트: {balance_text}")
-                        # 숫자만 추출
-                        balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
-                        self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (Typography)")
-                        
-                        # 기본 컨텐츠로 돌아가기
-                        self.devtools.driver.switch_to.default_content()
-                        return balance
+                    try:
+                        balance_text = element.text
+                        self.logger.info(f"Typography 클래스 요소 텍스트: {balance_text}")
+                        if '₩' in balance_text or '원' in balance_text:
+                            self.logger.info(f"Typography 클래스에서 잔액 후보 텍스트: {balance_text}")
+                            # 숫자만 추출
+                            balance = int(re.sub(r'[^\d]', '', balance_text) or '0')
+                            self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (Typography)")
+                            
+                            # 기본 컨텐츠로 돌아가기
+                            self.devtools.driver.switch_to.default_content()
+                            return balance
+                    except Exception as inner_e:
+                        self.logger.warning(f"Typography 요소 처리 중 오류: {inner_e}")
+                        continue  # 다음 요소로 진행
             except Exception as e:
                 self.logger.warning(f"Typography 클래스로 잔액 가져오기 실패: {e}")
             
-            # 방법 5: 내용에 '₩' 또는 '원'이 있는 모든 요소 검색
+            # 방법 5: 모든 span 요소 검색
+            try:
+                all_spans = self.devtools.driver.find_elements(By.TAG_NAME, "span")
+                self.logger.info(f"총 {len(all_spans)}개의 span 요소 찾음")
+                
+                for span in all_spans:
+                    try:
+                        span_text = span.text
+                        if re.search(r'[\d,]+', span_text) and ('₩' in span_text or '원' in span_text or len(re.findall(r'\d', span_text)) >= 3):
+                            self.logger.info(f"잠재적 잔액 요소 발견: {span_text}")
+                            # 숫자만 추출
+                            balance = int(re.sub(r'[^\d]', '', span_text) or '0')
+                            if balance > 100:  # 잔액은 보통 큰 숫자이므로 필터링
+                                self.logger.info(f"로비 iframe에서 가져온 잔액: {balance:,}원 (span 태그)")
+                                
+                                # 기본 컨텐츠로 돌아가기
+                                self.devtools.driver.switch_to.default_content()
+                                return balance
+                    except Exception as inner_e:
+                        continue  # 오류가 있어도 다음 span으로 계속 진행
+            except Exception as e:
+                self.logger.warning(f"모든 span 요소 검색 중 오류: {e}")
+            
+            # 방법 6: 내용에 '₩' 또는 '원'이 있는 모든 요소 검색
             try:
                 # XPath로 검색
                 xpath_expr = "//*[contains(text(), '₩') or contains(text(), '원')]"
                 balance_candidates = self.devtools.driver.find_elements(By.XPATH, xpath_expr)
+                self.logger.info(f"₩ 또는 원을 포함하는 요소 {len(balance_candidates)}개 발견")
                 
                 for element in balance_candidates:
-                    balance_text = element.text
-                    self.logger.info(f"₩/원 포함 요소 발견: {balance_text}")
-                    # 숫자만 추출
-                    numbers = re.findall(r'\d+', re.sub(r'[,\.]', '', balance_text))
-                    if numbers:
-                        largest_number = max([int(num) for num in numbers])
-                        if largest_number > 100:  # 잔액은 보통 큰 숫자이므로 필터링
-                            self.logger.info(f"로비 iframe에서 가져온 잔액: {largest_number:,}원 (XPath)")
-                            
-                            # 기본 컨텐츠로 돌아가기
-                            self.devtools.driver.switch_to.default_content()
-                            return largest_number
+                    try:
+                        balance_text = element.text
+                        self.logger.info(f"₩/원 포함 요소 발견: {balance_text}")
+                        # 숫자만 추출
+                        numbers = re.findall(r'\d+', re.sub(r'[,\.]', '', balance_text))
+                        if numbers:
+                            largest_number = max([int(num) for num in numbers])
+                            if largest_number > 100:  # 잔액은 보통 큰 숫자이므로 필터링
+                                self.logger.info(f"로비 iframe에서 가져온 잔액: {largest_number:,}원 (XPath)")
+                                
+                                # 기본 컨텐츠로 돌아가기
+                                self.devtools.driver.switch_to.default_content()
+                                return largest_number
+                    except Exception as inner_e:
+                        continue  # 오류가 있어도 다음 요소로 계속 진행
             except Exception as e:
                 self.logger.warning(f"XPath로 잔액 가져오기 실패: {e}")
+            
+            # 방법 7: 페이지 소스에서 직접 정규식으로 검색
+            try:
+                page_source = self.devtools.driver.page_source
+                # 정규식 패턴 (다양한 형태의 금액 표시를 찾기 위함)
+                patterns = [
+                    r'₩\s*[\d,]+',  # ₩ 다음에 숫자와 콤마
+                    r'₩⁩([\d,]+)',  # 특수한 유니코드 문자 포함
+                    r'header-balance[^>]*>([^<]*\d[^<]*)',  # header-balance 속성 주변의 텍스트
+                    r'balance[^>]*>([^<]*\d[^<]*)'  # balance 속성 주변의 텍스트
+                ]
+                
+                for pattern in patterns:
+                    matches = re.findall(pattern, page_source)
+                    if matches:
+                        for match in matches:
+                            try:
+                                match_text = match if isinstance(match, str) else match[0]
+                                self.logger.info(f"정규식으로 찾은 텍스트: {match_text}")
+                                # 숫자만 추출
+                                numbers = re.findall(r'\d+', re.sub(r'[,\.]', '', match_text))
+                                if numbers:
+                                    largest_number = max([int(num) for num in numbers])
+                                    if largest_number > 100:
+                                        self.logger.info(f"소스에서 정규식으로 가져온 잔액: {largest_number:,}원")
+                                        
+                                        # 기본 컨텐츠로 돌아가기
+                                        self.devtools.driver.switch_to.default_content()
+                                        return largest_number
+                            except Exception as inner_e:
+                                continue
+            except Exception as e:
+                self.logger.warning(f"소스에서 정규식으로 잔액 찾기 실패: {e}")
             
             # 기본 컨텐츠로 돌아가기
             self.devtools.driver.switch_to.default_content()
@@ -226,10 +318,36 @@ class BalanceService:
             int: 현재 잔액 또는 None (실패 시)
         """
         try:
-            # iframe으로 전환
+            # 추가: iframe 매니저 초기화
+            self.iframe_manager = IframeManager(self.devtools.driver)
+            
+            # 기본 컨텐츠로 전환
             self.devtools.driver.switch_to.default_content()
-            iframe = self.devtools.driver.find_element("css selector", "iframe")
-            self.devtools.driver.switch_to.frame(iframe)
+            
+            # 방법 1: 기존 방식으로 iframe 전환 시도
+            iframe_switched = False
+            try:
+                iframe = self.devtools.driver.find_element(By.CSS_SELECTOR, "iframe")
+                self.devtools.driver.switch_to.frame(iframe)
+                iframe_switched = True
+                
+                # 중첩된 iframe 확인
+                nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
+                if nested_iframes:
+                    self.logger.info("잔액 확인: 중첩된 iframe이 발견되어 전환")
+                    self.devtools.driver.switch_to.frame(nested_iframes[0])
+            except Exception as e:
+                self.logger.warning(f"잔액 확인: iframe 전환 실패: {e}")
+                self.devtools.driver.switch_to.default_content()
+            
+            # 방법 2: 실패 시 유틸리티 함수 사용
+            if not iframe_switched:
+                self.logger.info("잔액 확인: 자동 iframe 전환 시도")
+                iframe_switched = switch_to_iframe_with_retry(self.devtools.driver)
+                
+                if not iframe_switched:
+                    self.logger.error("모든 iframe 전환 방법 실패")
+                    return None
             
             # 방법 1: 기본 잔액 요소 찾기
             try:
@@ -358,7 +476,7 @@ class BalanceService:
         # 자동 매매가 활성화된 상태일 때만 확인
         if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
             return False
-        
+            
         # 목표 금액 항상 새로 가져오기 (캐시된 값 대신 파일에서 직접 읽기)
         target_amount = self.settings_manager.get_target_amount()
         self.logger.info(f"[{source}] 현재 목표 금액: {target_amount:,}원, 현재 잔액: {current_balance:,}원")

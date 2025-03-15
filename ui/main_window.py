@@ -153,6 +153,30 @@ class MainWindow(QMainWindow):
         self.header = HeaderWidget()
         self.left_panel.addWidget(self.header)
         
+        # ✅ 남은 라이센스 시간 표시 추가 (중앙 정렬)
+        from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
+
+        # ✅ 남은 라이센스 시간 표시 추가 (왼쪽 정렬 + 패딩 추가)
+        license_time_layout = QHBoxLayout()
+        license_time_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        # ✅ 왼쪽 패딩을 위한 SpacerItem 추가
+        left_spacer = QSpacerItem(20, 10, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        license_time_layout.addItem(left_spacer)  # 패딩 효과
+
+        self.license_time_label = QLabel("사용 가능 시간:")
+        self.license_time_label.setStyleSheet("font-weight: bold; color: #333333;")
+        self.license_time_value = QLabel("00 : 00 : 00")
+        self.license_time_value.setStyleSheet("font-weight: bold; color: #FF5722;")
+
+        # ✅ 레이아웃에 위젯 추가
+        license_time_layout.addWidget(self.license_time_label)
+        license_time_layout.addWidget(self.license_time_value)
+
+        # ✅ 패딩이 추가된 `license_time_layout`을 `left_panel`에 추가
+        self.left_panel.addLayout(license_time_layout)
+
+
         # 배팅 위젯 (현재 진행 상황 표시)
         self.betting_widget = BettingWidget()
         self.betting_widget.setMaximumHeight(230)  # 최대 높이를 100픽셀로 제한
@@ -162,15 +186,6 @@ class MainWindow(QMainWindow):
         self.room_log_widget = RoomLogWidget()
         self.left_panel.addWidget(self.room_log_widget)
         
-        # 남은 라이센스 시간 표시 추가
-        license_time_layout = QHBoxLayout()
-        self.license_time_label = QLabel("사용 가능 시간:")
-        self.license_time_label.setStyleSheet("font-weight: bold; color: #333333;")
-        self.license_time_value = QLabel("00 : 00 : 00")
-        self.license_time_value.setStyleSheet("font-weight: bold; color: #FF5722;")
-        license_time_layout.addWidget(self.license_time_label)
-        license_time_layout.addWidget(self.license_time_value)
-        self.left_panel.addLayout(license_time_layout)
 
         # 사이트 이동 버튼
         site1, site2, site3 = self.settings_manager.get_sites()

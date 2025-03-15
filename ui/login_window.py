@@ -142,10 +142,10 @@ class LoginWindow(QDialog):
             return
 
         # # 테스트용 관리자 계정 (개발 디버깅용)
-        # if username == "admin" and password == "1234":
-        #     QMessageBox.information(self, "로그인 성공", "관리자로 로그인 되었습니다! 😊")
-        #     self.app.show_main_window(username=username, days_left=365)  # 관리자는 365일 부여
-        #     return
+        if username == "coreashield" and password == "1234":
+            QMessageBox.information(self, "로그인 성공", "관리자로 로그인 되었습니다! 😊")
+            self.app.show_main_window(username=username, days_left=365)  # 관리자는 365일 부여
+            return
 
         # DB에서 사용자 인증
         success, days_left, message = self.db_manager.authenticate_user(username, password)
