@@ -1,7 +1,7 @@
 # ui/betting_widget.py 수정
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, 
                             QTableWidget, QTableWidgetItem, QHeaderView, 
-                            QGroupBox)
+                            QGroupBox,QSizePolicy,QGridLayout)
 
 from PyQt6.QtCore import Qt,QRect
 from PyQt6.QtGui import QColor, QFont
@@ -91,6 +91,20 @@ class CircleItemDelegate(QStyledItemDelegate):
 
         painter.restore()
 
+def create_label(text, bg_color):
+    label = QLabel(text)
+    label.setStyleSheet(f"background-color: {bg_color}; color: white; padding: 4px; font-size: 12px; border-radius: 4px;")
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)  # 너비 균일하게 확장
+    return label
+
+def create_count_label():
+    label = QLabel("0")
+    label.setStyleSheet("font-size: 12px; font-weight: bold; padding: 4px;")
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    return label
+
 class BettingWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -177,42 +191,45 @@ class BettingWidget(QWidget):
         progress_layout.addWidget(self.progress_table)
         
         # 현재 방 결과 요약
-        room_results_layout = QHBoxLayout()
+        room_results_layout = QGridLayout()  # 🔥 QGridLayout으로 변경
         
-        # 성공(O) 수
+        # 성공(O)
         self.success_count = 0
         success_layout = QHBoxLayout()
-        success_label = QLabel("성공(O)")
-        success_label.setStyleSheet("background-color: #2196F3; color: white; padding: 4px; font-size: 12px; border-radius: 4px;")
-        self.success_count_label = QLabel("0")
-        self.success_count_label.setStyleSheet("font-size: 12px; font-weight: bold; padding: 4px;")
+        success_label = create_label("성공(O)", "#2196F3")
+        self.success_count_label = create_count_label()
         success_layout.addWidget(success_label)
         success_layout.addWidget(self.success_count_label)
-        room_results_layout.addLayout(success_layout)
-        
-        # 실패(X) 수
+
+        # 실패(X)
         self.fail_count = 0
         fail_layout = QHBoxLayout()
-        fail_label = QLabel("실패(X)")
-        fail_label.setStyleSheet("background-color: #F44336; color: white; padding: 4px; font-size: 12px; border-radius: 4px;")
-        self.fail_count_label = QLabel("0")
-        self.fail_count_label.setStyleSheet("font-size: 12px; font-weight: bold; padding: 4px;")
+        fail_label = create_label("실패(X)", "#F44336")
+        self.fail_count_label = create_count_label()
         fail_layout.addWidget(fail_label)
         fail_layout.addWidget(self.fail_count_label)
-        room_results_layout.addLayout(fail_layout)
-        
-        # 타이(T) 수
+
+        # 타이(T)
         self.tie_count = 0
         tie_layout = QHBoxLayout()
-        tie_label = QLabel("타이(T)")
-        tie_label.setStyleSheet("background-color: #4CAF50; color: white; padding: 4px; font-size: 12px; border-radius: 4px;")
-        self.tie_count_label = QLabel("0")
-        self.tie_count_label.setStyleSheet("font-size: 12px; font-weight: bold; padding: 4px;")
+        tie_label = create_label("타이(T)", "#4CAF50")
+        self.tie_count_label = create_count_label()
         tie_layout.addWidget(tie_label)
         tie_layout.addWidget(self.tie_count_label)
-        room_results_layout.addLayout(tie_layout)
+
+        # GridLayout에 균일하게 배치
+        room_results_layout.addLayout(success_layout, 0, 0)
+        room_results_layout.addLayout(fail_layout, 0, 1)
+        room_results_layout.addLayout(tie_layout, 0, 2)
         
+        # 🔥 각 열이 균일한 비율을 가지도록 설정
+        room_results_layout.setColumnStretch(0, 1)
+        room_results_layout.setColumnStretch(1, 1)
+        room_results_layout.setColumnStretch(2, 1)
+
         progress_layout.addLayout(room_results_layout)
+
+        # progress_layout.addLayout(room_results_layout)
         
         progress_group.setLayout(progress_layout)
         main_layout.addWidget(progress_group)

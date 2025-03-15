@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, 
-                             QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox)
+                             QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox,QGridLayout)
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor
 
 class RoomLogWidget(QWidget):
     def __init__(self):
@@ -57,30 +57,42 @@ class RoomLogWidget(QWidget):
 
         log_layout.addWidget(self.log_table)
         
-        # 총 승패 요약 표시
-        summary_layout = QHBoxLayout()
-        
-        # 총 적중 수
+        # ✅ 총 승패 요약 표시 레이아웃을 QGridLayout으로 변경
+        summary_layout = QGridLayout()
+
+        # ✅ 총 적중 수
         win_layout = QHBoxLayout()
         win_label = QLabel("적중")
         win_label.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; font-size: 14px; border-radius: 4px;")
+        win_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 🔥 라벨 중앙 정렬
         self.win_count_label = QLabel("0")  # 초기값 0
         self.win_count_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 8px;")
+        self.win_count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 🔥 숫자 중앙 정렬
         win_layout.addWidget(win_label)
         win_layout.addWidget(self.win_count_label)
-        summary_layout.addLayout(win_layout)
-        
-        # 총 실패 수
+
+        # ✅ 총 실패 수
         lose_layout = QHBoxLayout()
         lose_label = QLabel("실패")
         lose_label.setStyleSheet("background-color: #F44336; color: white; padding: 8px; font-size: 14px; border-radius: 4px;")
+        lose_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 🔥 라벨 중앙 정렬
         self.lose_count_label = QLabel("0")  # 초기값 0
         self.lose_count_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 8px;")
+        self.lose_count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 🔥 숫자 중앙 정렬
         lose_layout.addWidget(lose_label)
         lose_layout.addWidget(self.lose_count_label)
-        summary_layout.addLayout(lose_layout)
-        
+
+        # ✅ QGridLayout에 추가 (한 줄에 적중, 실패 배치)
+        summary_layout.addLayout(win_layout, 0, 0)
+        summary_layout.addLayout(lose_layout, 0, 1)
+
+        # ✅ 각 열이 동일한 비율로 크기를 차지하도록 설정
+        summary_layout.setColumnStretch(0, 1)
+        summary_layout.setColumnStretch(1, 1)
+
+        # ✅ 부모 레이아웃에 추가
         log_layout.addLayout(summary_layout)
+
         log_group.setLayout(log_layout)
         main_layout.addWidget(log_group)
         

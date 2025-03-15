@@ -663,6 +663,18 @@ class TradingManager:
             if bet_success:
                 self.martin_service.has_bet_in_current_room = True
                 self.logger.info(f"베팅 성공: 한 방에서 한 번 배팅 완료 표시")
+                
+                # 수정: 누적 배팅 금액 업데이트
+                # 마틴 서비스의 total_bet_amount와 메인 윈도우의 total_bet_amount 모두 업데이트
+                self.martin_service.total_bet_amount += bet_amount
+                if hasattr(self.main_window, 'total_bet_amount'):
+                    self.main_window.total_bet_amount += bet_amount
+                else:
+                    self.main_window.total_bet_amount = bet_amount
+                
+                # UI 업데이트 - 누적 배팅 금액 반영
+                self.main_window.update_user_data(total_bet=self.main_window.total_bet_amount)
+                self.logger.info(f"누적 배팅 금액 업데이트: {self.main_window.total_bet_amount:,}원 (+{bet_amount:,}원)")
             
             # 베팅 성공 여부와 관계없이 PICK 값을 UI에 표시
             if not bet_success:
