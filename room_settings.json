@@ -1,130 +1,190 @@
 [
     {
-        "name": "코리안 스피드 바카라 A",
+        "name": "코리안 스피드 바카라 A\n₩1,000\n416",
         "checked": true
     },
     {
-        "name": "코리안 스피드 바카라 B",
+        "name": "코리안 스피드 바카라 B\n₩1,000\n411",
         "checked": true
     },
     {
-        "name": "코리안 스피드 바카라 C",
+        "name": "코리안 스피드 바카라 C\n₩1,000\n316",
         "checked": true
     },
     {
-        "name": "코리안 스피드 바카라 D",
+        "name": "코리안 스피드 바카라 D\n₩1,000\n340",
         "checked": true
     },
     {
-        "name": "코리안 스피드 바카라 E",
-        "checked": false
-    },
-    {
-        "name": "코리안 스피드 바카라 F",
+        "name": "코리안 스피드 바카라 E\n₩1,000\n100",
         "checked": true
     },
     {
-        "name": "힌디어 스피드 바카라 A",
-        "checked": false
-    },
-    {
-        "name": "힌디어 스피드 바카라 B",
-        "checked": false
-    },
-    {
-        "name": "로투스 스피드 바카라 A",
-        "checked": false
-    },
-    {
-        "name": "엠퍼러 스피드 바카라 A",
+        "name": "엠퍼러 스피드 바카라 A\n₩1,000\n249",
         "checked": true
     },
     {
-        "name": "엠퍼러 스피드 바카라 B",
+        "name": "엠퍼러 스피드 바카라 B\n₩1,000\n133",
         "checked": true
     },
     {
-        "name": "엠퍼러 스피드 바카라 C",
+        "name": "엠퍼러 스피드 바카라 C\n₩1,000\n87",
         "checked": true
     },
     {
-        "name": "엠퍼러 스피드 바카라 D",
+        "name": "엠퍼러 스피드 바카라 D\n₩1,000\n72",
         "checked": true
     },
     {
-        "name": "스피드 바카라 A",
+        "name": "로투스 스피드 바카라 A\n₩1,000\n40",
         "checked": true
     },
     {
-        "name": "스피드 바카라 B",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 C",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 D",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 E",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 F",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 G",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 H",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 I",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 J",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 L",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 N",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 Q",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 3",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 4",
-        "checked": false
-    },
-    {
-        "name": "스피드 바카라 5",
+        "name": "로투스 스피드 바카라 B\n₩1,000\n12",
         "checked": true
     },
     {
-        "name": "본자이 스피드 바카라 A",
-        "checked": false
-    },
-    {
-        "name": "본자이 스피드 바카라 B",
+        "name": "로투스 스피드 바카라 C\n₩1,000\n20",
         "checked": true
     },
     {
-        "name": "본자이 스피드 바카라 C",
-        "checked": false
+        "name": "타이 스피드 바카라 A\n₩1,000\n78",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 A\n₩1,000\n2,669",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 B\n₩1,000\n193",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 C\n₩1,000\n186",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 D\n₩1,000\n106",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 E\n₩1,000\n158",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 F\n₩1,000\n115",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 G\n₩1,000\n115",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 H\n₩1,000\n36",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 I\n₩1,000\n84",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 J\n₩1,000\n109",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 L\n₩1,000\n56",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 N\n₩1,000\n135",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 Q\n₩1,000\n69",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 R\n₩1,000\n114",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 S\n₩1,000\n73",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 T\n₩1,000\n112",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 U\n₩1,000\n63",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 V\n₩1,000\n54",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 W\n₩1,000\n101",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 X\n₩1,000\n124",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 Z\n₩1,000\n93",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 3\n₩1,000\n46",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 4\n₩1,000\n10",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 5\n₩1,000\n64",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 6\n₩1,000\n103",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 7\n₩1,000\n88",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 8\n₩1,000\n29",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 9\n₩1,000\n66",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 10\n₩1,000\n38",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 11\n₩1,000\n42",
+        "checked": true
+    },
+    {
+        "name": "스피드 바카라 12\n₩1,000\n69",
+        "checked": true
+    },
+    {
+        "name": "본자이 스피드 바카라 A\n₩1,000\n26",
+        "checked": true
+    },
+    {
+        "name": "본자이 스피드 바카라 B\n₩1,000\n46",
+        "checked": true
+    },
+    {
+        "name": "본자이 스피드 바카라 C\n₩1,000\n32",
+        "checked": true
     }
 ]

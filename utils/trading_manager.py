@@ -331,6 +331,7 @@ class TradingManager:
         self.logger.info(f"선택된 방 {len(checked_rooms)}개: {[room['name'] for room in checked_rooms]}")
         return True
 
+# utils/trading_manager.py - analyze_current_game 메서드 수정
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
         try:
@@ -343,15 +344,10 @@ class TradingManager:
                     
             # 2. 게임 상태 가져오기
             previous_game_count = self.game_count
-            game_state = self.game_monitoring_service.get_current_game_state(log_always=True)  # log_always=True로 변경
+            game_state = self.game_monitoring_service.get_current_game_state(log_always=True)
             
             if not game_state:
                 self.logger.error("게임 상태를 가져올 수 없습니다.")
-                # 로그를 더 자세하게 남기기
-                try:
-                    self.logger.error("현재 URL: " + self.devtools.driver.current_url)
-                except:
-                    self.logger.error("URL을 가져올 수 없습니다.")
                 # 다음에 다시 시도하기 위해 2초 대기 설정
                 self.main_window.set_remaining_time(0, 0, 2)
                 return
@@ -388,6 +384,11 @@ class TradingManager:
                 # 6. 새 게임 시작 시 이전 게임 결과 확인
                 if new_game_count > self.game_count:
                     self._process_previous_game_result(game_state, new_game_count)
+                    
+                    # ⚠️ 중요 수정: 타이(T) 결과 후에는 방 이동 안하도록 추가 확인
+                    if latest_result == 'T':
+                        self.should_move_to_next_room = False
+                        self.logger.info("타이(T) 결과 감지 후 추가 확인: 방 이동 안함")
                     
                     # 7. PICK 값에 따른 베팅 실행 (방 이동 예정이 아닐 때만)
                     if not self.should_move_to_next_room and next_pick in ['P', 'B'] and not self.betting_service.has_bet_current_round:
@@ -455,10 +456,11 @@ class TradingManager:
             # 오류 발생 시에도 계속 모니터링하기 위해 타이머 설정
             self.main_window.set_remaining_time(0, 0, 2)
             
+    # utils/trading_manager.py에서 수정할 부분
     def _process_previous_game_result(self, game_state, new_game_count):
         """
         이전 게임 결과 처리 및 배팅 상태 초기화
-        수정: 한 방에서 한 번만 배팅하는 전략 적용
+        수정: 타이(T) 결과일 경우 방 이동하지 않도록 처리
         """
         # 이전 베팅 정보 가져오기
         last_bet = self.betting_service.get_last_bet()
@@ -471,9 +473,8 @@ class TradingManager:
             self.logger.info(f"[결과검증] 라운드: {self.game_count}, 베팅: {bet_type}, 결과: {latest_result}")
             
             if bet_type in ['P', 'B'] and latest_result:
-                # 결과 판정 - 더 명확하고 상세한 로깅 추가
+                # 결과 판정
                 is_tie = (latest_result == 'T')
-                # 베팅과 결과가 정확히 일치할 때만 승리로 처리
                 is_win = (not is_tie and bet_type == latest_result)
                 
                 # 승패 결과 텍스트
@@ -481,59 +482,41 @@ class TradingManager:
                     result_text = "무승부"
                     result_marker = "T"
                     result_status = "tie"
-                    # 타이 결과도 한 방에서의 배팅으로 처리
-                    self.betting_service.has_bet_current_round = True
-                    self.logger.info(f"타이(T) 결과 감지: 한 방에서 한 번만 배팅하는 전략으로 즉시 방 이동 필요")
-                    self.should_move_to_next_room = True  # 타이 결과도 즉시 방 이동 설정
+                    # ⚠️ 중요 수정: 타이 결과는 배팅 상태 초기화 및 방 이동 안함
+                    self.betting_service.has_bet_current_round = False
+                    self.betting_service.reset_betting_state(new_round=new_game_count)
+                    self.should_move_to_next_room = False
+                    self.logger.info(f"타이(T) 결과 감지: 같은 방에서 재시도")
                 elif is_win:
                     result_text = "적중"
                     result_marker = "O"
                     result_status = "win"
                     # 승리 시 즉시 방 이동 설정
                     self.should_move_to_next_room = True
-                    self.logger.info(f"베팅 성공: 한 방에서 한 번만 배팅하는 전략으로 즉시 방 이동 필요")
+                    self.logger.info(f"베팅 성공: 방 이동 필요")
                 else:
                     result_text = "실패"
                     result_marker = "X"
                     result_status = "lose"
                     # 실패 시에도 즉시 방 이동 설정
                     self.should_move_to_next_room = True
-                    self.logger.info(f"베팅 실패: 한 방에서 한 번만 배팅하는 전략으로 즉시 방 이동 필요")
+                    self.logger.info(f"베팅 실패: 방 이동 필요")
                 
                 # 전과정 상세 로깅 (디버깅용)
                 self.logger.info(f"[결과과정] 베팅: {bet_type}, 결과: {latest_result}, 판정: {result_status}")
-                
-                # 특이 케이스(반대로 처리) 감지를 위한 추가 검증
-                if (bet_type == 'P' and latest_result == 'P' and result_status != 'win') or \
-                (bet_type == 'B' and latest_result == 'B' and result_status != 'win'):
-                    self.logger.error(f"[심각] 판정 오류 감지! 동일 타입인데 패배로 처리: {bet_type}={latest_result}")
-                    # 강제로 승리 처리
-                    result_status = "win"
-                    result_marker = "O"
-                    result_text = "적중"
-                    self.logger.info(f"[결과교정] 동일 타입 판정 오류 수정: {result_status}")
                 
                 # 결과 카운트 증가
                 self.result_count += 1
                 
                 # 마틴 베팅 단계 업데이트 및 결과 위치 가져오기
-                # 수정: 실제 배팅 결과에 해당하는 위치 값 가져오기
+                # ⚠️ 중요 수정: 타이(T) 결과에서 마틴 서비스 반환값 처리 개선
                 result = self.martin_service.process_bet_result(
                     result_status, 
                     game_count=self.game_count
                 )
-                if result:  # None이 아닌 경우에만 언패킹
-                    current_step, consecutive_losses, result_position = result
-                    # 베팅 위젯에 결과 표시 - 실제 배팅 횟수 기준 위치 사용
-                    self.main_window.betting_widget.set_step_marker(result_position, result_marker)
-                else:
-                    # 결과가 None인 경우 처리
-                    self.logger.warning(f"마틴 베팅 결과 처리 실패: None 반환")
-                    # 기본값 설정 (선택적)
-                    current_step = self.martin_service.current_step
-                    consecutive_losses = self.martin_service.consecutive_losses
-                    result_position = 1  # 기본 위치
                 
+                # 모든 반환값이 설정되도록 수정했으므로 None 체크 불필요
+                current_step, consecutive_losses, result_position = result
                 
                 # 베팅 위젯에 결과 표시 - 실제 배팅 횟수 기준 위치 사용
                 self.main_window.betting_widget.set_step_marker(result_position, result_marker)
@@ -580,9 +563,14 @@ class TradingManager:
                 else:
                     self.logger.error("베팅 결과 후 잔액을 업데이트할 수 없습니다.")
                 
-                # 한 방에서 한 번만 배팅하는 전략에 따라 방 이동 플래그 항상 설정
-                self.should_move_to_next_room = True
-                self.logger.info("한 방에서 한 번만 배팅하는 전략에 따라 방 이동 플래그 설정")
+                # ⚠️ 중요 수정: TIE 결과에서 방 이동 안하도록 다시 확인
+                if is_tie:
+                    self.should_move_to_next_room = False
+                    self.logger.info("타이(T) 결과 재확인: 방 이동 안함, 같은 방에서 재시도")
+                else:
+                    # 승리 또는 실패 시에는 방 이동 필요
+                    self.should_move_to_next_room = True
+                    self.logger.info(f"한 방에서 한 번만 베팅하는 전략에 따라 방 이동 플래그 설정")
                 
                 # 마틴 단계 로그 출력
                 self.logger.info(f"현재 마틴 단계: {current_step+1}/{self.martin_service.martin_count}")
@@ -594,9 +582,12 @@ class TradingManager:
             self.betting_service.has_bet_current_round = False
             self.betting_service.current_bet_round = new_game_count
         
-        # 베팅 상태 초기화 (새 라운드 번호로)
-        self.betting_service.reset_betting_state(new_round=new_game_count)
-        self.logger.info(f"새로운 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
+        # 타이(T) 결과를 제외하고 베팅 상태 초기화
+        if game_state.get('latest_result') != 'T':
+            self.betting_service.reset_betting_state(new_round=new_game_count)
+            self.logger.info(f"새로운 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
+        else:
+            self.logger.info(f"타이(T) 결과: 이전 베팅 상태 유지하고 같은 방에서 재시도 (게임 수: {new_game_count})")
         
         # UI 업데이트 (방 이름과 게임 수 갱신, 결과는 그대로 유지)
         # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
@@ -605,8 +596,7 @@ class TradingManager:
             room_name=f"{display_room_name} (게임 수: {new_game_count})",
             pick=self.current_pick
         )
-    # trading_manager.py의 _place_bet 메서드 수정 부분
-
+        
     def _place_bet(self, pick_value, game_count):
         """
         베팅 실행 (수정: 한 방에서 한 번만 베팅하는 전략 적용)

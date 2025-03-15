@@ -118,9 +118,9 @@ class BettingWidget(QWidget):
         # 현재 방 표시 (변경: 하나의 레이아웃에 라벨과 값 함께 배치)
         room_layout = QHBoxLayout()
         room_label = QLabel("현재방:")
-        room_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        room_label.setStyleSheet("font-weight: bold; font-size: 14px; background-color: white;")
         self.current_room = QLabel("")  # 초기값 비워두기
-        self.current_room.setStyleSheet("font-size: 14px;")
+        self.current_room.setStyleSheet("font-size: 14px; background-color: white;")
         room_layout.addWidget(room_label)
         room_layout.addWidget(self.current_room)
         room_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
@@ -128,9 +128,9 @@ class BettingWidget(QWidget):
         # 현재 배팅 금액 표시
         bet_amount_layout = QHBoxLayout()
         bet_amount_label = QLabel("현재 배팅 금액:")
-        bet_amount_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        bet_amount_label.setStyleSheet("font-weight: bold; font-size: 14px; background-color: white;")
         self.bet_amount_value = QLabel("0")  # 초기값 0
-        self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #F44336;")  # 강조 표시
+        self.bet_amount_value.setStyleSheet("background-color: white;font-size: 14px; font-weight: bold; color: #F44336; ")  # 강조 표시
         bet_amount_layout.addWidget(bet_amount_label)
         bet_amount_layout.addWidget(self.bet_amount_value)
         bet_amount_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
@@ -320,11 +320,11 @@ class BettingWidget(QWidget):
         
         # 금액에 따라 색상 변경 (금액이 클수록 더 붉은색으로)
         if amount > 10000:
-            self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #D32F2F;")  # 더 강한 빨간색
+            self.bet_amount_value.setStyleSheet("background-color:white; font-size: 14px; font-weight: bold; color: #D32F2F;")  # 더 강한 빨간색
         elif amount > 5000:
-            self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #F44336;")  # 일반 빨간색
+            self.bet_amount_value.setStyleSheet("background-color:white; font-size: 14px; font-weight: bold; color: #F44336;")  # 일반 빨간색
         else:
-            self.bet_amount_value.setStyleSheet("font-size: 14px; font-weight: bold; color: #FF9800;")  # 주황색
+            self.bet_amount_value.setStyleSheet("background-color:white; font-size: 14px; font-weight: bold; color: #FF9800;")  # 주황색
             
     def reset_room_results(self):
         """현재 방 결과 초기화"""
@@ -384,17 +384,14 @@ class BettingWidget(QWidget):
     def set_step_marker(self, step, marker):
         """
         단계별 마커 설정 (X, O, T, 빈칸)
-        수정: 인자로 받은 step 무시하고 내부 카운터 사용
+        수정: TIE 결과는 카운터 증가하지만 같은 방에 머무름
         """
-        # 단계 번호로 내부 카운터 사용 (항상 1부터 순차적으로 증가)
-        # 기존 코드는 step 파라미터를 그대로 사용했지만,
-        # 수정 코드는 내부 카운터(self.room_position_counter)를 사용
-        display_step = self.room_position_counter + 1  # 표시를 위해 1 증가
+        # 단계 번호로 내부 카운터 사용
+        display_step = self.room_position_counter + 1
         
         # 마커 설정 - 음수나 0은 1로 처리 (안전 장치)
         if display_step <= 0:
             display_step = 1
-            print(f"[WARNING] 0 또는 음수 단계 감지, 1로 조정: {display_step}")
         
         # 단계가 너무 큰 경우 동적으로 열 추가
         if display_step >= self.progress_table.columnCount():
@@ -404,15 +401,13 @@ class BettingWidget(QWidget):
         if display_step in self.step_items:
             item = self.step_items[display_step]
             
-            # 기존 아이템 텍스트 및 색상 설정
-            item.setText(marker)
-            
-            # 마커에 따른 색상 설정 - 변경된 부분
+            # 마커에 따른 색상 설정
             if marker == "X":
                 # X는 빨간색 글씨로 표시
-                item.setBackground(QColor("white"))  # 흰색 배경
-                item.setForeground(QColor("#F44336"))  # 빨간색 글씨
-                item.setFont(QFont("Arial", 18, QFont.Weight.Bold))  # 진한 글씨
+                item.setText(marker)
+                item.setBackground(QColor("white"))
+                item.setForeground(QColor("#F44336"))
+                item.setFont(QFont("Arial", 18, QFont.Weight.Bold))
                 # 실패 수 증가
                 self.fail_count += 1
                 self.fail_count_label.setText(str(self.fail_count))
@@ -422,9 +417,10 @@ class BettingWidget(QWidget):
                 self.room_position_counter += 1
             elif marker == "O":
                 # O는 파란색 글씨로 표시
-                item.setBackground(QColor("white"))  # 흰색 배경
-                item.setForeground(QColor("#2196F3"))  # 파란색 글씨
-                item.setFont(QFont("Arial", 18, QFont.Weight.Bold))  # 진한 글씨
+                item.setText(marker)
+                item.setBackground(QColor("white"))
+                item.setForeground(QColor("#2196F3"))
+                item.setFont(QFont("Arial", 18, QFont.Weight.Bold))
                 # 성공 수 증가
                 self.success_count += 1
                 self.success_count_label.setText(str(self.success_count))
@@ -433,17 +429,19 @@ class BettingWidget(QWidget):
                 # 마커 카운터 증가
                 self.room_position_counter += 1
             elif marker == "T":
-                # T는 녹색으로 유지
-                item.setBackground(QColor("#4CAF50"))  # 녹색 배경
-                item.setForeground(QColor("white"))  # 흰색 글씨
+                # T는 녹색으로 표시
+                item.setText(marker)
+                item.setBackground(QColor("#4CAF50"))
+                item.setForeground(QColor("white"))
                 # 타이 수 증가
                 self.tie_count += 1
                 self.tie_count_label.setText(str(self.tie_count))
                 # 결과 기록
                 self.current_room_results.append("T")
-                # 마커 카운터 증가
+                # 마커 카운터 증가 - TIE도 마커 카운터는 증가시킴
                 self.room_position_counter += 1
             else:
+                item.setText(marker)
                 item.setBackground(QColor("white"))
                 item.setForeground(QColor("black"))
             

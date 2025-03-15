@@ -554,6 +554,7 @@ class BettingService:
             
         return self.has_bet_current_round and self.current_bet_round == current_round
     
+    # services/betting_service.py - 타이 결과 처리 관련 수정
     def check_betting_result(self, bet_type, latest_result, current_room_name, result_count, step=None):
         """
         베팅 결과를 직접 확인합니다.
@@ -583,6 +584,10 @@ class BettingService:
                 result_text = "무승부"
                 result_status = "tie"  # 타이는 무승부로 처리
                 marker = "T"
+                
+                # ⚠️ 중요 수정: 타이 결과 시 베팅 상태 초기화
+                self.has_bet_current_round = False
+                self.logger.info(f"타이(T) 결과로 베팅 상태 초기화: 같은 방에서 재베팅 가능")
             else:
                 # 베팅 타입과 게임 결과 비교
                 if bet_type == latest_result:
