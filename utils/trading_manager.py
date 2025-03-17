@@ -12,7 +12,6 @@ from services.game_monitoring_service import GameMonitoringService
 from services.balance_service import BalanceService
 from services.martin_service import MartinBettingService
 from utils.settings_manager import SettingsManager
-from utils.target_amount_checker import TargetAmountChecker
 
 class TradingManager:
     def __init__(self, main_window, logger=None):
@@ -36,7 +35,6 @@ class TradingManager:
         self.result_count = 0
         self.current_pick = None
         self.should_move_to_next_room = False
-        self.target_checker = TargetAmountChecker(main_window)
         self.processed_rounds = set()
 
         # 서비스 클래스 초기화
