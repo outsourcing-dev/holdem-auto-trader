@@ -2,9 +2,16 @@
     "site1": "https://drdr-1230.com/",
     "site2": "https://cb-7979.com/casino",
     "site3": "aii1dd.net",
-    "martin_count": 1,
+    "martin_count": 8,
     "martin_amounts": [
-        3000
+        1000,
+        2000,
+        3000,
+        6000,
+        13000,
+        26000,
+        10000,
+        20000
     ],
-    "target_amount": 200000
+    "target_amount": 130000
 }
