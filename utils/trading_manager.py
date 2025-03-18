@@ -12,7 +12,6 @@ from services.game_monitoring_service import GameMonitoringService
 from services.balance_service import BalanceService
 from services.martin_service import MartinBettingService
 from utils.settings_manager import SettingsManager
-from utils.target_amount_checker import TargetAmountChecker
 
 class TradingManager:
     def __init__(self, main_window, logger=None):
@@ -36,7 +35,6 @@ class TradingManager:
         self.result_count = 0
         self.current_pick = None
         self.should_move_to_next_room = False
-        self.target_checker = TargetAmountChecker(main_window)
         self.processed_rounds = set()
 
         # 서비스 클래스 초기화
@@ -629,10 +627,26 @@ class TradingManager:
                 
             self.logger.info("자동 매매 중지 중...")
             
+            # 자동 매매 비활성화 상태 설정
             self.is_trading_active = False
             
+            # 방 이동 플래그 초기화
+            self.should_move_to_next_room = False
+            
             # 타이머 중지
-            self.main_window.timer.stop()
+            if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                self.main_window.timer.stop()
+                self.logger.info("타이머 중지 완료")
+            
+            # 베팅 상태 초기화
+            if hasattr(self, 'betting_service'):
+                self.betting_service.reset_betting_state()
+                self.logger.info("베팅 상태 초기화 완료")
+            
+            # 마틴 서비스 초기화
+            if hasattr(self, 'martin_service'):
+                self.martin_service.reset()
+                self.logger.info("마틴 서비스 초기화 완료")
             
             # 버튼 상태 업데이트
             self.main_window.start_button.setEnabled(True)
