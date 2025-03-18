@@ -1,3 +1,5 @@
+# ui/login_window.py 업데이트
+
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QSizePolicy
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QSize
@@ -141,7 +143,7 @@ class LoginWindow(QDialog):
             QMessageBox.warning(self, "로그인 실패", "비밀번호를 입력해주세요.")
             return
 
-        # # 테스트용 관리자 계정 (개발 디버깅용)
+        # 테스트용 관리자 계정 (개발 디버깅용)
         if username == "coreashield" and password == "1234":
             QMessageBox.information(self, "로그인 성공", "관리자로 로그인 되었습니다! 😊")
             self.app.show_main_window(username=username, days_left=365)  # 관리자는 365일 부여
@@ -155,3 +157,9 @@ class LoginWindow(QDialog):
             self.app.show_main_window(username=username, days_left=days_left)
         else:
             QMessageBox.warning(self, "로그인 실패", message)
+            
+    def closeEvent(self, event):
+        """창이 닫힐 때 호출되는 이벤트"""
+        # DB 연결 종료
+        self.db_manager.close()
+        event.accept()

@@ -572,22 +572,34 @@ class MainWindow(QMainWindow):
         # 사용자 종료 후 재접속 시 이어서 사용 가능하도록
         pass
     
+    # ui/main_window.py 업데이트 - 로그아웃 부분만
+
     def closeEvent(self, event):
-            """프로그램 종료 시 호출되는 이벤트"""
-            # 남은 시간 저장 (선택적 구현)
-            if self.user_time_active:
-                self.save_remaining_time()
-            
-            # 타이머 정지
-            if self.license_timer.isActive():
-                self.license_timer.stop()
-            
-            # 브라우저 종료
-            if hasattr(self, 'devtools') and self.devtools.driver:
-                try:
-                    self.devtools.close_browser()
-                except:
-                    pass
-            
-            # 기본 이벤트 처리
-            super().closeEvent(event)
+        """프로그램 종료 시 호출되는 이벤트"""
+        # 남은 시간 저장 (선택적 구현)
+        if self.user_time_active:
+            self.save_remaining_time()
+        
+        # 타이머 정지
+        if self.license_timer.isActive():
+            self.license_timer.stop()
+        
+        # 로그아웃 처리 추가
+        if hasattr(self, 'username') and self.username:
+            try:
+                from utils.db_manager import DBManager
+                db_manager = DBManager()
+                db_manager.logout_user(self.username)
+                print(f"[INFO] 사용자 '{self.username}' 로그아웃 처리 완료")
+            except Exception as e:
+                print(f"[ERROR] 로그아웃 처리 중 오류 발생: {e}")
+        
+        # 브라우저 종료
+        if hasattr(self, 'devtools') and self.devtools.driver:
+            try:
+                self.devtools.close_browser()
+            except:
+                pass
+        
+        # 기본 이벤트 처리
+        super().closeEvent(event)
