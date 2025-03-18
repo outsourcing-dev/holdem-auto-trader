@@ -78,7 +78,7 @@ class GameMonitoringService:
                         close_button = self.devtools.driver.find_element(By.CSS_SELECTOR, "button[data-role='close-button']")
                         close_button.click()
                         self.logger.info("방 종료 버튼 클릭 완료!")
-                        time.sleep(1)
+                        time.sleep(4)
                     except Exception as e:
                         self.logger.warning(f"종료 버튼 클릭 실패: {e}")
                         # JavaScript로 시도 (실패한 경우)
