@@ -225,6 +225,8 @@ class TradingManagerBet:
             elif is_win:
                 if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
                     self.tm.main_window.betting_widget.prevent_reset = False
+                    self.tm.main_window.betting_widget.reset_step_markers()
+                    self.tm.main_window.betting_widget.reset_room_results()
                 self.logger.info("승리로 인해 배팅 위젯 초기화 허용")
                 result_text = "적중"
                 result_marker = "O"
