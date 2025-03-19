@@ -34,6 +34,7 @@ class BettingService:
             if not self._validate_bet_conditions(bet_type, is_trading_active):
                 return False
             
+            self.current_bet_round = game_count
             # 2. 메모리 최적화
             gc.collect()
             time.sleep(0.5)

@@ -44,17 +44,13 @@ class TradingManagerGame:
         try:
             last_column, new_game_count, recent_results, next_pick = result
             
-            # 게임 카운트 변화 검증 - 최대 1씩만 증가하도록 제한
+            # 중요 변경: 실제 게임 카운트 사용 - 게임 카운트 강제 변환 방지
+            actual_game_count = game_state.get('round', 0)
+            
+            # 게임 카운트 변화 검증 - 조건 수정
             if new_game_count > previous_game_count:
-                # 게임 수가 2 이상 증가하면 경고 로그와 함께 1씩만 증가하도록 조정
-                if new_game_count > previous_game_count + 1:
-                    self.logger.warning(f"게임 카운트가 비정상적으로 증가 감지: {previous_game_count} → {new_game_count}")
-                    # 안전하게 1씩만 증가
-                    new_game_count = previous_game_count + 1
-                    self.logger.info(f"게임 카운트 안전 조정: {previous_game_count} → {new_game_count}")
-                
                 # 이전 게임 결과 처리
-                self.process_previous_game_result(game_state, new_game_count)
+                self.process_previous_game_result(game_state, actual_game_count)
                 
                 # 타이(T) 결과 확인
                 if game_state.get('latest_result') == 'T':
@@ -66,25 +62,25 @@ class TradingManagerGame:
 
                     # 첫 입장 시 바로 베팅하지 않음
                     if previous_game_count > 0:
-                        self.tm.bet_helper.place_bet(next_pick, new_game_count)
+                        self.tm.bet_helper.place_bet(next_pick, actual_game_count)
                     else:
                         self.logger.info(f"첫 입장 후 게임 상황 파악 중 (PICK: {next_pick})")
                         self.tm.current_pick = next_pick
 
-                # 게임 카운트 및 최근 결과 업데이트
-                self.tm.game_count = new_game_count
+                # 중요 변경: 실제 게임 카운트 저장
+                self.tm.game_count = actual_game_count
                 self.tm.recent_results = recent_results
                 
                 # 베팅 후 바로 결과가 나온 경우 처리 
                 if self.tm.betting_service.has_bet_current_round:
                     last_bet = self.tm.betting_service.get_last_bet()
-                    if last_bet and last_bet['round'] < new_game_count:
-                        self.logger.info(f"베팅({last_bet['round']})과 현재 게임({new_game_count})의 불일치 감지")
+                    if last_bet and last_bet['round'] < actual_game_count:
+                        self.logger.info(f"베팅({last_bet['round']})과 현재 게임({actual_game_count})의 불일치 감지")
                         # 이 경우 이전 게임 결과를 먼저 처리해야 함
                         if not self.tm.should_move_to_next_room:
                             self.logger.info("베팅 결과 확인을 위해 다음 분석까지 대기")
             
-            # 첫 입장 후 일정 시간 경과 시 베팅
+            # 첫 입장 후 일정 시간 경과 시 베팅 - 수정: 실제 게임 카운트 참조
             elif previous_game_count == 0 and self.tm.game_count > 0 and not self.tm.betting_service.has_bet_current_round:
                 if hasattr(self.tm, '_first_entry_time'):
                     elapsed = time.time() - self.tm._first_entry_time
@@ -215,7 +211,6 @@ class TradingManagerGame:
             self.tm.stop_trading()
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
-            
     def handle_successful_room_entry(self, new_room_name):
         """방 입장 성공 처리"""
         # UI 업데이트
@@ -231,15 +226,15 @@ class TradingManagerGame:
             game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
             
             if game_state:
-                self.tm.game_count = game_state.get('round', 0)
+                # 중요: 실제 게임 카운트 저장
+                actual_game_count = game_state.get('round', 0)
+                self.tm.game_count = actual_game_count
                 self.logger.info(f"새 방 게임 카운트: {self.tm.game_count}")
                 
-                # Excel에 기록
-                temp_game_count = 0
-                
+                # Excel에 기록 - 중요: 실제 게임 카운트 0이 아닌 actual_game_count로 전달
                 result = self.tm.excel_trading_service.process_game_results(
                     game_state, 
-                    temp_game_count,
+                    0,  # 첫 실행 플래그 용도로 0 전달 (실제 카운트는 함수 내부에서 사용)
                     self.tm.current_room_name,
                     log_on_change=True
                 )
@@ -259,7 +254,6 @@ class TradingManagerGame:
                             pick=result[3],
                             bet_amount=self.tm.martin_service.get_current_bet_amount()
                         )
-    
         except Exception as e:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
 

@@ -143,8 +143,8 @@ class TradingManager:
                     # 베팅 완료 시간 확인
                     if hasattr(self.betting_service, 'last_bet_time'):
                         elapsed = time.time() - self.betting_service.last_bet_time
-                        # 최소 10초는 결과를 기다림
-                        if elapsed < 8.0:
+                        # 최소 15초는 결과를 기다림 (중요: 대기 시간 증가)
+                        if elapsed < 15.0:
                             self.logger.info(f"베팅 후 {elapsed:.1f}초 경과, 결과 기다리는 중...")
                             self.main_window.set_remaining_time(0, 0, 2)
                             return
@@ -180,6 +180,7 @@ class TradingManager:
 
             # 결과 처리
             if result[0] is not None:
+                # 중요: 실제 게임 카운트 사용 보장
                 self.game_helper.process_excel_result(result, game_state, previous_game_count)
             
             # 무승부(T) 결과 시 베팅 시도
@@ -191,7 +192,7 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"게임 상태 분석 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
-            
+                
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:
