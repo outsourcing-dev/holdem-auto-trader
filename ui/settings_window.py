@@ -1,9 +1,11 @@
+# ui/settings_window.py 업데이트
+
 import os
 import sys
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, 
                              QPushButton, QGroupBox, QHBoxLayout, 
                              QTableWidget, QTableWidgetItem, QHeaderView)
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont,QIntValidator
 from PyQt6.QtCore import Qt
 from utils.settings_manager import SettingsManager
 
@@ -31,6 +33,9 @@ class SettingsWindow(QWidget):
         site1, site2, site3 = self.settings_manager.get_sites()
         martin_count, martin_amounts = self.settings_manager.get_martin_settings()
         target_amount = self.settings_manager.get_target_amount()
+        
+        # Double & Half 설정 불러오기
+        double_half_start, double_half_stop = self.settings_manager.get_double_half_settings()
 
         # 메인 레이아웃
         main_layout = QVBoxLayout()
@@ -93,6 +98,38 @@ class SettingsWindow(QWidget):
         
         target_group.setLayout(target_layout)
         main_layout.addWidget(target_group)
+        
+        # Double & Half 설정 그룹
+        double_half_group = QGroupBox("Double & Half")
+        double_half_group.setFont(label_font)
+        double_half_layout = QHBoxLayout()
+
+        # 시작 설정
+        start_layout = QHBoxLayout()
+        self.start_label = QLabel("시작:")
+        self.start_label.setFont(label_font)
+        self.start_input = QLineEdit(str(double_half_start))  # 저장된 값 사용
+        self.start_input.setFixedWidth(80)
+        self.start_input.setValidator(QIntValidator(1, 100))  # 1부터 100까지의 정수만 입력 가능
+        start_layout.addWidget(self.start_label)
+        start_layout.addWidget(self.start_input)
+
+        # 중지 설정
+        stop_layout = QHBoxLayout()
+        self.stop_label = QLabel("중지:")
+        self.stop_label.setFont(label_font)
+        self.stop_input = QLineEdit(str(double_half_stop))  # 저장된 값 사용
+        self.stop_input.setFixedWidth(80)
+        self.stop_input.setValidator(QIntValidator(1, 100))  # 1부터 100까지의 정수만 입력 가능
+        stop_layout.addWidget(self.stop_label)
+        stop_layout.addWidget(self.stop_input)
+
+        # 위젯 배치
+        double_half_layout.addLayout(start_layout)
+        double_half_layout.addLayout(stop_layout)
+
+        double_half_group.setLayout(double_half_layout)
+        main_layout.addWidget(double_half_group)
         
         # 마틴 설정 그룹
         martin_group = QGroupBox("마틴 설정")
@@ -384,7 +421,7 @@ class SettingsWindow(QWidget):
             return 0  # 변환 오류 시 0으로 처리 (비활성화)
 
     def save_settings(self):
-        """입력된 사이트 정보와 마틴 설정을 JSON 파일에 저장"""
+        """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장"""
         site1 = self.site1_input.text()
         site2 = self.site2_input.text()
         site3 = self.site3_input.text()
@@ -395,12 +432,18 @@ class SettingsWindow(QWidget):
         # 목표 금액 가져오기
         target_amount = self.get_target_amount()
         
+        # Double & Half 설정 가져오기
+        double_half_start = int(self.start_input.text() or "20")
+        double_half_stop = int(self.stop_input.text() or "8")
+        
         self.settings_manager.save_settings(
             site1, site2, site3, 
             martin_count=martin_count,
             martin_amounts=martin_amounts,
-            target_amount=target_amount
+            target_amount=target_amount,
+            double_half_start=double_half_start,
+            double_half_stop=double_half_stop
         )
         
-        print(f"[INFO] 설정 저장 완료 - 목표 금액: {target_amount:,}원")
+        print(f"[INFO] 설정 저장 완료 - 목표 금액: {target_amount:,}원, Double & Half 설정: 시작={double_half_start}, 중지={double_half_stop}")
         self.close()

@@ -64,8 +64,10 @@ class SettingsManager:
                 "martin_count": 3,
                 "martin_amounts": [1000, 2000, 4000]
             }
-
-    def save_settings(self, site1, site2, site3, martin_count=3, martin_amounts=None, target_amount=0):
+            
+    # 기존 save_settings 메서드 수정
+    def save_settings(self, site1, site2, site3, martin_count=3, martin_amounts=None, target_amount=0, 
+                    double_half_start=20, double_half_stop=8):
         """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장"""
         if martin_amounts is None:
             martin_amounts = [1000, 2000, 4000]
@@ -76,7 +78,9 @@ class SettingsManager:
             "site3": site3,
             "martin_count": martin_count,
             "martin_amounts": martin_amounts,
-            "target_amount": target_amount
+            "target_amount": target_amount,
+            "double_half_start": double_half_start,
+            "double_half_stop": double_half_stop
         }
         
         settings_file = get_settings_file_path()
@@ -84,6 +88,14 @@ class SettingsManager:
             json.dump(self.settings, file, indent=4)
             print(f"[INFO] 설정이 '{settings_file}'에 저장되었습니다.")
 
+    # 추가 메서드 - Double & Half 설정 가져오기
+    def get_double_half_settings(self):
+        """Double & Half 설정 반환 (시작값, 중지값)"""
+        return (
+            self.settings.get("double_half_start", 20),
+            self.settings.get("double_half_stop", 8)
+        )
+            
     def get_sites(self):
         """저장된 사이트 목록 반환"""
         return (
@@ -109,3 +121,11 @@ class SettingsManager:
         print(f"[DEBUG] 최신 목표 금액 설정 로드: {target_amount:,}원")
         
         return target_amount
+    
+    # settings_manager.py에 추가할 메서드
+    def get_double_half_settings(self):
+        """Double & Half 설정 반환 (시작값, 중지값)"""
+        return (
+            self.settings.get("double_half_start", 20),
+            self.settings.get("double_half_stop", 8)
+        )

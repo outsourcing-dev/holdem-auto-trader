@@ -10,6 +10,7 @@ class TradingManagerBet:
         self.tm = trading_manager  # trading_manager 참조
         self.logger = trading_manager.logger or logging.getLogger(__name__)
     
+
     def place_bet(self, pick_value, game_count):
         """베팅 실행"""
         try:
@@ -39,14 +40,56 @@ class TradingManagerBet:
                     self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
                     return False
             
-            # 마틴 단계 배팅 금액 가져오기
-            bet_amount = self.tm.martin_service.get_current_bet_amount()
-            self.logger.info(f"마틴 단계 {self.tm.martin_service.current_step + 1}/{self.tm.martin_service.martin_count}: {bet_amount:,}원 베팅")
+            # Double & Half 설정 가져오기
+            double_half_start, double_half_stop = self.tm.settings_manager.get_double_half_settings()
+            
+            # 비활성화 확인 (0인 경우 사용하지 않음)
+            use_double_half = double_half_start != 0 and double_half_stop != 0
+            
+            # 현재 승패 통계 가져오기
+            win_count = self.tm.martin_service.win_count
+            lose_count = self.tm.martin_service.lose_count
+            
+            # 기본 마틴 베팅 금액 가져오기
+            base_bet_amount = self.tm.martin_service.get_current_bet_amount()
+            final_bet_amount = base_bet_amount  # 기본값으로 시작
+            
+            # Double & Half 로직 적용 (활성화된 경우만)
+            if use_double_half:
+                win_lose_diff = win_count - lose_count
+                lose_win_diff = lose_count - win_count
+                
+                # 승-패 차이가 시작 값 이상인 경우 Half 적용
+                if win_lose_diff >= double_half_start:
+                    # 마틴 베팅 금액의 1/2 (최소 1000원, 천원 단위 올림)
+                    half_amount = max(1000, base_bet_amount // 2)
+                    if half_amount % 1000 != 0:
+                        # 천원 단위 올림
+                        half_amount = ((half_amount // 1000) + 1) * 1000
+                    
+                    final_bet_amount = half_amount
+                    self.logger.info(f"Double & Half 적용: 승-패({win_lose_diff}) ≥ {double_half_start}, 베팅 금액 1/2로 감소 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
+                
+                # 승-패 차이가 중지 값이 되면 원래 마틴으로 복귀
+                elif win_lose_diff == double_half_stop:
+                    self.logger.info(f"Double & Half 해제: 승-패({win_lose_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀 ({final_bet_amount:,}원)")
+                
+                # 패-승 차이가 시작 값 이상인 경우 Double 적용
+                elif lose_win_diff >= double_half_start:
+                    # 마틴 베팅 금액의 2배
+                    double_amount = base_bet_amount * 2
+                    
+                    final_bet_amount = double_amount
+                    self.logger.info(f"Double & Half 적용: 패-승({lose_win_diff}) ≥ {double_half_start}, 베팅 금액 2배로 증가 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
+                
+                # 패-승 차이가 중지 값이 되면 원래 마틴으로 복귀
+                elif lose_win_diff == double_half_stop:
+                    self.logger.info(f"Double & Half 해제: 패-승({lose_win_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀 ({final_bet_amount:,}원)")
             
             # UI 업데이트
             self.tm.main_window.update_betting_status(
                 pick=pick_value, 
-                bet_amount=bet_amount
+                bet_amount=final_bet_amount
             )
             
             # 베팅 실행
@@ -55,7 +98,7 @@ class TradingManagerBet:
                 self.tm.current_room_name, 
                 game_count, 
                 self.tm.is_trading_active,
-                bet_amount
+                final_bet_amount
             )
             
             # 현재 베팅 타입 저장
@@ -63,7 +106,7 @@ class TradingManagerBet:
             
             # 베팅 성공 시 처리
             if bet_success:
-                self.process_successful_bet(bet_amount)
+                self.process_successful_bet(final_bet_amount)
             else:
                 # 베팅 실패 시에도 PICK 값은 UI에 표시
                 self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {pick_value}")
@@ -74,7 +117,7 @@ class TradingManagerBet:
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-            
+        
     def process_successful_bet(self, bet_amount):
         """성공적인 베팅 처리"""
         try:
