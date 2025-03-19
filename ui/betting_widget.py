@@ -153,8 +153,8 @@ class BettingWidget(QWidget):
         # 모드 표시 추가 
         mode_layout = QHBoxLayout()
         mode_layout.addStretch(1)  # 위젯 앞에 여백 추가 (오른쪽 정렬)
-        self.mode_value = QLabel("일반 베팅 실행 중")  # 초기값
-        self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: black;")  # 녹색으로 표시
+        self.mode_value = QLabel("일반 베팅")  # 초기값
+        self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;")  # 녹색으로 표시
         mode_layout.addWidget(self.mode_value)
         # mode_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
 
@@ -253,7 +253,7 @@ class BettingWidget(QWidget):
         
         # 테이블 열 개수 업데이트 - 마틴 단계에 맞춰 조정
         # 핵심 변경: 마틴 단계 수만큼만 열 만들기 (추가 여유 공간은 5개로 제한)
-        max_columns = max(10, self.martin_count + 5)  # 최소 10개 또는 마틴 단계 + 5개
+        max_columns = self.martin_count  # 마틴 단계 + 10개의 여유 공간
         current_columns = self.progress_table.columnCount() - 1  # PICK 열 제외
         
         # 열 수가 부족하면 추가
@@ -280,7 +280,7 @@ class BettingWidget(QWidget):
                 self.progress_table.setColumnWidth(i, 60)  # 숫자 열
                 
         # 로그 출력
-        print(f"[INFO] 마틴 설정 업데이트 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
+        # print(f"[INFO] 마틴 설정 업데이트 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
     
     def update_current_room(self, room_name):
         """현재 방 이름 업데이트"""
@@ -630,8 +630,8 @@ class BettingWidget(QWidget):
         # 설정에서 마틴 단계 수 가져오기
         martin_count, _ = self.settings_manager.get_martin_settings()
         
-        # 변경된 부분: 마틴 단계 + 여유분 5개만 표시
-        max_columns = martin_count + 5
+        #마틴 단계 + 여유분 11개 표시
+        max_columns = martin_count + 11
         
         self.progress_table.setColumnCount(max_columns + 1)  # PICK + 숫자 열
         
@@ -692,11 +692,11 @@ class BettingWidget(QWidget):
             mode_type (str): 모드 유형 ('double', 'half', 또는 'normal')
         """
         if mode_type == 'double':
-            self.mode_value.setText("Double Mode 실행 중")
+            self.mode_value.setText("Double Mode")
             self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #F44336;")  # 빨간색으로 표시
         elif mode_type == 'half':
-            self.mode_value.setText("Half Mode 실행 중")
+            self.mode_value.setText("Half Mode")
             self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #2196F3;")  # 파란색으로 표시
         else:  # 'normal' 또는 기타
-            self.mode_value.setText("일반 베팅 실행 중")
+            self.mode_value.setText("일반 베팅")
             self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;") 
