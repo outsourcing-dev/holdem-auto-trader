@@ -135,11 +135,25 @@ class TradingManager:
         try:
             # 방 이동 필요시 처리
             if self.should_move_to_next_room:
+                # 마지막 베팅 정보 확인
+                last_bet = self.betting_service.get_last_bet()
+                
+                # 베팅을 했고 결과가 없으면 아직 기다려야 함
+                if last_bet and self.betting_service.has_bet_current_round:
+                    # 베팅 완료 시간 확인
+                    if hasattr(self.betting_service, 'last_bet_time'):
+                        elapsed = time.time() - self.betting_service.last_bet_time
+                        # 최소 10초는 결과를 기다림
+                        if elapsed < 8.0:
+                            self.logger.info(f"베팅 후 {elapsed:.1f}초 경과, 결과 기다리는 중...")
+                            self.main_window.set_remaining_time(0, 0, 2)
+                            return
+                
                 self.logger.info("방 이동 실행")
                 self.should_move_to_next_room = False
                 self.change_room()
                 return
-                    
+                        
             # 게임 상태 가져오기
             previous_game_count = self.game_count
             game_state = self.game_monitoring_service.get_current_game_state(log_always=True)
@@ -156,11 +170,6 @@ class TradingManager:
             # 게임 상태 변화 로깅
             if current_game_count != previous_game_count:
                 self.logger.info(f"게임 카운트 변경: {previous_game_count} -> {current_game_count}")
-                
-                # 첫 입장 시 방 정보 출력
-                if previous_game_count == 0 and current_game_count > 0:
-                    display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
-                    # self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
             
             # 엑셀 처리 및 PICK 값 확인
             result = self.excel_trading_service.process_game_results(
@@ -178,11 +187,11 @@ class TradingManager:
             
             # 다음 분석 간격 설정
             self.main_window.set_remaining_time(0, 0, 2)
-                    
+                        
         except Exception as e:
             self.logger.error(f"게임 상태 분석 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
-    
+            
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:

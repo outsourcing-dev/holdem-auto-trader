@@ -185,6 +185,10 @@ class TradingManagerBet:
             self.tm.martin_service.has_bet_in_current_room = True
             self.logger.info("베팅 성공: 한 방에서 한 번 배팅 완료 표시")
             
+            # 중요: 베팅 성공 후 즉시 방 이동하지 않도록 플래그 초기화
+            self.tm.should_move_to_next_room = False
+            self.logger.info("베팅 후 결과를 기다리기 위해 방 이동 플래그 초기화")
+            
             # 누적 배팅 금액 업데이트
             self.tm.martin_service.total_bet_amount += bet_amount
             if hasattr(self.tm.main_window, 'total_bet_amount'):
@@ -200,7 +204,7 @@ class TradingManagerBet:
         except Exception as e:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
             return False
-    
+        
     def process_bet_result(self, bet_type, latest_result, new_game_count):
         """베팅 결과 처리"""
         try:
@@ -222,14 +226,14 @@ class TradingManagerBet:
                 result_text = "적중"
                 result_marker = "O"
                 result_status = "win"
-                # 승리 시 즉시 방 이동
+                # 승리 시 방 이동
                 self.tm.should_move_to_next_room = True
                 self.logger.info("베팅 성공: 방 이동 필요")
             else:
                 result_text = "실패"
                 result_marker = "X"
                 result_status = "lose"
-                # 실패 시도 즉시 방 이동
+                # 실패 시도 방 이동
                 self.tm.should_move_to_next_room = True
                 self.logger.info("베팅 실패: 방 이동 필요")
             
@@ -257,11 +261,8 @@ class TradingManagerBet:
             # 잔액 업데이트 및 목표 금액 확인
             self.update_balance_after_result(is_win)
             
-            # 무승부 시 방 이동 안함 재확인
-            self.tm.should_move_to_next_room = not is_tie
-            
-            # 마틴 단계 로그
-            self.logger.info(f"현재 마틴 단계: {current_step+1}/{self.tm.martin_service.martin_count}")
+            # 중요: 로그 추가 - 결과와 방 이동 플래그 상태를 기록
+            self.logger.info(f"베팅 결과: {result_status}, 방 이동 플래그: {self.tm.should_move_to_next_room}")
             
             return result_status
         except Exception as e:

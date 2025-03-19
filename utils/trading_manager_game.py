@@ -44,8 +44,16 @@ class TradingManagerGame:
         try:
             last_column, new_game_count, recent_results, next_pick = result
             
-            # 새 게임 시작 시 이전 게임 결과 확인
-            if new_game_count > self.tm.game_count:
+            # 게임 카운트 변화 검증 - 최대 1씩만 증가하도록 제한
+            if new_game_count > previous_game_count:
+                # 게임 수가 2 이상 증가하면 경고 로그와 함께 1씩만 증가하도록 조정
+                if new_game_count > previous_game_count + 1:
+                    self.logger.warning(f"게임 카운트가 비정상적으로 증가 감지: {previous_game_count} → {new_game_count}")
+                    # 안전하게 1씩만 증가
+                    new_game_count = previous_game_count + 1
+                    self.logger.info(f"게임 카운트 안전 조정: {previous_game_count} → {new_game_count}")
+                
+                # 이전 게임 결과 처리
                 self.process_previous_game_result(game_state, new_game_count)
                 
                 # 타이(T) 결과 확인
@@ -66,6 +74,15 @@ class TradingManagerGame:
                 # 게임 카운트 및 최근 결과 업데이트
                 self.tm.game_count = new_game_count
                 self.tm.recent_results = recent_results
+                
+                # 베팅 후 바로 결과가 나온 경우 처리 
+                if self.tm.betting_service.has_bet_current_round:
+                    last_bet = self.tm.betting_service.get_last_bet()
+                    if last_bet and last_bet['round'] < new_game_count:
+                        self.logger.info(f"베팅({last_bet['round']})과 현재 게임({new_game_count})의 불일치 감지")
+                        # 이 경우 이전 게임 결과를 먼저 처리해야 함
+                        if not self.tm.should_move_to_next_room:
+                            self.logger.info("베팅 결과 확인을 위해 다음 분석까지 대기")
             
             # 첫 입장 후 일정 시간 경과 시 베팅
             elif previous_game_count == 0 and self.tm.game_count > 0 and not self.tm.betting_service.has_bet_current_round:
@@ -75,7 +92,7 @@ class TradingManagerGame:
                         self.logger.info(f"첫 입장 후 {elapsed:.1f}초 경과, 베팅 실행: {next_pick}")
                         self.tm.current_pick = next_pick
                         self.tm.main_window.update_betting_status(pick=next_pick)
-                        self.tm.helpers.place_bet(next_pick, self.tm.game_count)
+                        self.tm.bet_helper.place_bet(next_pick, self.tm.game_count)
                         delattr(self.tm, '_first_entry_time')
                 else:
                     self.tm._first_entry_time = time.time()
@@ -122,7 +139,11 @@ class TradingManagerGame:
                 self.logger.info(f"[결과검증] 라운드: {self.tm.game_count}, 베팅: {bet_type}, 결과: {latest_result}")
                 
                 if bet_type in ['P', 'B'] and latest_result:
-                    self.tm.bet_helper.process_bet_result(bet_type, latest_result, new_game_count)
+                    # 베팅 결과 처리 - 결과에 따라 방 이동 플래그 설정
+                    result_status = self.tm.bet_helper.process_bet_result(bet_type, latest_result, new_game_count)
+                    
+                    # 결과 로깅
+                    self.logger.info(f"베팅 결과: {result_status}, 방 이동 플래그: {self.tm.should_move_to_next_room}")
             elif last_bet:
                 # 라운드가 달라진 경우 로그만 남김
                 self.logger.info(f"라운드 불일치: 이전({last_bet['round']}) vs 현재({self.tm.game_count})")
@@ -132,7 +153,6 @@ class TradingManagerGame:
             # 타이(T) 결과를 제외하고 베팅 상태 초기화
             if game_state.get('latest_result') != 'T':
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
-                # self.logger.info(f"새 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
             
             # UI 업데이트
             display_room_name = self.tm.current_room_name.split('\n')[0] if '\n' in self.tm.current_room_name else self.tm.current_room_name

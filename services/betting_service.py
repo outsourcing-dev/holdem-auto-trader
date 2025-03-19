@@ -20,6 +20,11 @@ class BettingService:
         self.last_bet_type = None
         self.last_bet_time = 0
         
+        # 베팅 결과 추적 필드 추가
+        self.bet_result_confirmed = False  # 베팅 결과가 확인되었는지 여부
+        self.last_bet_result = None        # 마지막 베팅 결과 (win/lose/tie)
+        self.last_bet_time = 0
+        
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         """베팅 타입에 따라 적절한 베팅 영역을 클릭"""
         self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
@@ -129,9 +134,12 @@ class BettingService:
             
             # 최신 결과가 있으면 엑셀에 반영
             if latest_result:
+                # 현재 게임 카운트 저장
+                current_game_count = self.main_window.trading_manager.game_count
+                
                 result = self.main_window.trading_manager.excel_trading_service.process_game_results(
                     game_state, 
-                    self.main_window.trading_manager.game_count, 
+                    current_game_count,
                     self.main_window.trading_manager.current_room_name,
                     log_on_change=True
                 )
@@ -139,10 +147,14 @@ class BettingService:
                 if result[0] is not None:
                     last_column, new_game_count, recent_results, next_pick = result
                     
-                    if new_game_count > self.main_window.trading_manager.game_count:
-                        self.logger.info(f"게임 카운트 업데이트: {self.main_window.trading_manager.game_count} -> {new_game_count}")
-                        # 이전 게임 결과 처리 - 올바른 함수 참조로 수정
-                        self.main_window.trading_manager.game.process_previous_game_result(game_state, new_game_count)
+                    # 게임 카운트가 한 단계만 증가했는지 확인 (안전 장치)
+                    if new_game_count > current_game_count and new_game_count <= current_game_count + 1:
+                        self.logger.info(f"게임 카운트 업데이트: {current_game_count} → {new_game_count}")
+                        
+                        # game 속성 대신 game_helper 사용 
+                        if hasattr(self.main_window.trading_manager, 'game_helper'):
+                            self.main_window.trading_manager.game_helper.process_previous_game_result(game_state, new_game_count)
+                        
                         # 게임 카운트 업데이트
                         self.main_window.trading_manager.game_count = new_game_count
                         
@@ -150,9 +162,15 @@ class BettingService:
                         if next_pick in ['P', 'B']:
                             self.main_window.trading_manager.current_pick = next_pick
                             self.main_window.update_betting_status(pick=next_pick)
+                    else:
+                        # 갑자기 게임 카운트가 2 이상 증가한 경우 경고 로그
+                        if new_game_count > current_game_count + 1:
+                            self.logger.warning(f"게임 카운트가 비정상적으로 증가: {current_game_count} → {new_game_count}")
+                            # 안전하게 1씩만 증가시킴
+                            self.main_window.trading_manager.game_count = current_game_count + 1
         except Exception as e:
             self.logger.warning(f"베팅 가능 상태 후 최신 결과 확인 중 오류: {e}")
-
+            
     def _find_betting_area(self, bet_type):
         """베팅 영역 찾기"""
         if bet_type == 'P':
@@ -400,11 +418,13 @@ class BettingService:
 
     def reset_betting_state(self, new_round=None):
         """베팅 상태 초기화"""
+        previous_round = self.current_bet_round
         self.has_bet_current_round = False  # 항상 False로 초기화
         # 새 라운드가 지정되면 저장, 아니면 0으로 초기화
         self.current_bet_round = new_round if new_round is not None else 0
-        self.last_bet_type = None
-        self.logger.info(f"베팅 상태 초기화 완료 (라운드: {self.current_bet_round})")
+        self.bet_result_confirmed = False   # 결과 확인 여부 초기화
+        self.last_bet_result = None         # 마지막 결과 초기화
+        self.logger.info(f"베팅 상태 초기화 완료 (라운드: {previous_round} → {self.current_bet_round})")
 
     def check_is_bet_for_current_round(self, current_round):
         """현재 라운드에 베팅했는지 확인"""
