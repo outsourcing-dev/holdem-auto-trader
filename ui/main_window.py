@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         y_position = int(screen_size.height() * 0.05)
         
         # 창 설정
-        self.setWindowTitle("홀덤 자동 배팅")
+        self.setWindowTitle("JD Soft")
         self.move(x_position, y_position)  # 위치 설정
         
         # 최대/최소 크기를 모두 원하는 크기로 설정하여 크기 고정
@@ -165,7 +165,7 @@ class MainWindow(QMainWindow):
         left_spacer = QSpacerItem(20, 10, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
         license_time_layout.addItem(left_spacer)  # 패딩 효과
 
-        self.license_time_label = QLabel("사용 가능 시간:")
+        self.license_time_label = QLabel("사용 가능 기간:")
         self.license_time_label.setStyleSheet("font-weight: bold; color: #333333;")
         self.license_time_value = QLabel("00 : 00 : 00")
         self.license_time_value.setStyleSheet("font-weight: bold; color: #FF5722;")

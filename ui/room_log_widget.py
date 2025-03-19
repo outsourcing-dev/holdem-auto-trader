@@ -24,7 +24,7 @@ class RoomLogWidget(QWidget):
         main_layout = QVBoxLayout()
         
         # 로그 섹션
-        log_group = QGroupBox("방 로그")
+        log_group = QGroupBox("로그")
         log_layout = QVBoxLayout()
         
         self.log_table = QTableWidget()
