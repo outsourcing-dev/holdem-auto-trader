@@ -3,7 +3,7 @@
 게임 컨트롤러 - 게임 상태 감지 및 액션 결정 모듈
 """
 from modules.game_detector import GameDetector
-from utils.excel_manager import ExcelManager
+from utils.excel_manager import ExcelManager # type: ignore
 
 class GameController:
     def __init__(self, driver, excel_path="AUTO.xlsx"):
