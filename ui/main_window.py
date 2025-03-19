@@ -297,11 +297,11 @@ class MainWindow(QMainWindow):
         if current_username != "로그인 필요":  # 의미 있는 사용자 이름이 있을 때만 복원
             self.header.user_value.setText(current_username)
         
-        # BettingWidget 초기화
-        self.betting_widget.clear_results()
-        self.betting_widget.reset_step_markers()
-        self.betting_widget.update_current_room("")
-        self.betting_widget.set_pick("")
+        # 베팅 위젯 초기화는 제거 - 필요한 경우에만 직접 호출하도록 변경
+        # self.betting_widget.clear_results()
+        # self.betting_widget.reset_step_markers()
+        # self.betting_widget.update_current_room("")
+        # self.betting_widget.set_pick("")
         
         # RoomLogWidget 초기화
         if hasattr(self, 'room_log_widget'):

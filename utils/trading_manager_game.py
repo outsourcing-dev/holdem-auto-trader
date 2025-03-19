@@ -188,19 +188,39 @@ class TradingManagerGame:
         self.tm.current_pick = None
         self.tm.betting_service.reset_betting_state()
         
-        # 현재 방 배팅 상태 초기화
-        if hasattr(self.tm, 'martin_service'):
-            self.tm.martin_service.reset_room_bet_status()
-            self.logger.info(f"마틴 단계 유지 - 현재 단계: {self.tm.martin_service.current_step+1}")
+        if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+            self.tm.main_window.betting_widget.prevent_reset = True
         
         # processed_rounds 초기화
         self.tm.processed_rounds = set()
         
-        # 베팅 위젯 초기화
-        self.tm.main_window.betting_widget.reset_step_markers()
-        self.tm.main_window.betting_widget.reset_room_results()
-        self.logger.info("새 방 입장: 베팅 위젯 초기화 완료")
-    
+        # 마틴 서비스 상태에 따른 선택적 초기화
+        should_reset_widgets = False
+        
+        # 명확한 초기화 조건 확인
+        if hasattr(self.tm, 'martin_service'):
+            # 1. 승리 후 방 이동인 경우 (승리 후에는 항상 초기화)
+            if self.tm.martin_service.win_count > 0 and self.tm.martin_service.consecutive_losses == 0:
+                should_reset_widgets = True
+                
+            # 2. 마틴 베팅에서 마지막 단계 실패 후 방 이동인 경우
+            if (self.tm.martin_service.current_step == 0 and 
+                self.tm.martin_service.consecutive_losses > 0 and 
+                self.tm.martin_service.need_room_change):
+                should_reset_widgets = True
+                
+            # 베팅 정보 초기화
+            self.tm.martin_service.reset_room_bet_status()
+            self.logger.info(f"마틴 단계 유지 - 현재 단계: {self.tm.martin_service.current_step+1}")
+                
+        # 조건에 따른 위젯 초기화
+        if should_reset_widgets:
+            self.logger.info("승리 또는 마틴 완료로 인한 방 이동: 베팅 위젯 초기화")
+            self.tm.main_window.betting_widget.reset_step_markers()
+            self.tm.main_window.betting_widget.reset_room_results()
+        else:
+            self.logger.info("TIE 또는 연속 베팅을 위한 방 이동: 베팅 위젯 유지")
+            
     def handle_room_entry_failure(self):
         """방 입장 실패 처리"""
         # 방문 큐 리셋
@@ -212,6 +232,10 @@ class TradingManagerGame:
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
     def handle_successful_room_entry(self, new_room_name):
+            # 초기화 방지 플래그 설정
+        if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+            self.tm.main_window.betting_widget.prevent_reset = True
+            
         """방 입장 성공 처리"""
         # UI 업데이트
         self.tm.current_room_name = new_room_name

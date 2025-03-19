@@ -2,12 +2,11 @@
     "site1": "https://drdr-1230.com/",
     "site2": "https://sm-782.com/",
     "site3": "aii1dd.net",
-    "martin_count": 2,
+    "martin_count": 1,
     "martin_amounts": [
-        1000,
-        2000
+        3000
     ],
     "target_amount": 200000,
-    "double_half_start": 3,
-    "double_half_stop": 1
+    "double_half_start": 7,
+    "double_half_stop": 2
 }

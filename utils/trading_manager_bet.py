@@ -223,12 +223,17 @@ class TradingManagerBet:
                 self.tm.should_move_to_next_room = False
                 self.logger.info("타이(T) 결과: 같은 방에서 재시도")
             elif is_win:
+                if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                    self.tm.main_window.betting_widget.prevent_reset = False
+                self.logger.info("승리로 인해 배팅 위젯 초기화 허용")
                 result_text = "적중"
                 result_marker = "O"
                 result_status = "win"
                 # 승리 시 방 이동
                 self.tm.should_move_to_next_room = True
-                self.logger.info("베팅 성공: 방 이동 필요")
+                self.logger.info("배팅 성공: 방 이동 필요")
+                # 성공 시에는 reset_counter=True 전달
+                self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=True)
             else:
                 result_text = "실패"
                 result_marker = "X"
@@ -236,7 +241,7 @@ class TradingManagerBet:
                 # 실패 시도 방 이동
                 self.tm.should_move_to_next_room = True
                 self.logger.info("베팅 실패: 방 이동 필요")
-            
+                self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
             # 결과 카운트 증가
             self.tm.result_count += 1
             

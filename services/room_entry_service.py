@@ -69,7 +69,7 @@ class RoomEntryService:
                             # 카지노 로비 창으로 전환 시도
                             self.devtools.driver.switch_to.window(window_handles[1])
                             self.logger.info("카지노 로비 창으로 포커싱 전환")
-                            time.sleep(1)
+                            time.sleep(3)
                             
                             # 페이지 새로고침 시도 (필요시)
                             if attempts % 3 == 0:  # 3번마다 한 번씩 새로고침

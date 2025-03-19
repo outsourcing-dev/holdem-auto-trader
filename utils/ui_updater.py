@@ -72,11 +72,11 @@ class UIUpdater:
             self.main_window.total_bet_amount = total_bet
             self.main_window.header.update_total_bet(total_bet)
     
-    def update_betting_status(self, room_name=None, pick=None, step_markers=None, bet_amount=None):
+    def update_betting_status(self, room_name=None, pick=None, step_markers=None, bet_amount=None, reset_counter=False):
         """배팅 상태 업데이트 - 두 위젯 모두 업데이트"""
         if room_name is not None:
             # BettingWidget에 현재 방 이름 설정
-            self.main_window.betting_widget.update_current_room(room_name)
+            self.main_window.betting_widget.update_current_room(room_name, reset_counter)
             
             # RoomLogWidget에도 현재 방 설정 (내부적으로 필요한 경우 로그 항목 생성)
             if hasattr(self.main_window, 'room_log_widget'):

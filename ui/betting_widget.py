@@ -9,6 +9,8 @@ from utils.settings_manager import SettingsManager
 from PyQt6.QtWidgets import QStyledItemDelegate, QStyle
 from PyQt6.QtGui import QPen, QBrush
 
+
+
 class CircleStyleTable(QTableWidget):
     """원 스타일을 지원하는 테이블 위젯"""
     def __init__(self, parent=None):
@@ -109,6 +111,8 @@ class BettingWidget(QWidget):
     def __init__(self):
         super().__init__()
         
+        self.prevent_reset = False
+
         self.settings_manager = SettingsManager()
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         self.current_martin_step = 0
@@ -282,7 +286,7 @@ class BettingWidget(QWidget):
         # 로그 출력
         # print(f"[INFO] 마틴 설정 업데이트 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
     
-    def update_current_room(self, room_name):
+    def update_current_room(self, room_name, reset_counter=False):
         """현재 방 이름 업데이트"""
         # 이전 방과 지금 방이 다른지 확인 (방 이동 감지)
         current_displayed_name = self.current_room.text()
@@ -304,9 +308,12 @@ class BettingWidget(QWidget):
                 
                 # 방 이동 감지 - 순수 방 이름만 비교
                 if not current_displayed_name.startswith(base_name):
-                    # 새로운 방으로 이동한 경우 - 카운터 초기화
-                    self.room_position_counter = 0
-                    print(f"[INFO] 새 방 이동 감지: '{base_name}'. 마커 위치 카운터 초기화")
+                    # 새로운 방으로 이동한 경우 - reset_counter가 true일 때만 초기화
+                    if reset_counter:
+                        self.room_position_counter = 0
+                        print(f"[INFO] 새 방 이동 감지: '{base_name}'. 마커 위치 카운터 초기화")
+                    else:
+                        print(f"[INFO] 새 방 이동 감지: '{base_name}'. 마커 위치 카운터 유지 ({self.room_position_counter})")
                 
                 # UI 업데이트
                 self.current_room.setText(new_display_name)
@@ -316,22 +323,39 @@ class BettingWidget(QWidget):
                 
                 # 방 이동 감지
                 if current_displayed_name != display_name:
-                    # 새로운 방으로 이동한 경우 - 카운터 초기화
-                    self.room_position_counter = 0
-                    print(f"[INFO] 새 방 이동 감지: '{display_name}'. 마커 위치 카운터 초기화")
+                    # 새로운 방으로 이동한 경우 - reset_counter가 true일 때만 초기화
+                    if reset_counter:
+                        self.room_position_counter = 0
+                        print(f"[INFO] 새 방 이동 감지: '{display_name}'. 마커 위치 카운터 초기화")
+                    else:
+                        print(f"[INFO] 새 방 이동 감지: '{display_name}'. 마커 위치 카운터 유지 ({self.room_position_counter})")
                 
                 # UI 업데이트
                 self.current_room.setText(display_name)
         else:
             # 이미 한 줄인 경우 그대로 표시
             if current_displayed_name != room_name:
-                # 새로운 방으로 이동한 경우 - 카운터 초기화
-                self.room_position_counter = 0
-                print(f"[INFO] 새 방 이동 감지: '{room_name}'. 마커 위치 카운터 초기화")
+                # 새로운 방으로 이동한 경우 - reset_counter가 true일 때만 초기화
+                if reset_counter:
+                    self.room_position_counter = 0
+                    print(f"[INFO] 새 방 이동 감지: '{room_name}'. 마커 위치 카운터 초기화")
+                else:
+                    print(f"[INFO] 새 방 이동 감지: '{room_name}'. 마커 위치 카운터 유지 ({self.room_position_counter})")
             
             # UI 업데이트
             self.current_room.setText(room_name)
-    
+            
+        if self.room_position_counter == 0 and not reset_counter:
+            # 기존 마커 중 가장 큰 번호 찾기
+            max_marked = 0
+            for step, item in self.step_items.items():
+                if item.text() and item.text().strip() != "":
+                    max_marked = max(max_marked, step)
+            
+            # 다음 위치부터 시작 (최소0)
+            self.room_position_counter = max(0, max_marked)
+            print(f"[INFO] 카운터 자동 조정: {self.room_position_counter}로 설정")
+            
     def update_bet_amount(self, amount):
         """
         현재 배팅 금액 업데이트
@@ -353,24 +377,45 @@ class BettingWidget(QWidget):
         else:
             self.bet_amount_value.setStyleSheet("background-color:white; font-size: 14px; font-weight: bold; color: #FF9800;")  # 주황색
             
-    def reset_room_results(self):
-        """현재 방 결과 초기화"""
-        self.current_room_results = []
-        self.success_count = 0
-        self.fail_count = 0
-        self.tie_count = 0
-        self.success_count_label.setText("0")
-        self.fail_count_label.setText("0")
-        self.tie_count_label.setText("0")
-        self.reset_step_markers()
-        
-        # 배팅 금액도 초기화
+    def reset_room_results(self, keep_history=False, full_reset=False, success=False):
+        """현재 방 결과 초기화
+
+        Args:
+            keep_history (bool): 결과 이력 유지 여부
+            full_reset (bool): 완전 초기화 여부 (모든 데이터 초기화)
+            success (bool): 베팅 성공 여부 (성공 시에만 전체 리셋)
+        """
+        print(f"[INFO] 방 결과 초기화 - 이전 결과 유지: {keep_history}, 완전 초기화: {full_reset}, 베팅 성공: {success}")
+
+        # full_reset이 True이면 모든 데이터 완전 초기화
+        if full_reset:
+            self.initialize_betting_widget(success=True)  # 완전 초기화
+            return
+
+        # keep_history가 False면 현재 방 결과 초기화
+        if not keep_history:
+            self.current_room_results = []
+            self.success_count = 0
+            self.fail_count = 0
+            self.tie_count = 0
+            self.success_count_label.setText("0")
+            self.fail_count_label.setText("0")
+            self.tie_count_label.setText("0")
+
+            if success:
+                self.reset_step_markers()  # 성공 시에만 마커 초기화
+
+        # 배팅 금액 초기화
         self.update_bet_amount(0)
-        
-        # 위치 카운터 초기화 - 중요: 방을 이동할 때마다 마커 위치 카운터 초기화
+
+        # 방 이동 시 위치 카운터 초기화
         self.room_position_counter = 0
-        print("[INFO] 방 결과 초기화 - 마커 위치 카운터 초기화")
-    
+
+        # PICK 값 초기화 (베팅 성공 시만 초기화)
+        if success:
+            self.set_pick("N")
+
+      
     # PICK 값 설정 함수 수정 (P는 파란색 동그라미 안에 흰색 글씨로 P, B도 동일하게)
     def set_pick(self, pick_value):
         """PICK 값 설정 (B, P 등) - 원 안에 문자 표시"""
@@ -411,7 +456,7 @@ class BettingWidget(QWidget):
     def set_step_marker(self, step, marker):
         """
         단계별 마커 설정 (X, O, T, 빈칸)
-        수정: TIE 결과는 카운터 증가하지만 같은 방에 머무름
+        수정: 마커가 이미 있는 경우 덮어쓰지 않음
         """
         # 단계 번호로 내부 카운터 사용
         display_step = self.room_position_counter + 1
@@ -424,24 +469,26 @@ class BettingWidget(QWidget):
         if display_step >= self.progress_table.columnCount():
             self._ensure_column_exists(display_step)
         
-        # 마커 설정
+        # 마커 설정 (이미 있는 경우 덮어쓰지 않음)
         if display_step in self.step_items:
             item = self.step_items[display_step]
             
-            # 마커에 따른 색상 설정
-            if marker == "X":
-                # X는 빨간색 글씨로 표시
-                item.setText(marker)
-                item.setBackground(QColor("white"))
-                item.setForeground(QColor("#F44336"))
-                item.setFont(QFont("Arial", 18, QFont.Weight.Bold))
-                # 실패 수 증가
-                self.fail_count += 1
-                self.fail_count_label.setText(str(self.fail_count))
-                # 결과 기록
-                self.current_room_results.append("X")
-                # 마커 카운터 증가
-                self.room_position_counter += 1
+            # 기존 마커가 없는 경우에만 설정
+            if not item.text() or item.text().strip() == "":
+                # 마커에 따른 색상 설정
+                if marker == "X":
+                    # X는 빨간색 글씨로 표시
+                    item.setText(marker)
+                    item.setBackground(QColor("white"))
+                    item.setForeground(QColor("#F44336"))
+                    item.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+                    # 실패 수 증가
+                    self.fail_count += 1
+                    self.fail_count_label.setText(str(self.fail_count))
+                    # 결과 기록
+                    self.current_room_results.append("X")
+                    # 마커 카운터 증가
+                    self.room_position_counter += 1
             elif marker == "O":
                 # O는 파란색 글씨로 표시
                 item.setText(marker)
@@ -566,6 +613,10 @@ class BettingWidget(QWidget):
                 self.progress_table.setColumnWidth(i, 60)
                            
     def reset_step_markers(self):
+        if self.prevent_reset:
+            print("[DEBUG] 마커 초기화 방지 플래그로 인해 초기화 건너뜀")
+            return
+    
         """모든 단계 마커 초기화"""
         for step, item in self.step_items.items():
             item.setText("")
@@ -585,6 +636,9 @@ class BettingWidget(QWidget):
         """
         호환성을 위한 메서드 - reset_room_results로 대체됨
         """
+        if self.prevent_reset:
+            print("[DEBUG] 결과 초기화 방지 플래그로 인해 초기화 건너뜀")
+            return
         self.reset_room_results()
         
     def add_raw_result(self, no, room_name, step, result):
@@ -614,16 +668,24 @@ class BettingWidget(QWidget):
         if not self.current_room.text() and room_name:
             self.current_room.setText(room_name)
             
-    def initialize_betting_widget(self):
+    def initialize_betting_widget(self, success=False):
         """
         베팅 위젯을 초기화합니다.
         테이블 셀과 step_items가 모두 제대로 설정되어 있는지 확인합니다.
         """
         print("[DEBUG] 베팅 위젯 초기화 시작")
         
-        # 테이블 초기화
-        self.progress_table.clear()
-        self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
+        if success:
+            # 베팅 성공 시 초기화
+            self.progress_table.clear()
+            self.progress_table.setRowCount(2)  # 2행: 헤더와 마커
+            self.progress_table.setColumnCount(1)  # PICK 열 초기화
+        else:
+            # 기존 데이터 유지: 새로운 열 추가
+            current_columns = self.progress_table.columnCount()
+            self.progress_table.insertColumn(current_columns)
+        
+        
         # 열 번호(헤더) 숨기기
         self.progress_table.verticalHeader().setVisible(False)
 
