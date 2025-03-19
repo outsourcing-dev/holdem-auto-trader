@@ -115,7 +115,7 @@ class BettingWidget(QWidget):
         self.current_room_results = []  # 현재 방에서의 결과 기록 (O, X, T)
         self.current_bet_amount = 0  # 현재 배팅 금액 저장 변수 추가
         
-        # 수정: 방 별 순차적 위치 카운터 추가
+        # 방 별 순차적 위치 카운터
         self.room_position_counter = 0  # 방마다 초기화되는 마커 위치 카운터
         
         main_layout = QVBoxLayout()
@@ -139,29 +139,29 @@ class BettingWidget(QWidget):
         room_layout.addWidget(self.current_room)
         room_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
         
-        # 현재 배팅 금액 표시
+        # 현재 배팅 금액 표시 (가운데 정렬)
         bet_amount_layout = QHBoxLayout()
+        bet_amount_layout.addStretch(1)  # 왼쪽에 여백 추가 (가운데 정렬을 위해)
         bet_amount_label = QLabel("현재 배팅 금액:")
         bet_amount_label.setStyleSheet("font-weight: bold; font-size: 14px; background-color: white;")
         self.bet_amount_value = QLabel("0")  # 초기값 0
         self.bet_amount_value.setStyleSheet("background-color: white;font-size: 14px; font-weight: bold; color: #F44336; ")  # 강조 표시
         bet_amount_layout.addWidget(bet_amount_label)
         bet_amount_layout.addWidget(self.bet_amount_value)
-        bet_amount_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
+        bet_amount_layout.addStretch(1)  # 오른쪽에 여백 추가 (가운데 정렬을 위해)
         
         # 모드 표시 추가 
         mode_layout = QHBoxLayout()
-        mode_label = QLabel("현재 모드:")
-        mode_label.setStyleSheet("font-weight: bold; font-size: 14px; background-color: white;")
+        mode_layout.addStretch(1)  # 위젯 앞에 여백 추가 (오른쪽 정렬)
         self.mode_value = QLabel("일반 베팅 실행 중")  # 초기값
-        self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;")  # 녹색으로 표시
-        mode_layout.addWidget(mode_label)
+        self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: black;")  # 녹색으로 표시
         mode_layout.addWidget(self.mode_value)
-        mode_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
+        # mode_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
 
-        # 전체 정보 레이아웃에 두 부분 추가
-        info_layout.addLayout(room_layout, 1)  # 비율 1
+        # 전체 정보 레이아웃에 세 부분 추가 - 수정된 부분: mode_layout 추가
+        info_layout.addLayout(room_layout, 1)      # 비율 1
         info_layout.addLayout(bet_amount_layout, 1)  # 비율 1
+        info_layout.addLayout(mode_layout, 1)      # 비율 1 
         
         progress_layout.addLayout(info_layout)
         
