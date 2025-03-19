@@ -141,8 +141,8 @@ class BettingService:
                     
                     if new_game_count > self.main_window.trading_manager.game_count:
                         self.logger.info(f"게임 카운트 업데이트: {self.main_window.trading_manager.game_count} -> {new_game_count}")
-                        # 이전 게임 결과 처리
-                        self.main_window.trading_manager._process_previous_game_result(game_state, new_game_count)
+                        # 이전 게임 결과 처리 - 올바른 함수 참조로 수정
+                        self.main_window.trading_manager.game.process_previous_game_result(game_state, new_game_count)
                         # 게임 카운트 업데이트
                         self.main_window.trading_manager.game_count = new_game_count
                         

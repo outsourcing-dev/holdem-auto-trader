@@ -12,6 +12,7 @@ from utils.room_manager import RoomManager
 from utils.trading_manager import TradingManager
 from utils.ui_updater import UIUpdater
 from ui.room_log_widget import RoomLogWidget
+from datetime import datetime, timedelta
 
 import time
 import os
@@ -428,18 +429,25 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "알림", "방 목록 설정이 저장되었습니다.")
         else:
             QMessageBox.warning(self, "오류", "방 목록 설정 저장 중 오류가 발생했습니다.")
-            
+
     def set_user_info(self, username, days_left):
         """사용자 정보 및 남은 사용 기간 설정"""
         self.username = username
-        self.days_left = days_left
+        
+        # 현재 날짜 기준으로 만료 날짜 계산 (23:59:59로 고정)
+        current_date = datetime.now()
+        expiration_date = current_date + timedelta(days=days_left)
+        expiration_date = expiration_date.replace(hour=23, minute=59, second=59, microsecond=0)
+        
+        # 객체 속성에 만료 날짜 저장
+        self.expiration_date = expiration_date
         
         # 사용자 정보 UI 업데이트
         self.update_user_data(username=username)
         
         # 남은 시간 설정 및 타이머 시작
         self.set_license_remaining_time(days_left)
-
+        
     def add_days_left_display(self, days_left):
         """남은 사용 기간 표시 영역 추가"""
         # days_left가 None인 경우 기본값으로 대체
@@ -483,15 +491,6 @@ class MainWindow(QMainWindow):
     
     def set_license_remaining_time(self, days_left):
         """남은 라이센스 시간 설정 및 타이머 시작"""
-        # 타이머가 이미 실행 중이면 일단 중지
-        if self.license_timer.isActive():
-            self.license_timer.stop()
-            print(f"라이센스 타이머 재설정: 이전 타이머 중지")
-        
-        # 개발 편의를 위해 일수를 시간으로 변환 (1일 = 24시간)
-        # 테스트용 - 분 단위로 설정 (1일 = 10분)
-        # self.user_remaining_seconds = days_left * 10 * 60
-        
         # 실제 운영용 - 일 단위로 설정 (1일 = 24시간)
         self.user_remaining_seconds = days_left * 24 * 60 * 60
         
@@ -514,7 +513,7 @@ class MainWindow(QMainWindow):
             self.enable_application_features(False)
             QMessageBox.critical(self, "사용 기간 만료", "사용 가능 시간이 만료되었습니다.\n관리자에게 문의하세요.")
             print(f"라이센스 타이머 경고: 남은 시간이 0일 이하 ({days_left}일)")
-            
+
     def update_license_time(self):
         """타이머에 의해 호출되는 라이센스 남은 시간 업데이트"""
         if self.user_time_active and self.user_remaining_seconds > 0:
@@ -530,25 +529,19 @@ class MainWindow(QMainWindow):
     
     def update_license_time_display(self):
         """남은 라이센스 시간 표시 업데이트"""
-        days = self.user_remaining_seconds // (24 * 3600)
-        hours = (self.user_remaining_seconds % (24 * 3600)) // 3600
-        minutes = (self.user_remaining_seconds % 3600) // 60
-        seconds = self.user_remaining_seconds % 60
-        
-        # 일수가 있으면 DD일 HH:MM:SS 형식으로, 없으면 HH:MM:SS 형식으로 표시
-        if days > 0:
-            time_str = f"{days}일 {hours:02}:{minutes:02}:{seconds:02}"
+        # 만약 self.expiration_date가 있다면 해당 날짜 사용
+        if hasattr(self, 'expiration_date'):
+            current_date = datetime.now()
+            remaining_days = (self.expiration_date - current_date).days
+            
+            # 남은 기간 계산 (정확히 일 단위로)
+            time_str = f"{remaining_days}일({self.expiration_date.strftime('%y/%m/%d/23:59')})"
         else:
-            time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
-            
-            # 24시간 미만일 때 강조 표시
-            self.license_time_value.setStyleSheet("font-weight: bold; color: red;")
-            
-        self.license_time_value.setText(time_str)
+            # 기존 로직 유지 (fallback)
+            days = self.user_remaining_seconds // (24 * 3600)
+            time_str = f"{days}일"
         
-        # 임시 저장 - 1시간마다 남은 시간 저장
-        if minutes == 0 and seconds == 0:
-            self.save_remaining_time()
+        self.license_time_value.setText(time_str)
     
     def enable_application_features(self, enabled=True):
         """애플리케이션 주요 기능 활성화/비활성화"""

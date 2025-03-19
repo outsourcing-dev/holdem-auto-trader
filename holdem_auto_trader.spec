@@ -20,7 +20,6 @@ datas = [
     ('AUTO.encrypted', '.'),
     # 스타일시트를 직접 _internal/ui 경로에 포함시킵니다
     ('ui/style.qss', 'ui'),
-    ('db/users.db', 'db')
 ]
 
 # 각 폴더 내의 모든 파일 추가
