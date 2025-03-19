@@ -132,12 +132,12 @@ class TradingManagerGame:
             # 타이(T) 결과를 제외하고 베팅 상태 초기화
             if game_state.get('latest_result') != 'T':
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
-                self.logger.info(f"새 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
+                # self.logger.info(f"새 게임 시작: 베팅 상태 초기화 (게임 수: {new_game_count})")
             
             # UI 업데이트
             display_room_name = self.tm.current_room_name.split('\n')[0] if '\n' in self.tm.current_room_name else self.tm.current_room_name
             self.tm.main_window.update_betting_status(
-                room_name=f"{display_room_name} (게임 수: {new_game_count})",
+                room_name=f"{display_room_name})",
                 pick=self.tm.current_pick
             )
         except Exception as e:

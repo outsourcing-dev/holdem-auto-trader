@@ -160,7 +160,7 @@ class TradingManager:
                 # 첫 입장 시 방 정보 출력
                 if previous_game_count == 0 and current_game_count > 0:
                     display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
-                    self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
+                    # self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
             
             # 엑셀 처리 및 PICK 값 확인
             result = self.excel_trading_service.process_game_results(

@@ -394,7 +394,7 @@ class BettingService:
         
         # UI 업데이트
         self.main_window.update_betting_status(
-            room_name=f"{display_room_name} (게임 수: {game_count}, 베팅: {bet_type})",
+            room_name=f"{display_room_name}",
             pick=bet_type  # PICK 값 직접 설정
         )
 

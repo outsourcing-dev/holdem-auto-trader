@@ -8,5 +8,5 @@
     ],
     "target_amount": 200000,
     "double_half_start": 2,
-    "double_half_stop": 0
+    "double_half_stop": 1
 }

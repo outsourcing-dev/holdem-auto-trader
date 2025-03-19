@@ -149,6 +149,16 @@ class BettingWidget(QWidget):
         bet_amount_layout.addWidget(self.bet_amount_value)
         bet_amount_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
         
+        # 모드 표시 추가 
+        mode_layout = QHBoxLayout()
+        mode_label = QLabel("현재 모드:")
+        mode_label.setStyleSheet("font-weight: bold; font-size: 14px; background-color: white;")
+        self.mode_value = QLabel("일반 베팅 실행 중")  # 초기값
+        self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;")  # 녹색으로 표시
+        mode_layout.addWidget(mode_label)
+        mode_layout.addWidget(self.mode_value)
+        mode_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
+
         # 전체 정보 레이아웃에 두 부분 추가
         info_layout.addLayout(room_layout, 1)  # 비율 1
         info_layout.addLayout(bet_amount_layout, 1)  # 비율 1
@@ -673,3 +683,20 @@ class BettingWidget(QWidget):
         
         # 배팅 금액 초기화
         self.update_bet_amount(0)
+        
+    def update_mode(self, mode_type):
+        """
+        현재 베팅 모드를 업데이트합니다.
+        
+        Args:
+            mode_type (str): 모드 유형 ('double', 'half', 또는 'normal')
+        """
+        if mode_type == 'double':
+            self.mode_value.setText("Double Mode 실행 중")
+            self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #F44336;")  # 빨간색으로 표시
+        elif mode_type == 'half':
+            self.mode_value.setText("Half Mode 실행 중")
+            self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #2196F3;")  # 파란색으로 표시
+        else:  # 'normal' 또는 기타
+            self.mode_value.setText("일반 베팅 실행 중")
+            self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;") 

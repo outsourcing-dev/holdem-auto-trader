@@ -40,10 +40,11 @@ class TradingManagerBet:
                     self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
                     return False
             
+            
             # Double & Half 설정 가져오기
             double_half_start, double_half_stop = self.tm.settings_manager.get_double_half_settings()
 
-            # 활성화 상태 확인 - start 값이 1 이상인 경우만 활성화
+            # 활성화 상태 확인 - start 값이 1 이상인 경우만 기능 활성화
             use_double_half = double_half_start > 0
             self.logger.info(f"Double & Half 기능: {'활성화' if use_double_half else '비활성화'} (시작값: {double_half_start}, 중지값: {double_half_stop})")
 
@@ -57,38 +58,94 @@ class TradingManagerBet:
             base_bet_amount = self.tm.martin_service.get_current_bet_amount()
             final_bet_amount = base_bet_amount  # 기본값으로 시작
 
+            # 모드 확인 (없으면 초기화)
+            if not hasattr(self.tm.martin_service, 'double_mode'):
+                self.tm.martin_service.double_mode = False
+            if not hasattr(self.tm.martin_service, 'half_mode'):
+                self.tm.martin_service.half_mode = False
+
             # Double & Half 로직 적용 (활성화된 경우만)
             if use_double_half:
                 self.logger.info(f"현재 승패 상황: {win_count}승 {lose_count}패 (승-패: {win_lose_diff}, 패-승: {lose_win_diff})")
+                self.logger.info(f"현재 모드: {'Double 모드' if self.tm.martin_service.double_mode else ''}{'Half 모드' if self.tm.martin_service.half_mode else ''}{'기본 모드' if not (self.tm.martin_service.double_mode or self.tm.martin_service.half_mode) else ''}")
                 
-                # 승-패 차이가 시작 값 이상인 경우 Half 적용 (승이 많으면 베팅 1/2)
-                if win_lose_diff >= double_half_start:
-                    # 마틴 베팅 금액의 1/2 (최소 1000원, 천원 단위 올림)
-                    half_amount = max(1000, base_bet_amount // 2)
-                    if half_amount % 1000 != 0:
-                        # 천원 단위 올림
-                        half_amount = ((half_amount // 1000) + 1) * 1000
+                # 모드 전환 로직
+                if self.tm.martin_service.double_mode:
+                    # Double 모드 중 중지값 확인 (중지값에 도달하면 모드 해제)
+                    if lose_win_diff == double_half_stop:
+                        self.tm.martin_service.double_mode = False
+                        self.logger.info(f"Double 모드 해제: 패-승({lose_win_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀")
+                        # UI 업데이트 - 모드 해제 반영
+                        self.tm.main_window.betting_widget.update_mode("normal")
+                    else:
+                        # Double 모드 유지 - 마틴 베팅 금액의 2배 적용
+                        final_bet_amount = base_bet_amount * 2
+                        self.logger.info(f"Double 모드 유지: 패-승({lose_win_diff}), 베팅 금액 2배 적용 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
+                        # UI 업데이트 - Double 모드 유지 반영
+                        self.tm.main_window.betting_widget.update_mode("double")
+                
+                elif self.tm.martin_service.half_mode:
+                    # Half 모드 중 중지값 확인 (중지값에 도달하면 모드 해제)
+                    if win_lose_diff == double_half_stop:
+                        self.tm.martin_service.half_mode = False
+                        self.logger.info(f"Half 모드 해제: 승-패({win_lose_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀")
+                        # UI 업데이트 - 모드 해제 반영
+                        self.tm.main_window.betting_widget.update_mode("normal")
+                    else:
+                        # Half 모드 유지 - 마틴 베팅 금액의 1/2 적용 (최소 1000원, 천원 단위 올림)
+                        half_amount = max(1000, base_bet_amount // 2)
+                        if half_amount % 1000 != 0:
+                            # 천원 단위 올림
+                            half_amount = ((half_amount // 1000) + 1) * 1000
+                        
+                        final_bet_amount = half_amount
+                        self.logger.info(f"Half 모드 유지: 승-패({win_lose_diff}), 베팅 금액 1/2 적용 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
+                        # UI 업데이트 - Half 모드 유지 반영
+                        self.tm.main_window.betting_widget.update_mode("half")
+                
+                else:
+                    # 기본 모드 - 모드 진입 여부 확인
                     
-                    final_bet_amount = half_amount
-                    self.logger.info(f"Double & Half 적용: 승-패({win_lose_diff}) ≥ {double_half_start}, 베팅 금액 1/2로 감소 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
-                
-                # 승-패 차이가 중지 값이 되면 원래 마틴으로 복귀
-                elif win_lose_diff == double_half_stop:
-                    self.logger.info(f"Double & Half 해제: 승-패({win_lose_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀 ({base_bet_amount:,}원)")
-                
-                # 패-승 차이가 시작 값 이상인 경우 Double 적용 (패가 많으면 베팅 2배)
-                elif lose_win_diff >= double_half_start:
-                    # 마틴 베팅 금액의 2배
-                    double_amount = base_bet_amount * 2
+                    # 승-패 차이가 시작 값 이상인 경우 Half 모드 진입
+                    if win_lose_diff >= double_half_start:
+                        self.tm.martin_service.half_mode = True
+                        
+                        # 마틴 베팅 금액의 1/2 (최소 1000원, 천원 단위 올림)
+                        half_amount = max(1000, base_bet_amount // 2)
+                        if half_amount % 1000 != 0:
+                            # 천원 단위 올림
+                            half_amount = ((half_amount // 1000) + 1) * 1000
+                        
+                        final_bet_amount = half_amount
+                        self.logger.info(f"Half 모드 진입: 승-패({win_lose_diff}) ≥ {double_half_start}, 베팅 금액 1/2로 감소 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
+                        # UI 업데이트 - Half 모드 진입 반영
+                        self.tm.main_window.betting_widget.update_mode("half")
                     
-                    final_bet_amount = double_amount
-                    self.logger.info(f"Double & Half 적용: 패-승({lose_win_diff}) ≥ {double_half_start}, 베팅 금액 2배로 증가 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
-                
-                # 패-승 차이가 중지 값이 되면 원래 마틴으로 복귀
-                elif lose_win_diff == double_half_stop:
-                    self.logger.info(f"Double & Half 해제: 패-승({lose_win_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀 ({base_bet_amount:,}원)")
+                    # 패-승 차이가 시작 값 이상인 경우 Double 모드 진입
+                    elif lose_win_diff >= double_half_start:
+                        self.tm.martin_service.double_mode = True
+                        
+                        # 마틴 베팅 금액의 2배
+                        double_amount = base_bet_amount * 2
+                        
+                        final_bet_amount = double_amount
+                        self.logger.info(f"Double 모드 진입: 패-승({lose_win_diff}) ≥ {double_half_start}, 베팅 금액 2배로 증가 ({base_bet_amount:,}원 → {final_bet_amount:,}원)")
+                        # UI 업데이트 - Double 모드 진입 반영
+                        self.tm.main_window.betting_widget.update_mode("double")
+                    
+                    else:
+                        # 기본 모드 유지
+                        self.logger.info(f"기본 모드 유지: 기본 마틴 금액 사용 ({base_bet_amount:,}원)")
+                        # UI 업데이트 - 기본 모드 유지 반영
+                        self.tm.main_window.betting_widget.update_mode("normal")
             else:
+                # Double & Half 기능이 비활성화된 경우
                 self.logger.info(f"Double & Half 기능 비활성화 상태, 기본 마틴 금액 사용: {base_bet_amount:,}원")
+                # UI 업데이트 - 기본 모드 표시
+                self.tm.main_window.betting_widget.update_mode("normal")
+
+            # UI에 현재 배팅 금액 업데이트
+            self.tm.main_window.betting_widget.update_bet_amount(final_bet_amount)
             
             # UI 업데이트
             self.tm.main_window.update_betting_status(
