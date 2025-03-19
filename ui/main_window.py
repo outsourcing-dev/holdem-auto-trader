@@ -191,9 +191,9 @@ class MainWindow(QMainWindow):
         # 사이트 이동 버튼
         site1, site2, site3 = self.settings_manager.get_sites()
         site_button_layout = QHBoxLayout()
-        self.site1_button = QPushButton("사이트 1 이동")
-        self.site2_button = QPushButton("사이트 2 이동")
-        self.site3_button = QPushButton("사이트 3 이동")
+        self.site1_button = QPushButton("사이트 1")
+        self.site2_button = QPushButton("사이트 2")
+        self.site3_button = QPushButton("사이트 3")
 
         self.site1_button.clicked.connect(lambda: self.open_site(site1))
         self.site2_button.clicked.connect(lambda: self.open_site(site2))
@@ -206,7 +206,7 @@ class MainWindow(QMainWindow):
 
         # 자동 배팅 시작 / 종료 버튼
         start_stop_layout = QHBoxLayout()
-        self.start_button = QPushButton("🔵 자동 배팅 시작")
+        self.start_button = QPushButton("🔵 시작")
         self.stop_button = QPushButton("🔴 자동 배팅 종료")
 
         # 초기에 버튼 비활성화
