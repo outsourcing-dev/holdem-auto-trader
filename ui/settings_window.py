@@ -420,8 +420,10 @@ class SettingsWindow(QWidget):
         except ValueError:
             return 0  # 변환 오류 시 0으로 처리 (비활성화)
 
+    # ui/settings_window.py에서 save_settings 메서드 수정
+
     def save_settings(self):
-        """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장"""
+        """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장하고 다시 로드"""
         site1 = self.site1_input.text()
         site2 = self.site2_input.text()
         site3 = self.site3_input.text()
@@ -436,6 +438,7 @@ class SettingsWindow(QWidget):
         double_half_start = int(self.start_input.text() or "20")
         double_half_stop = int(self.stop_input.text() or "8")
         
+        # 설정 저장
         self.settings_manager.save_settings(
             site1, site2, site3, 
             martin_count=martin_count,
@@ -445,5 +448,24 @@ class SettingsWindow(QWidget):
             double_half_stop=double_half_stop
         )
         
-        print(f"[INFO] 설정 저장 완료 - 목표 금액: {target_amount:,}원, Double & Half 설정: 시작={double_half_start}, 중지={double_half_stop}")
+        # 설정 파일을 명시적으로 다시 로드
+        self.settings_manager.load_settings()
+        
+        print(f"[INFO] 설정 저장 및 재로드 완료 - 목표 금액: {target_amount:,}원, Double & Half 설정: 시작={double_half_start}, 중지={double_half_stop}")
+        
+        # 부모 창에 있는 설정 관련 클래스들도 새로운 설정 로드
+        try:
+            # 메인 창의 설정 관련 객체들 업데이트
+            for obj_name in ['trading_manager', 'martin_service', 'balance_service']:
+                if hasattr(self.parent(), obj_name):
+                    obj = getattr(self.parent(), obj_name)
+                    if hasattr(obj, 'settings_manager'):
+                        # 설정 매니저 갱신
+                        obj.settings_manager = self.settings_manager
+                    # 추가로 settings_manager 내부의 설정 업데이트
+                    if hasattr(obj, 'update_settings') and callable(getattr(obj, 'update_settings')):
+                        obj.update_settings()
+        except Exception as e:
+            print(f"[WARNING] 부모 창 설정 업데이트 오류: {e}")
+        
         self.close()
