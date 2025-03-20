@@ -196,9 +196,10 @@ class MainWindow(QMainWindow):
         self.site2_button = QPushButton("사이트 2")
         self.site3_button = QPushButton("사이트 3")
 
-        self.site1_button.clicked.connect(lambda: self.open_site(site1))
-        self.site2_button.clicked.connect(lambda: self.open_site(site2))
-        self.site3_button.clicked.connect(lambda: self.open_site(site3))
+        # 사이트 버튼 클릭 이벤트 연결 - 람다 함수로 변경하여 최신 설정 가져오기
+        self.site1_button.clicked.connect(lambda: self.open_site_with_refresh(1))
+        self.site2_button.clicked.connect(lambda: self.open_site_with_refresh(2))
+        self.site3_button.clicked.connect(lambda: self.open_site_with_refresh(3))
 
         site_button_layout.addWidget(self.site1_button)
         site_button_layout.addWidget(self.site2_button)
@@ -307,6 +308,40 @@ class MainWindow(QMainWindow):
         # RoomLogWidget 초기화
         if hasattr(self, 'room_log_widget'):
             self.room_log_widget.clear_logs()
+           
+    # open_site 메서드 다음에 이 메서드를 추가하면 좋습니다
+
+    def open_site_with_refresh(self, site_number):
+        """
+        설정을 다시 로드한 후 사이트 열기
+        
+        Args:
+            site_number (int): 사이트 번호 (1, 2, 3)
+        """
+        # 설정 매니저 재초기화 (항상 최신 설정 로드)
+        self.settings_manager = SettingsManager()
+        
+        # 사이트 URL 가져오기
+        site1, site2, site3 = self.settings_manager.get_sites()
+        
+        # 로그 출력
+        print(f"[INFO] 설정 다시 로드 후 사이트 {site_number} 열기 시도")
+        print(f"[DEBUG] 현재 사이트 설정: 사이트1={site1}, 사이트2={site2}, 사이트3={site3}")
+        
+        # 사이트 번호에 따라 URL 선택
+        site_url = ""
+        if site_number == 1:
+            site_url = site1
+        elif site_number == 2:
+            site_url = site2
+        elif site_number == 3:
+            site_url = site3
+            
+        # 사이트 열기
+        if site_url:
+            self.open_site(site_url)
+        else:
+            QMessageBox.warning(self, "알림", f"사이트 {site_number}의 URL이 설정되지 않았습니다.\n설정 메뉴에서 URL을 설정해주세요.")
             
     def open_site(self, url):
         """사이트 열기"""
@@ -600,3 +635,36 @@ class MainWindow(QMainWindow):
         
         # 기본 이벤트 처리
         super().closeEvent(event)
+    
+    # ui/main_window.py에 open_site_with_refresh 메서드 추가
+    def open_site_with_refresh(self, site_number):
+        """
+        설정을 다시 로드한 후 사이트 열기
+        
+        Args:
+            site_number (int): 사이트 번호 (1, 2, 3)
+        """
+        # 설정 매니저 재초기화 (항상 최신 설정 로드)
+        self.settings_manager = SettingsManager()
+        
+        # 사이트 URL 가져오기
+        site1, site2, site3 = self.settings_manager.get_sites()
+        
+        # 로그 출력
+        print(f"[INFO] 설정 다시 로드 후 사이트 {site_number} 열기 시도")
+        print(f"[DEBUG] 현재 사이트 설정: 사이트1={site1}, 사이트2={site2}, 사이트3={site3}")
+        
+        # 사이트 번호에 따라 URL 선택
+        site_url = ""
+        if site_number == 1:
+            site_url = site1
+        elif site_number == 2:
+            site_url = site2
+        elif site_number == 3:
+            site_url = site3
+            
+        # 사이트 열기
+        if site_url:
+            self.open_site(site_url)
+        else:
+            QMessageBox.warning(self, "알림", f"사이트 {site_number}의 URL이 설정되지 않았습니다.\n설정 메뉴에서 URL을 설정해주세요.")

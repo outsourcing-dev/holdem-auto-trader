@@ -160,15 +160,28 @@ class MartinBettingService:
         # 마틴 설정 최신 상태로 다시 로드
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
         
+    # services/martin_service.py의 update_settings 메서드 강화
     def update_settings(self):
         """설정이 변경된 경우 마틴 설정을 다시 로드합니다."""
         # 이전 설정 값 저장
         old_martin_count = self.martin_count
         old_martin_amounts = self.martin_amounts.copy() if self.martin_amounts else []
         
-        # 새 설정 로드
+        # 새 설정 로드 - 설정 매니저도 리프레시
+        self.settings_manager = SettingsManager()
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
+        
+        # 목표 금액 및 Double & Half 설정도 로그에 출력
+        target_amount = self.settings_manager.get_target_amount()
+        double_half_start, double_half_stop = self.settings_manager.get_double_half_settings()
         
         # 설정이 변경되었는지 확인하고 로그 출력
         if old_martin_count != self.martin_count or old_martin_amounts != self.martin_amounts:
-            self.logger.info(f"[마틴] 설정 변경됨! 이전: 단계={old_martin_count}, 금액={old_martin_amounts} / 현재: 단계={self.martin_count}, 금액={self.martin_amounts}")
+            self.logger.info(f"[마틴] 설정 변경됨! 이전: 단계={old_martin_count}, 금액={old_martin_amounts}")
+            self.logger.info(f"[마틴] 새 설정: 단계={self.martin_count}, 금액={self.martin_amounts}")
+        
+        # 추가 설정 로그
+        self.logger.info(f"[마틴] 목표 금액: {target_amount:,}원")
+        self.logger.info(f"[마틴] Double & Half 설정: 시작={double_half_start}, 중지={double_half_stop}")
+        
+        return True
