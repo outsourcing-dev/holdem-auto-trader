@@ -64,7 +64,10 @@ if exist dist\holdem_auto_trader (
     
     REM 암호화된 Excel 파일만 복사 (원본 Excel은 복사하지 않음)
     copy /Y AUTO.encrypted dist\holdem_auto_trader\
-    
+
+    REM 아이콘 파일 복사
+    if exist lover-icon.ico copy /Y lover-icon.ico dist\holdem_auto_trader\
+        
     REM style.qss 수동 복사 제거 - PyInstaller에 의해 자동으로 포함됨
     REM (주석 처리로 변경 사항 표시)
     REM if not exist dist\holdem_auto_trader\ui mkdir dist\holdem_auto_trader\ui

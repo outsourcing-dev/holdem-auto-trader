@@ -118,7 +118,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon 항목 제거 (아이콘 파일이 없는 경우)
+    icon='lover-icon.ico',  # 아이콘 파일 경로 추가
     # version='file_version_info.txt',  # 버전 정보 파일 (있는 경우)
 )
 
