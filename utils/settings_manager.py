@@ -28,65 +28,42 @@ class SettingsManager:
     def __init__(self):
         self.settings = self.load_settings()
 
-    # utils/settings_manager.py의 load_settings 메서드 수정
-
     def load_settings(self):
         """JSON 파일에서 설정을 불러오기 (항상 디스크에서 새로 읽음)"""
         settings_file = get_settings_file_path()
         if not os.path.exists(settings_file):
             # 기본 설정
-            self.settings = {
+            return {
                 "site1": "", 
                 "site2": "", 
                 "site3": "",
                 "martin_count": 3,
-                "martin_amounts": [1000, 2000, 4000],
-                "target_amount": 0,
-                "double_half_start": 20,
-                "double_half_stop": 8
+                "martin_amounts": [1000, 2000, 4000]
             }
-            return self.settings
         
         # 파일 내용 읽기
         try:
             with open(settings_file, "r", encoding="utf-8") as file:
                 settings = json.load(file)
                 
-                # 필수 설정이 없을 경우 기본값 추가
+                # 마틴 설정이 없을 경우 기본값 추가
                 if "martin_count" not in settings:
                     settings["martin_count"] = 3
                 if "martin_amounts" not in settings:
                     settings["martin_amounts"] = [1000, 2000, 4000]
-                if "target_amount" not in settings:
-                    settings["target_amount"] = 0
-                if "double_half_start" not in settings:
-                    settings["double_half_start"] = 20
-                if "double_half_stop" not in settings:
-                    settings["double_half_stop"] = 8
                     
-                # 설정 업데이트
-                self.settings = settings
-                
-                print(f"[INFO] 설정 파일 '{settings_file}'에서 설정 로드 완료")
-                print(f"[DEBUG] 마틴 설정: 횟수={settings['martin_count']}, 금액={settings['martin_amounts']}")
-                print(f"[DEBUG] 목표 금액: {settings.get('target_amount', 0):,}원")
-                print(f"[DEBUG] Double & Half 설정: 시작={settings.get('double_half_start', 20)}, 중지={settings.get('double_half_stop', 8)}")
-                
-                return self.settings
+                print(f"[DEBUG] 설정 파일 '{settings_file}'에서 읽은 마틴 금액: {settings['martin_amounts']}")
+                return settings
         except Exception as e:
             print(f"[ERROR] 설정 파일 '{settings_file}' 읽기 오류: {e}")
             # 오류 발생 시 기본 설정 반환
-            self.settings = {
+            return {
                 "site1": "", 
                 "site2": "", 
                 "site3": "",
                 "martin_count": 3,
-                "martin_amounts": [1000, 2000, 4000],
-                "target_amount": 0,
-                "double_half_start": 20,
-                "double_half_stop": 8
+                "martin_amounts": [1000, 2000, 4000]
             }
-            return self.settings
             
     # 기존 save_settings 메서드 수정
     def save_settings(self, site1, site2, site3, martin_count=3, martin_amounts=None, target_amount=0, 

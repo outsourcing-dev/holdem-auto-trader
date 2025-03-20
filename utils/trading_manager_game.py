@@ -291,34 +291,3 @@ class TradingManagerGame:
 
         self.logger.info(f"새 방으로 이동 완료, 게임 카운트: {self.tm.game_count}")
         return True
-    
-    def refresh_settings(self):
-        """설정을 파일에서 새로 로드하여 적용합니다."""
-        try:
-            # 설정 매니저 재생성 (항상 파일에서 다시 로드)
-            self.settings_manager = SettingsManager()
-            
-            # 각 서비스의 설정 매니저도 갱신
-            services = ['balance_service', 'martin_service', 'room_entry_service', 'excel_trading_service']
-            for service_name in services:
-                if hasattr(self, service_name):
-                    service = getattr(self, service_name)
-                    if hasattr(service, 'settings_manager'):
-                        # 기존 객체가 있으면 업데이트
-                        service.settings_manager = self.settings_manager
-            
-            # 마틴 서비스는 특별 처리 (update_settings 메서드 호출)
-            if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'update_settings'):
-                self.martin_service.update_settings()
-                
-            # 설정 로그 출력
-            martin_count, martin_amounts = self.settings_manager.get_martin_settings()
-            site1, site2, site3 = self.settings_manager.get_sites()
-            
-            self.logger.info(f"설정 새로고침 완료 - 마틴 설정: {martin_count}단계, {martin_amounts}")
-            self.logger.info(f"사이트 설정: site1={site1}, site2={site2}, site3={site3}")
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"설정 새로고침 중 오류 발생: {e}")
-            return False

@@ -157,8 +157,6 @@ class MainWindow(QMainWindow):
         # ✅ 남은 라이센스 시간 표시 추가 (중앙 정렬)
         from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 
-# ui/main_window.py의 setup_ui 함수 내부 라이센스 표시 부분 수정
-
         # ✅ 남은 라이센스 시간 표시 추가 (왼쪽 정렬 + 패딩 추가)
         license_time_layout = QHBoxLayout()
         license_time_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -198,9 +196,9 @@ class MainWindow(QMainWindow):
         self.site2_button = QPushButton("사이트 2")
         self.site3_button = QPushButton("사이트 3")
 
-        self.site1_button.clicked.connect(lambda: self.open_site_with_refresh(1))
-        self.site2_button.clicked.connect(lambda: self.open_site_with_refresh(2))
-        self.site3_button.clicked.connect(lambda: self.open_site_with_refresh(3))
+        self.site1_button.clicked.connect(lambda: self.open_site(site1))
+        self.site2_button.clicked.connect(lambda: self.open_site(site2))
+        self.site3_button.clicked.connect(lambda: self.open_site(site3))
 
         site_button_layout.addWidget(self.site1_button)
         site_button_layout.addWidget(self.site2_button)
@@ -309,7 +307,7 @@ class MainWindow(QMainWindow):
         # RoomLogWidget 초기화
         if hasattr(self, 'room_log_widget'):
             self.room_log_widget.clear_logs()
-           
+            
     def open_site(self, url):
         """사이트 열기"""
         # 브라우저가 실행 중인지 확인
@@ -318,39 +316,7 @@ class MainWindow(QMainWindow):
             
         self.devtools.open_site(url)
         print(f"[INFO] 사이트 열기: {url}")
-    
-    def open_site_with_refresh(self, site_number):
-        """
-        설정을 다시 로드한 후 사이트 열기
-        
-        Args:
-            site_number (int): 사이트 번호 (1, 2, 3)
-        """
-        # 설정 매니저 재초기화 (항상 최신 설정 로드)
-        self.settings_manager = SettingsManager()
-        
-        # 사이트 URL 가져오기
-        site1, site2, site3 = self.settings_manager.get_sites()
-        
-        # 로그 출력
-        print(f"[INFO] 설정 다시 로드 후 사이트 {site_number} 열기 시도")
-        print(f"[DEBUG] 현재 사이트 설정: 사이트1={site1}, 사이트2={site2}, 사이트3={site3}")
-        
-        # 사이트 번호에 따라 URL 선택
-        site_url = ""
-        if site_number == 1:
-            site_url = site1
-        elif site_number == 2:
-            site_url = site2
-        elif site_number == 3:
-            site_url = site3
-            
-        # 사이트 열기
-        if site_url:
-            self.open_site(site_url)
-        else:
-            QMessageBox.warning(self, "알림", f"사이트 {site_number}의 URL이 설정되지 않았습니다.\n설정 메뉴에서 URL을 설정해주세요.")
-            
+
     def switch_to_casino_window(self):
         """가장 최근에 열린 카지노 창으로 전환"""
         if not self.devtools.driver:

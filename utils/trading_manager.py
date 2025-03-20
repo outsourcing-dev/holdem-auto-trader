@@ -86,44 +86,10 @@ class TradingManager:
             )
         except Exception as e:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
-
-    def refresh_settings(self):
-        """설정을 파일에서 새로 로드하여 적용합니다."""
-        try:
-            # 설정 매니저 재생성 (항상 파일에서 다시 로드)
-            self.settings_manager = SettingsManager()
-            
-            # 각 서비스의 설정 매니저도 갱신
-            services = ['balance_service', 'martin_service', 'room_entry_service', 'excel_trading_service']
-            for service_name in services:
-                if hasattr(self, service_name):
-                    service = getattr(self, service_name)
-                    if hasattr(service, 'settings_manager'):
-                        # 기존 객체가 있으면 업데이트
-                        service.settings_manager = self.settings_manager
-            
-            # 마틴 서비스는 특별 처리 (update_settings 메서드 호출)
-            if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'update_settings'):
-                self.martin_service.update_settings()
-                
-            # 설정 로그 출력
-            martin_count, martin_amounts = self.settings_manager.get_martin_settings()
-            site1, site2, site3 = self.settings_manager.get_sites()
-            
-            self.logger.info(f"설정 새로고침 완료 - 마틴 설정: {martin_count}단계, {martin_amounts}")
-            self.logger.info(f"사이트 설정: site1={site1}, site2={site2}, site3={site3}")
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"설정 새로고침 중 오류 발생: {e}")
-            return False
-        
+    
     def start_trading(self):
         """자동 매매 시작"""
         try:
-            # 시작 전 설정 새로고침
-            self.refresh_settings()
-            
             # 사전 검증
             if not self.helpers.validate_trading_prerequisites():
                 return
@@ -131,7 +97,7 @@ class TradingManager:
             # 사용자 확인 및 라이센스 검증
             if not self.helpers.verify_license():
                 return
-                    
+                
             # 설정 초기화
             self.helpers.init_trading_settings()
             
@@ -347,38 +313,4 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
-            return False
-        
-    # utils/trading_manager.py에 설정 업데이트 메서드 추가
-
-    def update_settings(self):
-        """설정이 변경된 경우 호출될 설정 업데이트 메서드"""
-        try:
-            # 설정 매니저 갱신 - 파일에서 다시 로드
-            self.settings_manager = SettingsManager()
-            self.settings_manager.load_settings()
-            
-            # 각 서비스의 설정 매니저도 갱신
-            if hasattr(self, 'balance_service'):
-                self.balance_service.settings_manager = self.settings_manager
-            
-            # 마틴 서비스의 설정 업데이트
-            if hasattr(self, 'martin_service'):
-                # 설정 매니저 갱신
-                self.martin_service.settings_manager = self.settings_manager
-                # 마틴 설정 업데이트 메서드 호출
-                if hasattr(self.martin_service, 'update_settings'):
-                    self.martin_service.update_settings()
-            
-            # 설정 업데이트 로깅
-            martin_count, martin_amounts = self.settings_manager.get_martin_settings()
-            target_amount = self.settings_manager.get_target_amount()
-            double_half_start, double_half_stop = self.settings_manager.get_double_half_settings()
-            
-            self.logger.info(f"설정 업데이트 완료 - 마틴 설정: {martin_count}단계, {martin_amounts}")
-            self.logger.info(f"목표 금액: {target_amount:,}원, Double & Half: 시작={double_half_start}, 중지={double_half_stop}")
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"설정 업데이트 중 오류 발생: {e}")
             return False
