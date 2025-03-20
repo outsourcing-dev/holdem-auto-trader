@@ -222,6 +222,7 @@ class TradingManagerBet:
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
                 self.tm.should_move_to_next_room = False
                 self.logger.info("타이(T) 결과: 같은 방에서 재시도")
+
             elif is_win:
                 if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
                     self.tm.main_window.betting_widget.prevent_reset = False

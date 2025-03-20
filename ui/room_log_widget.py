@@ -259,13 +259,14 @@ class RoomLogWidget(QWidget):
         self.lose_count_label.setText("0")
         self.log_table.setRowCount(0)
     
-    def set_current_room(self, room_name):
+    def set_current_room(self, room_name, is_new_visit=True):
         """
         현재 방 이름 설정 - 방 이름이 변경된 경우에만 새 방문 ID 생성
         단, 실제 베팅이 발생하기 전까지는 로그에 추가하지 않음
         
         Args:
             room_name (str): 방 이름
+            is_new_visit (bool): 새 방문으로 처리할지 여부 (무승부 시 False)
         """
         # 방 이름에서 게임 수와 베팅 정보 제거 (첫 줄만 사용)
         if room_name:
@@ -279,13 +280,40 @@ class RoomLogWidget(QWidget):
             # 로그에 설명 추가 - 방 변경 사항만 저장
             print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
         else:
-            # 기존 방문이 있는 경우, 방 이름이 변경되었는지 확인
-            if self.current_visit_id in self.room_logs:
-                # 기본 방 이름만 비교 (게임 수와 베팅 정보 무시)
-                current_room_name = self.room_logs[self.current_visit_id]['room_name']
-                current_base_name = current_room_name.split('\n')[0].split('(')[0].strip() if '\n' in current_room_name or '(' in current_room_name else current_room_name
+            # 현재 방과 다른 방으로 이동했는지 확인 (방 이름 비교)
+            if is_new_visit and self.should_create_new_visit_id(base_room_name):
+                # 새 방문 ID 생성
+                self.current_visit_id = self.create_new_visit_id(base_room_name)
+                print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
+    
+    def should_create_new_visit_id(self, base_room_name):
+        """
+        새 방문 ID 생성 여부 결정 (무승부 시 현재 방에 계속 있어야 함)
+        
+        Args:
+            base_room_name (str): 방 기본 이름
+            
+        Returns:
+            bool: 새 방문 ID 생성 여부
+        """
+        # 현재 방문 ID가 없는 경우 항상 새로 생성
+        if self.current_visit_id is None:
+            return True
+            
+        # 현재 방문 ID가 있는 경우, 기존 방 이름과 비교
+        if self.current_visit_id in self.room_logs:
+            # 기본 방 이름만 비교 (첫 단어가 같으면 같은 방으로 간주)
+            current_room_name = self.room_logs[self.current_visit_id]['room_name']
+            
+            # 기본 이름만 추출하여 비교 (예: "스피드 바카라 Q"에서 "Q"까지만)
+            current_parts = current_room_name.split()
+            new_parts = base_room_name.split()
+            
+            # 기본 방 이름의 첫 3단어만 비교 (예: "스피드 바카라 Q")
+            if len(current_parts) >= 3 and len(new_parts) >= 3:
+                return current_parts[:3] != new_parts[:3]
                 
-                if current_base_name != base_room_name:
-                    # 방 이름이 변경된 경우에만 새 방문 ID 생성
-                    self.current_visit_id = self.create_new_visit_id(base_room_name)
-                    print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
+            # 기본 방 이름 자체가 다르면 새 방문 ID 필요
+            return current_room_name != base_room_name
+            
+        return True
