@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout,
                              QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox, QGridLayout)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
+from utils.room_loader import extract_room_base_name
 
 class RoomLogWidget(QWidget):
     def __init__(self):
@@ -93,18 +94,31 @@ class RoomLogWidget(QWidget):
         main_layout.addWidget(log_group)
         
         self.setLayout(main_layout)
-    
+        self.has_changed_room = False
+
     def create_new_visit_id(self, room_name):
         """
         새 방문 ID 생성 - 방 이름 + 카운터
+        이미 있는 방 이름이면 카운터만 증가시키고 기존 prefix 유지
         
         Args:
             room_name (str): 방 이름
-            
+                
         Returns:
             str: 생성된 방문 ID
         """
+        # 이미 방문 중인 방인지 확인 (현재 로그에 있는 방 이름과 동일한지)
+        for visit_id, data in self.room_logs.items():
+            if data['room_name'] == room_name and visit_id in self.visit_order:
+                # 마지막으로 방문한 방인지 확인 (방문 순서의 마지막 요소)
+                if self.visit_order and self.visit_order[-1] == visit_id:
+                    # 같은 방에 계속 있는 경우, 기존 ID 재사용
+                    print(f"[DEBUG] 기존 방문 ID 재사용: {visit_id}, 방: {room_name}")
+                    return visit_id
+        
+        # 새 방문이면 카운터 증가
         self.visit_counter += 1
+        
         # 정렬을 위해 숫자 부분을 0으로 패딩 (최대 4자리)
         visit_id = f"{self.visit_counter:04d}_{room_name}"
         
@@ -128,7 +142,7 @@ class RoomLogWidget(QWidget):
         # 방문 ID가 없는 경우 (새 방에 입장한 경우) 먼저 생성
         if self.current_visit_id is None:
             if room_name:
-                base_room_name = room_name.split('\n')[0].split('(')[0].strip()
+                base_room_name = extract_room_base_name(room_name)
             else:
                 base_room_name = "알 수 없는 방"
             self.current_visit_id = self.create_new_visit_id(base_room_name)
@@ -138,7 +152,7 @@ class RoomLogWidget(QWidget):
         if self.current_visit_id not in self.room_logs:
             # 방 이름에서 기본 이름 추출
             if room_name:
-                base_room_name = room_name.split('\n')[0].split('(')[0].strip()
+                base_room_name = extract_room_base_name(room_name)
             else:
                 base_room_name = "알 수 없는 방"
                 
@@ -174,7 +188,7 @@ class RoomLogWidget(QWidget):
         
         # 테이블 업데이트
         self.update_table()
-        
+            
     def update_table(self):
         """로그 테이블 업데이트 - 최신 방문 순으로 정렬"""
         # 테이블 초기화
@@ -259,33 +273,36 @@ class RoomLogWidget(QWidget):
         self.lose_count_label.setText("0")
         self.log_table.setRowCount(0)
     
+    # set_current_room 메서드 수정
     def set_current_room(self, room_name, is_new_visit=True):
         """
         현재 방 이름 설정 - 방 이름이 변경된 경우에만 새 방문 ID 생성
-        단, 실제 베팅이 발생하기 전까지는 로그에 추가하지 않음
         
         Args:
             room_name (str): 방 이름
             is_new_visit (bool): 새 방문으로 처리할지 여부 (무승부 시 False)
         """
-        # 방 이름에서 게임 수와 베팅 정보 제거 (첫 줄만 사용)
-        if room_name:
-            base_room_name = room_name.split('\n')[0].split('(')[0].strip()
-        else:
+        # 방 이름 기본 처리
+        if not room_name:
             base_room_name = "알 수 없는 방"
+        else:
+            # 방 이름에서 괄호와 뒷부분 제거 (예: "스피드 바카라 V)" -> "스피드 바카라 V")
+            base_room_name = room_name.split('\n')[0].strip().rstrip(')')
         
-        # 이전 방문이 없는 경우에만 새 방문 ID 생성
+        # 실제 새 방 방문 여부 확인
+        if is_new_visit and self.has_changed_room:
+            self.current_visit_id = None  # 강제로 새 ID 생성하도록 초기화
+            self.has_changed_room = False  # 플래그 리셋
+            
+        # 현재 방문 ID가 없는 경우에만 새로 생성
         if self.current_visit_id is None:
             self.current_visit_id = self.create_new_visit_id(base_room_name)
-            # 로그에 설명 추가 - 방 변경 사항만 저장
             print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
         else:
-            # 현재 방과 다른 방으로 이동했는지 확인 (방 이름 비교)
-            if is_new_visit and self.should_create_new_visit_id(base_room_name):
-                # 새 방문 ID 생성
-                self.current_visit_id = self.create_new_visit_id(base_room_name)
-                print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
-    
+            # 이미 방문 중인 경우 로그만 출력
+            print(f"계속 '{base_room_name}' 방에 머무르는 중 (ID: {self.current_visit_id})")
+               
+
     def should_create_new_visit_id(self, base_room_name):
         """
         새 방문 ID 생성 여부 결정 (무승부 시 현재 방에 계속 있어야 함)
@@ -305,15 +322,25 @@ class RoomLogWidget(QWidget):
             # 기본 방 이름만 비교 (첫 단어가 같으면 같은 방으로 간주)
             current_room_name = self.room_logs[self.current_visit_id]['room_name']
             
+            # 직접 방 이름 비교 - 방 이름이 완전히 같으면 같은 방
+            if current_room_name == base_room_name:
+                # 같은 방 이름이면 새 ID를 생성하지 않음
+                return False
+                
             # 기본 이름만 추출하여 비교 (예: "스피드 바카라 Q"에서 "Q"까지만)
             current_parts = current_room_name.split()
             new_parts = base_room_name.split()
             
-            # 기본 방 이름의 첫 3단어만 비교 (예: "스피드 바카라 Q")
-            if len(current_parts) >= 3 and len(new_parts) >= 3:
-                return current_parts[:3] != new_parts[:3]
+            # 기본 방 이름의 길이가 다르면 다른 방
+            if len(current_parts) != len(new_parts):
+                return True
                 
-            # 기본 방 이름 자체가 다르면 새 방문 ID 필요
-            return current_room_name != base_room_name
+            # 모든 단어가 같은지 확인
+            for i in range(min(len(current_parts), len(new_parts))):
+                if current_parts[i] != new_parts[i]:
+                    return True
+                    
+            # 모든 비교를 통과했으면 같은 방으로 간주
+            return False
             
         return True

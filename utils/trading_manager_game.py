@@ -94,7 +94,7 @@ class TradingManagerGame:
                     self.tm._first_entry_time = time.time()
         except Exception as e:
             self.logger.error(f"Excel 결과 처리 오류: {e}")
-            
+
     def handle_tie_result(self, latest_result, game_state):
         """무승부(T) 결과 처리"""
         try:
@@ -110,6 +110,14 @@ class TradingManagerGame:
                 
                 self.logger.info(f"무승부(T) 감지, 이전 PICK 값({self.tm.current_pick})으로 베팅 시도")
                 time.sleep(1.5)  # 대기 시간 단축
+                
+                # 중요: TIE 결과 시에는 방 이동이 아닌 것을 표시 (is_new_visit=False)
+                if hasattr(self.tm.main_window, 'room_log_widget'):
+                    # 같은 방에 계속 있다는 것을 표시
+                    self.tm.main_window.room_log_widget.set_current_room(
+                        self.tm.current_room_name, 
+                        is_new_visit=False
+                    )
 
                 bet_success = self.tm.bet_helper.place_bet(self.tm.current_pick, self.tm.game_count)
                 
@@ -120,7 +128,7 @@ class TradingManagerGame:
                     self.tm.main_window.set_remaining_time(0, 0, 1)
         except Exception as e:
             self.logger.error(f"TIE 결과 처리 오류: {e}")
-            
+                
     def process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 및 배팅 상태 초기화"""
         try:

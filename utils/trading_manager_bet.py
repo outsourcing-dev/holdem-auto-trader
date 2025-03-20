@@ -245,6 +245,7 @@ class TradingManagerBet:
                 self.tm.should_move_to_next_room = True
                 self.logger.info("베팅 실패: 방 이동 필요")
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
+            
             # 결과 카운트 증가
             self.tm.result_count += 1
             
@@ -260,11 +261,20 @@ class TradingManagerBet:
             self.tm.main_window.betting_widget.set_step_marker(result_position, result_marker)
             
             # 방 로그 위젯에 결과 추가
-            self.tm.main_window.room_log_widget.add_bet_result(
-                room_name=self.tm.current_room_name,
-                is_win=is_win,
-                is_tie=is_tie
-            )
+            if hasattr(self.tm.main_window, 'room_log_widget'):
+                # TIE의 경우 is_new_visit=False로 설정하여 방 이동 없음을 표시
+                if is_tie:
+                    # 이미 방문 중인 방에 계속 있는 경우
+                    self.tm.main_window.room_log_widget.set_current_room(
+                        self.tm.current_room_name, 
+                        is_new_visit=False
+                    )
+                    
+                self.tm.main_window.room_log_widget.add_bet_result(
+                    room_name=self.tm.current_room_name,
+                    is_win=is_win,
+                    is_tie=is_tie
+                )
             
             # 잔액 업데이트 및 목표 금액 확인
             self.update_balance_after_result(is_win)
