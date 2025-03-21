@@ -205,6 +205,8 @@ class TradingManagerBet:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
             return False
         
+    # trading_manager_bet.py의 process_bet_result 메서드 수정
+
     def process_bet_result(self, bet_type, latest_result, new_game_count):
         """베팅 결과 처리"""
         try:
@@ -260,15 +262,22 @@ class TradingManagerBet:
             # 베팅 위젯에 결과 표시
             self.tm.main_window.betting_widget.set_step_marker(result_position, result_marker)
             
+            # 승리 시 마틴 단계를 즉시 초기화 (방 이동 전에)
+            if is_win:
+                self.logger.info("승리 감지: 마틴 단계 즉시 초기화 (방 이동 전)")
+                self.tm.martin_service.current_step = 0
+                self.tm.martin_service.consecutive_losses = 0
+            
             # 방 로그 위젯에 결과 추가
             if hasattr(self.tm.main_window, 'room_log_widget'):
+                # 수정: 승리든 무승부든 상관없이 set_current_room 호출
                 # TIE의 경우 is_new_visit=False로 설정하여 방 이동 없음을 표시
-                if is_tie:
-                    # 이미 방문 중인 방에 계속 있는 경우
-                    self.tm.main_window.room_log_widget.set_current_room(
-                        self.tm.current_room_name, 
-                        is_new_visit=False
-                    )
+                # 승리/실패 시 is_new_visit=True로 설정하여 새 방문 표시
+                is_new_visit = not is_tie
+                self.tm.main_window.room_log_widget.set_current_room(
+                    self.tm.current_room_name, 
+                    is_new_visit=is_new_visit
+                )
                     
                 self.tm.main_window.room_log_widget.add_bet_result(
                     room_name=self.tm.current_room_name,
@@ -284,7 +293,7 @@ class TradingManagerBet:
             
             return result_status
         except Exception as e:
-            self.logger.error(f"베팅 결과 처리 오류: {e}")
+            self.logger.error(f"베팅 결과 처리 오류: {e}", exc_info=True)
             return "error"
             
     def update_balance_after_result(self, is_win):

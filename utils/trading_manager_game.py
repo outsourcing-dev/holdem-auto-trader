@@ -188,6 +188,8 @@ class TradingManagerGame:
             self.logger.warning(f"방 나가기 중 오류 발생: {e}")
             return False
     
+    # trading_manager_game.py의 reset_room_state 메서드 수정
+
     def reset_room_state(self):
         """방 이동 시 상태 초기화"""
         # 게임 정보 초기화
@@ -210,17 +212,22 @@ class TradingManagerGame:
             # 1. 승리 후 방 이동인 경우 (승리 후에는 항상 초기화)
             if self.tm.martin_service.win_count > 0 and self.tm.martin_service.consecutive_losses == 0:
                 should_reset_widgets = True
+                # 수정: 승리 후에는 마틴 단계 초기화
+                self.tm.martin_service.current_step = 0
+                # 로그 추가
+                previous_step = self.tm.martin_service.current_step
+                self.logger.info(f"[수정] 승리 후 방 이동: 마틴 단계 명시적으로 0으로 초기화 (이전: {previous_step+1}단계)")
                 
             # 2. 마틴 베팅에서 마지막 단계 실패 후 방 이동인 경우
-            if (self.tm.martin_service.current_step == 0 and 
+            elif (self.tm.martin_service.current_step == 0 and 
                 self.tm.martin_service.consecutive_losses > 0 and 
                 self.tm.martin_service.need_room_change):
                 should_reset_widgets = True
                 
             # 베팅 정보 초기화
             self.tm.martin_service.reset_room_bet_status()
-            self.logger.info(f"마틴 단계 유지 - 현재 단계: {self.tm.martin_service.current_step+1}")
-                
+            self.logger.info(f"마틴 단계 상태: {self.tm.martin_service.current_step+1}단계")
+                    
         # 조건에 따른 위젯 초기화
         if should_reset_widgets:
             self.logger.info("승리 또는 마틴 완료로 인한 방 이동: 베팅 위젯 초기화")
@@ -228,7 +235,7 @@ class TradingManagerGame:
             self.tm.main_window.betting_widget.reset_room_results()
         else:
             self.logger.info("TIE 또는 연속 베팅을 위한 방 이동: 베팅 위젯 유지")
-            
+                
     def handle_room_entry_failure(self):
         """방 입장 실패 처리"""
         # 방문 큐 리셋
