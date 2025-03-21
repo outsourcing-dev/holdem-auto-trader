@@ -235,7 +235,7 @@ class MainWindow(QMainWindow):
         # 자동 배팅 시작 / 종료 버튼
         start_stop_layout = QHBoxLayout()
         self.start_button = QPushButton("🔵 시작")
-        self.stop_button = QPushButton("🔴 자동 배팅 종료")
+        self.stop_button = QPushButton("🔴 종료")
 
         # 초기에 버튼 비활성화
         self.start_button.setEnabled(False)
