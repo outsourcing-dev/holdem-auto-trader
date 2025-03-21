@@ -8,6 +8,14 @@ import sys
 
 from utils.db_manager import DBManager
 
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QSizePolicy
+from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtCore import Qt, QSize
+import os
+import sys
+
+from utils.db_manager import DBManager
+
 class LoginWindow(QDialog):
     def __init__(self, app):
         super().__init__()
@@ -19,6 +27,32 @@ class LoginWindow(QDialog):
         self.setWindowTitle("로그인")
         self.setFixedSize(250, 220)  # 고정 크기 설정 (setGeometry 대신)
         self.setObjectName("LoginWindow")
+        
+        # 아이콘 설정 코드
+        try:
+            # _internal 폴더에서 먼저 찾기
+            if getattr(sys, 'frozen', False):
+                base_dir = os.path.dirname(sys.executable)
+                icon_paths = [
+                    os.path.join(base_dir, "_internal", "lover-icon.ico"),
+                    os.path.join(base_dir, "lover-icon.ico")  # 백업 경로
+                ]
+                
+                icon_path = None
+                for path in icon_paths:
+                    if os.path.exists(path):
+                        icon_path = path
+                        break
+            else:
+                icon_path = "lover-icon.ico"
+            
+            if icon_path and os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+                print(f"LoginWindow 아이콘 설정 완료: {icon_path}")
+            else:
+                print(f"LoginWindow 아이콘 파일을 찾을 수 없음")
+        except Exception as e:
+            print(f"LoginWindow 아이콘 설정 오류: {e}")
         
         # 레이아웃 설정
         layout = QVBoxLayout()

@@ -127,7 +127,7 @@ class BettingWidget(QWidget):
         # 진행 섹션 (현재 방 + PICK 표시 + 현재 방 배팅 결과)
         progress_group = QGroupBox("진행")
         # 최소 높이를 80으로 감소 (기존 100에서 축소)
-        progress_group.setMinimumHeight(80)  
+        progress_group.setMinimumHeight(60)  
         progress_layout = QVBoxLayout()
         
         # 상단 정보 영역 (현재방, 현재 배팅 금액)
@@ -207,39 +207,39 @@ class BettingWidget(QWidget):
         # 현재 방 결과 요약
         room_results_layout = QGridLayout()  # 🔥 QGridLayout으로 변경
         
-        # 성공(O)
-        self.success_count = 0
-        success_layout = QHBoxLayout()
-        success_label = create_label("성공(O)", "#2196F3")
-        self.success_count_label = create_count_label()
-        success_layout.addWidget(success_label)
-        success_layout.addWidget(self.success_count_label)
+        # # 성공(O)
+        # self.success_count = 0
+        # success_layout = QHBoxLayout()
+        # success_label = create_label("성공(O)", "#2196F3")
+        # self.success_count_label = create_count_label()
+        # success_layout.addWidget(success_label)
+        # success_layout.addWidget(self.success_count_label)
 
-        # 실패(X)
-        self.fail_count = 0
-        fail_layout = QHBoxLayout()
-        fail_label = create_label("실패(X)", "#F44336")
-        self.fail_count_label = create_count_label()
-        fail_layout.addWidget(fail_label)
-        fail_layout.addWidget(self.fail_count_label)
+        # # 실패(X)
+        # self.fail_count = 0
+        # fail_layout = QHBoxLayout()
+        # fail_label = create_label("실패(X)", "#F44336")
+        # self.fail_count_label = create_count_label()
+        # fail_layout.addWidget(fail_label)
+        # fail_layout.addWidget(self.fail_count_label)
 
-        # 타이(T)
-        self.tie_count = 0
-        tie_layout = QHBoxLayout()
-        tie_label = create_label("타이(T)", "#4CAF50")
-        self.tie_count_label = create_count_label()
-        tie_layout.addWidget(tie_label)
-        tie_layout.addWidget(self.tie_count_label)
+        # # 타이(T)
+        # self.tie_count = 0
+        # tie_layout = QHBoxLayout()
+        # tie_label = create_label("타이(T)", "#4CAF50")
+        # self.tie_count_label = create_count_label()
+        # tie_layout.addWidget(tie_label)
+        # tie_layout.addWidget(self.tie_count_label)
 
         # GridLayout에 균일하게 배치
-        room_results_layout.addLayout(success_layout, 0, 0)
-        room_results_layout.addLayout(fail_layout, 0, 1)
-        room_results_layout.addLayout(tie_layout, 0, 2)
+        # room_results_layout.addLayout(success_layout, 0, 0)
+        # room_results_layout.addLayout(fail_layout, 0, 1)
+        # room_results_layout.addLayout(tie_layout, 0, 2)
         
-        # 🔥 각 열이 균일한 비율을 가지도록 설정
-        room_results_layout.setColumnStretch(0, 1)
-        room_results_layout.setColumnStretch(1, 1)
-        room_results_layout.setColumnStretch(2, 1)
+        # # 🔥 각 열이 균일한 비율을 가지도록 설정
+        # room_results_layout.setColumnStretch(0, 1)
+        # room_results_layout.setColumnStretch(1, 1)
+        # room_results_layout.setColumnStretch(2, 1)
 
         progress_layout.addLayout(room_results_layout)
 

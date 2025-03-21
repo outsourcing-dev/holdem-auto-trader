@@ -66,8 +66,11 @@ if exist dist\holdem_auto_trader (
     copy /Y AUTO.encrypted dist\holdem_auto_trader\
 
     REM 아이콘 파일 복사
-    if exist lover-icon.ico copy /Y lover-icon.ico dist\holdem_auto_trader\
-        
+    if exist lover-icon.ico (
+        mkdir dist\holdem_auto_trader\_internal 2>nul
+        copy /Y lover-icon.ico dist\holdem_auto_trader\_internal\
+        echo 아이콘 파일을 _internal 폴더로 복사했습니다.
+    )        
     REM style.qss 수동 복사 제거 - PyInstaller에 의해 자동으로 포함됨
     REM (주석 처리로 변경 사항 표시)
     REM if not exist dist\holdem_auto_trader\ui mkdir dist\holdem_auto_trader\ui
