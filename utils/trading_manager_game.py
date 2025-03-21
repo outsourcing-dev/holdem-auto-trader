@@ -246,12 +246,29 @@ class TradingManagerGame:
             self.tm.stop_trading()
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
+
     def handle_successful_room_entry(self, new_room_name):
-            # 초기화 방지 플래그 설정
-        if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-            self.tm.main_window.betting_widget.prevent_reset = True
-            
         """방 입장 성공 처리"""
+        # 성공적으로 새 방에 입장한 후 처리
+        
+        # 성공 여부 확인 - martin_service의 win_count로 판단
+        was_successful = False
+        if hasattr(self.tm, 'martin_service'):
+            # 현재 객체에 저장된 값 사용 (최근에 승리했는지 여부)
+            was_successful = (self.tm.martin_service.win_count > 0 and 
+                            self.tm.martin_service.consecutive_losses == 0)
+        
+        # 성공한 경우에만 베팅 위젯 초기화
+        if was_successful:
+            if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                self.tm.main_window.betting_widget.prevent_reset = False
+            
+            self.tm.main_window.betting_widget.reset_step_markers()
+            self.tm.main_window.betting_widget.reset_room_results()
+            self.logger.info("승리 후 새 방 입장: 베팅 위젯 초기화 완료")
+        else:
+            self.logger.info("베팅 실패 후 새 방 입장: 베팅 위젯 유지")
+        
         # UI 업데이트
         self.tm.current_room_name = new_room_name
         self.tm.main_window.update_betting_status(
@@ -270,10 +287,10 @@ class TradingManagerGame:
                 self.tm.game_count = actual_game_count
                 self.logger.info(f"새 방 게임 카운트: {self.tm.game_count}")
                 
-                # Excel에 기록 - 중요: 실제 게임 카운트 0이 아닌 actual_game_count로 전달
+                # Excel에 기록
                 result = self.tm.excel_trading_service.process_game_results(
                     game_state, 
-                    0,  # 첫 실행 플래그 용도로 0 전달 (실제 카운트는 함수 내부에서 사용)
+                    0,
                     self.tm.current_room_name,
                     log_on_change=True
                 )
