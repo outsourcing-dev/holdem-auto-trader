@@ -347,7 +347,9 @@ class BettingWidget(QWidget):
         else:
             self.bet_amount_value.setStyleSheet("background-color:white; font-size: 14px; font-weight: bold; color: #FF9800;")  # 주황색
             
-    def reset_room_results(self, keep_history=False, full_reset=False, success=False):
+# ui/betting_widget.py의 reset_room_results 메서드 수정
+
+    def reset_room_results(self, keep_history=False, full_reset=False, success=True):
         """현재 방 결과 초기화
 
         Args:
@@ -355,7 +357,7 @@ class BettingWidget(QWidget):
             full_reset (bool): 완전 초기화 여부 (모든 데이터 초기화)
             success (bool): 베팅 성공 여부 (성공 시에만 전체 리셋)
         """
-        print(f"[INFO] 방 결과 초기화 - 이전 결과 유지: {keep_history}, 완전 초기화: {full_reset}, 베팅 성공: {success}")
+        print(f"[INFO] 방 결과 초기화 명시적 호출 - 이전 결과 유지: {keep_history}, 완전 초기화: {full_reset}, 베팅 성공: {success}")
 
         # full_reset이 True이면 모든 데이터 완전 초기화
         if full_reset:
@@ -369,14 +371,16 @@ class BettingWidget(QWidget):
             self.fail_count = 0
             self.tie_count = 0
 
-            if success:
-                self.reset_step_markers()  # 성공 시에만 마커 초기화
+            # 명시적 호출에서는 마커 초기화 포함
+            if not self.prevent_reset:
+                self.reset_step_markers()  # 마커 초기화
+                self.room_position_counter = 0  # 카운터 초기화
+                print("[INFO] 명시적 초기화: 마커 및 위치 카운터 초기화 완료")
+            else:
+                print("[INFO] prevent_reset 플래그로 인해 마커 초기화 건너뜀")
 
         # 배팅 금액 초기화
         self.update_bet_amount(0)
-
-        # 방 이동 시 위치 카운터 초기화
-        self.room_position_counter = 0
 
         # PICK 값 초기화 (베팅 성공 시만 초기화)
         if success:
@@ -418,25 +422,27 @@ class BettingWidget(QWidget):
         # UI 강제 업데이트
         self.progress_table.viewport().update()
 
+    # ui/betting_widget.py의 set_step_marker 메서드 수정
+
     def set_step_marker(self, step, marker):
         """
         단계별 마커 설정 (X, O, T, 빈칸)
         수정: 마커가 이미 있는 경우 덮어쓰지 않음
         """
-        # 단계 번호로 내부 카운터 사용
+        # 기본 위치 계산 - 현재 마커 위치 + 1
         display_step = self.room_position_counter + 1
         
-        # 마커 설정 - 음수나 0은 1로 처리 (안전 장치)
-        if display_step <= 0:
-            display_step = 1
-        
-        # 성공(O) 마커일 경우 빈 셀 찾기
+        # 성공(O) 마커일 경우 특별 처리
         if marker == "O":
-            original_step = display_step
-            # 빈 셀을 찾을 때까지 position 증가
-            while display_step in self.step_items and self.step_items[display_step].text().strip() != "":
-                display_step += 1
-            print(f"[DEBUG] 성공 마커(O)를 위한 빈 셀 찾기: {original_step} → {display_step}")
+            # 테이블에서 마지막으로 사용된 위치 찾기
+            last_used_pos = 0
+            for s in range(1, self.progress_table.columnCount()):
+                if s in self.step_items and self.step_items[s].text().strip():
+                    last_used_pos = max(last_used_pos, s)
+            
+            # 마지막 사용 위치 다음 칸에 배치 (최소 현재 위치 이상)
+            display_step = max(display_step, last_used_pos + 1)
+            print(f"[DEBUG] 성공 마커(O) 위치 계산: 마지막 위치({last_used_pos}) + 1 = {display_step}")
         
         # 단계가 너무 큰 경우 동적으로 열 추가
         if display_step >= self.progress_table.columnCount():
@@ -488,60 +494,11 @@ class BettingWidget(QWidget):
                     item.setText(marker)
                     item.setBackground(QColor("white"))
                     item.setForeground(QColor("black"))
-            
-            # UI 업데이트 강제 실행 (명시적으로 업데이트)
-            from PyQt6.QtWidgets import QApplication
-            self.progress_table.viewport().update()
-            self.progress_table.repaint()
-            QApplication.processEvents()
-            
-            # 테이블 스크롤 위치 조정 - 새로 설정한 마커가 보이도록
-            if display_step > 10:  # 어느 정도 오른쪽에 있는 경우에만 스크롤 조정
-                try:
-                    # 현재 마커가 보이도록 스크롤 조정
-                    self.progress_table.horizontalScrollBar().setValue(
-                        (display_step - 5) * self.progress_table.columnWidth(1)  # 약간 왼쪽으로 조정
-                    )
-                except Exception as e:
-                    print(f"[WARNING] 스크롤 조정 중 오류: {e}")
-            
-            print(f"[DEBUG] UI 업데이트 완료: 단계 {display_step}에 {marker} 마커 설정됨")
+            else:
+                # 이미 마커가 있어 설정하지 못한 경우 로그 출력
+                print(f"[DEBUG] 단계 {display_step}에 이미 마커가 있음: '{item.text()}'")
         else:
             print(f"[WARNING] 잘못된 단계 번호: {display_step} (step_items 키에 없음)")
-            print(f"[DEBUG] 가능한 step_items 키: {list(self.step_items.keys())}")
-            
-            # 동적으로 스텝 추가 시도
-            self._ensure_column_exists(display_step)
-            
-            # 새로 추가된 후 다시 시도
-            if display_step in self.step_items:
-                print(f"[INFO] 새로 확장된 범위에서 단계 {display_step} 설정 시도")
-                # 다시 호출 - 원래 step이 아닌 display_step 전달
-                # 재귀적 무한 호출 방지를 위해 마커만 직접 설정
-                item = self.step_items[display_step]
-                item.setText(marker)
-                
-                # 마커 표시 및 카운터 증가 로직은 앞의 코드와 동일하게 진행
-                if marker == "X":
-                    item.setBackground(QColor("white")) 
-                    item.setForeground(QColor("#F44336"))
-                    self.fail_count += 1
-                    self.current_room_results.append("X")
-                    self.room_position_counter += 1
-                elif marker == "O":
-                    item.setBackground(QColor("white"))
-                    item.setForeground(QColor("#2196F3"))
-                    self.success_count += 1
-                    self.current_room_results.append("O")
-                    self.room_position_counter += 1
-                elif marker == "T":
-                    item.setBackground(QColor("#4CAF50"))
-                    item.setForeground(QColor("white"))
-                    self.tie_count += 1
-                    self.current_room_results.append("T")
-                    self.room_position_counter += 1
-                    
-    # 단계별 마커 설정 함수 수정 - 특정 방 안에서 순차적으로 표시하도록 수정
 
     def _ensure_column_exists(self, step):
         """필요한 경우 테이블에 열 추가"""

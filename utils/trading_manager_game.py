@@ -247,6 +247,8 @@ class TradingManagerGame:
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
 
+    # utils/trading_manager_game.py에서 handle_successful_room_entry 메서드 수정
+
     def handle_successful_room_entry(self, new_room_name):
         """방 입장 성공 처리"""
         # 성공적으로 새 방에 입장한 후 처리
@@ -258,19 +260,28 @@ class TradingManagerGame:
             was_successful = (self.tm.martin_service.win_count > 0 and 
                             self.tm.martin_service.consecutive_losses == 0)
         
-        # 성공한 경우에만 베팅 위젯 초기화
+        # 성공한 경우에만 베팅 위젯 초기화 - 중요: 새 방 입장 후에 초기화
         if was_successful:
+            self.logger.info("승리 후 새 방 입장 감지: 이제 베팅 위젯 초기화 실행")
+            
+            # prevent_reset 플래그 비활성화 (초기화 허용)
             if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
                 self.tm.main_window.betting_widget.prevent_reset = False
             
+            # 초기화 실행 (명시적으로 마커 초기화 호출)
             self.tm.main_window.betting_widget.reset_step_markers()
-            self.tm.main_window.betting_widget.reset_room_results()
-            self.logger.info("승리 후 새 방 입장: 베팅 위젯 초기화 완료")
+            self.tm.main_window.betting_widget.reset_room_results(success=True)
+            
+            # room_position_counter 명시적으로 초기화
+            self.tm.main_window.betting_widget.room_position_counter = 0
+            
+            self.logger.info("승리 후 새 방 입장 완료: 베팅 위젯 초기화 완료")
         else:
             self.logger.info("베팅 실패 후 새 방 입장: 베팅 위젯 유지")
         
         # UI 업데이트
         self.tm.current_room_name = new_room_name
+        # 새로운 방 이름만 업데이트하고 reset_counter는 설정하지 않음
         self.tm.main_window.update_betting_status(
             room_name=self.tm.current_room_name,
             pick=""

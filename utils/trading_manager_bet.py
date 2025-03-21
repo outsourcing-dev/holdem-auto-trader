@@ -226,11 +226,12 @@ class TradingManagerBet:
                 self.logger.info("타이(T) 결과: 같은 방에서 재시도")
 
             elif is_win:
-                if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-                    self.tm.main_window.betting_widget.prevent_reset = False
-                    self.tm.main_window.betting_widget.reset_step_markers()
-                    self.tm.main_window.betting_widget.reset_room_results()
-                self.logger.info("승리로 인해 배팅 위젯 초기화 허용")
+                # 변경된 부분: prevent_reset 플래그 상태를 아직 유지
+                # if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                #     self.tm.main_window.betting_widget.prevent_reset = False
+                #     self.tm.main_window.betting_widget.reset_step_markers()
+                #     self.tm.main_window.betting_widget.reset_room_results()
+                self.logger.info("승리: 마커 표시 후 초기화 예정")
                 result_text = "적중"
                 result_marker = "O"
                 result_status = "win"
@@ -288,6 +289,12 @@ class TradingManagerBet:
             # 잔액 업데이트 및 목표 금액 확인
             self.update_balance_after_result(is_win)
             
+            # 중요 변경 부분: 승리 시 지연된 리셋 처리
+            if is_win and hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                # 이제 마커가 표시된 후에 prevent_reset 플래그를 False로 설정
+                self.tm.main_window.betting_widget.prevent_reset = False
+                self.logger.info("승리 마커 표시 완료: 이제 위젯 초기화 허용")
+            
             # 중요: 로그 추가 - 결과와 방 이동 플래그 상태를 기록
             self.logger.info(f"베팅 결과: {result_status}, 방 이동 플래그: {self.tm.should_move_to_next_room}")
             
@@ -295,7 +302,7 @@ class TradingManagerBet:
         except Exception as e:
             self.logger.error(f"베팅 결과 처리 오류: {e}", exc_info=True)
             return "error"
-            
+        
     def update_balance_after_result(self, is_win):
         """베팅 결과 후 잔액 업데이트"""
         try:
