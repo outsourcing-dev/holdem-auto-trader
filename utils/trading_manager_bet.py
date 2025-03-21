@@ -20,9 +20,8 @@ class TradingManagerBet:
                 self.tm.should_move_to_next_room = True
                 return False
             
-            # 마틴 설정 갱신
-            self.tm.martin_service.settings_manager = SettingsManager()
-            self.tm.martin_service.update_settings()
+            # 최신 설정 가져오기 - 매 베팅마다 설정 파일 다시 읽기
+            self.tm.refresh_settings()
             
             # 잔액 확인 및 목표 금액 체크
             balance = self.tm.balance_service.get_iframe_balance()
@@ -40,8 +39,7 @@ class TradingManagerBet:
                     self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
                     return False
             
-            
-            # Double & Half 설정 가져오기
+            # Double & Half 설정 가져오기 - 최신 설정 적용
             double_half_start, double_half_stop = self.tm.settings_manager.get_double_half_settings()
 
             # 활성화 상태 확인 - start 값이 1 이상인 경우만 기능 활성화
@@ -72,9 +70,9 @@ class TradingManagerBet:
                 # 모드 전환 로직
                 if self.tm.martin_service.double_mode:
                     # Double 모드 중 중지값 확인 (중지값에 도달하면 모드 해제)
-                    if lose_win_diff == double_half_stop:
+                    if lose_win_diff <= double_half_stop:
                         self.tm.martin_service.double_mode = False
-                        self.logger.info(f"Double 모드 해제: 패-승({lose_win_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀")
+                        self.logger.info(f"Double 모드 해제: 패-승({lose_win_diff}) <= {double_half_stop}, 기본 마틴 금액으로 복귀")
                         # UI 업데이트 - 모드 해제 반영
                         self.tm.main_window.betting_widget.update_mode("normal")
                     else:
@@ -86,9 +84,9 @@ class TradingManagerBet:
                 
                 elif self.tm.martin_service.half_mode:
                     # Half 모드 중 중지값 확인 (중지값에 도달하면 모드 해제)
-                    if win_lose_diff == double_half_stop:
+                    if win_lose_diff <= double_half_stop:
                         self.tm.martin_service.half_mode = False
-                        self.logger.info(f"Half 모드 해제: 승-패({win_lose_diff}) = {double_half_stop}, 기본 마틴 금액으로 복귀")
+                        self.logger.info(f"Half 모드 해제: 승-패({win_lose_diff}) <= {double_half_stop}, 기본 마틴 금액으로 복귀")
                         # UI 업데이트 - 모드 해제 반영
                         self.tm.main_window.betting_widget.update_mode("normal")
                     else:
@@ -143,6 +141,10 @@ class TradingManagerBet:
                 self.logger.info(f"Double & Half 기능 비활성화 상태, 기본 마틴 금액 사용: {base_bet_amount:,}원")
                 # UI 업데이트 - 기본 모드 표시
                 self.tm.main_window.betting_widget.update_mode("normal")
+                
+                # 모드 초기화 (Double & Half가 비활성화되었으므로)
+                self.tm.martin_service.double_mode = False
+                self.tm.martin_service.half_mode = False
 
             # UI에 현재 배팅 금액 업데이트
             self.tm.main_window.betting_widget.update_bet_amount(final_bet_amount)

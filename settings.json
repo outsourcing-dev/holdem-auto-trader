@@ -9,6 +9,6 @@
         4000
     ],
     "target_amount": 200000,
-    "double_half_start": 5,
-    "double_half_stop": 2
+    "double_half_start": 2,
+    "double_half_stop": 1
 }
