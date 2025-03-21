@@ -85,7 +85,7 @@ class DevToolsController:
 
         print(f"[INFO] 사이트 이동: {url}")
         self.driver.get(url)
-        time.sleep(3)  # 페이지 로딩 대기
+        time.sleep(2)  # 페이지 로딩 대기
 
     def get_page_source(self):
         """현재 페이지의 HTML 가져오기"""

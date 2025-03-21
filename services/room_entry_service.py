@@ -69,7 +69,7 @@ class RoomEntryService:
                             # 카지노 로비 창으로 전환 시도
                             self.devtools.driver.switch_to.window(window_handles[1])
                             self.logger.info("카지노 로비 창으로 포커싱 전환")
-                            time.sleep(3)
+                            time.sleep(1)
                             
                             # 페이지 새로고침 시도 (필요시)
                             if attempts % 3 == 0:  # 3번마다 한 번씩 새로고침
@@ -169,7 +169,7 @@ class RoomEntryService:
                     try:
                         self.logger.info(f"페이지 새로고침 후 재시도 중...")
                         self.devtools.driver.refresh()
-                        time.sleep(3)  # 페이지 로드 대기
+                        time.sleep(1.5)  # 페이지 로드 대기
                     except Exception as e:
                         self.logger.warning(f"페이지 새로고침 중 오류: {e}")
                 
@@ -302,7 +302,7 @@ class RoomEntryService:
                     
                     if len(new_window_handles) > 1:
                         self.devtools.driver.switch_to.window(new_window_handles[-1])
-                        time.sleep(2)
+                        time.sleep(1)
                         
                         # UI 업데이트
                         self.main_window.update_betting_status(room_name=room_name)

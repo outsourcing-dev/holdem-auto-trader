@@ -430,6 +430,14 @@ class BettingWidget(QWidget):
         if display_step <= 0:
             display_step = 1
         
+        # 성공(O) 마커일 경우 빈 셀 찾기
+        if marker == "O":
+            original_step = display_step
+            # 빈 셀을 찾을 때까지 position 증가
+            while display_step in self.step_items and self.step_items[display_step].text().strip() != "":
+                display_step += 1
+            print(f"[DEBUG] 성공 마커(O)를 위한 빈 셀 찾기: {original_step} → {display_step}")
+        
         # 단계가 너무 큰 경우 동적으로 열 추가
         if display_step >= self.progress_table.columnCount():
             self._ensure_column_exists(display_step)
@@ -532,7 +540,7 @@ class BettingWidget(QWidget):
                     self.tie_count += 1
                     self.current_room_results.append("T")
                     self.room_position_counter += 1
-                                    
+                    
     # 단계별 마커 설정 함수 수정 - 특정 방 안에서 순차적으로 표시하도록 수정
 
     def _ensure_column_exists(self, step):
