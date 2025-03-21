@@ -334,50 +334,44 @@ class MainWindow(QMainWindow):
         # RoomLogWidget 초기화
         if hasattr(self, 'room_log_widget'):
             self.room_log_widget.clear_logs()
-           
-    # open_site 메서드 다음에 이 메서드를 추가하면 좋습니다
-
-    def open_site_with_refresh(self, site_number):
-        """
-        설정을 다시 로드한 후 사이트 열기
-        
-        Args:
-            site_number (int): 사이트 번호 (1, 2, 3)
-        """
-        # 설정 매니저 재초기화 (항상 최신 설정 로드)
-        self.settings_manager = SettingsManager()
-        
-        # 사이트 URL 가져오기
-        site1, site2, site3 = self.settings_manager.get_sites()
-        
-        # 로그 출력
-        print(f"[INFO] 설정 다시 로드 후 사이트 {site_number} 열기 시도")
-        print(f"[DEBUG] 현재 사이트 설정: 사이트1={site1}, 사이트2={site2}, 사이트3={site3}")
-        
-        # 사이트 번호에 따라 URL 선택
-        site_url = ""
-        if site_number == 1:
-            site_url = site1
-        elif site_number == 2:
-            site_url = site2
-        elif site_number == 3:
-            site_url = site3
-            
-        # 사이트 열기
-        if site_url:
-            self.open_site(site_url)
-        else:
-            QMessageBox.warning(self, "알림", f"사이트 {site_number}의 URL이 설정되지 않았습니다.\n설정 메뉴에서 URL을 설정해주세요.")
             
     def open_site(self, url):
-        """사이트 열기"""
-        # 브라우저가 실행 중인지 확인
-        if not self.devtools.driver:
-            self.devtools.start_browser()
+        """
+        사이트 열기 - 브라우저 오류 처리 기능 추가
+        
+        Args:
+            url (str): 열 사이트 URL
+        
+        Returns:
+            bool: 성공 여부
+        """
+        try:
+            # 브라우저 상태 확인
+            browser_active = self.check_browser_active()
             
-        self.devtools.open_site(url)
-        print(f"[INFO] 사이트 열기: {url}")
-
+            # 브라우저가 실행 중이 아니면 시작
+            if not browser_active:
+                self.devtools.start_browser()
+                
+            # URL에 http:// 또는 https:// 프리픽스가 없으면 추가
+            if not url.startswith("http://") and not url.startswith("https://"):
+                url = "https://" + url
+                
+            # 사이트 열기
+            self.devtools.driver.get(url)
+            print(f"[INFO] 사이트 열기 성공: {url}")
+            
+            # 로딩 대기
+            time.sleep(2)  # 페이지 로딩 대기
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] 사이트 열기 실패: {e}")
+            QMessageBox.warning(self, "오류", f"사이트를 열지 못했습니다.")
+            return False
+                
+           
+           
     def switch_to_casino_window(self):
         """가장 최근에 열린 카지노 창으로 전환"""
         if not self.devtools.driver:
@@ -661,11 +655,11 @@ class MainWindow(QMainWindow):
         
         # 기본 이벤트 처리
         super().closeEvent(event)
-    
-    # ui/main_window.py에 open_site_with_refresh 메서드 추가
+
     def open_site_with_refresh(self, site_number):
         """
         설정을 다시 로드한 후 사이트 열기
+        브라우저가 종료된 상태라면 재시작
         
         Args:
             site_number (int): 사이트 번호 (1, 2, 3)
@@ -689,8 +683,36 @@ class MainWindow(QMainWindow):
         elif site_number == 3:
             site_url = site3
             
+        # 사이트 열기 전에 브라우저 상태 확인
+        browser_active = self.check_browser_active()
+        
         # 사이트 열기
         if site_url:
+            if not browser_active:
+                print("[INFO] 브라우저가 종료되었거나 없음. 새 브라우저 시작")
+                self.devtools.start_browser()  # 브라우저 재시작
+                
             self.open_site(site_url)
         else:
             QMessageBox.warning(self, "알림", f"사이트 {site_number}의 URL이 설정되지 않았습니다.\n설정 메뉴에서 URL을 설정해주세요.")
+
+    def check_browser_active(self):
+        """
+        브라우저가 활성 상태인지 확인
+        
+        Returns:
+            bool: 브라우저가 실행 중이고 접근 가능하면 True
+        """
+        if not self.devtools.driver:
+            return False
+            
+        try:
+            # 간단한 명령을 실행하여 브라우저가 응답하는지 확인
+            window_handles = self.devtools.driver.window_handles
+            return True
+        except Exception as e:
+            print(f"[WARNING] 브라우저 상태 확인 중 오류: {e}")
+            # 브라우저 참조 초기화
+            self.devtools.driver = None
+            return False
+
