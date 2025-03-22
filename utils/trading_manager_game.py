@@ -135,24 +135,27 @@ class TradingManagerGame:
             # 이전 베팅 정보 가져오기
             last_bet = self.tm.betting_service.get_last_bet()
             
-            # 이전 게임에 베팅했는지 확인
-            if last_bet and last_bet['round'] == self.tm.game_count:
+            # 이전 게임에 베팅했는지 확인 - 조건 완화 (라운드 비교 제거)
+            if last_bet and last_bet['type'] in ['P', 'B']:
                 bet_type = last_bet['type']
                 latest_result = game_state.get('latest_result')
                 
                 self.logger.info(f"[결과검증] 라운드: {self.tm.game_count}, 베팅: {bet_type}, 결과: {latest_result}")
                 
-                if bet_type in ['P', 'B'] and latest_result:
+                if latest_result:
                     # 베팅 결과 처리 - 결과에 따라 방 이동 플래그 설정
                     result_status = self.tm.bet_helper.process_bet_result(bet_type, latest_result, new_game_count)
                     
                     # 결과 로깅
                     self.logger.info(f"베팅 결과: {result_status}, 방 이동 플래그: {self.tm.should_move_to_next_room}")
             elif last_bet:
-                # 라운드가 달라진 경우 로그만 남김
-                self.logger.info(f"라운드 불일치: 이전({last_bet['round']}) vs 현재({self.tm.game_count})")
-                self.tm.betting_service.has_bet_current_round = False
-                self.tm.betting_service.current_bet_round = new_game_count
+                # 라운드가 달라진 경우도 결과 처리 시도
+                self.logger.info(f"라운드 불일치: 이전({last_bet['round']}) vs 현재({self.tm.game_count}), 결과 처리 시도")
+                
+                latest_result = game_state.get('latest_result')
+                if latest_result and last_bet['type'] in ['P', 'B']:
+                    result_status = self.tm.bet_helper.process_bet_result(last_bet['type'], latest_result, new_game_count)
+                    self.logger.info(f"라운드 불일치 상황에서 결과 처리: {result_status}")
             
             # 타이(T) 결과를 제외하고 베팅 상태 초기화
             if game_state.get('latest_result') != 'T':
@@ -248,11 +251,37 @@ class TradingManagerGame:
             return False
 
     # utils/trading_manager_game.py에서 handle_successful_room_entry 메서드 수정
-
+    # 수정할 부분: handle_successful_room_entry 메서드 (약 271줄 근처)
     def handle_successful_room_entry(self, new_room_name):
         """방 입장 성공 처리"""
-        # 성공적으로 새 방에 입장한 후 처리
-        
+        # 방 이동 후 로비에서 잔액 확인 (목표 금액 도달 먼저 체크)
+        if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
+            try:
+                self.logger.info("방 이동 후 로비에서 잔액 확인 중...")
+                balance = self.tm.balance_service.get_lobby_balance()
+                
+                if balance is not None:
+                    self.logger.info(f"로비에서 확인한 최신 잔액: {balance:,}원")
+                    # UI 업데이트
+                    self.tm.main_window.update_user_data(current_amount=balance)
+                    
+                    # 목표 금액 확인 - 도달했으면 즉시 종료
+                    if self.tm.balance_service.check_target_amount(balance, source="방 이동 후 확인"):
+                        self.logger.info("목표 금액 도달로 자동 매매를 중지합니다.")
+                        # 방금 입장한 방에서도 나가기
+                        self.exit_current_game_room()
+                        self.tm.stop_trading()
+                        # 중요: 즉시 False 반환하여 추가 처리 방지
+                        self.tm.check_balance_after_room_change = False
+                        return False
+                
+                # 플래그 초기화
+                self.tm.check_balance_after_room_change = False
+                
+            except Exception as e:
+                self.logger.error(f"방 이동 후 잔액 확인 오류: {e}")
+                self.tm.check_balance_after_room_change = False
+
         # 성공 여부 확인 - martin_service의 win_count로 판단
         was_successful = False
         if hasattr(self.tm, 'martin_service'):
@@ -289,38 +318,40 @@ class TradingManagerGame:
 
         # 게임 상태 확인 및 최근 결과 기록
         try:
-            self.logger.info("새 방 입장 후 최근 결과 확인 중...")
-            game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
-            
-            if game_state:
-                # 중요: 실제 게임 카운트 저장
-                actual_game_count = game_state.get('round', 0)
-                self.tm.game_count = actual_game_count
-                self.logger.info(f"새 방 게임 카운트: {self.tm.game_count}")
+            # 목표 금액 도달 확인이 필요 없는 경우에만 게임 상태 확인
+            if not hasattr(self.tm.balance_service, '_target_amount_reached') or not self.tm.balance_service._target_amount_reached:
+                self.logger.info("새 방 입장 후 최근 결과 확인 중...")
+                game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
                 
-                # Excel에 기록
-                result = self.tm.excel_trading_service.process_game_results(
-                    game_state, 
-                    0,
-                    self.tm.current_room_name,
-                    log_on_change=True
-                )
-                
-                if result[0] is not None:
-                    self.logger.info(f"새 방에 최근 결과 기록 완료")
+                if game_state:
+                    # 중요: 실제 게임 카운트 저장
+                    actual_game_count = game_state.get('round', 0)
+                    self.tm.game_count = actual_game_count
+                    self.logger.info(f"새 방 게임 카운트: {self.tm.game_count}")
                     
-                    if result[3] in ['P', 'B']:  # next_pick
-                        self.logger.info(f"새 방 입장 후 첫 배팅 설정: {result[3]}")
-                        self.tm.current_pick = result[3]
+                    # Excel에 기록
+                    result = self.tm.excel_trading_service.process_game_results(
+                        game_state, 
+                        0,
+                        self.tm.current_room_name,
+                        log_on_change=True
+                    )
+                    
+                    if result[0] is not None:
+                        self.logger.info(f"새 방에 최근 결과 기록 완료")
                         
-                        # 즉시 배팅 유도
-                        self.tm._first_entry_time = time.time() - 5
-                        
-                        # UI에 PICK 값 표시
-                        self.tm.main_window.update_betting_status(
-                            pick=result[3],
-                            bet_amount=self.tm.martin_service.get_current_bet_amount()
-                        )
+                        if result[3] in ['P', 'B']:  # next_pick
+                            self.logger.info(f"새 방 입장 후 첫 배팅 설정: {result[3]}")
+                            self.tm.current_pick = result[3]
+                            
+                            # 즉시 배팅 유도
+                            self.tm._first_entry_time = time.time() - 5
+                            
+                            # UI에 PICK 값 표시
+                            self.tm.main_window.update_betting_status(
+                                pick=result[3],
+                                bet_amount=self.tm.martin_service.get_current_bet_amount()
+                            )
         except Exception as e:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
 
