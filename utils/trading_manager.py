@@ -12,6 +12,7 @@ from services.martin_service import MartinBettingService
 from utils.settings_manager import SettingsManager
 from utils.trading_manager_helpers import TradingManagerHelpers
 from utils.analysis_thread import GameAnalysisThread
+from PyQt6.QtWidgets import QApplication  # 추가된 import
 
 class TradingManager:
     # utils/trading_manager.py의 __init__ 메서드 수정 부분
@@ -138,8 +139,18 @@ class TradingManager:
                     
     # 2. 클래스 내에 새로운 analyze_current_game 메서드 추가 (기존 메서드 대체)
     def analyze_current_game(self):
-        """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현)"""
+        """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현 - 동기화 문제 수정)"""
         try:
+            # 중요: 중지 상태 확인 - 이미 중지 명령이 내려진 경우 분석 자체를 시작하지 않음
+            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
+                self.logger.info("중지 명령이 활성화되어 게임 분석을 시작하지 않습니다.")
+                return
+
+            # 활성화 상태가 아니면 분석 시작하지 않음
+            if not self.is_trading_active:
+                self.logger.info("자동 매매가 비활성화되어 게임 분석을 시작하지 않습니다.")
+                return
+
             # 이미 실행 중인 분석 스레드가 있는지 확인
             if hasattr(self, '_analysis_thread') and self._analysis_thread.isRunning():
                 self.logger.info("이전 분석 스레드가 아직 실행 중입니다.")
@@ -160,6 +171,7 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
+
 
     def _handle_analysis_result(self, result):
         """분석 결과 처리 핸들러"""
@@ -219,7 +231,17 @@ class TradingManager:
         self.main_window.set_remaining_time(0, 0, 2)  # 다음 시도 스케줄링
 
     def _handle_room_change(self):
-        """방 이동 요청 처리 핸들러"""
+        """방 이동 요청 처리 핸들러 - 중지 상태 확인 추가"""
+        # 중요: 중지 명령이 내려진 경우 방 이동 처리하지 않음
+        if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
+            self.logger.info("중지 명령이 활성화되어 방 이동 요청을 무시합니다.")
+            return
+            
+        # 자동 매매가 비활성화된 경우에도 방 이동 처리하지 않음
+        if not self.is_trading_active:
+            self.logger.info("자동 매매가 비활성화되어 방 이동 요청을 무시합니다.")
+            return
+            
         self.logger.info("스레드에서 방 이동 요청 수신")
         self.should_move_to_next_room = False  # 플래그 초기화
         self.change_room()  # 방 이동 프로세스 시작
@@ -250,8 +272,10 @@ class TradingManager:
                 f"자동 매매 중 심각한 오류가 발생했습니다.\n자동 매매가 중지됩니다.\n오류: {str(e)}"
             )
 
+    # utils/trading_manager.py의 stop_trading 메서드 추가 수정
+
     def stop_trading(self):
-        """자동 매매 중지"""
+        """자동 매매 중지 - 스레드 안전하게 종료"""
         try:
             if not self.is_trading_active:
                 self.logger.info("자동 매매가 이미 중지된 상태입니다.")
@@ -259,29 +283,32 @@ class TradingManager:
                 
             self.logger.info("자동 매매 중지 중...")
             
-            # 중요: 가장 먼저 trading_active 플래그 비활성화
+            # 중요: 먼저 중지 플래그 설정 - 모든 진행 중인 작업이 이를 확인해야 함
+            self.stop_all_processes = True
+            
+            # 1초 대기하여 진행 중인 작업들이 중지 플래그를 확인할 시간 제공
+            time.sleep(1)
+            
+            # 그 다음 trading_active 플래그 비활성화
             self.is_trading_active = False
             
             # 방 이동 플래그 초기화
             self.should_move_to_next_room = False
-            
-            # 방 이동 관련 모든 프로세스 중지 플래그 설정
-            # 이 플래그는 change_room 메서드에서 확인하여 즉시 종료하도록 함
-            self.stop_all_processes = True
             
             # 타이머 중지 - 분석 스레드 예약 중단
             if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
                 self.main_window.timer.stop()
                 self.logger.info("타이머 중지 완료")
             
-            # 진행 중인 분석 스레드 중지 (추가)
-            if hasattr(self, '_analysis_thread') and hasattr(self._analysis_thread, 'isRunning') and self._analysis_thread.isRunning():
-                try:
-                    self.logger.info("진행 중인 분석 스레드 강제 종료")
-                    self._analysis_thread.terminate()  # 강제 종료
-                    self._analysis_thread.wait(1000)  # 최대 1초 대기
-                except Exception as e:
-                    self.logger.warning(f"분석 스레드 종료 중 오류: {e}")
+            # 진행 중인 분석 스레드 중지
+            if hasattr(self, '_analysis_thread') and hasattr(self._analysis_thread, 'isRunning'):
+                if self._analysis_thread.isRunning():
+                    try:
+                        self.logger.info("진행 중인 분석 스레드 강제 종료")
+                        self._analysis_thread.terminate()  # 강제 종료
+                        self._analysis_thread.wait(1000)  # 최대 1초 대기
+                    except Exception as e:
+                        self.logger.warning(f"분석 스레드 종료 중 오류: {e}")
                     
             # 진행 중인 방 입장 스레드 중지
             if hasattr(self.room_entry_service, 'entry_thread') and self.room_entry_service.entry_thread:
@@ -301,14 +328,36 @@ class TradingManager:
             if hasattr(self, 'martin_service'):
                 self.martin_service.reset()
             
+            # 게임 상태 완전 초기화
+            self.game_count = 0
+            self.result_count = 0
+            self.current_pick = None
+            self.processed_rounds = set()  # 처리된 라운드 기록 초기화
+            
+            # 게임 모니터링 서비스 카운트 초기화
+            if hasattr(self, 'game_monitoring_service'):
+                if hasattr(self.game_monitoring_service, 'last_detected_count'):
+                    self.game_monitoring_service.last_detected_count = 0
+                if hasattr(self.game_monitoring_service, 'game_detector'):
+                    from modules.game_detector import GameDetector
+                    self.game_monitoring_service.game_detector = GameDetector()  # 새로운 인스턴스로 교체
+            
+            # 중요: 이전에 예약된 타이머 이벤트를 모두 취소 (추가)
+            if hasattr(self.main_window, 'timer'):
+                self.main_window.timer.stop()
+                # 대기 중인 타이머 이벤트가 있다면 처리
+                QApplication.processEvents()
+            
             # 버튼 상태 업데이트
             self.main_window.start_button.setEnabled(True)
             self.main_window.stop_button.setEnabled(False)
             
             # 현재 게임방에서 나가기 시도
-            # 중요: 방 나가기만 실행하고, 새 방 입장은 시도하지 않음
-            self.logger.info("목표 금액 도달로 현재 방에서 나가기만 수행")
+            self.logger.info("현재 방에서 나가기만 수행")
             self.game_helper.exit_current_game_room()
+
+            # 중요: 중지 플래그를 초기화하여 다음 시작 시 정상 동작 보장 (추가)
+            self.stop_all_processes = False
 
             # 목표 금액에 도달했는지 확인하여 메시지 표시 결정
             target_reached = hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached
@@ -322,10 +371,13 @@ class TradingManager:
             
             # 강제 중지 시도
             self.is_trading_active = False
-            self.stop_all_processes = True
+            self.stop_all_processes = False  # 중지 후에는 초기화하여 다음 시작 시 정상 동작 보장
             if hasattr(self.main_window, 'timer'):
                 self.main_window.timer.stop()
                 
+            # 게임 카운트 강제 초기화
+            self.game_count = 0
+            
             # 버튼 상태 업데이트 시도
             try:
                 self.main_window.start_button.setEnabled(True)
@@ -338,6 +390,7 @@ class TradingManager:
                 "중지 오류", 
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다."
             )
+            
                 
     def change_room(self):
         """현재 방을 나가고 새로운 방으로 이동"""
@@ -374,11 +427,6 @@ class TradingManager:
             room_closed = self.game_monitoring_service.close_current_room()
             if not room_closed:
                 self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
-            
-            # 중요: 방 나가기 후 중지 명령이 내려졌는지 다시 확인
-            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-                self.logger.info("방 나가기 후 중지 명령 감지 - 방 이동을 중단합니다.")
-                return False
             
             # Excel 파일 초기화
             try:

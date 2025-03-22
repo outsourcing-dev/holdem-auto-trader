@@ -114,27 +114,7 @@ class GameMonitoringService:
                 return self._switch_to_lobby_window(window_handles)
             except:
                 pass
-                    
-            return False
-
-    def _switch_to_lobby_window(self, window_handles):
-        """로비 창으로 전환 (메소드 추출)"""
-        try:
-            # 로비 창으로 전환 (일반적으로 두 번째 창)
-            if len(window_handles) >= 2:
-                self.devtools.driver.switch_to.window(window_handles[1])
-                self.logger.info("카지노 로비 창으로 포커싱 전환 완료")
-                return True
-            elif len(window_handles) == 1:
-                # 창이 하나만 있으면 그 창을 사용
-                self.devtools.driver.switch_to.window(window_handles[0])
-                self.logger.info("단일 창으로 포커싱 전환")
-                return True
-            else:
-                self.logger.warning("열린 창이 없습니다.")
-                return False
-        except Exception as e:
-            self.logger.error(f"창 전환 실패: {e}")
+                
             return False
 
     def _switch_to_lobby_window(self, window_handles):
