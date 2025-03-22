@@ -11,6 +11,7 @@ from services.balance_service import BalanceService
 from services.martin_service import MartinBettingService
 from utils.settings_manager import SettingsManager
 from utils.trading_manager_helpers import TradingManagerHelpers
+from utils.analysis_thread import GameAnalysisThread
 
 class TradingManager:
     # utils/trading_manager.py의 __init__ 메서드 수정 부분
@@ -135,30 +136,42 @@ class TradingManager:
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
                     
+    # 2. 클래스 내에 새로운 analyze_current_game 메서드 추가 (기존 메서드 대체)
     def analyze_current_game(self):
-        """현재 게임 상태를 분석하여 게임 수와 결과를 확인"""
+        """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현)"""
         try:
-            # 방 이동 필요시 처리
-            if self.should_move_to_next_room:
-                self.logger.info("방 이동 실행")
-                self.should_move_to_next_room = False
-                self.change_room()
+            # 이미 실행 중인 분석 스레드가 있는지 확인
+            if hasattr(self, '_analysis_thread') and self._analysis_thread.isRunning():
+                self.logger.info("이전 분석 스레드가 아직 실행 중입니다.")
                 return
-                    
-            # 게임 상태 가져오기
-            previous_game_count = self.game_count
-            game_state = self.game_monitoring_service.get_current_game_state(log_always=True)
+                
+            # 분석 스레드 생성
+            self._analysis_thread = GameAnalysisThread(self)
             
-            if not game_state:
-                self.logger.error("게임 상태를 가져올 수 없습니다.")
-                self.main_window.set_remaining_time(0, 0, 2)
-                return
+            # 신호 연결
+            self._analysis_thread.analysis_complete.connect(self._handle_analysis_result)
+            self._analysis_thread.analysis_error.connect(self._handle_analysis_error)
+            self._analysis_thread.room_change_needed.connect(self._handle_room_change)
             
-            # 게임 카운트 및 변화 확인
+            # 스레드 시작
+            self.logger.info("게임 분석 스레드 시작")
+            self._analysis_thread.start()
+            
+        except Exception as e:
+            self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
+            self.main_window.set_remaining_time(0, 0, 2)
+
+    # 3. 핸들러 메서드들 추가
+    def _handle_analysis_result(self, result):
+        """분석 결과 처리 핸들러"""
+        try:
+            game_state = result['game_state']
+            previous_game_count = result['previous_game_count']
+            
+            # 게임 카운트 변화 로깅
             current_game_count = game_state.get('round', 0)
             latest_result = game_state.get('latest_result')
             
-            # 게임 상태 변화 로깅
             if current_game_count != previous_game_count:
                 self.logger.info(f"게임 카운트 변경: {previous_game_count} -> {current_game_count}")
                 
@@ -167,27 +180,37 @@ class TradingManager:
                     display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
                     self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
             
-            # 엑셀 처리 및 PICK 값 확인
-            result = self.excel_trading_service.process_game_results(
+            # Excel 처리는 메인 스레드에서 수행
+            excel_result = self.excel_trading_service.process_game_results(
                 game_state, 
                 self.game_count, 
                 self.current_room_name
             )
-
+            
             # 결과 처리
-            if result[0] is not None:
-                self.game_helper.process_excel_result(result, game_state, previous_game_count)
+            if excel_result[0] is not None:
+                self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
             
             # 무승부(T) 결과 시 베팅 시도
             self.game_helper.handle_tie_result(latest_result, game_state)
             
+        except Exception as e:
+            self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)
+        finally:
             # 다음 분석 간격 설정
             self.main_window.set_remaining_time(0, 0, 2)
-                    
-        except Exception as e:
-            self.logger.error(f"게임 상태 분석 오류: {e}", exc_info=True)
-            self.main_window.set_remaining_time(0, 0, 2)
-    
+            
+    def _handle_analysis_error(self, error_msg):
+        """분석 오류 처리 핸들러"""
+        self.logger.error(f"분석 스레드 오류: {error_msg}")
+        self.main_window.set_remaining_time(0, 0, 2)  # 다음 시도 스케줄링
+
+    def _handle_room_change(self):
+        """방 이동 요청 처리 핸들러"""
+        self.logger.info("스레드에서 방 이동 요청 수신")
+        self.should_move_to_next_room = False  # 플래그 초기화
+        self.change_room()  # 방 이동 프로세스 시작
+        
     def run_auto_trading(self):
         """자동 매매 루프"""
         try:
