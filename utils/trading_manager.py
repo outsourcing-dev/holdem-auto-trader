@@ -90,6 +90,7 @@ class TradingManager:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
     
     # utils/trading_manager.py의 start_trading 메서드 수정
+    # trading_manager.py의 start_trading 메서드 수정 (시작 시 창 전환 로직 추가)
 
     def start_trading(self):
         """자동 매매 시작"""
@@ -115,6 +116,18 @@ class TradingManager:
                     
             # 설정 초기화
             self.helpers.init_trading_settings()
+            
+            # 창 개수 확인 - 목표 금액 달성 후 2번 창이 닫혔을 수 있으므로 다시 확인
+            window_handles = self.devtools.driver.window_handles
+            
+            # 1번 창만 있는 경우 (카지노 창이 닫힌 경우) 카지노 재접속 필요 알림
+            if len(window_handles) < 2:
+                QMessageBox.information(
+                    self.main_window, 
+                    "카지노 접속 필요", 
+                    "카지노 창이 닫혀있습니다. 사이트 버튼을 눌러 카지노에 다시 접속해주세요."
+                )
+                return
             
             # 브라우저 및 카지노 로비 확인
             if not self.helpers.setup_browser_and_check_balance():
@@ -149,10 +162,15 @@ class TradingManager:
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현 - 동기화 문제 수정)"""
         try:
-            # 중요: 중지 상태 확인 및 목표 금액 도달 확인 추가
-            if (hasattr(self, 'stop_all_processes') and self.stop_all_processes) or \
-            (hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached):
-                self.logger.info("중지 명령 또는 목표 금액 도달로 게임 분석을 시작하지 않습니다.")
+
+                    # 중지 플래그 확인 (가장 먼저 확인)
+            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
+                self.logger.info("중지 명령으로 인해 게임 분석을 중단합니다.")
+                return
+                
+            # 목표 금액 도달 확인도 추가
+            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
+                self.logger.info("목표 금액 도달로 인해 게임 분석을 중단합니다.")
                 return
 
             # 활성화 상태가 아니면 분석 시작하지 않음

@@ -431,9 +431,12 @@ class BalanceService:
             self.logger.error(f"잔액 확인 중 오류 발생: {e}")
             return None
         
+    # services/balance_service.py의 check_target_amount 메서드 수정 부분
+
     def check_target_amount(self, current_balance, source="BalanceService"):
         """
         현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
+        도달했을 경우 카지노 창을 닫고 메인 창으로 포커싱을 변경합니다.
         """
         # 자동 매매가 활성화된 상태일 때만 확인
         if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
@@ -470,25 +473,30 @@ class BalanceService:
                 self.main_window.trading_manager.stop_trading()
                 self.logger.info("자동 매매 종료 메서드 호출됨")
                 
-                # 모든 진행 중인 스레드 종료 처리 추가
+                # 간단하게 웹페이지만 종료하는 코드 추가
                 try:
-                    # 분석 스레드 종료
-                    if hasattr(self.main_window.trading_manager, '_analysis_thread'):
-                        analysis_thread = self.main_window.trading_manager._analysis_thread
-                        if hasattr(analysis_thread, 'isRunning') and analysis_thread.isRunning():
-                            analysis_thread.stop()  # stop 메서드 호출 (GameAnalysisThread에 추가 필요)
-                            self.logger.info("분석 스레드 종료 요청됨")
+                    # 현재 열린 창 모두 가져오기
+                    window_handles = self.devtools.driver.window_handles
                     
-                    # 타이머 중지
-                    if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
-                        self.main_window.timer.stop()
-                        self.logger.info("타이머 중지됨")
-                    
-                    # 강제로 자동 매매 중지 메서드 호출
-                    self.main_window.trading_manager.stop_trading()
-                    self.logger.info("자동 매매 종료 메서드 호출됨")
+                    # 2개 이상의 창이 열려 있는 경우 (카지노 창이 있는 경우)
+                    if len(window_handles) >= 2:
+                        # 메인 창으로 전환 (1번 창)
+                        self.devtools.driver.switch_to.window(window_handles[0])
+                        self.logger.info("메인 창(1번 창)으로 포커싱 전환 완료")
+                        
+                        # 카지노 창(2번 창부터) 닫기
+                        for i in range(1, len(window_handles)):
+                            # 카지노 창으로 전환
+                            self.devtools.driver.switch_to.window(window_handles[i])
+                            # 창 닫기
+                            self.devtools.driver.close()
+                            self.logger.info(f"{i+1}번 창(카지노 창) 닫기 완료")
+                        
+                        # 다시 메인 창으로 전환
+                        self.devtools.driver.switch_to.window(window_handles[0])
+                        self.logger.info("모든 카지노 창 닫기 후 메인 창으로 포커싱 전환 완료")
                 except Exception as e:
-                    self.logger.error(f"스레드 종료 중 오류 발생: {e}")
+                    self.logger.error(f"카지노 창 닫기 중 오류 발생: {e}")
             
             # 메시지 박스 표시
             QMessageBox.information(
