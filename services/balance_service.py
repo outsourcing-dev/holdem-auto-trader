@@ -461,17 +461,10 @@ class BalanceService:
         except Exception as e:
             self.logger.error(f"잔액 확인 중 오류 발생: {e}")
             return None
-        
+            
     def check_target_amount(self, current_balance, source="BalanceService"):
         """
         현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
-        
-        Args:
-            current_balance (int): 현재 잔액
-            source (str): 호출 출처 (로깅용)
-        
-        Returns:
-            bool: 목표 금액 도달 여부
         """
         # 자동 매매가 활성화된 상태일 때만 확인
         if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
@@ -492,8 +485,9 @@ class BalanceService:
                 f"축하합니다! 목표 금액({target_amount:,}원)에 도달했습니다.\n현재 잔액: {current_balance:,}원\n자동 매매를 종료합니다."
             )
             
-            # 자동 매매 중지
-            self.main_window.trading_manager.stop_trading()
+            # 자동 매매 중지 (즉시)
+            if hasattr(self.main_window, 'trading_manager'):
+                self.main_window.trading_manager.stop_trading()
             return True
         
         # 목표 금액 접근 중인 경우 로그 표시 (80% 이상이면)

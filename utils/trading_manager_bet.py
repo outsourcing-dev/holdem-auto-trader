@@ -306,37 +306,14 @@ class TradingManagerBet:
             return "error"
         
     def update_balance_after_result(self, is_win):
-        """베팅 결과 후 잔액 업데이트"""
+        """베팅 결과 후 잔액 업데이트 - 방 로비에서만 확인하도록 수정"""
         try:
-            current_balance = None
+            # 방 안에서 잔액 확인 시도를 제거하고 대신 로그만 남김
+            self.logger.info("베팅 결과 확인됨. 방 이동 후 로비에서 잔액을 확인할 예정입니다.")
             
-            # 잔액 확인 시도 1: balance_service 사용
-            current_balance = self.tm.balance_service.update_balance_after_bet_result(is_win=is_win)
-            
-            # 잔액 확인 시도 2: iframe 직접 확인
-            if current_balance is None:
-                self.logger.warning("잔액 업데이트 1차 실패, 2차 시도...")
-                current_balance = self.tm.balance_service.get_iframe_balance()
+            # 목표 금액 확인은 방 이동 후에 진행되도록 플래그 설정
+            if not hasattr(self.tm, 'check_balance_after_room_change'):
+                self.tm.check_balance_after_room_change = True
                 
-                if current_balance is not None:
-                    self.tm.main_window.update_user_data(current_amount=current_balance)
-            
-            # 잔액 확인 시도 3: 페이지 소스에서 확인
-            if current_balance is None:
-                self.logger.warning("잔액 업데이트 2차 실패, 3차 시도...")
-                balance, _ = self.tm.balance_service.get_current_balance_and_username()
-                if balance is not None:
-                    current_balance = balance
-                    self.tm.main_window.update_user_data(current_amount=current_balance)
-            
-            # 목표 금액 확인
-            if current_balance is not None:
-                self.logger.info(f"베팅 결과 후 잔액: {current_balance:,}원")
-                
-                if self.tm.balance_service.check_target_amount(current_balance):
-                    self.logger.info("목표 금액 도달로 자동 매매를 중지합니다.")
-                    self.tm.stop_trading()
-            else:
-                self.logger.error("베팅 결과 후 잔액을 업데이트할 수 없습니다.")
         except Exception as e:
-            self.logger.error(f"잔액 업데이트 오류: {e}")
+            self.logger.error(f"잔액 업데이트 플래그 설정 오류: {e}")

@@ -229,6 +229,13 @@ class TradingManager:
             # 방 이동 플래그 초기화
             self.should_move_to_next_room = False
             
+            # 진행 중인 방 입장 스레드 중지 (추가)
+            if hasattr(self.room_entry_service, 'entry_thread') and self.room_entry_service.entry_thread:
+                if self.room_entry_service.entry_thread.isRunning():
+                    self.logger.info("진행 중인 방 입장 스레드 중지 중...")
+                    self.room_entry_service.entry_thread.stop()
+                    self.room_entry_service.entry_thread.wait(1000)  # 최대 1초 대기
+
             # 타이머 중지
             if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
                 self.main_window.timer.stop()
