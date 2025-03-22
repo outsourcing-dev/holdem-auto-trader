@@ -39,6 +39,16 @@ class RoomEntryService:
         Returns:
             str: 선택된 방 이름 또는 None
         """
+        if hasattr(self.main_window, 'trading_manager'):
+            if hasattr(self.main_window.trading_manager, 'stop_all_processes') and self.main_window.trading_manager.stop_all_processes:
+                self.logger.info("중지 명령이 감지되어 방 입장을 중단합니다.")
+                return None
+            
+            # 목표 금액 도달 확인도 추가
+            if hasattr(self.main_window.trading_manager, 'balance_service') and hasattr(self.main_window.trading_manager.balance_service, '_target_amount_reached') and self.main_window.trading_manager.balance_service._target_amount_reached:
+                self.logger.info("목표 금액 도달이 감지되어 방 입장을 중단합니다.")
+                return None
+            
         max_attempts = 10  # 최대 방 찾기 시도 횟수 증가
         attempts = 0
         

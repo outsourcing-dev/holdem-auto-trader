@@ -716,3 +716,35 @@ class MainWindow(QMainWindow):
             self.devtools.driver = None
             return False
 
+    def on_start_button_clicked(self):
+        """진행 버튼 클릭 처리"""
+        try:
+            # 추가: 중지 플래그 즉시 초기화
+            if hasattr(self.trading_manager, 'stop_all_processes'):
+                self.trading_manager.stop_all_processes = False
+                
+            # 추가: 목표 금액 도달 플래그 초기화
+            if hasattr(self.trading_manager.balance_service, '_target_amount_reached'):
+                delattr(self.trading_manager.balance_service, '_target_amount_reached')
+            
+            # 추가: 타이머 완전 리셋
+            if hasattr(self, 'timer'):
+                if self.timer.isActive():
+                    self.timer.stop()
+                # 새로운 타이머 생성
+                from PyQt6.QtCore import QTimer
+                self.timer = QTimer()
+                self.timer.timeout.connect(self.update_remaining_time)
+            
+            # 이전 스레드 참조 제거
+            if hasattr(self.trading_manager, '_analysis_thread'):
+                delattr(self.trading_manager, '_analysis_thread')
+            
+            # 자동 매매 시작
+            self.trading_manager.start_trading()
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            QMessageBox.critical(self, "오류", f"자동 매매 시작 중 오류가 발생했습니다.\n{str(e)}")
+            

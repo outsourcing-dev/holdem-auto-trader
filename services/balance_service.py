@@ -193,7 +193,8 @@ class BalanceService:
                                 self.devtools.driver.switch_to.default_content()
                                 return largest_number
                     except Exception as inner_e:
-                        continue  # 오류가 있어도 다음 요소로 계속 진행
+                        self.logger.warning(f"XPath 요소 처리 중 오류: {inner_e}")
+                        continue
             except Exception as e:
                 self.logger.warning(f"XPath로 잔액 가져오기 실패: {e}")
             
@@ -247,38 +248,6 @@ class BalanceService:
             
             return None
         
-    def get_current_balance_and_username(self):
-        """
-        현재 잔액과 사용자 이름을 가져옵니다.
-        
-        Returns:
-            tuple: (balance, username) 또는 (None, None) (실패 시)
-        """
-        try:
-            # 페이지 소스 가져오기
-            html = self.devtools.get_page_source()
-            
-            if not html:
-                self.logger.error("페이지 소스를 가져올 수 없습니다.")
-                return None, None
-                
-            # 잔액 및 사용자 이름 파싱
-            parser = HTMLParser(html)
-            balance = parser.get_balance()
-            username = parser.get_username()
-            
-            if balance is not None:
-                self.logger.info(f"현재 잔액: {balance}원")
-                
-            if username:
-                self.logger.info(f"유저명: {username}")
-                
-            return balance, username
-            
-        except Exception as e:
-            self.logger.error(f"잔액 정보 가져오기 실패: {e}", exc_info=True)
-            return None, None
-            
     def update_balance_and_user_data(self, balance, username):
         """
         UI에 잔액 및 사용자 정보를 업데이트합니다.
@@ -465,17 +434,15 @@ class BalanceService:
     def check_target_amount(self, current_balance, source="BalanceService"):
         """
         현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
-        
-        Args:
-            current_balance (int): 현재 잔액
-            source (str): 호출 출처 (로깅용)
-        
-        Returns:
-            bool: 목표 금액 도달 여부
         """
         # 자동 매매가 활성화된 상태일 때만 확인
         if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
             return False
+            
+        # 이미 목표 금액에 도달했다고 알림을 표시했는지 확인하는 플래그 추가
+        if hasattr(self, '_target_amount_reached') and self._target_amount_reached:
+            self.logger.info(f"[{source}] 이미 목표 금액 도달 알림이 표시되었습니다. 추가 알림 방지.")
+            return True
             
         # 목표 금액 항상 새로 가져오기 (캐시된 값 대신 파일에서 직접 읽기)
         target_amount = self.settings_manager.get_target_amount()
@@ -485,6 +452,44 @@ class BalanceService:
         if target_amount > 0 and current_balance >= target_amount:
             self.logger.info(f"[{source}] 목표 금액({target_amount:,}원)에 도달했습니다! 현재 잔액: {current_balance:,}원")
             
+            # 중복 알림 방지를 위해 플래그 설정
+            self._target_amount_reached = True
+            
+            # 중요: 즉시 모든 스레드와 진행 중인 작업 중지
+            if hasattr(self.main_window, 'trading_manager'):
+                # 중지 플래그 설정
+                self.main_window.trading_manager.stop_all_processes = True
+                self.logger.info("목표 금액 도달: 모든 프로세스 중지 플래그 설정")
+                
+                # 타이머 즉시 중지
+                if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                    self.main_window.timer.stop()
+                    self.logger.info("타이머 중지됨")
+                
+                # 자동 매매 중지 즉시 호출
+                self.main_window.trading_manager.stop_trading()
+                self.logger.info("자동 매매 종료 메서드 호출됨")
+                
+                # 모든 진행 중인 스레드 종료 처리 추가
+                try:
+                    # 분석 스레드 종료
+                    if hasattr(self.main_window.trading_manager, '_analysis_thread'):
+                        analysis_thread = self.main_window.trading_manager._analysis_thread
+                        if hasattr(analysis_thread, 'isRunning') and analysis_thread.isRunning():
+                            analysis_thread.stop()  # stop 메서드 호출 (GameAnalysisThread에 추가 필요)
+                            self.logger.info("분석 스레드 종료 요청됨")
+                    
+                    # 타이머 중지
+                    if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                        self.main_window.timer.stop()
+                        self.logger.info("타이머 중지됨")
+                    
+                    # 강제로 자동 매매 중지 메서드 호출
+                    self.main_window.trading_manager.stop_trading()
+                    self.logger.info("자동 매매 종료 메서드 호출됨")
+                except Exception as e:
+                    self.logger.error(f"스레드 종료 중 오류 발생: {e}")
+            
             # 메시지 박스 표시
             QMessageBox.information(
                 self.main_window, 
@@ -492,8 +497,6 @@ class BalanceService:
                 f"축하합니다! 목표 금액({target_amount:,}원)에 도달했습니다.\n현재 잔액: {current_balance:,}원\n자동 매매를 종료합니다."
             )
             
-            # 자동 매매 중지
-            self.main_window.trading_manager.stop_trading()
             return True
         
         # 목표 금액 접근 중인 경우 로그 표시 (80% 이상이면)

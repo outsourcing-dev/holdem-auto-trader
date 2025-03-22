@@ -105,30 +105,35 @@ class RoomManager:
         self.visited_rooms = set()  # 이미 방문한 방들의 집합
 
     def generate_visit_order(self):
-            """체크된 방들의 방문 순서를 랜덤하게 생성합니다."""
-            checked_rooms = self.get_checked_rooms()
-            if not checked_rooms:
-                return False
-                
-            # 방 이름만 추출
-            room_names = [room['name'] for room in checked_rooms]
+        """체크된 방들의 방문 순서를 랜덤하게 생성합니다."""
+        # 중지 플래그 확인 추가
+        if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'stop_all_processes') and self.main_window.trading_manager.stop_all_processes:
+            self.logger.info("중지 명령이 감지되어 방문 순서 생성을 취소합니다.")
+            return False
             
-            # 이미 방문한 방들 제외
-            unvisited_rooms = [name for name in room_names if name not in self.visited_rooms]
+        checked_rooms = self.get_checked_rooms()
+        if not checked_rooms:
+            return False
             
-            # 모든 방을 방문했으면 방문 기록 초기화
-            if not unvisited_rooms:
-                print("[INFO] 모든 방을 방문했습니다. 방문 기록을 초기화합니다.")
-                self.visited_rooms.clear()
-                unvisited_rooms = room_names
-            
-            # 랜덤하게 순서 섞기
-            random.shuffle(unvisited_rooms)
-            
-            self.room_visit_queue = unvisited_rooms
-            print(f"[INFO] 새로운 방문 순서 생성: {self.room_visit_queue}")
-            return True
+        # 방 이름만 추출
+        room_names = [room['name'] for room in checked_rooms]
         
+        # 이미 방문한 방들 제외
+        unvisited_rooms = [name for name in room_names if name not in self.visited_rooms]
+        
+        # 모든 방을 방문했으면 방문 기록 초기화
+        if not unvisited_rooms:
+            print("[INFO] 모든 방을 방문했습니다. 방문 기록을 초기화합니다.")
+            self.visited_rooms.clear()
+            unvisited_rooms = room_names
+        
+        # 랜덤하게 순서 섞기
+        random.shuffle(unvisited_rooms)
+        
+        self.room_visit_queue = unvisited_rooms
+        print(f"[INFO] 새로운 방문 순서 생성: {self.room_visit_queue}")
+        return True
+
     def mark_room_visited(self, room_name):
         """방을 방문한 것으로 표시"""
         if room_name:
@@ -143,6 +148,18 @@ class RoomManager:
         Returns:
             str: 다음 방문할 방 이름 또는 None
         """
+
+        # 중지 플래그 확인 (가장 먼저 확인)
+        if hasattr(self.main_window, 'trading_manager'):
+            if hasattr(self.main_window.trading_manager, 'stop_all_processes') and self.main_window.trading_manager.stop_all_processes:
+                self.logger.info("중지 명령이 감지되어 다음 방 가져오기를 중단합니다.")
+                return None
+            
+            # 목표 금액 도달 확인도 추가
+            if hasattr(self.main_window.trading_manager, 'balance_service') and hasattr(self.main_window.trading_manager.balance_service, '_target_amount_reached') and self.main_window.trading_manager.balance_service._target_amount_reached:
+                self.logger.info("목표 금액 도달이 감지되어 다음 방 가져오기를 중단합니다.")
+                return None
+        
         # 큐가 비어있으면 새로 생성
         if not self.room_visit_queue:
             success = self.generate_visit_order()
