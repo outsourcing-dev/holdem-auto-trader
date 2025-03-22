@@ -193,7 +193,8 @@ class BalanceService:
                                 self.devtools.driver.switch_to.default_content()
                                 return largest_number
                     except Exception as inner_e:
-                        continue  # 오류가 있어도 다음 요소로 계속 진행
+                        self.logger.warning(f"XPath 요소 처리 중 오류: {inner_e}")
+                        continue
             except Exception as e:
                 self.logger.warning(f"XPath로 잔액 가져오기 실패: {e}")
             
@@ -247,38 +248,6 @@ class BalanceService:
             
             return None
         
-    def get_current_balance_and_username(self):
-        """
-        현재 잔액과 사용자 이름을 가져옵니다.
-        
-        Returns:
-            tuple: (balance, username) 또는 (None, None) (실패 시)
-        """
-        try:
-            # 페이지 소스 가져오기
-            html = self.devtools.get_page_source()
-            
-            if not html:
-                self.logger.error("페이지 소스를 가져올 수 없습니다.")
-                return None, None
-                
-            # 잔액 및 사용자 이름 파싱
-            parser = HTMLParser(html)
-            balance = parser.get_balance()
-            username = parser.get_username()
-            
-            if balance is not None:
-                self.logger.info(f"현재 잔액: {balance}원")
-                
-            if username:
-                self.logger.info(f"유저명: {username}")
-                
-            return balance, username
-            
-        except Exception as e:
-            self.logger.error(f"잔액 정보 가져오기 실패: {e}", exc_info=True)
-            return None, None
-            
     def update_balance_and_user_data(self, balance, username):
         """
         UI에 잔액 및 사용자 정보를 업데이트합니다.
@@ -461,7 +430,8 @@ class BalanceService:
         except Exception as e:
             self.logger.error(f"잔액 확인 중 오류 발생: {e}")
             return None
-            
+        
+    # 수정할 부분: check_target_amount 메서드 (약 408줄 근처)
     def check_target_amount(self, current_balance, source="BalanceService"):
         """
         현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
@@ -470,6 +440,11 @@ class BalanceService:
         if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
             return False
             
+        # 이미 목표 금액에 도달했다고 알림을 표시했는지 확인하는 플래그 추가
+        if hasattr(self, '_target_amount_reached') and self._target_amount_reached:
+            self.logger.info(f"[{source}] 이미 목표 금액 도달 알림이 표시되었습니다. 추가 알림 방지.")
+            return True
+            
         # 목표 금액 항상 새로 가져오기 (캐시된 값 대신 파일에서 직접 읽기)
         target_amount = self.settings_manager.get_target_amount()
         self.logger.info(f"[{source}] 현재 목표 금액: {target_amount:,}원, 현재 잔액: {current_balance:,}원")
@@ -477,6 +452,14 @@ class BalanceService:
         # 목표 금액이 설정되어 있고(0보다 큼), 현재 잔액이 목표 금액 이상이면
         if target_amount > 0 and current_balance >= target_amount:
             self.logger.info(f"[{source}] 목표 금액({target_amount:,}원)에 도달했습니다! 현재 잔액: {current_balance:,}원")
+            
+            # 중복 알림 방지를 위해 플래그 설정
+            self._target_amount_reached = True
+            
+            # 중요: 방 이동 중단 플래그 설정 (TradingManager에)
+            if hasattr(self.main_window, 'trading_manager'):
+                self.main_window.trading_manager.stop_all_processes = True
+                self.logger.info("목표 금액 도달: 모든 프로세스 중지 플래그 설정")
             
             # 메시지 박스 표시
             QMessageBox.information(
