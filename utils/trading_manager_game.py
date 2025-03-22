@@ -10,9 +10,25 @@ class TradingManagerGame:
         self.tm = trading_manager  # trading_manager 참조
         self.logger = trading_manager.logger or logging.getLogger(__name__)
     
+    # utils/trading_manager_game.py의 enter_first_room 메서드 수정
+
     def enter_first_room(self):
-        """첫 방 입장 및 모니터링 시작"""
+        """첫 방 입장 및 모니터링 시작 - 게임 카운트 완전 초기화 보장"""
         try:
+            # 상태 강제 초기화 - 추가된 부분
+            # 게임 카운트 강제 초기화
+            self.tm.game_count = 0
+            self.tm.result_count = 0
+            self.tm.current_pick = None
+            self.tm.processed_rounds = set()
+            
+            # 게임 감지기 초기화
+            from modules.game_detector import GameDetector
+            if hasattr(self.tm, 'game_monitoring_service'):
+                self.tm.game_monitoring_service.game_detector = GameDetector()
+                if hasattr(self.tm.game_monitoring_service, 'last_detected_count'):
+                    self.tm.game_monitoring_service.last_detected_count = 0
+            
             # 방문 순서 초기화
             self.tm.room_manager.generate_visit_order()
             
@@ -38,7 +54,7 @@ class TradingManagerGame:
             self.logger.error(f"첫 방 입장 오류: {e}")
             self.tm.stop_trading()
             return False
-    
+        
     def process_excel_result(self, result, game_state, previous_game_count):
         """엑셀 처리 결과 활용"""
         try:
@@ -190,22 +206,31 @@ class TradingManagerGame:
         except Exception as e:
             self.logger.warning(f"방 나가기 중 오류 발생: {e}")
             return False
-    
-    # trading_manager_game.py의 reset_room_state 메서드 수정
+        
+    # utils/trading_manager_game.py의 reset_room_state 메서드 수정
 
     def reset_room_state(self):
-        """방 이동 시 상태 초기화"""
-        # 게임 정보 초기화
-        self.tm.game_count = 0
+        """방 이동 시 상태 철저히 초기화"""
+        # 게임 정보 완전 초기화
+        self.tm.game_count = 0  # 항상 0으로 초기화
         self.tm.result_count = 0
         self.tm.current_pick = None
         self.tm.betting_service.reset_betting_state()
         
+        # 중요: 처리된 게임 결과 기록 초기화
+        self.tm.processed_rounds = set()
+        
+        # 게임 모니터링 서비스 카운트 초기화 - 추가된 부분
+        if hasattr(self.tm, 'game_monitoring_service'):
+            if hasattr(self.tm.game_monitoring_service, 'last_detected_count'):
+                self.tm.game_monitoring_service.last_detected_count = 0
+            if hasattr(self.tm.game_monitoring_service, 'game_detector'):
+                # 게임 감지기도 새로 초기화
+                from modules.game_detector import GameDetector
+                self.tm.game_monitoring_service.game_detector = GameDetector()
+        
         if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
             self.tm.main_window.betting_widget.prevent_reset = True
-        
-        # processed_rounds 초기화
-        self.tm.processed_rounds = set()
         
         # 마틴 서비스 상태에 따른 선택적 초기화
         should_reset_widgets = False
@@ -219,7 +244,7 @@ class TradingManagerGame:
                 self.tm.martin_service.current_step = 0
                 # 로그 추가
                 previous_step = self.tm.martin_service.current_step
-                self.logger.info(f"[수정] 승리 후 방 이동: 마틴 단계 명시적으로 0으로 초기화 (이전: {previous_step+1}단계)")
+                self.logger.info(f"승리 후 방 이동: 마틴 단계 명시적으로 0으로 초기화 (이전: {previous_step+1}단계)")
                 
             # 2. 마틴 베팅에서 마지막 단계 실패 후 방 이동인 경우
             elif (self.tm.martin_service.current_step == 0 and 
@@ -238,6 +263,7 @@ class TradingManagerGame:
             self.tm.main_window.betting_widget.reset_room_results()
         else:
             self.logger.info("TIE 또는 연속 베팅을 위한 방 이동: 베팅 위젯 유지")
+            
                 
     def handle_room_entry_failure(self):
         """방 입장 실패 처리"""

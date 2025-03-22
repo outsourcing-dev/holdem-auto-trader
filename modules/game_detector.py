@@ -10,7 +10,17 @@ class GameDetector:
         self.current_round = 0  # 현재 게임 판수
         self.pb_history = []  # P/B 기록 (T 제외)
         self.all_results = []  # P/B/T 모든 결과 기록
+        self.reset()
 
+    def reset(self):
+        """게임 감지기 상태 완전 초기화"""
+        self.current_round = 0
+        self.pb_history = []
+        self.all_results = []
+        # 내부 인식 상태 초기화
+        self._last_processed_game = None
+        self._last_processed_result = None
+        
     def parse_game_board(self, html_content):
         """
         게임 결과 보드를 파싱합니다.
