@@ -155,6 +155,10 @@ class TradingManagerBet:
                 bet_amount=final_bet_amount
             )
             
+            # 스타일 업데이트 추가 - 이 부분을 추가
+            if hasattr(self.tm.main_window, 'update_button_styles'):
+                self.tm.main_window.update_button_styles()
+
             # 베팅 실행
             bet_success = self.tm.betting_service.place_bet(
                 pick_value, 
@@ -202,6 +206,8 @@ class TradingManagerBet:
             self.tm.main_window.update_user_data(total_bet=self.tm.main_window.total_bet_amount)
             self.logger.info(f"누적 배팅 금액: {self.tm.main_window.total_bet_amount:,}원")
             
+            if hasattr(self.tm.main_window, 'update_button_styles'):
+                self.tm.main_window.update_button_styles()
             return True
         except Exception as e:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
