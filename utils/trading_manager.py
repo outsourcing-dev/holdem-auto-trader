@@ -140,12 +140,11 @@ class TradingManager:
             self.is_trading_active = True
             self.logger.info("자동 매매 시작!")
             
-            # UI 업데이트
+            # UI 업데이트 - 시작 버튼 비활성화, 중지 버튼은 여전히 비활성화 (방 입장 전까지)
             self.main_window.start_button.setEnabled(False)
-            
-            # 이 시점에서는 중지 버튼을 아직 활성화하지 않음
-            # 방 입장 성공 시에만 활성화하도록 변경
             self.main_window.stop_button.setEnabled(False)
+            # 스타일 강제 업데이트 추가
+            self.main_window.update_button_styles()
             
             # 목표 금액 체크
             balance = self.main_window.current_amount
@@ -155,7 +154,7 @@ class TradingManager:
             
             # 방문 순서 초기화 및 첫 방 입장
             self.game_helper.enter_first_room()
-
+            
         except Exception as e:
             self.logger.error(f"자동 매매 시작 오류: {e}", exc_info=True)
             QMessageBox.critical(
@@ -163,7 +162,8 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
-            
+
+
     # 2. 클래스 내에 새로운 analyze_current_game 메서드 추가 (기존 메서드 대체)
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현 - 동기화 문제 수정)"""
@@ -450,8 +450,10 @@ class TradingManager:
 
             self.logger.info("방 이동 준비 중...")
             
-            # 방 이동 시 중지 버튼 비활성화 (추가된 부분)
+            # 방 이동 시 중지 버튼 비활성화 (추가된 부분 - 방 이동 중에는 비활성화)
             self.main_window.stop_button.setEnabled(False)
+            self.main_window.update_button_styles()
+            self.logger.info("방 이동 중: 중지 버튼 비활성화됨")
             
             # 방 이동 플래그 설정 - room_log_widget에 방 변경 알림
             if hasattr(self.main_window, 'room_log_widget'):
@@ -485,7 +487,6 @@ class TradingManager:
             # 방 입장 실패 시 처리
             if not new_room_name:
                 return self.game_helper.handle_room_entry_failure()
-
             
             # 방 입장 성공 시 처리
             return self.game_helper.handle_successful_room_entry(new_room_name)
@@ -494,6 +495,9 @@ class TradingManager:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
             # 실패 시 중지 버튼 비활성화 (추가된 부분)
             self.main_window.stop_button.setEnabled(False)
+            # 스타일 강제 업데이트 추가
+            self.main_window.update_button_styles()
+            self.logger.info("방 이동 실패: 중지 버튼 비활성화 상태 유지")
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
             return False
         

@@ -558,6 +558,7 @@ class RoomManager:
         print("[DEBUG] 방 목록 로드 완료, 버튼 활성화")
         self.main_window.start_button.setEnabled(True)
         self.main_window.stop_button.setEnabled(True)
+        self.update_button_styles()
         
     def on_checkbox_changed(self, row, state):
         """체크박스 상태가 변경되었을 때 호출"""

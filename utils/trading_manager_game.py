@@ -65,15 +65,19 @@ class TradingManagerGame:
         else:
             # 방 입장 실패 시 중지 버튼 비활성화 (추가된 부분)
             self.tm.main_window.stop_button.setEnabled(False)
-            
+            self.tm.main_window.update_button_styles()
+
             self.tm.stop_trading()
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
 
     def handle_successful_room_entry(self, new_room_name):
         """방 입장 성공 처리"""
-        # 방 입장 성공 시 중지 버튼 활성화 (추가된 부분)
+        # 방 입장 성공 시 중지 버튼 활성화 (여기서 명시적으로 활성화)
         self.tm.main_window.stop_button.setEnabled(True)
+        # 스타일 강제 업데이트 추가
+        self.tm.main_window.update_button_styles()
+        self.logger.info("방 입장 성공: 중지 버튼 활성화됨")
         
         # 방 이동 후 로비에서 잔액 확인 (목표 금액 도달 먼저 체크)
         if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
@@ -314,6 +318,11 @@ class TradingManagerGame:
     def exit_current_game_room(self):
         """현재 게임방에서 나가기"""
         try:
+            # 중지 버튼 비활성화 (게임방 나갈 때)
+            self.tm.main_window.stop_button.setEnabled(False)
+            self.tm.main_window.update_button_styles()
+            self.logger.info("게임방 나가기: 중지 버튼 비활성화됨")
+            
             # 현재 URL 확인
             current_url = self.tm.devtools.driver.current_url
             
