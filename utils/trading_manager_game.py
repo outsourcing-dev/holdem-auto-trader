@@ -10,8 +10,6 @@ class TradingManagerGame:
         self.tm = trading_manager  # trading_manager 참조
         self.logger = trading_manager.logger or logging.getLogger(__name__)
     
-    # utils/trading_manager_game.py의 enter_first_room 메서드 수정
-
     def enter_first_room(self):
         """첫 방 입장 및 모니터링 시작 - 게임 카운트 완전 초기화 보장"""
         try:
@@ -39,6 +37,9 @@ class TradingManagerGame:
             if not self.tm.current_room_name:
                 self.tm.stop_trading()
                 return False
+                
+            # 방 입장 성공 시 중지 버튼 활성화 (추가된 부분)
+            self.tm.main_window.stop_button.setEnabled(True)
             
             # 모니터링 타이머 설정
             self.tm.main_window.set_remaining_time(0, 0, 2)
@@ -54,7 +55,131 @@ class TradingManagerGame:
             self.logger.error(f"첫 방 입장 오류: {e}")
             self.tm.stop_trading()
             return False
+
+    def handle_room_entry_failure(self):
+        """방 입장 실패 처리"""
+        # 방문 큐 리셋
+        if self.tm.room_manager.reset_visit_queue():
+            self.logger.info("방 입장 실패. 방문 큐를 리셋하고 다시 시도합니다.")
+            return self.tm.change_room()  # 재귀적으로 다시 시도
+        else:
+            # 방 입장 실패 시 중지 버튼 비활성화 (추가된 부분)
+            self.tm.main_window.stop_button.setEnabled(False)
+            
+            self.tm.stop_trading()
+            QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
+            return False
+
+    def handle_successful_room_entry(self, new_room_name):
+        """방 입장 성공 처리"""
+        # 방 입장 성공 시 중지 버튼 활성화 (추가된 부분)
+        self.tm.main_window.stop_button.setEnabled(True)
         
+        # 방 이동 후 로비에서 잔액 확인 (목표 금액 도달 먼저 체크)
+        if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
+            try:
+                self.logger.info("방 이동 후 로비에서 잔액 확인 중...")
+                balance = self.tm.balance_service.get_lobby_balance()
+                
+                if balance is not None:
+                    self.logger.info(f"로비에서 확인한 최신 잔액: {balance:,}원")
+                    # UI 업데이트
+                    self.tm.main_window.update_user_data(current_amount=balance)
+                    
+                    # 목표 금액 확인 - 도달했으면 즉시 종료
+                    if self.tm.balance_service.check_target_amount(balance, source="방 이동 후 확인"):
+                        self.logger.info("목표 금액 도달로 자동 매매를 중지합니다.")
+                        # 방금 입장한 방에서도 나가기
+                        self.exit_current_game_room()
+                        self.tm.stop_trading()
+                        # 중요: 즉시 False 반환하여 추가 처리 방지
+                        self.tm.check_balance_after_room_change = False
+                        return False
+                
+                # 플래그 초기화
+                self.tm.check_balance_after_room_change = False
+                
+            except Exception as e:
+                self.logger.error(f"방 이동 후 잔액 확인 오류: {e}")
+                self.tm.check_balance_after_room_change = False
+
+        # 성공 여부 확인 - martin_service의 win_count로 판단
+        was_successful = False
+        if hasattr(self.tm, 'martin_service'):
+            # 현재 객체에 저장된 값 사용 (최근에 승리했는지 여부)
+            was_successful = (self.tm.martin_service.win_count > 0 and 
+                            self.tm.martin_service.consecutive_losses == 0)
+        
+        # 성공한 경우에만 베팅 위젯 초기화 - 중요: 새 방 입장 후에 초기화
+        if was_successful:
+            self.logger.info("승리 후 새 방 입장 감지: 이제 베팅 위젯 초기화 실행")
+            
+            # prevent_reset 플래그 비활성화 (초기화 허용)
+            if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                self.tm.main_window.betting_widget.prevent_reset = False
+            
+            # 초기화 실행 (명시적으로 마커 초기화 호출)
+            self.tm.main_window.betting_widget.reset_step_markers()
+            self.tm.main_window.betting_widget.reset_room_results(success=True)
+            
+            # room_position_counter 명시적으로 초기화
+            self.tm.main_window.betting_widget.room_position_counter = 0
+            
+            self.logger.info("승리 후 새 방 입장 완료: 베팅 위젯 초기화 완료")
+        else:
+            self.logger.info("베팅 실패 후 새 방 입장: 베팅 위젯 유지")
+        
+        # UI 업데이트
+        self.tm.current_room_name = new_room_name
+        # 새로운 방 이름만 업데이트하고 reset_counter는 설정하지 않음
+        self.tm.main_window.update_betting_status(
+            room_name=self.tm.current_room_name,
+            pick=""
+        )
+
+        # 게임 상태 확인 및 최근 결과 기록
+        try:
+            # 목표 금액 도달 확인이 필요 없는 경우에만 게임 상태 확인
+            if not hasattr(self.tm.balance_service, '_target_amount_reached') or not self.tm.balance_service._target_amount_reached:
+                self.logger.info("새 방 입장 후 최근 결과 확인 중...")
+                game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
+                
+                if game_state:
+                    # 중요: 실제 게임 카운트 저장
+                    actual_game_count = game_state.get('round', 0)
+                    self.tm.game_count = actual_game_count
+                    self.logger.info(f"새 방 게임 카운트: {self.tm.game_count}")
+                    
+                    # Excel에 기록
+                    result = self.tm.excel_trading_service.process_game_results(
+                        game_state, 
+                        0,
+                        self.tm.current_room_name,
+                        log_on_change=True
+                    )
+                    
+                    if result[0] is not None:
+                        self.logger.info(f"새 방에 최근 결과 기록 완료")
+                        
+                        if result[3] in ['P', 'B']:  # next_pick
+                            self.logger.info(f"새 방 입장 후 첫 배팅 설정: {result[3]}")
+                            self.tm.current_pick = result[3]
+                            
+                            # 즉시 배팅 유도
+                            self.tm._first_entry_time = time.time() - 5
+                            
+                            # UI에 PICK 값 표시
+                            self.tm.main_window.update_betting_status(
+                                pick=result[3],
+                                bet_amount=self.tm.martin_service.get_current_bet_amount()
+                            )
+        except Exception as e:
+            self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
+
+        self.logger.info(f"새 방으로 이동 완료, 게임 카운트: {self.tm.game_count}")
+        return True
+
+
     def process_excel_result(self, result, game_state, previous_game_count):
         """엑셀 처리 결과 활용"""
         try:
@@ -263,123 +388,3 @@ class TradingManagerGame:
             self.tm.main_window.betting_widget.reset_room_results()
         else:
             self.logger.info("TIE 또는 연속 베팅을 위한 방 이동: 베팅 위젯 유지")
-            
-                
-    def handle_room_entry_failure(self):
-        """방 입장 실패 처리"""
-        # 방문 큐 리셋
-        if self.tm.room_manager.reset_visit_queue():
-            self.logger.info("방 입장 실패. 방문 큐를 리셋하고 다시 시도합니다.")
-            return self.tm.change_room()  # 재귀적으로 다시 시도
-        else:
-            self.tm.stop_trading()
-            QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
-            return False
-
-    # utils/trading_manager_game.py에서 handle_successful_room_entry 메서드 수정
-    # 수정할 부분: handle_successful_room_entry 메서드 (약 271줄 근처)
-    def handle_successful_room_entry(self, new_room_name):
-        """방 입장 성공 처리"""
-        # 방 이동 후 로비에서 잔액 확인 (목표 금액 도달 먼저 체크)
-        if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
-            try:
-                self.logger.info("방 이동 후 로비에서 잔액 확인 중...")
-                balance = self.tm.balance_service.get_lobby_balance()
-                
-                if balance is not None:
-                    self.logger.info(f"로비에서 확인한 최신 잔액: {balance:,}원")
-                    # UI 업데이트
-                    self.tm.main_window.update_user_data(current_amount=balance)
-                    
-                    # 목표 금액 확인 - 도달했으면 즉시 종료
-                    if self.tm.balance_service.check_target_amount(balance, source="방 이동 후 확인"):
-                        self.logger.info("목표 금액 도달로 자동 매매를 중지합니다.")
-                        # 방금 입장한 방에서도 나가기
-                        self.exit_current_game_room()
-                        self.tm.stop_trading()
-                        # 중요: 즉시 False 반환하여 추가 처리 방지
-                        self.tm.check_balance_after_room_change = False
-                        return False
-                
-                # 플래그 초기화
-                self.tm.check_balance_after_room_change = False
-                
-            except Exception as e:
-                self.logger.error(f"방 이동 후 잔액 확인 오류: {e}")
-                self.tm.check_balance_after_room_change = False
-
-        # 성공 여부 확인 - martin_service의 win_count로 판단
-        was_successful = False
-        if hasattr(self.tm, 'martin_service'):
-            # 현재 객체에 저장된 값 사용 (최근에 승리했는지 여부)
-            was_successful = (self.tm.martin_service.win_count > 0 and 
-                            self.tm.martin_service.consecutive_losses == 0)
-        
-        # 성공한 경우에만 베팅 위젯 초기화 - 중요: 새 방 입장 후에 초기화
-        if was_successful:
-            self.logger.info("승리 후 새 방 입장 감지: 이제 베팅 위젯 초기화 실행")
-            
-            # prevent_reset 플래그 비활성화 (초기화 허용)
-            if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-                self.tm.main_window.betting_widget.prevent_reset = False
-            
-            # 초기화 실행 (명시적으로 마커 초기화 호출)
-            self.tm.main_window.betting_widget.reset_step_markers()
-            self.tm.main_window.betting_widget.reset_room_results(success=True)
-            
-            # room_position_counter 명시적으로 초기화
-            self.tm.main_window.betting_widget.room_position_counter = 0
-            
-            self.logger.info("승리 후 새 방 입장 완료: 베팅 위젯 초기화 완료")
-        else:
-            self.logger.info("베팅 실패 후 새 방 입장: 베팅 위젯 유지")
-        
-        # UI 업데이트
-        self.tm.current_room_name = new_room_name
-        # 새로운 방 이름만 업데이트하고 reset_counter는 설정하지 않음
-        self.tm.main_window.update_betting_status(
-            room_name=self.tm.current_room_name,
-            pick=""
-        )
-
-        # 게임 상태 확인 및 최근 결과 기록
-        try:
-            # 목표 금액 도달 확인이 필요 없는 경우에만 게임 상태 확인
-            if not hasattr(self.tm.balance_service, '_target_amount_reached') or not self.tm.balance_service._target_amount_reached:
-                self.logger.info("새 방 입장 후 최근 결과 확인 중...")
-                game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
-                
-                if game_state:
-                    # 중요: 실제 게임 카운트 저장
-                    actual_game_count = game_state.get('round', 0)
-                    self.tm.game_count = actual_game_count
-                    self.logger.info(f"새 방 게임 카운트: {self.tm.game_count}")
-                    
-                    # Excel에 기록
-                    result = self.tm.excel_trading_service.process_game_results(
-                        game_state, 
-                        0,
-                        self.tm.current_room_name,
-                        log_on_change=True
-                    )
-                    
-                    if result[0] is not None:
-                        self.logger.info(f"새 방에 최근 결과 기록 완료")
-                        
-                        if result[3] in ['P', 'B']:  # next_pick
-                            self.logger.info(f"새 방 입장 후 첫 배팅 설정: {result[3]}")
-                            self.tm.current_pick = result[3]
-                            
-                            # 즉시 배팅 유도
-                            self.tm._first_entry_time = time.time() - 5
-                            
-                            # UI에 PICK 값 표시
-                            self.tm.main_window.update_betting_status(
-                                pick=result[3],
-                                bet_amount=self.tm.martin_service.get_current_bet_amount()
-                            )
-        except Exception as e:
-            self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
-
-        self.logger.info(f"새 방으로 이동 완료, 게임 카운트: {self.tm.game_count}")
-        return True

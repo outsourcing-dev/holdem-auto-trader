@@ -244,6 +244,15 @@ class MainWindow(QMainWindow):
         self.start_button.clicked.connect(self.start_trading)
         self.stop_button.clicked.connect(self.stop_trading)
 
+        self.start_button.setStyleSheet("""
+            QPushButton:enabled { background-color: #4CAF50; color: white; }
+            QPushButton:disabled { background-color: #cccccc; color: #666666; }
+        """)
+        self.stop_button.setStyleSheet("""
+            QPushButton:enabled { background-color: #F44336; color: white; }
+            QPushButton:disabled { background-color: #cccccc; color: #666666; }
+        """)
+
         start_stop_layout.addWidget(self.start_button)
         start_stop_layout.addWidget(self.stop_button)
         self.left_panel.addLayout(start_stop_layout)

@@ -90,7 +90,10 @@ class TradingManager:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
     
     # utils/trading_manager.py의 start_trading 메서드 수정
-    # trading_manager.py의 start_trading 메서드 수정 (시작 시 창 전환 로직 추가)
+
+# trading_manager.py의 start_trading 메서드 수정 (시작 시 창 전환 로직 추가)
+
+# utils/trading_manager.py에서 start_trading 메서드 수정
 
     def start_trading(self):
         """자동 매매 시작"""
@@ -139,7 +142,10 @@ class TradingManager:
             
             # UI 업데이트
             self.main_window.start_button.setEnabled(False)
-            self.main_window.stop_button.setEnabled(True)
+            
+            # 이 시점에서는 중지 버튼을 아직 활성화하지 않음
+            # 방 입장 성공 시에만 활성화하도록 변경
+            self.main_window.stop_button.setEnabled(False)
             
             # 목표 금액 체크
             balance = self.main_window.current_amount
@@ -299,7 +305,7 @@ class TradingManager:
                 f"자동 매매 중 심각한 오류가 발생했습니다.\n자동 매매가 중지됩니다.\n오류: {str(e)}"
             )
 
-    # utils/trading_manager.py의 stop_trading 메서드 추가 수정
+    
     def stop_trading(self):
         """자동 매매 중지 - 스레드 안전하게 종료"""
         from PyQt6.QtWidgets import QApplication
@@ -386,7 +392,7 @@ class TradingManager:
             
             # 버튼 상태 업데이트
             self.main_window.start_button.setEnabled(True)
-            self.main_window.stop_button.setEnabled(False)
+            self.main_window.stop_button.setEnabled(False)  # 중지 버튼 항상 비활성화
             
             # 현재 게임방에서 나가기 시도
             self.logger.info("현재 방에서 나가기만 수행")
@@ -413,7 +419,7 @@ class TradingManager:
             # 버튼 상태 업데이트 시도
             try:
                 self.main_window.start_button.setEnabled(True)
-                self.main_window.stop_button.setEnabled(False)
+                self.main_window.stop_button.setEnabled(False)  # 중지 버튼 항상 비활성화
             except:
                 pass
 
@@ -423,10 +429,11 @@ class TradingManager:
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다."
             )
             
+# utils/trading_manager.py에서 change_room 메서드 수정
     def change_room(self):
         """현재 방을 나가고 새로운 방으로 이동"""
         try:
-                # 중요: stop_all_processes 플래그 확인 - 도중에 중지 명령이 내려졌는지 확인
+            # 중요: stop_all_processes 플래그 확인 - 도중에 중지 명령이 내려졌는지 확인
             if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
                 self.logger.info("중지 명령으로 인해 방 이동을 중단합니다.")
                 return False
@@ -442,6 +449,9 @@ class TradingManager:
                 return False
 
             self.logger.info("방 이동 준비 중...")
+            
+            # 방 이동 시 중지 버튼 비활성화 (추가된 부분)
+            self.main_window.stop_button.setEnabled(False)
             
             # 방 이동 플래그 설정 - room_log_widget에 방 변경 알림
             if hasattr(self.main_window, 'room_log_widget'):
@@ -482,6 +492,8 @@ class TradingManager:
 
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
+            # 실패 시 중지 버튼 비활성화 (추가된 부분)
+            self.main_window.stop_button.setEnabled(False)
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
             return False
         
