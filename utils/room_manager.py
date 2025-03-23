@@ -555,10 +555,13 @@ class RoomManager:
             room_table.setItem(row, 1, name_item)
         
         # 방 목록이 성공적으로 로드되면 버튼 활성화
-        print("[DEBUG] 방 목록 로드 완료, 버튼 활성화")
+        print("[DEBUG] 방 목록 로드 완료, 시작 버튼만 활성화")
         self.main_window.start_button.setEnabled(True)
-        self.main_window.stop_button.setEnabled(True)
-        self.update_button_styles()
+        self.main_window.stop_button.setEnabled(False)  # 중지 버튼은 비활성화 상태 유지
+
+        # 메인 윈도우의 메서드 호출로 수정
+        if hasattr(self.main_window, 'update_button_styles'):
+            self.main_window.update_button_styles()
         
     def on_checkbox_changed(self, row, state):
         """체크박스 상태가 변경되었을 때 호출"""

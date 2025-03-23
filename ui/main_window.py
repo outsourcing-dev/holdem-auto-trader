@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
         self.room_manager = RoomManager(self)
         self.trading_manager = TradingManager(self)
         self.ui_updater = UIUpdater(self)
+        self.update_button_styles()
         
     def apply_stylesheet(self):
         """스타일시트를 적용합니다."""
