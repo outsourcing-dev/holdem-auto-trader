@@ -158,19 +158,33 @@ class BettingWidget(QWidget):
         bet_amount_layout.addWidget(bet_amount_label)
         bet_amount_layout.addWidget(self.bet_amount_value)
         bet_amount_layout.addStretch(1)  # 오른쪽에 여백 추가 (가운데 정렬을 위해)
-        
+            
+        # 역배팅 표시 추가
+        reverse_layout = QHBoxLayout()
+        reverse_layout.addStretch(1)  # 오른쪽 정렬을 위한 여백
+        self.reverse_indicator = QLabel("정")  # 초기값은 정배팅
+        self.reverse_indicator.setStyleSheet(
+            "background-color: #4CAF50; color: white; font-weight: bold; font-size: 12px; " 
+            "border-radius: 10px; padding: 2px 6px; margin-right: 5px;"
+        )
+        reverse_layout.addWidget(self.reverse_indicator)
+
         # 모드 표시 추가 
         mode_layout = QHBoxLayout()
-        mode_layout.addStretch(1)  # 위젯 앞에 여백 추가 (오른쪽 정렬)
         self.mode_value = QLabel("일반 베팅")  # 초기값
         self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;")  # 녹색으로 표시
         mode_layout.addWidget(self.mode_value)
-        # mode_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
 
-        # 전체 정보 레이아웃에 세 부분 추가 - 수정된 부분: mode_layout 추가
+        # 역배팅 모드와 일반 모드 지시자를 하나의 레이아웃에 결합
+        combined_mode_layout = QHBoxLayout()
+        combined_mode_layout.addLayout(reverse_layout)
+        combined_mode_layout.addLayout(mode_layout)
+        combined_mode_layout.addStretch(1)  # 왼쪽 정렬되도록 오른쪽에 여백 추가
+
+        # 전체 정보 레이아웃에 세 부분 추가
         info_layout.addLayout(room_layout, 1)      # 비율 1
         info_layout.addLayout(bet_amount_layout, 1)  # 비율 1
-        info_layout.addLayout(mode_layout, 1)      # 비율 1 
+        info_layout.addLayout(combined_mode_layout, 1)  # 비율 1
         
         progress_layout.addLayout(info_layout)
         
@@ -688,3 +702,18 @@ class BettingWidget(QWidget):
         else:  # 'normal' 또는 기타
             self.mode_value.setText("일반 베팅")
             self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;") 
+            
+    def update_reverse_mode(self, is_reverse):
+        """역배팅 모드 상태를 업데이트합니다."""
+        if is_reverse:
+            self.reverse_indicator.setText("역")
+            self.reverse_indicator.setStyleSheet(
+                "background-color: #F44336; color: white; font-weight: bold; font-size: 12px; "
+                "border-radius: 10px; padding: 2px 6px; margin-right: 5px;"
+            )
+        else:
+            self.reverse_indicator.setText("정")
+            self.reverse_indicator.setStyleSheet(
+                "background-color: #4CAF50; color: white; font-weight: bold; font-size: 12px; "
+                "border-radius: 10px; padding: 2px 6px; margin-right: 5px;"
+            )

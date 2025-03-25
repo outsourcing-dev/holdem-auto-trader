@@ -1,4 +1,4 @@
-# utils/trading_manager_bet.py
+# utils/trading_manager_bet.py - 역배팅 기능 추가
 import time
 import logging
 from PyQt6.QtWidgets import QApplication
@@ -39,6 +39,24 @@ class TradingManagerBet:
                 if self.tm.balance_service.check_target_amount(balance):
                     self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
                     return False
+            
+            # 역배팅 모드 확인 및 PICK 값 조정
+            original_pick = pick_value
+            
+            # 역배팅 모드 상태 출력
+            is_reverse_mode = self.tm.martin_service.reverse_betting
+            self.logger.info(f"[역배팅] 현재 모드: {'역배팅' if is_reverse_mode else '정배팅'}")
+            
+            # 역배팅 모드에 따라 PICK 값 조정
+            pick_value = self.tm.martin_service.get_reverse_bet_pick(pick_value)
+            
+            # 원래 PICK과 실제 베팅 PICK이 다른 경우 로그 출력
+            if original_pick != pick_value:
+                self.logger.info(f"[역배팅] 원래 베팅: {original_pick} → 실제 베팅: {pick_value}")
+                
+                # UI에 역배팅 모드 표시 (있다면)
+                if hasattr(self.tm.main_window.betting_widget, 'update_reverse_mode'):
+                    self.tm.main_window.betting_widget.update_reverse_mode(True)
             
             # Double & Half 설정 가져오기 - 최신 설정 적용
             double_half_start, double_half_stop = self.tm.settings_manager.get_double_half_settings()
@@ -150,9 +168,9 @@ class TradingManagerBet:
             # UI에 현재 배팅 금액 업데이트
             self.tm.main_window.betting_widget.update_bet_amount(final_bet_amount)
             
-            # UI 업데이트
+            # UI 업데이트 - 여기서 원래 PICK 값을 표시 (사용자에게는 원래 의도한 선택 표시)
             self.tm.main_window.update_betting_status(
-                pick=pick_value, 
+                pick=original_pick, 
                 bet_amount=final_bet_amount
             )
             
@@ -166,7 +184,7 @@ class TradingManagerBet:
             if hasattr(self.tm.main_window, 'update_button_styles'):
                 self.tm.main_window.update_button_styles()
 
-            # 베팅 실행
+            # 베팅 실행 - 변경된 pick_value 사용 (역배팅 모드에 따라 반전됨)
             bet_success = self.tm.betting_service.place_bet(
                 pick_value, 
                 self.tm.current_room_name, 
@@ -175,22 +193,16 @@ class TradingManagerBet:
                 final_bet_amount
             )
             
-            # 현재 베팅 타입 저장
-            self.tm.current_pick = pick_value
+            # 현재 베팅 타입 저장 - 원래 PICK 값 저장
+            self.tm.current_pick = original_pick
             
             # 베팅 성공 시 처리
             if bet_success:
-                # # 베팅 성공 시 중지 버튼 활성화 - 추가된 부분
-                # self.tm.main_window.stop_button.setEnabled(False)
-                # self.tm.main_window.update_button_styles()
-                # QApplication.processEvents()  # 이벤트 처리 강제
-                # self.logger.info("베팅 성공: 중지 버튼 활성화")
-                
                 self.process_successful_bet(final_bet_amount)
             else:
-                # 베팅 실패 시에도 PICK 값은 UI에 표시
-                self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {pick_value}")
-                self.tm.main_window.update_betting_status(pick=pick_value)
+                # 베팅 실패 시에도 PICK 값은 UI에 표시 (원래 PICK 값 표시)
+                self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {original_pick}")
+                self.tm.main_window.update_betting_status(pick=original_pick)
                 
                 # 베팅 실패 시 중지 버튼 다시 활성화 - 추가된 부분
                 self.tm.main_window.stop_button.setEnabled(True)
@@ -238,10 +250,22 @@ class TradingManagerBet:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
             return False
         
-    # trading_manager_bet.py의 process_bet_result 메서드 수정
+    # trading_manager_bet.py의 process_bet_result 메서드 수정 - 역배팅 지원
     def process_bet_result(self, bet_type, latest_result, new_game_count):
         """베팅 결과 처리 - 결과 표시 시 중지 버튼 비활성화 및 일시 정지 추가"""
         try:
+            # 베팅한 실제 pick 값 확인
+            actual_bet_type = bet_type
+            
+            # 역배팅 모드가 활성화되었는지 확인하고, 승패 판정 보정
+            if self.tm.martin_service.reverse_betting:
+                # 원래 PICK(UI에 표시된 PICK)을 가져오기
+                original_pick = self.tm.martin_service.original_pick
+                if original_pick:
+                    self.logger.info(f"[역배팅] 원래 의도한 PICK: {original_pick}, 실제 베팅한 PICK: {bet_type}")
+                else:
+                    self.logger.info(f"[역배팅] 역배팅 모드로 베팅: {bet_type}")
+            
             # 결과 판정
             is_tie = (latest_result == 'T')
             is_win = (not is_tie and bet_type == latest_result)
@@ -250,6 +274,10 @@ class TradingManagerBet:
             self.tm.main_window.stop_button.setEnabled(False)
             self.tm.main_window.update_button_styles()
             self.logger.info("결과 확인 중: 중지 버튼 비활성화됨")
+            
+            # 역배팅 모드가 활성화된 경우 승패 상태 로그 추가
+            if self.tm.martin_service.reverse_betting:
+                self.logger.info(f"[역배팅] 결과 판정 - 타이: {is_tie}, 승리: {is_win}, 결과: {latest_result}")
             
             # 결과 설정
             if is_tie:
