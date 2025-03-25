@@ -88,16 +88,16 @@ class TradingManager:
             )
         except Exception as e:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
-    
-    # utils/trading_manager.py의 start_trading 메서드 수정
-
-# trading_manager.py의 start_trading 메서드 수정 (시작 시 창 전환 로직 추가)
-
-# utils/trading_manager.py에서 start_trading 메서드 수정
 
     def start_trading(self):
         """자동 매매 시작"""
         try:
+            # 브라우저 드라이버 확인 - 메시지 표시 없이 조용히 종료
+            if not self.devtools.driver:
+                # 메시지 대화상자 없이 그냥 종료
+                print("[INFO] 브라우저가 실행되지 않았습니다. 자동 매매를 시작하지 않습니다.")
+                return
+                
             # 시작 전 설정 새로고침
             self.refresh_settings()
             
@@ -163,8 +163,7 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
-
-
+            
     # 2. 클래스 내에 새로운 analyze_current_game 메서드 추가 (기존 메서드 대체)
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현 - 동기화 문제 수정)"""
@@ -201,7 +200,7 @@ class TradingManager:
             self.logger.info("게임 분석 스레드 시작")
             self._analysis_thread.start()
             # 중지 버튼 활성화 (스레드 시작 후)
-            self.main_window.stop_button.setEnabled(True)
+            # self.main_window.stop_button.setEnabled(True)
             self.main_window.update_button_styles()
             self.logger.info("게임 분석 스레드 시작 후 중지 버튼 활성화")
         

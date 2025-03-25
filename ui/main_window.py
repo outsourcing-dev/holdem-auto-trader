@@ -242,7 +242,7 @@ class MainWindow(QMainWindow):
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
 
-        self.start_button.clicked.connect(self.start_trading)
+        self.start_button.clicked.connect(self.on_start_button_clicked)
         self.stop_button.clicked.connect(self.stop_trading)
 
         start_stop_layout.addWidget(self.start_button)
@@ -397,7 +397,7 @@ class MainWindow(QMainWindow):
         
         # 창이 2개 이상인지 확인
         if len(window_handles) < 2:
-            QMessageBox.warning(self, "알림", "창이 2개 이상 필요합니다. 사이트 버튼으로 카지노 페이지를 열어주세요.")
+            # QMessageBox.warning(self, "알림", "창이 2개 이상 필요합니다. 사이트 버튼으로 카지노 페이지를 열어주세요.")
             return False
         
         # 로그에 모든 창 정보 출력 (디버깅 용도)
@@ -466,6 +466,13 @@ class MainWindow(QMainWindow):
         self.ui_updater.add_betting_result(no, room_name, step, result)
     
     def start_trading(self):
+        """시작 버튼 클릭 처리"""
+        # 비활성화 상태에서는 작동하지 않도록
+        if not self.start_button.isEnabled():
+            print("시작 버튼이 비활성화 상태입니다. 작업을 수행하지 않습니다.")
+            return
+            
+        # 기존 코드
         self.trading_manager.start_trading()
     
     def stop_trading(self):
@@ -736,10 +743,15 @@ class MainWindow(QMainWindow):
             # 브라우저 참조 초기화
             self.devtools.driver = None
             return False
-
+        
     def on_start_button_clicked(self):
         """진행 버튼 클릭 처리"""
         try:
+            # 비활성화 상태에서는 작동하지 않도록 추가
+            if not self.start_button.isEnabled():
+                print("[INFO] 시작 버튼이 비활성화 상태입니다. 작업을 수행하지 않습니다.")
+                return
+                
             # 추가: 중지 플래그 즉시 초기화
             if hasattr(self.trading_manager, 'stop_all_processes'):
                 self.trading_manager.stop_all_processes = False
@@ -768,4 +780,3 @@ class MainWindow(QMainWindow):
             import traceback
             traceback.print_exc()
             QMessageBox.critical(self, "오류", f"자동 매매 시작 중 오류가 발생했습니다.\n{str(e)}")
-            

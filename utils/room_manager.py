@@ -331,7 +331,7 @@ class RoomManager:
         if reply == QMessageBox.StandardButton.Yes:
             # 카지노 창으로 전환
             if not self.main_window.switch_to_casino_window():
-                QMessageBox.warning(self.main_window, "오류", "카지노 창을 찾을 수 없습니다.")
+                QMessageBox.warning(self.main_window, "오류", "에볼루션 창을 찾을 수 없습니다.")
                 return
                 
             # 2.5초 후 자동으로 닫히는 로딩 메시지 표시
