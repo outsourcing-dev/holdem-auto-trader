@@ -106,16 +106,16 @@ class MartinBettingService:
         old_mode = self.reverse_betting
         mode_changed = False
         
-        # 현재 모드에 따라 다른 조건 적용
+        # 현재 모드에 따라 다른 조건 적용 - 패배가 많을 때만 모드 변경
         if self.reverse_betting:  # 현재 역배팅 모드인 경우
-            if win_count > lose_count:
-                # 승>패이면 정배팅으로 전환
+            if lose_count > win_count:
+                # 패>승이면 정배팅으로 전환
                 self.reverse_betting = False
                 mode_changed = True
-                self.logger.info(f"[역배팅] 모드 변경: 역배팅 → 정배팅 (승{win_count} > 패{lose_count})")
+                self.logger.info(f"[역배팅] 모드 변경: 역배팅 → 정배팅 (패{lose_count} > 승{win_count})")
             else:
-                # 승<=패이면 역배팅 유지
-                self.logger.info(f"[역배팅] 모드 유지: 역배팅 (승{win_count} <= 패{lose_count})")
+                # 패<=승이면 역배팅 유지
+                self.logger.info(f"[역배팅] 모드 유지: 역배팅 (패{lose_count} <= 승{win_count})")
         else:  # 현재 정배팅 모드인 경우
             if lose_count > win_count:
                 # 패>승이면 역배팅으로 전환
