@@ -180,7 +180,6 @@ class TradingManagerBet:
             QApplication.processEvents()  # 이벤트 처리 강제
             self.logger.info("베팅 전: 중지 버튼 활성화")
             
-            # 스타일 업데이트 추가 - 이 부분을 추가
             if hasattr(self.tm.main_window, 'update_button_styles'):
                 self.tm.main_window.update_button_styles()
 
