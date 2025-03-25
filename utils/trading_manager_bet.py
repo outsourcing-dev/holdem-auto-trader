@@ -155,6 +155,11 @@ class TradingManagerBet:
                 bet_amount=final_bet_amount
             )
             
+            # 베팅 전 버튼 활성화
+            self.tm.main_window.stop_button.setEnabled(True)
+            self.tm.main_window.update_button_styles()
+            self.logger.info("베팅 전: 중지 버튼 비활성화")
+            
             # 스타일 업데이트 추가 - 이 부분을 추가
             if hasattr(self.tm.main_window, 'update_button_styles'):
                 self.tm.main_window.update_button_styles()
@@ -173,16 +178,32 @@ class TradingManagerBet:
             
             # 베팅 성공 시 처리
             if bet_success:
+                # 베팅 성공 시 중지 버튼 활성화 - 추가된 부분
+                self.tm.main_window.stop_button.setEnabled(False)
+                self.tm.main_window.update_button_styles()
+                self.logger.info("베팅 성공: 중지 버튼 활성화")
+                
                 self.process_successful_bet(final_bet_amount)
             else:
                 # 베팅 실패 시에도 PICK 값은 UI에 표시
                 self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {pick_value}")
                 self.tm.main_window.update_betting_status(pick=pick_value)
+                
+                # 베팅 실패 시 중지 버튼 다시 활성화 - 추가된 부분
+                self.tm.main_window.stop_button.setEnabled(True)
+                self.tm.main_window.update_button_styles()
+                self.logger.info("베팅 실패: 중지 버튼 다시 활성화")
             
             return bet_success
         
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
+            
+            # 오류 발생 시 중지 버튼 다시 활성화 - 추가된 부분
+            self.tm.main_window.stop_button.setEnabled(True)
+            self.tm.main_window.update_button_styles()
+            self.logger.info("베팅 오류: 중지 버튼 다시 활성화")
+            
             return False
         
     def process_successful_bet(self, bet_amount):
@@ -214,13 +235,17 @@ class TradingManagerBet:
             return False
         
     # trading_manager_bet.py의 process_bet_result 메서드 수정
-
     def process_bet_result(self, bet_type, latest_result, new_game_count):
-        """베팅 결과 처리"""
+        """베팅 결과 처리 - 결과 표시 시 중지 버튼 비활성화 및 일시 정지 추가"""
         try:
             # 결과 판정
             is_tie = (latest_result == 'T')
             is_win = (not is_tie and bet_type == latest_result)
+            
+            # 중지 버튼 비활성화 (결과 확인 시작) - 추가된 부분
+            self.tm.main_window.stop_button.setEnabled(False)
+            self.tm.main_window.update_button_styles()
+            self.logger.info("결과 확인 중: 중지 버튼 비활성화됨")
             
             # 결과 설정
             if is_tie:
@@ -234,11 +259,6 @@ class TradingManagerBet:
                 self.logger.info("타이(T) 결과: 같은 방에서 재시도")
 
             elif is_win:
-                # 변경된 부분: prevent_reset 플래그 상태를 아직 유지
-                # if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-                #     self.tm.main_window.betting_widget.prevent_reset = False
-                #     self.tm.main_window.betting_widget.reset_step_markers()
-                #     self.tm.main_window.betting_widget.reset_room_results()
                 self.logger.info("승리: 마커 표시 후 초기화 예정")
                 result_text = "적중"
                 result_marker = "O"
@@ -294,6 +314,10 @@ class TradingManagerBet:
                     is_tie=is_tie
                 )
             
+            # 결과 확인을 위한 지연 추가 - 추가된 부분
+            self.logger.info(f"결과 확인 대기: {result_text} (3초)")
+            time.sleep(3)  # 3초 동안 결과 확인을 위해 대기
+            
             # 잔액 업데이트 및 목표 금액 확인
             self.update_balance_after_result(is_win)
             
@@ -305,6 +329,12 @@ class TradingManagerBet:
             
             # 중요: 로그 추가 - 결과와 방 이동 플래그 상태를 기록
             self.logger.info(f"베팅 결과: {result_status}, 방 이동 플래그: {self.tm.should_move_to_next_room}")
+            
+            # 결과 확인 후에도 중지 버튼은 비활성화 상태 유지 (방 이동 또는 새 베팅 시 활성화)
+            # 중지 버튼은 비활성화 상태 유지
+            self.tm.main_window.stop_button.setEnabled(False)
+            self.tm.main_window.update_button_styles()
+            self.logger.info("결과 확인 후: 중지 버튼 비활성화 상태 유지")
             
             return result_status
         except Exception as e:

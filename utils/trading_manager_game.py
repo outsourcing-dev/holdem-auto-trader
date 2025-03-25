@@ -183,7 +183,6 @@ class TradingManagerGame:
         self.logger.info(f"새 방으로 이동 완료, 게임 카운트: {self.tm.game_count}")
         return True
 
-
     def process_excel_result(self, result, game_state, previous_game_count):
         """엑셀 처리 결과 활용"""
         try:
