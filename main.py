@@ -3,6 +3,7 @@ import os
 import tempfile
 import atexit
 import shutil
+import time
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
@@ -66,14 +67,26 @@ def get_style_path():
     return None
 
 def cleanup_temp_excel():
-    """프로그램 종료 시 임시 파일 삭제"""
+    """프로그램 종료 시 임시 파일 삭제 - 강화된 버전"""
     global temp_excel_path
     if temp_excel_path and os.path.exists(temp_excel_path):
-        try:
-            os.remove(temp_excel_path)
-            logging.info(f"임시 Excel 파일 삭제 완료: {temp_excel_path}")
-        except Exception as e:
-            logging.error(f"임시 파일 삭제 실패: {e}")
+        # 여러 번 시도 (파일 핸들이 늦게 해제될 수 있음)
+        for attempt in range(3):
+            try:
+                logging.info(f"임시 Excel 파일 삭제 시도 ({attempt+1}/3): {temp_excel_path}")
+                os.remove(temp_excel_path)
+                logging.info(f"임시 Excel 파일 삭제 완료: {temp_excel_path}")
+                break
+            except Exception as e:
+                logging.warning(f"임시 파일 삭제 실패 ({attempt+1}/3): {e}")
+                # Excel 프로세스 정리 시도
+                try:
+                    from utils.excel_cleanup import terminate_excel_processes
+                    terminate_excel_processes(save_first=False)
+                except:
+                    pass
+                # 잠시 대기 후 재시도
+                time.sleep(1)
 
 # 프로그램 종료 시 임시 파일 정리
 atexit.register(cleanup_temp_excel)
@@ -100,7 +113,7 @@ def ensure_backup_exists():
     return os.path.exists(backup_path)
 
 def prepare_excel_file():
-    """암호화된 Excel 파일을 복호화하여 임시 파일로 준비"""
+    """암호화된 Excel 파일을 복호화하여 임시 파일로 준비 - 개선된 버전"""
     global temp_excel_path, backup_path
     
     # 백업 확인
@@ -130,13 +143,22 @@ def prepare_excel_file():
             logging.error(f"암호화된 Excel 파일을 찾을 수 없음: {encrypted_path}")
             return None
     
-    # 3. 임시 파일 경로 설정
+    # 3. 임시 파일 경로 설정 - 고유한 파일 이름 사용
+    import uuid
     temp_dir = tempfile.gettempdir()
-    temp_excel_path = os.path.join(temp_dir, f"AUTO_temp_{os.getpid()}.xlsx")
+    unique_id = str(uuid.uuid4())[:8]  # 짧은 고유 ID 생성
+    temp_excel_path = os.path.join(temp_dir, f"AUTO_temp_{unique_id}.xlsx")
     
     # 4. 복호화 시도
     SECRET_KEY = "holdem2025_secret_key"
     encryptor = EncryptExcel()
+    
+    # 기존 Excel 프로세스 정리
+    try:
+        from utils.excel_cleanup import terminate_excel_processes
+        terminate_excel_processes(save_first=False)
+    except Exception as e:
+        logging.warning(f"Excel 프로세스 정리 실패: {e}")
     
     # 첫 번째 복호화 시도
     try:
@@ -145,6 +167,11 @@ def prepare_excel_file():
         
         if decrypt_result and os.path.exists(temp_excel_path) and os.path.getsize(temp_excel_path) > 0:
             logging.info(f"Excel 파일 복호화 성공: {temp_excel_path}")
+            
+            # 가비지 컬렉션 강제 실행
+            import gc
+            gc.collect()
+            
             return temp_excel_path
         
         # 복호화 실패 시 백업에서 복원 후 재시도
@@ -164,6 +191,11 @@ def prepare_excel_file():
             
             if decrypt_result and os.path.exists(temp_excel_path) and os.path.getsize(temp_excel_path) > 0:
                 logging.info(f"백업 복원 후 복호화 성공: {temp_excel_path}")
+                
+                # 가비지 컬렉션 강제 실행
+                import gc
+                gc.collect()
+                
                 return temp_excel_path
         
         logging.error("모든 복호화 시도 실패")
@@ -172,7 +204,7 @@ def prepare_excel_file():
     except Exception as e:
         logging.error(f"복호화 중 오류: {str(e)}", exc_info=True)
         return None
-
+    
 class MainApp(QApplication):
     def __init__(self, sys_argv):
         super().__init__(sys_argv)

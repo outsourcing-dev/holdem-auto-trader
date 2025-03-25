@@ -74,8 +74,16 @@ class ExcelBaseManager:
             self.open_excel_once()
     
     def __del__(self):
-        """객체 소멸 시 Excel 종료 보장"""
-        self.close_excel()
+        """애플리케이션 종료 시 자원 정리"""
+        # Excel 프로세스 정리
+        try:
+            from utils.excel_cleanup import terminate_excel_processes
+            terminate_excel_processes(save_first=True)
+        except:
+            pass
+        
+        # 임시 파일 정리
+        cleanup_temp_excel()
     
     def get_excel_path(self, filename="AUTO.xlsx"):
         """

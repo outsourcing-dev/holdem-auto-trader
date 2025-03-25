@@ -35,6 +35,7 @@ class BettingService:
                 return False
             
             self.current_bet_round = game_count
+
             # 2. 메모리 최적화
             gc.collect()
             time.sleep(0.5)

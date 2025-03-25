@@ -143,28 +143,46 @@ class EncryptExcel:
     
     def close_workbook(self, workbook, save_changes=True):
         """
-        워크북 닫기
+        워크북 닫기 - 강화된 버전
         
         Args:
             workbook: 워크북 객체
             save_changes (bool): 변경 사항 저장 여부
         """
         try:
+            # 워크북 닫기 시도
             if workbook:
-                workbook.Close(SaveChanges=save_changes)
+                try:
+                    workbook.Close(SaveChanges=save_changes)
+                except Exception as e:
+                    logger.warning(f"Excel 워크북 닫기 중 오류: {e}")
+                workbook = None
             
+            # Excel 애플리케이션 종료 시도
             if self.excel_app:
-                self.excel_app.Quit()
+                try:
+                    self.excel_app.DisplayAlerts = False
+                    self.excel_app.Quit()
+                except Exception as e:
+                    logger.warning(f"Excel 애플리케이션 종료 중 오류: {e}")
                 self.excel_app = None
                 
-            pythoncom.CoUninitialize()
+            # COM 스레드 해제 시도
+            try:
+                pythoncom.CoUninitialize()
+            except:
+                pass
             
-            logger.info("Excel 워크북 닫기 완료")
+            # 명시적 가비지 컬렉션 강제 실행
+            import gc
+            gc.collect()
+            
+            logger.info("Excel 리소스 정리 완료")
             return True
         except Exception as e:
-            logger.error(f"Excel 워크북 닫기 중 오류: {e}")
+            logger.error(f"Excel 리소스 정리 중 심각한 오류: {e}")
             return False
-    
+        
     # 파일 내용 암호화/복호화 메서드들 (AES 사용)
     
     def _get_encryption_key(self, password, salt=None):

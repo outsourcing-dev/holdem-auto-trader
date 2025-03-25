@@ -109,7 +109,7 @@ def safe_close_excel_files(files_to_check=None):
 
 def terminate_excel_processes(save_first=True):
     """
-    실행 중인 모든 Excel 프로세스를 안전하게 종료합니다.
+    실행 중인 모든 Excel 프로세스를 강제로 종료합니다.
     
     Args:
         save_first (bool): 먼저 파일 저장을 시도할지 여부
@@ -121,7 +121,7 @@ def terminate_excel_processes(save_first=True):
     if save_first and HAS_WIN32COM:
         safe_close_excel_files()
     
-    # 여전히 실행 중인 Excel 프로세스 찾기
+    # Excel 프로세스 찾기
     excel_processes = find_excel_processes()
     
     if not excel_processes:
@@ -130,26 +130,43 @@ def terminate_excel_processes(save_first=True):
     
     terminated_count = 0
     
+    # 1. 먼저 일반 종료 시도
     for proc in excel_processes:
         try:
             proc_name = proc.name()
             proc_pid = proc.pid
             
-            # 프로세스 종료
+            # 일반 종료 시도
             proc.terminate()
+            logger.info(f"Excel 프로세스 종료 요청: PID {proc_pid}")
             
-            # 3초간 종료 대기
-            gone, alive = psutil.wait_procs([proc], timeout=3)
+            # 2초간 종료 대기
+            gone, alive = psutil.wait_procs([proc], timeout=2)
             
             if proc in alive:
+                # 강제 종료
                 logger.warning(f"Excel 프로세스 (PID: {proc_pid})가 종료되지 않아 강제 종료합니다.")
                 proc.kill()
+                # 1초 더 대기
+                gone, alive = psutil.wait_procs([proc], timeout=1)
+                if proc in alive:
+                    logger.error(f"Excel 프로세스 강제 종료 실패: PID {proc_pid}")
+                else:
+                    terminated_count += 1
+                    logger.info(f"Excel 프로세스 강제 종료 성공: PID {proc_pid}")
             else:
-                logger.info(f"Excel 프로세스 종료 성공: PID {proc_pid}, 이름: {proc_name}")
                 terminated_count += 1
+                logger.info(f"Excel 프로세스 정상 종료 성공: PID {proc_pid}")
                 
         except Exception as e:
             logger.error(f"Excel 프로세스 종료 중 오류: {e}")
+    
+    # 모든 프로세스 처리 후 가비지 컬렉션 강제 실행
+    import gc
+    gc.collect()
+    
+    # 약간의 대기 시간
+    time.sleep(0.5)
     
     return terminated_count
 
