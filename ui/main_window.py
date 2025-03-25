@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QMessageBox, QTableWidget, 
-                             QTableWidgetItem, QSizePolicy, QHeaderView)
+                             QTableWidgetItem, QSizePolicy, QHeaderView,QApplication)
 from PyQt6.QtCore import Qt, QTimer, QDateTime
 from PyQt6.QtGui import QGuiApplication, QIcon
 
@@ -245,32 +245,6 @@ class MainWindow(QMainWindow):
         self.start_button.clicked.connect(self.start_trading)
         self.stop_button.clicked.connect(self.stop_trading)
 
-        # 명시적인 스타일시트 설정 - !important 플래그 추가
-        self.start_button.setStyleSheet("""
-            QPushButton:enabled {
-                background-color: #4CAF50 !important;
-                color: white !important;
-                font-weight: bold !important;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc !important;
-                color: #666666 !important;
-                font-weight: normal !important;
-            }
-        """)
-        self.stop_button.setStyleSheet("""
-            QPushButton:disabled {
-                background-color: #cccccc !important;
-                color: #666666 !important;
-                font-weight: normal !important;
-            }
-            QPushButton:enabled {
-                background-color: #F44336 !important;
-                color: white !important;
-                font-weight: bold !important;
-            }
-        """)
-
         start_stop_layout.addWidget(self.start_button)
         start_stop_layout.addWidget(self.stop_button)
         self.left_panel.addLayout(start_stop_layout)
@@ -339,66 +313,18 @@ class MainWindow(QMainWindow):
         self.room_panel.addLayout(room_buttons_layout)
     
     # ui/main_window.py에 추가할 update_button_styles 메서드
-
     def update_button_styles(self):
-        """버튼 활성화/비활성화 상태에 따라 스타일 강제 업데이트"""
-        
-        # 시작 버튼 스타일 업데이트
+        # 활성화/비활성화 상태에 따라 단순 스타일 적용
         if self.start_button.isEnabled():
-            # 활성화 상태일 때는 녹색
-            self.start_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    border-radius: 6px;
-                    padding: 8px;
-                    font-weight: bold;
-                    font-size: 16px;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-            """)
+            self.start_button.setStyleSheet("background-color: #4CAF50; color: white;")
         else:
-            # 비활성화 상태일 때는 회색
-            self.start_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #cccccc;
-                    color: #666666;
-                    border-radius: 6px;
-                    padding: 8px;
-                    font-size: 16px;
-                }
-            """)
-        
-        # 중지 버튼 스타일 업데이트
-        if self.stop_button.isEnabled():
-            # 활성화 상태일 때는 빨간색
-            self.stop_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #F44336;
-                    color: white;
-                    border-radius: 6px;
-                    padding: 8px;
-                    font-weight: bold;
-                    font-size: 16px;
-                }
-                QPushButton:hover {
-                    background-color: #d32f2f;
-                }
-            """)
-        else:
-            # 비활성화 상태일 때는 회색
-            self.stop_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #cccccc;
-                    color: #666666;
-                    border-radius: 6px;
-                    padding: 8px;
-                    font-size: 16px;
-                }
-            """)
+            self.start_button.setStyleSheet("background-color: #cccccc; color: #666666;")
             
+        if self.stop_button.isEnabled():
+            self.stop_button.setStyleSheet("background-color: #F44336; color: white;")
+        else:
+            self.stop_button.setStyleSheet("background-color: #cccccc; color: #666666;")
+        
     def reset_ui(self):
         """UI의 모든 값을 초기화 (사용자 이름 유지)"""
         # 금액 관련 값들만 초기화
@@ -543,6 +469,13 @@ class MainWindow(QMainWindow):
         self.trading_manager.start_trading()
     
     def stop_trading(self):
+        """중지 버튼 클릭 처리"""
+        # 비활성화 상태에서는 작동하지 않도록
+        if not self.stop_button.isEnabled():
+            print("중지 버튼이 비활성화 상태입니다. 작업을 수행하지 않습니다.")
+            return
+            
+        # TradingManager의 stop_trading 호출
         self.trading_manager.stop_trading()
     
     # 방 목록 불러오기 메서드 개선

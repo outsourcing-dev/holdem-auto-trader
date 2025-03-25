@@ -1,7 +1,7 @@
 # utils/trading_manager_game.py
 import time
 import logging
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QMessageBox,QApplication
 
 class TradingManagerGame:
     """TradingManager의 게임 처리 관련 기능 클래스"""
@@ -77,6 +77,8 @@ class TradingManagerGame:
         self.tm.main_window.stop_button.setEnabled(True)
         # 스타일 강제 업데이트 추가
         self.tm.main_window.update_button_styles()
+        QApplication.processEvents()  # 이벤트 처리 강제
+
         self.logger.info("방 입장 성공: 중지 버튼 활성화됨")
         
         # 방 이동 후 로비에서 잔액 확인 (목표 금액 도달 먼저 체크)

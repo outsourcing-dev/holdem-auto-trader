@@ -1,6 +1,7 @@
 # utils/trading_manager_bet.py
 import time
 import logging
+from PyQt6.QtWidgets import QApplication
 from utils.settings_manager import SettingsManager
 
 class TradingManagerBet:
@@ -158,7 +159,8 @@ class TradingManagerBet:
             # 베팅 전 버튼 활성화
             self.tm.main_window.stop_button.setEnabled(True)
             self.tm.main_window.update_button_styles()
-            self.logger.info("베팅 전: 중지 버튼 비활성화")
+            QApplication.processEvents()  # 이벤트 처리 강제
+            self.logger.info("베팅 전: 중지 버튼 활성화")
             
             # 스타일 업데이트 추가 - 이 부분을 추가
             if hasattr(self.tm.main_window, 'update_button_styles'):
@@ -178,10 +180,11 @@ class TradingManagerBet:
             
             # 베팅 성공 시 처리
             if bet_success:
-                # 베팅 성공 시 중지 버튼 활성화 - 추가된 부분
-                self.tm.main_window.stop_button.setEnabled(False)
-                self.tm.main_window.update_button_styles()
-                self.logger.info("베팅 성공: 중지 버튼 활성화")
+                # # 베팅 성공 시 중지 버튼 활성화 - 추가된 부분
+                # self.tm.main_window.stop_button.setEnabled(False)
+                # self.tm.main_window.update_button_styles()
+                # QApplication.processEvents()  # 이벤트 처리 강제
+                # self.logger.info("베팅 성공: 중지 버튼 활성화")
                 
                 self.process_successful_bet(final_bet_amount)
             else:
@@ -192,6 +195,7 @@ class TradingManagerBet:
                 # 베팅 실패 시 중지 버튼 다시 활성화 - 추가된 부분
                 self.tm.main_window.stop_button.setEnabled(True)
                 self.tm.main_window.update_button_styles()
+                QApplication.processEvents()  # 이벤트 처리 강제
                 self.logger.info("베팅 실패: 중지 버튼 다시 활성화")
             
             return bet_success

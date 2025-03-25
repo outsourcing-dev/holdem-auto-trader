@@ -145,6 +145,7 @@ class TradingManager:
             self.main_window.stop_button.setEnabled(False)
             # 스타일 강제 업데이트 추가
             self.main_window.update_button_styles()
+            QApplication.processEvents()  # 이벤트 처리 강제
             
             # 목표 금액 체크
             balance = self.main_window.current_amount
@@ -168,7 +169,6 @@ class TradingManager:
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현 - 동기화 문제 수정)"""
         try:
-
                     # 중지 플래그 확인 (가장 먼저 확인)
             if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
                 self.logger.info("중지 명령으로 인해 게임 분석을 중단합니다.")
@@ -200,7 +200,11 @@ class TradingManager:
             # 스레드 시작
             self.logger.info("게임 분석 스레드 시작")
             self._analysis_thread.start()
-            
+            # 중지 버튼 활성화 (스레드 시작 후)
+            self.main_window.stop_button.setEnabled(True)
+            self.main_window.update_button_styles()
+            self.logger.info("게임 분석 스레드 시작 후 중지 버튼 활성화")
+        
         except Exception as e:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
@@ -323,7 +327,6 @@ class TradingManager:
             if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
                 self.main_window.timer.stop()
                 # QApplication의 이벤트 큐 처리 강제
-                from PyQt6.QtWidgets import QApplication
                 QApplication.processEvents()
                 self.logger.info("타이머 중지 및 이벤트 큐 처리 완료")
             
@@ -427,7 +430,7 @@ class TradingManager:
                 self.main_window, 
                 "중지 오류", 
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다."
-            )
+            )        
             
 # utils/trading_manager.py에서 change_room 메서드 수정
     def change_room(self):
