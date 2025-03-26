@@ -10,6 +10,8 @@ import sys
 import logging
 import time
 import atexit
+# 순환 참조를 일으키는 임포트 제거
+# from main import cleanup_temp_excel
 from utils.encrypt_excel import EncryptExcel, decrypt_auto_excel
 
 # Windows에서만 사용 가능한 COM 인터페이스
@@ -23,6 +25,21 @@ except ImportError:
 # 암호화된 Excel 사용 여부
 USE_ENCRYPTED_EXCEL = True
 EXCEL_PASSWORD = "holdem2025"  # 기본 암호
+
+# cleanup_temp_excel 함수 직접 구현
+def cleanup_temp_excel():
+    """임시 Excel 파일들을 정리합니다"""
+    try:
+        temp_dir = os.environ.get('TEMP') or os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Temp')
+        if os.path.exists(temp_dir):
+            for file in os.listdir(temp_dir):
+                if file.startswith('~$') and file.endswith('.xlsx'):
+                    try:
+                        os.remove(os.path.join(temp_dir, file))
+                    except:
+                        pass
+    except Exception as e:
+        pass
 
 class ExcelBaseManager:
     """Excel 파일의 기본적인 관리 기능을 제공하는 클래스"""

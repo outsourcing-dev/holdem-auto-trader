@@ -497,7 +497,7 @@ class MainWindow(QMainWindow):
         
         # 카지노 창으로 전환
         if not self.switch_to_casino_window():
-            QMessageBox.warning(self, "알림", "카지노 창을 찾을 수 없습니다. 먼저 카지노 페이지를 열어주세요.")
+            QMessageBox.warning(self, "알림", "에볼루션 창을 찾을 수 없습니다. 먼저 에볼루션 페이지를 열어주세요.")
             return
         
         # 새로운 다이얼로그 기반 방식 사용
