@@ -121,8 +121,8 @@ class RoomEntryService:
                     game_count = game_state.get('round', 0)
                     self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
                     
-                    # 게임 수가 10판 미만이거나 50판 이상인 경우 방 나가기
-                    if game_count < 10 or game_count > 57:
+                    # 입장 기준 설정
+                    if game_count < 10 or game_count > 65:
                         self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
                         
                         # 방 나가기

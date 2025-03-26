@@ -171,7 +171,7 @@ class BettingWidget(QWidget):
 
         # 모드 표시 추가 
         mode_layout = QHBoxLayout()
-        self.mode_value = QLabel("일반 베팅")  # 초기값
+        self.mode_value = QLabel("Normal Mode")  # 초기값
         self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;")  # 녹색으로 표시
         mode_layout.addWidget(self.mode_value)
 
@@ -700,7 +700,7 @@ class BettingWidget(QWidget):
             self.mode_value.setText("Half Mode")
             self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #2196F3;")  # 파란색으로 표시
         else:  # 'normal' 또는 기타
-            self.mode_value.setText("일반 베팅")
+            self.mode_value.setText("Normal Mode")
             self.mode_value.setStyleSheet("background-color: white; font-size: 14px; font-weight: bold; color: #4CAF50;") 
             
     def update_reverse_mode(self, is_reverse):
