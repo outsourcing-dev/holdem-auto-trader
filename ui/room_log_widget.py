@@ -226,11 +226,8 @@ class RoomLogWidget(QWidget):
         for index, (visit_id, data) in enumerate(sorted_logs):
             # 항목 생성 - 방 이름에 번호 추가 (가장 오래된 방이 1번)
             # 현재 정렬은 최신 방이 앞에 있으므로, 번호는 반대로 계산
-            display_number = total_rooms - index
-            
-            # 번호를 방 이름 앞에 표시
-            name_with_number = f"{display_number}. {data['room_name']}"
-            name_item = QTableWidgetItem(name_with_number)
+            name_item = QTableWidgetItem(data['room_name'])
+
             
             attempts_item = QTableWidgetItem(str(data['attempts']))
             win_item = QTableWidgetItem(str(data['win']))
@@ -264,7 +261,9 @@ class RoomLogWidget(QWidget):
             self.log_table.setItem(row, 2, win_item)
             self.log_table.setItem(row, 3, lose_item)
             self.log_table.setItem(row, 4, success_rate_item)
-            
+        
+        self.log_table.setVerticalHeaderLabels([str(i) for i in range(total_rooms, 0, -1)])
+
     def get_room_log(self, visit_id):
         """특정 방문의 로그 데이터 반환"""
         return self.room_logs.get(visit_id, None)

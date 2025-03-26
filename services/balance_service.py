@@ -432,84 +432,139 @@ class BalanceService:
             return None
         
     # services/balance_service.py의 check_target_amount 메서드 수정 부분
-
     def check_target_amount(self, current_balance, source="BalanceService"):
-        """
-        현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
-        도달했을 경우 카지노 창을 닫고 메인 창으로 포커싱을 변경합니다.
-        """
-        # 자동 매매가 활성화된 상태일 때만 확인
-        if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
-            return False
-            
-        # 이미 목표 금액에 도달했다고 알림을 표시했는지 확인하는 플래그 추가
-        if hasattr(self, '_target_amount_reached') and self._target_amount_reached:
-            self.logger.info(f"[{source}] 이미 목표 금액 도달 알림이 표시되었습니다. 추가 알림 방지.")
-            return True
-            
-        # 목표 금액 항상 새로 가져오기 (캐시된 값 대신 파일에서 직접 읽기)
-        target_amount = self.settings_manager.get_target_amount()
-        self.logger.info(f"[{source}] 현재 목표 금액: {target_amount:,}원, 현재 잔액: {current_balance:,}원")
-        
-        # 목표 금액이 설정되어 있고(0보다 큼), 현재 잔액이 목표 금액 이상이면
-        if target_amount > 0 and current_balance >= target_amount:
-            self.logger.info(f"[{source}] 목표 금액({target_amount:,}원)에 도달했습니다! 현재 잔액: {current_balance:,}원")
-            
-            # 중복 알림 방지를 위해 플래그 설정
-            self._target_amount_reached = True
-            
-            # 중요: 즉시 모든 스레드와 진행 중인 작업 중지
-            if hasattr(self.main_window, 'trading_manager'):
-                # 중지 플래그 설정
-                self.main_window.trading_manager.stop_all_processes = True
-                self.logger.info("목표 금액 도달: 모든 프로세스 중지 플래그 설정")
+            """
+            현재 잔액이 목표 금액에 도달했는지 확인하고, 도달했으면 자동 매매를 중지합니다.
+            도달했을 경우 카지노 창을 닫고 메인 창으로 포커싱을 변경합니다.
+            """
+            # 자동 매매가 활성화된 상태일 때만 확인
+            if not hasattr(self.main_window, 'trading_manager') or not self.main_window.trading_manager.is_trading_active:
+                return False
                 
-                # 타이머 즉시 중지
-                if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
-                    self.main_window.timer.stop()
-                    self.logger.info("타이머 중지됨")
+            # 이미 목표 금액에 도달했다고 알림을 표시했는지 확인하는 플래그 추가
+            if hasattr(self, '_target_amount_reached') and self._target_amount_reached:
+                self.logger.info(f"[{source}] 이미 목표 금액 도달 알림이 표시되었습니다. 추가 알림 방지.")
+                return True
                 
-                # 자동 매매 중지 즉시 호출
-                self.main_window.trading_manager.stop_trading()
-                self.logger.info("자동 매매 종료 메서드 호출됨")
+            # 목표 금액 항상 새로 가져오기 (캐시된 값 대신 파일에서 직접 읽기)
+            target_amount = self.settings_manager.get_target_amount()
+            self.logger.info(f"[{source}] 현재 목표 금액: {target_amount:,}원, 현재 잔액: {current_balance:,}원")
+            
+            # 목표 금액이 설정되어 있고(0보다 큼), 현재 잔액이 목표 금액 이상이면
+            if target_amount > 0 and current_balance >= target_amount:
+                self.logger.info(f"[{source}] 목표 금액({target_amount:,}원)에 도달했습니다! 현재 잔액: {current_balance:,}원")
                 
-                # 간단하게 웹페이지만 종료하는 코드 추가
-                try:
-                    # 현재 열린 창 모두 가져오기
-                    window_handles = self.devtools.driver.window_handles
+                # 중복 알림 방지를 위해 플래그 설정
+                self._target_amount_reached = True
+                
+                # 중요: 즉시 모든 스레드와 진행 중인 작업 중지
+                if hasattr(self.main_window, 'trading_manager'):
+                    # 중지 플래그 설정
+                    self.main_window.trading_manager.stop_all_processes = True
+                    self.logger.info("목표 금액 도달: 모든 프로세스 중지 플래그 설정")
                     
-                    # 2개 이상의 창이 열려 있는 경우 (카지노 창이 있는 경우)
-                    if len(window_handles) >= 2:
-                        # 메인 창으로 전환 (1번 창)
-                        self.devtools.driver.switch_to.window(window_handles[0])
-                        self.logger.info("메인 창(1번 창)으로 포커싱 전환 완료")
+                    # 타이머 즉시 중지
+                    if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                        self.main_window.timer.stop()
+                        self.logger.info("타이머 중지됨")
+                    
+                    # 자동 매매 중지 즉시 호출
+                    self.main_window.trading_manager.stop_trading()
+                    self.logger.info("자동 매매 종료 메서드 호출됨")
+                    
+                    # 간단하게 웹페이지만 종료하는 코드 추가
+                    try:
+                        # 현재 열린 창 모두 가져오기
+                        window_handles = self.devtools.driver.window_handles
                         
-                        # 카지노 창(2번 창부터) 닫기
-                        for i in range(1, len(window_handles)):
-                            # 카지노 창으로 전환
-                            self.devtools.driver.switch_to.window(window_handles[i])
-                            # 창 닫기
-                            self.devtools.driver.close()
-                            self.logger.info(f"{i+1}번 창(카지노 창) 닫기 완료")
+                        # 2개 이상의 창이 열려 있는 경우 (카지노 창이 있는 경우)
+                        if len(window_handles) >= 2:
+                            # 메인 창으로 전환 (1번 창)
+                            self.devtools.driver.switch_to.window(window_handles[0])
+                            self.logger.info("메인 창(1번 창)으로 포커싱 전환 완료")
+                            
+                            # 카지노 창(2번 창부터) 닫기
+                            for i in range(1, len(window_handles)):
+                                # 카지노 창으로 전환
+                                self.devtools.driver.switch_to.window(window_handles[i])
+                                # 창 닫기
+                                self.devtools.driver.close()
+                                self.logger.info(f"{i+1}번 창(카지노 창) 닫기 완료")
+                            
+                            # 다시 메인 창으로 전환
+                            self.devtools.driver.switch_to.window(window_handles[0])
+                            self.logger.info("모든 카지노 창 닫기 후 메인 창으로 포커싱 전환 완료")
+                    except Exception as e:
+                        self.logger.error(f"카지노 창 닫기 중 오류 발생: {e}")
+                
+                # 빵빠레 사운드 재생 - 추가된 부분
+                try:
+                    from PyQt6.QtCore import QUrl
+                    from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+                    import os
+                    import sys
+                    
+                    # 사운드 파일 경로 지정 (실행 경로에 따라 다르게 처리)
+                    if getattr(sys, 'frozen', False):
+                        # PyInstaller로 실행된 경우
+                        base_dir = os.path.dirname(sys.executable)
+                        sound_paths = [
+                            os.path.join(base_dir, "_internal", "bbang.mp3"),  # _internal 폴더 내
+                            os.path.join(base_dir, "_internal", "bbang.wav"),
+                            os.path.join(base_dir, "bbang.mp3"),                # 루트 폴더
+                            os.path.join(base_dir, "bbang.wav")
+                        ]
+                    else:
+                        # 개발 환경에서 실행된 경우 - 같은 경로에 있음
+                        base_dir = os.path.dirname(os.path.abspath(__file__))
+                        sound_paths = [
+                            os.path.join(base_dir, "bbang.mp3"),                # 현재 폴더
+                            os.path.join(base_dir, "bbang.wav"),
+                            os.path.join(os.path.dirname(base_dir), "bbang.mp3"),  # 상위 폴더
+                            os.path.join(os.path.dirname(base_dir), "bbang.wav"),
+                        ]
+                    
+                    # 존재하는 첫 번째 파일 사용
+                    sound_file = None
+                    for path in sound_paths:
+                        if os.path.exists(path):
+                            sound_file = path
+                            break
+                    
+                    self.logger.info(f"빵빠레 사운드 재생 시도: {sound_file}")
+                    
+                    if sound_file and os.path.exists(sound_file):
+                        # QMediaPlayer 초기화
+                        self.player = QMediaPlayer()
+                        self.audio_output = QAudioOutput()
+                        self.player.setAudioOutput(self.audio_output)
                         
-                        # 다시 메인 창으로 전환
-                        self.devtools.driver.switch_to.window(window_handles[0])
-                        self.logger.info("모든 카지노 창 닫기 후 메인 창으로 포커싱 전환 완료")
+                        # 볼륨 설정 (0.0 ~ 1.0)
+                        self.audio_output.setVolume(0.8)
+                        
+                        # 미디어 설정 및 재생
+                        self.player.setSource(QUrl.fromLocalFile(os.path.abspath(sound_file)))
+                        self.player.play()
+                        
+                        self.logger.info("목표 금액 달성 빵빠레 사운드 재생 중...")
+                    else:
+                        self.logger.warning(f"빵빠레 사운드 파일을 찾을 수 없습니다: {sound_file}")
                 except Exception as e:
-                    self.logger.error(f"카지노 창 닫기 중 오류 발생: {e}")
+                    self.logger.error(f"빵빠레 사운드 재생 중 오류 발생: {e}")
+                
+                # 메시지 박스 표시
+                QMessageBox.information(
+                    self.main_window, 
+                    "목표 금액 달성", 
+                    f"축하합니다! 목표 금액({target_amount:,}원)에 도달했습니다.\n현재 잔액: {current_balance:,}원\n자동 매매를 종료합니다."
+                )
+                
+                return True
             
-            # 메시지 박스 표시
-            QMessageBox.information(
-                self.main_window, 
-                "목표 금액 달성", 
-                f"축하합니다! 목표 금액({target_amount:,}원)에 도달했습니다.\n현재 잔액: {current_balance:,}원\n자동 매매를 종료합니다."
-            )
+            # 목표 금액 접근 중인 경우 로그 표시 (80% 이상이면)
+            if target_amount > 0 and current_balance >= target_amount * 0.8:
+                progress = current_balance / target_amount * 100
+                self.logger.info(f"목표 금액 접근 중: {progress:.1f}% (현재: {current_balance:,}원, 목표: {target_amount:,}원)")
             
-            return True
+            return False
         
-        # 목표 금액 접근 중인 경우 로그 표시 (80% 이상이면)
-        if target_amount > 0 and current_balance >= target_amount * 0.8:
-            progress = current_balance / target_amount * 100
-            self.logger.info(f"목표 금액 접근 중: {progress:.1f}% (현재: {current_balance:,}원, 목표: {target_amount:,}원)")
-        
-        return False
