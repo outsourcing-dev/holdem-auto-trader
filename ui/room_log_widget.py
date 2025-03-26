@@ -190,7 +190,7 @@ class RoomLogWidget(QWidget):
         self.update_table()
             
     def update_table(self):
-        """로그 테이블 업데이트 - 최신 방문 순으로 정렬"""
+        """로그 테이블 업데이트 - 최신 방문 순으로 정렬하되, 번호는 오래된 방이 1번부터 시작"""
         # 테이블 초기화
         self.log_table.setRowCount(0)
         
@@ -216,14 +216,22 @@ class RoomLogWidget(QWidget):
             for visit_id, data in valid_logs.items():
                 sorted_logs.append((visit_id, data))
         
-        print(f"[DEBUG] 정렬된 로그 순서: {[vid for vid, _ in sorted_logs]}")
+        # 표시할 방 개수
+        total_rooms = len(sorted_logs)
         
-        for visit_id, data in sorted_logs:
-            row_position = self.log_table.rowCount()
-            self.log_table.insertRow(row_position)
+        # 테이블의 행 수 설정
+        self.log_table.setRowCount(total_rooms)
+        
+        # 최신 방문이 테이블 위쪽에 오도록 추가하되, 번호는 가장 오래된 방이 1번
+        for index, (visit_id, data) in enumerate(sorted_logs):
+            # 항목 생성 - 방 이름에 번호 추가 (가장 오래된 방이 1번)
+            # 현재 정렬은 최신 방이 앞에 있으므로, 번호는 반대로 계산
+            display_number = total_rooms - index
             
-            # 항목 생성
-            name_item = QTableWidgetItem(data['room_name'])
+            # 번호를 방 이름 앞에 표시
+            name_with_number = f"{display_number}. {data['room_name']}"
+            name_item = QTableWidgetItem(name_with_number)
+            
             attempts_item = QTableWidgetItem(str(data['attempts']))
             win_item = QTableWidgetItem(str(data['win']))
             lose_item = QTableWidgetItem(str(data['lose']))
@@ -249,13 +257,14 @@ class RoomLogWidget(QWidget):
             if data['lose'] > 0:
                 lose_item.setForeground(QColor("red"))
             
-            # 항목 추가
-            self.log_table.setItem(row_position, 0, name_item)
-            self.log_table.setItem(row_position, 1, attempts_item)
-            self.log_table.setItem(row_position, 2, win_item)
-            self.log_table.setItem(row_position, 3, lose_item)
-            self.log_table.setItem(row_position, 4, success_rate_item)
-                   
+            # 항목 추가 - 최신 방이 맨 위에 오도록 행 번호 할당
+            row = index  # 이제 index가 행 번호가 됨 (정렬된 순서대로)
+            self.log_table.setItem(row, 0, name_item)
+            self.log_table.setItem(row, 1, attempts_item)
+            self.log_table.setItem(row, 2, win_item)
+            self.log_table.setItem(row, 3, lose_item)
+            self.log_table.setItem(row, 4, success_rate_item)
+            
     def get_room_log(self, visit_id):
         """특정 방문의 로그 데이터 반환"""
         return self.room_logs.get(visit_id, None)
