@@ -186,6 +186,7 @@ class TradingManagerGame:
         # self.logger.info(f"새 방으로 이동 완료, 게임 카운트: {self.tm.game_count}")
         return True
 
+    # utils/trading_manager_game.py의 process_excel_result 메서드 수정
     def process_excel_result(self, result, game_state, previous_game_count):
         """엑셀 처리 결과 활용"""
         try:
@@ -193,6 +194,16 @@ class TradingManagerGame:
             
             # 중요 변경: 실제 게임 카운트 사용 - 게임 카운트 강제 변환 방지
             actual_game_count = game_state.get('round', 0)
+            
+            # 게임 카운트 초기화 감지 (큰 값에서 작은 값으로 갑자기 변경되는 경우)
+            # 특히 0으로 초기화되는 경우를 명시적으로 처리
+            if previous_game_count > 10 and actual_game_count < previous_game_count / 2:
+                self.logger.info(f"게임 카운트 초기화 감지! {previous_game_count} -> {actual_game_count}")
+                # 방 이동 플래그 설정
+                self.tm.should_move_to_next_room = True
+                # 현재 방에서 나가고 다음 방으로 이동 시작
+                self.tm.change_room()
+                return  # 방 이동 시작했으므로 추가 처리 중단
             
             # 게임 카운트 변화 검증 - 조건 수정
             if new_game_count > previous_game_count:
@@ -242,7 +253,7 @@ class TradingManagerGame:
                     self.tm._first_entry_time = time.time()
         except Exception as e:
             self.logger.error(f"Excel 결과 처리 오류: {e}")
-
+            
     def handle_tie_result(self, latest_result, game_state):
         """무승부(T) 결과 처리"""
         try:

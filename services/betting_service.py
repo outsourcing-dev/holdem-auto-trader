@@ -309,7 +309,7 @@ class BettingService:
         self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
         
         # 사용 가능한 칩 금액 (큰 단위부터 처리)
-        available_chips = [100000, 25000, 5000, 1000]
+        available_chips = [500000, 100000, 25000, 5000, 1000]
         
         # 각 칩별로 필요한 클릭 횟수 계산
         chip_clicks = {}
@@ -343,17 +343,43 @@ class BettingService:
                 self.logger.warning(f"{chip_value:,}원 칩이 비활성화 상태입니다.")
                 continue
                 
-            # 칩 선택 (한 번만 클릭)
-            chip_element.click()
-            time.sleep(0.2)
-            self.logger.info(f"{chip_value:,}원 칩 선택 완료")
+            # 칩 선택 (한 번만 클릭) - 개선된 클릭 방법
+            try:
+                # 방법 1: 일반 클릭 시도
+                try:
+                    # 게임 결과 창이 뜨는 경우에 대비하여 작은 대기 시간 추가
+                    time.sleep(0.5)
+                    chip_element.click()
+                    self.logger.info(f"{chip_value:,}원 칩 선택 완료")
+                except Exception as e:
+                    self.logger.warning(f"일반 클릭 실패: {e}, JavaScript로 시도")
+                    # 방법 2: JavaScript로 클릭 시도 (요소 겹침 문제 우회)
+                    self.devtools.driver.execute_script("arguments[0].click();", chip_element)
+                    self.logger.info(f"{chip_value:,}원 칩 JavaScript로 선택 완료")
+                
+                time.sleep(0.3)  # 칩 선택 후 안정화 대기 시간
+            except Exception as e:
+                self.logger.error(f"칩 선택 실패: {e}")
+                continue
             
-            # 베팅 영역 여러 번 클릭
+            # 베팅 영역 여러 번 클릭 (개선된 방식)
             for i in range(clicks):
-                bet_element.click()
-                time.sleep(0.2)
-                self.logger.info(f"{bet_type} 영역 {i+1}/{clicks}번째 클릭 완료")
-                bet_successful = True
+                try:
+                    # 방법 1: 일반 클릭 시도 
+                    try:
+                        bet_element.click()
+                    except Exception as e:
+                        self.logger.warning(f"베팅 영역 클릭 실패: {e}, JavaScript로 시도")
+                        # 방법 2: JavaScript로 클릭 - 요소 겹침 우회
+                        self.devtools.driver.execute_script("arguments[0].click();", bet_element)
+                    
+                    time.sleep(0.2)  # 클릭 간 대기 시간
+                    self.logger.info(f"{bet_type} 영역 {i+1}/{clicks}번째 클릭 완료")
+                    bet_successful = True
+                except Exception as e:
+                    self.logger.error(f"베팅 영역 클릭 중 오류: {e}")
+                    # 다음 클릭 시도
+                    continue
         
         if bet_successful:
             # 베팅 금액 변화 확인
@@ -374,7 +400,7 @@ class BettingService:
         else:
             self.logger.warning("베팅 클릭 실패")
             return False
-
+        
     def _get_current_bet_amount(self):
         """현재 베팅 금액 조회"""
         try:
