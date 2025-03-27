@@ -58,7 +58,7 @@ class TradingManagerBet:
 
             # Double & Half 제어 로직
             if not ms.has_active_double_half:
-                if diff >= 2:  # 실전에서는 4로 변경
+                if diff >= 4:  # 실전에서는 4로 변경
                     if diff > ms.max_difference:
                         ms.max_difference = diff
                         ms.trigger_point = (diff + 1) // 2
