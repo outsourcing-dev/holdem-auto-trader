@@ -41,12 +41,12 @@ class RoomEntryService:
         """
         if hasattr(self.main_window, 'trading_manager'):
             if hasattr(self.main_window.trading_manager, 'stop_all_processes') and self.main_window.trading_manager.stop_all_processes:
-                self.logger.info("중지 명령이 감지되어 방 입장을 중단합니다.")
+                # self.logger.info("중지 명령이 감지되어 방 입장을 중단합니다.")
                 return None
             
             # 목표 금액 도달 확인도 추가
             if hasattr(self.main_window.trading_manager, 'balance_service') and hasattr(self.main_window.trading_manager.balance_service, '_target_amount_reached') and self.main_window.trading_manager.balance_service._target_amount_reached:
-                self.logger.info("목표 금액 도달이 감지되어 방 입장을 중단합니다.")
+                # self.logger.info("목표 금액 도달이 감지되어 방 입장을 중단합니다.")
                 return None
             
         max_attempts = 10  # 최대 방 찾기 시도 횟수 증가
@@ -68,7 +68,7 @@ class RoomEntryService:
                 display_name = room_name.split('\n')[0] if '\n' in room_name else room_name
                 
                 # 로깅
-                self.logger.info(f"선택된 방: {display_name} (시도 {attempts + 1}/{max_attempts})")
+                # self.logger.info(f"선택된 방: {display_name} (시도 {attempts + 1}/{max_attempts})")
 
                 # 카지노 로비 상태 초기화 시도 (시도 횟수가 증가한 경우에만)
                 if attempts > 0:
@@ -78,12 +78,12 @@ class RoomEntryService:
                         if len(window_handles) >= 2:
                             # 카지노 로비 창으로 전환 시도
                             self.devtools.driver.switch_to.window(window_handles[1])
-                            self.logger.info("카지노 로비 창으로 포커싱 전환")
+                            # self.logger.info("카지노 로비 창으로 포커싱 전환")
                             time.sleep(1)
                             
                             # 페이지 새로고침 시도 (필요시)
                             if attempts % 3 == 0:  # 3번마다 한 번씩 새로고침
-                                self.logger.info("카지노 로비 페이지 새로고침")
+                                # self.logger.info("카지노 로비 페이지 새로고침")
                                 self.devtools.driver.refresh()
                                 time.sleep(3)
                     except Exception as e:
@@ -119,15 +119,15 @@ class RoomEntryService:
                 
                 if game_state:
                     game_count = game_state.get('round', 0)
-                    self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
+                    # self.logger.info(f"방 {display_name}의 현재 게임 수: {game_count}")
                     
                     # 입장 기준 설정
                     if game_count < 10 or game_count > 65:
-                        self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
+                        # self.logger.info(f"게임 수가 적합하지 않음 ({game_count}판). 다른 방을 찾습니다.")
                         
                         # 방 나가기
                         if self.main_window.trading_manager.game_monitoring_service.close_current_room():
-                            self.logger.info("방을 성공적으로 나갔습니다.")
+                            # self.logger.info("방을 성공적으로 나갔습니다.")
                             
                             # 방문 처리하여 다음에 다시 시도하지 않도록 함
                             self.room_manager.mark_room_visited(room_name)
@@ -136,7 +136,7 @@ class RoomEntryService:
                             window_handles = self.devtools.driver.window_handles
                             if len(window_handles) >= 2:
                                 self.devtools.driver.switch_to.window(window_handles[1])
-                                self.logger.info("카지노 로비 창으로 포커싱 전환")
+                                # self.logger.info("카지노 로비 창으로 포커싱 전환")
                             
                             attempts += 1
                             continue
@@ -160,7 +160,7 @@ class RoomEntryService:
                     )
                     return None
                 
-                self.logger.info(f"다음 방 시도 중... ({attempts}/{max_attempts})")
+                # self.logger.info(f"다음 방 시도 중... ({attempts}/{max_attempts})")
                 time.sleep(2)  # 다음 시도 전 잠시 대기
                 continue
                     
@@ -172,12 +172,12 @@ class RoomEntryService:
             try:
                 # 방 이름 전처리 - 첫 줄만 사용
                 search_name = room_name.split('\n')[0].strip()
-                self.logger.info(f"검색할 방 이름: '{search_name}' (원본: '{room_name}') - 시도 {retry_count+1}/{max_retries}")
+                # self.logger.info(f"검색할 방 이름: '{search_name}' (원본: '{room_name}') - 시도 {retry_count+1}/{max_retries}")
                 
                 # 페이지 새로고침 (첫 시도가 아닌 경우)
                 if retry_count > 0:
                     try:
-                        self.logger.info(f"페이지 새로고침 후 재시도 중...")
+                        # self.logger.info(f"페이지 새로고침 후 재시도 중...")
                         self.devtools.driver.refresh()
                         time.sleep(1.5)  # 페이지 로드 대기
                     except Exception as e:
@@ -185,34 +185,34 @@ class RoomEntryService:
                 
                 # 기본 프레임으로 전환
                 self.devtools.driver.switch_to.default_content()
-                self.logger.info("기본 프레임으로 전환 완료")
+                # self.logger.info("기본 프레임으로 전환 완료")
                 
                 # iframe 처리를 위한 flag
                 inside_iframe = False
                 
                 # **수정된 부분: iframe 중첩 처리**
-                self.logger.info("중첩된 iframe 전환 시도")
+                # self.logger.info("중첩된 iframe 전환 시도")
                 try:
                     # 기본 컨텐츠에서 모든 iframe 태그 찾기
                     iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
                     
                     if len(iframes) > 0:
-                        self.logger.info(f"최상위에서 {len(iframes)}개의 iframe 발견")
+                        # self.logger.info(f"최상위에서 {len(iframes)}개의 iframe 발견")
                         
                         # 첫 번째 iframe으로 전환
                         self.devtools.driver.switch_to.frame(iframes[0])
-                        self.logger.info("첫 번째 iframe으로 전환 완료")
+                        # self.logger.info("첫 번째 iframe으로 전환 완료")
                         inside_iframe = True
                         
                         # 중첩된 iframe이 있는지 확인
                         nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
                         
                         if len(nested_iframes) > 0:
-                            self.logger.info(f"첫 번째 iframe 내부에서 {len(nested_iframes)}개의 중첩 iframe 발견")
+                            # self.logger.info(f"첫 번째 iframe 내부에서 {len(nested_iframes)}개의 중첩 iframe 발견")
                             
                             # 첫 번째 중첩 iframe으로 전환
                             self.devtools.driver.switch_to.frame(nested_iframes[0])
-                            self.logger.info("중첩된 iframe으로 전환 완료")
+                            # self.logger.info("중첩된 iframe으로 전환 완료")
                     else:
                         self.logger.warning("최상위에서 iframe을 찾을 수 없음")
                 except Exception as e:
@@ -223,7 +223,7 @@ class RoomEntryService:
                 
                 # iframe 전환 실패 시 유틸리티 사용
                 if not inside_iframe:
-                    self.logger.info("iframe 전환 실패, 유틸리티 사용 시도")
+                    # self.logger.info("iframe 전환 실패, 유틸리티 사용 시도")
                     inside_iframe = switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2)
                     
                     if not inside_iframe:
@@ -242,7 +242,7 @@ class RoomEntryService:
                 time.sleep(1)
                 search_input.clear()
                 search_input.send_keys(search_name)
-                self.logger.info(f"방 이름 '{search_name}' 입력 완료")
+                # self.logger.info(f"방 이름 '{search_name}' 입력 완료")
                 
                 # 검색 결과가 나타날 때까지 충분히 대기
                 time.sleep(3)
@@ -265,7 +265,7 @@ class RoomEntryService:
                             )
                             if results:
                                 search_results = results
-                                self.logger.info(f"검색 결과 발견 ({len(results)}개): {selector}")
+                                # self.logger.info(f"검색 결과 발견 ({len(results)}개): {selector}")
                                 break
                         except:
                             continue
@@ -273,11 +273,11 @@ class RoomEntryService:
                     # 검색 결과가 있는지 확인
                     if search_results and len(search_results) > 0:
                         # 첫 번째 요소 클릭 (배열의 0번 인덱스)
-                        self.logger.info(f"검색 결과 {len(search_results)}개 발견, 첫 번째 결과 클릭")
+                        # self.logger.info(f"검색 결과 {len(search_results)}개 발견, 첫 번째 결과 클릭")
                         search_results[0].click()
                     else:
                         # JavaScript로 다시 시도
-                        self.logger.info("JavaScript로 검색 결과 찾기 시도")
+                        # self.logger.info("JavaScript로 검색 결과 찾기 시도")
                         js_script = """
                             var selectors = [
                                 "div[data-role='search-result']",
@@ -316,7 +316,7 @@ class RoomEntryService:
                         
                         # UI 업데이트
                         self.main_window.update_betting_status(room_name=room_name)
-                        self.logger.info(f"방 '{room_name}' 성공적으로 입장")
+                        # self.logger.info(f"방 '{room_name}' 성공적으로 입장")
                         return True
                     else:
                         self.logger.warning("새 창이 열리지 않았습니다. 다시 시도합니다.")
@@ -329,7 +329,7 @@ class RoomEntryService:
                 self.logger.error(f"방 검색 및 입장 중 오류: {e}")
                 # 마지막 시도가 아니면 재시도
                 if retry_count < max_retries - 1:
-                    self.logger.info(f"재시도 중... ({retry_count+1}/{max_retries})")
+                    # self.logger.info(f"재시도 중... ({retry_count+1}/{max_retries})")
                     time.sleep(2)  # 재시도 전 대기
                 else:
                     # 모든 시도 실패
@@ -353,30 +353,30 @@ class RoomEntryService:
         
         for selector in search_selectors:
             try:
-                self.logger.info(f"검색 입력 필드 선택자 시도: {selector}")
+                # self.logger.info(f"검색 입력 필드 선택자 시도: {selector}")
                 search_input = self.devtools.driver.find_element(By.CSS_SELECTOR, selector)
                 if search_input:
-                    self.logger.info(f"검색 입력 필드 발견: {selector}")
+                    # self.logger.info(f"검색 입력 필드 발견: {selector}")
                     return search_input
             except:
                 continue
         
         # 방법 2: 복합 선택자
         try:
-            self.logger.info("정확한 복합 선택자로 검색 입력 필드 찾기 시도")
+            # self.logger.info("정확한 복합 선택자로 검색 입력 필드 찾기 시도")
             composite_selector = "input.TableTextInput--464ac[placeholder='찾기'][data-role='search-input']"
             search_input = self.devtools.driver.find_element(By.CSS_SELECTOR, composite_selector)
             if search_input:
-                self.logger.info("정확한 복합 선택자로 검색 입력 필드 발견")
+                # self.logger.info("정확한 복합 선택자로 검색 입력 필드 발견")
                 return search_input
         except:
             pass
         
         # 방법 3: 모든 input 요소 확인
         try:
-            self.logger.info("모든 input 요소 검색")
+            # self.logger.info("모든 input 요소 검색")
             all_inputs = self.devtools.driver.find_elements(By.TAG_NAME, "input")
-            self.logger.info(f"총 {len(all_inputs)}개의 input 요소 발견")
+            # self.logger.info(f"총 {len(all_inputs)}개의 input 요소 발견")
             
             for input_el in all_inputs:
                 try:
@@ -389,7 +389,7 @@ class RoomEntryService:
                     (input_placeholder.lower() == "찾기" or \
                         "search" in input_class.lower() or \
                         "search" in input_placeholder.lower()):
-                        self.logger.info(f"검색 특성을 가진 input 요소 발견: class='{input_class}', placeholder='{input_placeholder}'")
+                        # self.logger.info(f"검색 특성을 가진 input 요소 발견: class='{input_class}', placeholder='{input_placeholder}'")
                         return input_el
                 except:
                     continue
@@ -398,7 +398,7 @@ class RoomEntryService:
         
         # 방법 4: XPath 사용
         try:
-            self.logger.info("XPath로 검색 입력 필드 찾기 시도")
+            # self.logger.info("XPath로 검색 입력 필드 찾기 시도")
             xpath_expressions = [
                 "//input[@placeholder='찾기']",
                 "//input[@data-role='search-input']",
@@ -411,7 +411,7 @@ class RoomEntryService:
                 try:
                     input_el = self.devtools.driver.find_element(By.XPATH, xpath)
                     if input_el:
-                        self.logger.info(f"XPath로 검색 입력 필드 발견: {xpath}")
+                        # self.logger.info(f"XPath로 검색 입력 필드 발견: {xpath}")
                         return input_el
                 except:
                     continue
@@ -420,7 +420,7 @@ class RoomEntryService:
         
         # 방법 5: JavaScript로 검색
         try:
-            self.logger.info("JavaScript로 검색 입력 필드 찾기 시도")
+            # self.logger.info("JavaScript로 검색 입력 필드 찾기 시도")
             js_code = """
             // 모든 input 요소 찾기
             var inputs = document.getElementsByTagName('input');
@@ -441,7 +441,7 @@ class RoomEntryService:
             
             input_el = self.devtools.driver.execute_script(js_code)
             if input_el:
-                self.logger.info("JavaScript로 검색 입력 필드 발견")
+                # self.logger.info("JavaScript로 검색 입력 필드 발견")
                 return input_el
         except Exception as e:
             self.logger.warning(f"JavaScript 검색 실패: {e}")
