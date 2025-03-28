@@ -9,9 +9,9 @@ class DBManager:
         # DB 설정
         self.db_config = {
             'host': 'svc.sel4.cloudtype.app',
-            'port': 32481,
-            'user': 'admin',
-            'password': 'hanapf1121',
+            'port': 30351,
+            'user': 'root',
+            'password': 'qw4646',
             'db': 'manager',
             'charset': 'utf8mb4'
         }
