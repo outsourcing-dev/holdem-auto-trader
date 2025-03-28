@@ -6,7 +6,7 @@
     "martin_amounts": [
         5000
     ],
-    "target_amount": 300000,
+    "target_amount": 350000,
     "double_half_start": 15,
     "double_half_stop": 10
 }
