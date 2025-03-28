@@ -18,8 +18,14 @@ class TradingManagerBet:
                 self.tm.should_move_to_next_room = True
                 return False
 
+            # 설정 새로고침
             self.tm.refresh_settings()
 
+            # Double & Half 설정 가져오기
+            double_half_start, double_half_stop = self.tm.settings_manager.get_double_half_settings()
+            self.logger.info(f"Double & Half 설정 적용: 시작={double_half_start}, 중지={double_half_stop}")
+
+            # 잔액 확인
             balance = self.tm.balance_service.get_iframe_balance()
             if balance:
                 self.tm.main_window.update_user_data(current_amount=balance)
@@ -30,6 +36,7 @@ class TradingManagerBet:
                     self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
                     return False
 
+            # 역배팅 처리
             original_pick = pick_value
             is_reverse_mode = self.tm.martin_service.reverse_betting
             self.logger.info(f"[역배팅] 현재 모드: {'역배팅' if is_reverse_mode else '정배팅'}")
@@ -40,6 +47,7 @@ class TradingManagerBet:
                 if hasattr(self.tm.main_window.betting_widget, 'update_reverse_mode'):
                     self.tm.main_window.betting_widget.update_reverse_mode(True)
 
+            # 베팅 금액 결정 - Double/Half 모드 반영
             win = self.tm.martin_service.win_count
             lose = self.tm.martin_service.lose_count
             diff = abs(win - lose)
@@ -54,11 +62,14 @@ class TradingManagerBet:
                 ms.double_mode = False
                 ms.half_mode = False
 
-            self.logger.info(f"[Double/Half 상태] win: {win}, lose: {lose}, diff: {diff}, max_diff: {ms.max_difference}, trigger: {ms.trigger_point}, active: {ms.has_active_double_half}, double: {ms.double_mode}, half: {ms.half_mode}")
+            self.logger.info(f"[Double/Half 상태] win: {win}, lose: {lose}, diff: {diff}, " + 
+                            f"max_diff: {ms.max_difference}, trigger: {ms.trigger_point}, " + 
+                            f"active: {ms.has_active_double_half}, double: {ms.double_mode}, half: {ms.half_mode}")
 
-            # Double & Half 제어 로직
+            # Double & Half 제어 로직 - 설정값 적용
             if not ms.has_active_double_half:
-                if diff >= 4:  # 실전에서는 4로 변경
+                # 시작 임계값 적용 (설정에서 가져온 double_half_start 값)
+                if diff >= double_half_start:  # 하드코딩 4에서 설정값으로 변경
                     if diff > ms.max_difference:
                         ms.max_difference = diff
                         ms.trigger_point = (diff + 1) // 2
@@ -79,8 +90,9 @@ class TradingManagerBet:
                             self.tm.main_window.betting_widget.update_mode("double")
 
             else:
-                if diff < ms.trigger_point:
-                    self.logger.info(f"[모드 종료] diff < trigger_point ({diff} < {ms.trigger_point}), 초기화 진행")
+                # 종료 임계값 적용 (설정에서 가져온 double_half_stop 값)
+                if diff < double_half_stop:  # 이 부분도 설정값으로 변경
+                    self.logger.info(f"[모드 종료] diff < double_half_stop ({diff} < {double_half_stop}), 초기화 진행")
                     ms.max_difference = 0
                     ms.trigger_point = 0
                     ms.has_active_double_half = False
@@ -136,8 +148,7 @@ class TradingManagerBet:
             self.tm.main_window.update_button_styles()
             self.logger.info("베팅 오류: 중지 버튼 다시 활성화")
             return False
-
-
+        
     def process_successful_bet(self, bet_amount):
         """성공적인 베팅 처리"""
         try:
