@@ -78,4 +78,6 @@ python main.py
 - Chrome 브라우저가 설치되어 있어야 합니다.
 - AUTO.xlsx 파일에는 적절한 예측 수식이 포함되어 있어야 합니다.
 
+## setting_version은 double & half 모드가 셋팅버전으로 돌릴 수 있게 만들었음.
+
 ---
