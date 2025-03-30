@@ -32,7 +32,7 @@ class MartinBettingService:
         self.reverse_betting = False  # 역배팅 모드 활성화 여부
         self.recent_results = []  # 최근 5게임 결과 기록
         self.game_count_for_mode = 0  # 모드 결정을 위한 게임 카운터
-        self.mode_game_threshold = 7  # 모드 결정을 위한 게임 수 임계값
+        self.mode_game_threshold = 9  # 모드 결정을 위한 게임 수 임계값
         self.original_pick = None  # 원래 선택한 PICK 값
 
     def get_current_bet_amount(self):
@@ -258,7 +258,7 @@ class MartinBettingService:
         self.logger.info(f"[마틴] Double & Half 설정: 시작={double_half_start}, 중지={double_half_stop}")
         
         # 역배팅 모드 임계값 설정 - 기본 5게임
-        self.mode_game_threshold = 7  # 필요시 설정 파일에서 로드
+        self.mode_game_threshold = 9  # 필요시 설정 파일에서 로드
         self.logger.info(f"[역배팅] 모드 결정 게임 수: {self.mode_game_threshold}게임")
         
         return True
