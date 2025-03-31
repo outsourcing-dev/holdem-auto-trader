@@ -1,29 +1,72 @@
 # services/betting_service.py 리팩토링
 import logging
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import random
 import time
 import gc
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from utils.iframe_utils import switch_to_iframe_with_retry, find_element_in_iframes
 
 class BettingService:
     def __init__(self, devtools, main_window, logger=None):
-        """베팅 서비스 초기화"""
         self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
-        
+
         self.devtools = devtools
         self.main_window = main_window
         self.has_bet_current_round = False
         self.current_bet_round = 0
         self.last_bet_type = None
         self.last_bet_time = 0
-        
-        # 베팅 결과 추적 필드 추가
-        self.bet_result_confirmed = False  # 베팅 결과가 확인되었는지 여부
-        self.last_bet_result = None        # 마지막 베팅 결과 (win/lose/tie)
+
+        self.bet_result_confirmed = False
+        self.last_bet_result = None
         self.last_bet_time = 0
+        
+    # 사용되지 않음. 필요시 수동 클릭 디버깅용
+    def _click_element_randomly(self, element, element_name="", mode="default"):
+        try:
+            if not hasattr(element, 'location_once_scrolled_into_view'):
+                raise ValueError("WebElement가 아님")
+
+            location = element.location_once_scrolled_into_view
+            size = element.size
+            self.logger.info(f"[디버그] {element_name} size: width={size['width']}, height={size['height']}")
+
+            width = int(size['width'])
+            height = int(size['height'])
+
+            offset_x = width // 2
+            offset_y = height // 2
+
+            self.logger.info(f"[정타 클릭] 위치: offset_x={offset_x}, offset_y={offset_y}")
+
+            actions = ActionChains(self.devtools.driver)
+            actions.move_to_element_with_offset(element, offset_x, offset_y).click().perform()
+            return True
+        except Exception as e:
+            self.logger.warning(f"{element_name} 정타 클릭 시도 실패: {e}")
+            return False
+
+    def _safe_click(self, element, element_name=""):
+        try:
+            if not hasattr(element, 'location_once_scrolled_into_view'):
+                self.logger.error(f"{element_name}은(는) 유효한 WebElement가 아닙니다: {type(element)}")
+                return False
+
+            # 스크롤 먼저 이동
+            self.devtools.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+            time.sleep(0.2)
+
+            # JS로 클릭
+            self.logger.info(f"[JS 클릭] {element_name}에 대해 JS 클릭 시도")
+            self.devtools.driver.execute_script("arguments[0].click();", element)
+            return True
+        except Exception as e:
+            self.logger.error(f"{element_name} JS 클릭 실패: {e}")
+            return False
         
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         """베팅 타입에 따라 적절한 베팅 영역을 클릭"""
@@ -296,111 +339,87 @@ class BettingService:
 
     def _execute_betting(self, bet_type, bet_amount=None):
         """베팅 실행"""
-        # 베팅 영역 찾기
         bet_element = self._find_betting_area(bet_type)
         if not bet_element:
             self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
             return False
-            
-        # 베팅 금액이 지정되지 않은 경우 마틴 서비스에서 가져오기
+
         if bet_amount is None:
             bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
-        
+
         self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
-        
-        # 사용 가능한 칩 금액 (큰 단위부터 처리)
+
         available_chips = [500000, 100000, 25000, 5000, 1000]
-        
-        # 각 칩별로 필요한 클릭 횟수 계산
         chip_clicks = {}
-        remaining_amount = bet_amount
-        
+        remaining = bet_amount
+
         for chip in available_chips:
-            clicks = remaining_amount // chip
-            if clicks > 0:
-                chip_clicks[chip] = clicks
-                remaining_amount %= chip
-        
+            count = remaining // chip
+            if count > 0:
+                chip_clicks[chip] = count
+                remaining %= chip
+
+        if not chip_clicks:
+            chip_clicks[1000] = 1
+            self.logger.warning("1000원 칩으로 기본 배팅 시도")
+
         self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 칩별 클릭 횟수: {chip_clicks}")
-        
-        # 계산된 칩별로 클릭 수행
-        total_clicks = sum(chip_clicks.values())
-        if total_clicks == 0:
-            self.logger.warning(f"베팅 금액이 너무 작아 클릭할 칩이 없습니다: {bet_amount}원")
-            chip_clicks[1000] = 1  # 최소 금액(1000원) 베팅
-            
-        # 베팅 성공 여부
         bet_successful = False
-        
+
         for chip_value, clicks in chip_clicks.items():
             chip_element = self._find_chip(chip_value)
             if not chip_element:
-                self.logger.warning(f"{chip_value}원 칩을 찾을 수 없음, 다음 단위로 진행")
+                self.logger.warning(f"{chip_value}원 칩을 찾지 못함")
                 continue
-                
-            # 칩 활성화 상태 확인
+
             if "disabled" in chip_element.get_attribute("class") or not chip_element.is_enabled():
                 self.logger.warning(f"{chip_value:,}원 칩이 비활성화 상태입니다.")
                 continue
-                
-            # 칩 선택 (한 번만 클릭) - 개선된 클릭 방법
+
+            # 칩 클릭 시도 (우선 일반 클릭, 실패 시 JS)
             try:
-                # 방법 1: 일반 클릭 시도
+                time.sleep(0.3)
                 try:
-                    # 게임 결과 창이 뜨는 경우에 대비하여 작은 대기 시간 추가
-                    time.sleep(0.5)
                     chip_element.click()
-                    self.logger.info(f"{chip_value:,}원 칩 선택 완료")
+                    self.logger.info(f"[클릭] {chip_value:,}원 칩 클릭 성공")
                 except Exception as e:
-                    self.logger.warning(f"일반 클릭 실패: {e}, JavaScript로 시도")
-                    # 방법 2: JavaScript로 클릭 시도 (요소 겹침 문제 우회)
+                    self.logger.warning(f"{chip_value:,}원 칩 일반 클릭 실패 → JS 클릭 시도")
                     self.devtools.driver.execute_script("arguments[0].click();", chip_element)
-                    self.logger.info(f"{chip_value:,}원 칩 JavaScript로 선택 완료")
-                
-                time.sleep(0.3)  # 칩 선택 후 안정화 대기 시간
+                    self.logger.info(f"[JS 클릭] {chip_value:,}원 칩 클릭 완료")
+                time.sleep(0.3)
             except Exception as e:
-                self.logger.error(f"칩 선택 실패: {e}")
+                self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
                 continue
-            
-            # 베팅 영역 여러 번 클릭 (개선된 방식)
+
             for i in range(clicks):
                 try:
-                    # 방법 1: 일반 클릭 시도 
+                    time.sleep(0.2)
                     try:
                         bet_element.click()
+                        self.logger.info(f"{bet_type} 영역 {i+1}/{clicks} 클릭 완료")
                     except Exception as e:
-                        self.logger.warning(f"베팅 영역 클릭 실패: {e}, JavaScript로 시도")
-                        # 방법 2: JavaScript로 클릭 - 요소 겹침 우회
+                        self.logger.warning(f"{bet_type} 영역 일반 클릭 실패 → JS 클릭")
                         self.devtools.driver.execute_script("arguments[0].click();", bet_element)
-                    
-                    time.sleep(0.2)  # 클릭 간 대기 시간
-                    self.logger.info(f"{bet_type} 영역 {i+1}/{clicks}번째 클릭 완료")
+                        self.logger.info(f"{bet_type} 영역 JS 클릭 완료 ({i+1}/{clicks})")
                     bet_successful = True
                 except Exception as e:
-                    self.logger.error(f"베팅 영역 클릭 중 오류: {e}")
-                    # 다음 클릭 시도
+                    self.logger.error(f"베팅 클릭 중 오류 발생: {e}")
                     continue
-        
+
         if bet_successful:
-            # 베팅 금액 변화 확인
             time.sleep(1.5)
-            before_amount = self._get_current_bet_amount()
-            after_amount = self._get_current_bet_amount()
-            
-            if after_amount > before_amount:
-                self.logger.info(f"실제 베팅이 성공적으로 처리되었습니다. (금액: {after_amount}원)")
-                return True
-            elif after_amount > 0:
-                # 이미 배팅 금액이 있었는데 변화가 없는 경우
-                self.logger.info(f"베팅 금액 {after_amount}원 확인됨. 배팅 성공으로 간주.")
+            amount_after = self._get_current_bet_amount()
+            if amount_after > 0:
+                self.logger.info(f"[성공] 베팅 금액 확인됨: {amount_after}원")
                 return True
             else:
-                self.logger.warning("베팅 후에도 금액이 0원입니다. 실제 베팅이 이루어지지 않았습니다.")
+                self.logger.warning("[실패] 베팅 후에도 금액이 0원입니다.")
                 return False
         else:
-            self.logger.warning("베팅 클릭 실패")
+            self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
             return False
-        
+
+
     def _get_current_bet_amount(self):
         """현재 베팅 금액 조회"""
         try:
