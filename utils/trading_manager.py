@@ -196,12 +196,12 @@ class TradingManager:
             self._analysis_thread.room_change_needed.connect(self._handle_room_change)
             
             # 스레드 시작
-            self.logger.info("게임 분석 스레드 시작")
+            # self.logger.info("게임 분석 스레드 시작")
             self._analysis_thread.start()
             # 중지 버튼 활성화 (스레드 시작 후)
             # self.main_window.stop_button.setEnabled(True)
             self.main_window.update_button_styles()
-            self.logger.info("게임 분석 스레드 시작 후 중지 버튼 활성화")
+            # self.logger.info("게임 분석 스레드 시작 후 중지 버튼 활성화")
         
         except Exception as e:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)

@@ -13,10 +13,6 @@ class TradingManagerBet:
 
     def place_bet(self, pick_value, game_count):
         try:
-            # if self.tm.martin_service.has_bet_in_current_room:
-            #     self.logger.info("현재 방에서 이미 배팅했으므로 이번 라운드는 건너뜁니다.")
-            #     return False
-
             self.tm.refresh_settings()
 
             balance = self.tm.balance_service.get_iframe_balance()
@@ -29,16 +25,18 @@ class TradingManagerBet:
                     self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
                     return False
 
+            # 역배팅 처리
             original_pick = pick_value
-            is_reverse_mode = self.tm.martin_service.reverse_betting
-            self.logger.info(f"[역배팅] 현재 모드: {'역배팅' if is_reverse_mode else '정배팅'}")
+            direction = self.tm.martin_service.current_direction
+            self.logger.info(f"[방향] 현재 모드: {direction.upper()}")
             pick_value = self.tm.martin_service.get_reverse_bet_pick(pick_value)
 
             if original_pick != pick_value:
-                self.logger.info(f"[역배팅] 원래 베팅: {original_pick} → 실제 베팅: {pick_value}")
+                self.logger.info(f"[역배팅 적용됨] 실제 PICK: {pick_value}")
                 if hasattr(self.tm.main_window.betting_widget, 'update_reverse_mode'):
-                    self.tm.main_window.betting_widget.update_reverse_mode(True)
+                    self.tm.main_window.betting_widget.update_reverse_mode(direction == 'reverse')
 
+            # 베팅 금액 설정
             win = self.tm.martin_service.win_count
             lose = self.tm.martin_service.lose_count
             diff = abs(win - lose)
@@ -49,57 +47,45 @@ class TradingManagerBet:
             if not hasattr(ms, 'max_difference'):
                 ms.max_difference = 0
                 ms.trigger_point = 0
-                ms.has_active_double_half = False
+                ms.has_active_double = False
                 ms.double_mode = False
-                ms.half_mode = False
 
-            self.logger.info(f"[Double/Half 상태] win: {win}, lose: {lose}, diff: {diff}, max_diff: {ms.max_difference}, trigger: {ms.trigger_point}, active: {ms.has_active_double_half}, double: {ms.double_mode}, half: {ms.half_mode}")
+            self.logger.info(f"[Double 상태] win: {win}, lose: {lose}, diff: {diff}, max_diff: {ms.max_difference}, trigger: {ms.trigger_point}, active: {ms.has_active_double}, double: {ms.double_mode}")
 
-            # Double & Half 제어 로직
-            if not ms.has_active_double_half:
-                if diff >= 4:  # 실전에서는 4로 변경
+            # Double 모드 제어
+            if not ms.has_active_double:
+                if diff >= 4:
                     if diff > ms.max_difference:
                         ms.max_difference = diff
                         ms.trigger_point = (diff + 1) // 2
-                        self.logger.info(f"[Double/Half 갱신] max_difference: {ms.max_difference}, trigger_point: {ms.trigger_point}")
+                        self.logger.info(f"[Double 갱신] max_difference: {ms.max_difference}, trigger_point: {ms.trigger_point}")
 
-                    if diff == ms.trigger_point:
-                        ms.has_active_double_half = True
-                        if win > lose:
-                            ms.half_mode = True
-                            half_amount = max(1000, ((base_bet_amount // 2 + 999) // 1000) * 1000)
-                            final_bet_amount = half_amount
-                            self.logger.info(f"[Half 모드 시작] win: {win}, lose: {lose}, bet: {final_bet_amount}")
-                            self.tm.main_window.betting_widget.update_mode("half")
-                        elif lose > win:
-                            ms.double_mode = True
-                            final_bet_amount = base_bet_amount * 2
-                            self.logger.info(f"[Double 모드 시작] win: {win}, lose: {lose}, bet: {final_bet_amount}")
-                            self.tm.main_window.betting_widget.update_mode("double")
-
+                    if diff == ms.trigger_point and lose > win:
+                        ms.has_active_double = True
+                        ms.double_mode = True
+                        final_bet_amount = base_bet_amount * 2
+                        self.logger.info(f"[Double 모드 시작] win: {win}, lose: {lose}, bet: {final_bet_amount}")
+                        self.tm.main_window.betting_widget.update_mode("double")
+                    else:
+                        self.tm.main_window.betting_widget.update_mode("normal")
             else:
                 if diff < ms.trigger_point:
                     self.logger.info(f"[모드 종료] diff < trigger_point ({diff} < {ms.trigger_point}), 초기화 진행")
                     ms.max_difference = 0
                     ms.trigger_point = 0
-                    ms.has_active_double_half = False
+                    ms.has_active_double = False
                     ms.double_mode = False
-                    ms.half_mode = False
                     final_bet_amount = base_bet_amount
                     self.tm.main_window.betting_widget.update_mode("normal")
                 elif ms.double_mode:
                     final_bet_amount = base_bet_amount * 2
                     self.logger.info(f"[Double 모드 유지] bet: {final_bet_amount}")
                     self.tm.main_window.betting_widget.update_mode("double")
-                elif ms.half_mode:
-                    half_amount = max(1000, ((base_bet_amount // 2 + 999) // 1000) * 1000)
-                    final_bet_amount = half_amount
-                    self.logger.info(f"[Half 모드 유지] bet: {final_bet_amount}")
-                    self.tm.main_window.betting_widget.update_mode("half")
                 else:
-                    self.logger.info("[모드 활성 상태인데 double/half 둘 다 꺼짐? 이상 상황")
+                    self.logger.info("[모드 활성 상태인데 double_mode 꺼짐? 이상 상황]")
                     self.tm.main_window.betting_widget.update_mode("normal")
 
+            # 베팅 금액 UI 표시
             self.tm.main_window.betting_widget.update_bet_amount(final_bet_amount)
             self.tm.main_window.update_betting_status(pick=original_pick, bet_amount=final_bet_amount)
             self.tm.main_window.stop_button.setEnabled(True)
@@ -107,6 +93,7 @@ class TradingManagerBet:
             QApplication.processEvents()
             self.logger.info("베팅 전: 중지 버튼 활성화")
 
+            # 실제 베팅 시도
             bet_success = self.tm.betting_service.place_bet(
                 pick_value,
                 self.tm.current_room_name,
@@ -135,7 +122,6 @@ class TradingManagerBet:
             self.tm.main_window.update_button_styles()
             self.logger.info("베팅 오류: 중지 버튼 다시 활성화")
             return False
-
 
     def process_successful_bet(self, bet_amount):
         """성공적인 베팅 처리"""
@@ -168,7 +154,7 @@ class TradingManagerBet:
             actual_bet_type = bet_type
 
             # 역배팅 여부 확인 및 로깅
-            if self.tm.martin_service.reverse_betting:
+            if self.tm.martin_service.current_direction == 'reverse':
                 original_pick = self.tm.martin_service.original_pick
                 if original_pick:
                     self.logger.info(f"[역배팅] 원래 PICK: {original_pick}, 실제 베팅: {bet_type}")
@@ -185,8 +171,8 @@ class TradingManagerBet:
             self.logger.info("결과 확인 중: 중지 버튼 비활성화됨")
 
             # 로그
-            if self.tm.martin_service.reverse_betting:
-                self.logger.info(f"[역배팅] 결과 판정 - TIE: {is_tie}, WIN: {is_win}, 결과: {latest_result}")
+            if self.tm.martin_service.current_direction == 'reverse':
+                self.logger.info(f"[역배팅] 현재 PICK: {bet_type}")
 
             # 결과에 따라 처리
             if is_tie:
@@ -195,13 +181,11 @@ class TradingManagerBet:
                 result_status = "tie"
                 self.tm.betting_service.has_bet_current_round = False
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
-                self.logger.info("타이(T) 결과: 같은 방에서 재시도")
 
             elif is_win:
                 result_text = "적중"
                 result_marker = "O"
                 result_status = "win"
-                self.logger.info("베팅 성공: 같은 방에서 계속 진행")
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=True)
 
             else:
@@ -217,6 +201,9 @@ class TradingManagerBet:
                 result_status,
                 game_count=self.tm.game_count
             )
+            
+            self.tm.martin_service.update_bet_direction_by_diff(self.tm.game_count)
+
             current_step, consecutive_losses, result_position = result
 
             # UI 마커 표시
@@ -253,7 +240,7 @@ class TradingManagerBet:
                 self.logger.info("승리 마커 표시 완료: 위젯 초기화 허용")
 
             # ✅ 방 이동 체크 (마지막에)
-            if new_game_count >= 40:
+            if new_game_count >= 58:
                 self.logger.info(f"{new_game_count}번째 결과 도달 → 바로 방 이동 실행")
                 self.tm.change_room()
 

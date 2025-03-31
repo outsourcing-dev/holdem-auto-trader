@@ -471,7 +471,7 @@ class BettingService:
         self.current_bet_round = new_round if new_round is not None else 0
         self.bet_result_confirmed = False   # 결과 확인 여부 초기화
         self.last_bet_result = None         # 마지막 결과 초기화
-        self.logger.info(f"베팅 상태 초기화 완료 (라운드: {previous_round} → {self.current_bet_round})")
+        # self.logger.info(f"베팅 상태 초기화 완료 (라운드: {previous_round} → {self.current_bet_round})")
 
     def check_is_bet_for_current_round(self, current_round):
         """현재 라운드에 베팅했는지 확인"""

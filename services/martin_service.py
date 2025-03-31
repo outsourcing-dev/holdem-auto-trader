@@ -29,12 +29,13 @@ class MartinBettingService:
         self.has_bet_in_current_room = False
         
         # 역배팅 관련 변수 추가
-        self.reverse_betting = False  # 역배팅 모드 활성화 여부
         self.recent_results = []  # 최근 5게임 결과 기록
         self.game_count_for_mode = 0  # 모드 결정을 위한 게임 카운터
         self.mode_game_threshold = 5  # 모드 결정을 위한 게임 수 임계값
         self.original_pick = None  # 원래 선택한 PICK 값
-
+        self.diff_history = []  # 10판 단위 승패차 기록
+        self.current_direction = 'forward'  # 현재 방향 (forward / reverse)
+        
     def get_current_bet_amount(self):
         """현재 마틴 단계에 따른 베팅 금액을 반환합니다."""
         # 최신 설정 로드
@@ -79,13 +80,8 @@ class MartinBettingService:
             self.game_count_for_mode += 1
             
             # 로깅
-            self.logger.info(f"[역배팅] 결과 저장: {result_status}, 현재 모드 게임 카운트: {self.game_count_for_mode}/{self.mode_game_threshold}")
             self.logger.info(f"[역배팅] 최근 결과: {self.recent_results}")
             
-            # 임계값에 도달하면 모드 결정 및 카운터 초기화
-            if self.game_count_for_mode >= self.mode_game_threshold:
-                self._decide_betting_mode()
-                
         # 결과에 따른 처리
         if result_status == "win":
             return self._handle_win_result(current_result_position)
@@ -93,46 +89,6 @@ class MartinBettingService:
             return self._handle_tie_result(current_result_position)
         else:  # "lose"
             return self._handle_lose_result(current_result_position)
-        
-    def _decide_betting_mode(self):
-        """N게임 결과를 바탕으로 배팅 모드 결정"""
-        # N게임 승패 확인
-        win_count = self.recent_results.count("win")
-        lose_count = self.recent_results.count("lose")
-        
-        # 로그 출력
-        self.logger.info(f"[역배팅] 모드 결정: {len(self.recent_results)}게임 중 {win_count}승 {lose_count}패")
-        
-        old_mode = self.reverse_betting
-        mode_changed = False
-        
-        # 현재 모드에 따라 다른 조건 적용 - 패배가 많을 때만 모드 변경
-        if self.reverse_betting:  # 현재 역배팅 모드인 경우
-            if lose_count > win_count:
-                # 패>승이면 정배팅으로 전환
-                self.reverse_betting = False
-                mode_changed = True
-                self.logger.info(f"[역배팅] 모드 변경: 역배팅 → 정배팅 (패{lose_count} > 승{win_count})")
-            else:
-                # 패<=승이면 역배팅 유지
-                self.logger.info(f"[역배팅] 모드 유지: 역배팅 (패{lose_count} <= 승{win_count})")
-        else:  # 현재 정배팅 모드인 경우
-            if lose_count > win_count:
-                # 패>승이면 역배팅으로 전환
-                self.reverse_betting = True
-                mode_changed = True
-                self.logger.info(f"[역배팅] 모드 변경: 정배팅 → 역배팅 (패{lose_count} > 승{win_count})")
-            else:
-                # 패<=승이면 정배팅 유지
-                self.logger.info(f"[역배팅] 모드 유지: 정배팅 (패{lose_count} <= 승{win_count})")
-        
-        # UI 업데이트 - 모드가 변경된 경우에만
-        if mode_changed and hasattr(self.main_window.betting_widget, 'update_reverse_mode'):
-            self.main_window.betting_widget.update_reverse_mode(self.reverse_betting)
-        
-        # 모드 결정 후 카운터 및 결과 리스트 초기화
-        self.game_count_for_mode = 0
-        self.recent_results = []
         
     def _handle_win_result(self, position):
         """승리 결과 처리"""
@@ -142,9 +98,6 @@ class MartinBettingService:
         self.need_room_change = True
         self.has_bet_in_current_room = True
         self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화, 방 이동 필요 설정")
-        
-        # 역배팅 모드 상태 확인 및 로그
-        self.logger.info(f"[역배팅] 현재 모드: {'역배팅' if self.reverse_betting else '정배팅'}")
         
         return self.current_step, self.consecutive_losses, position
         
@@ -162,10 +115,7 @@ class MartinBettingService:
         self.current_step += 1
         self.lose_count += 1
         self.has_bet_in_current_room = True
-        
-        # 역배팅 모드 상태 확인 및 로그
-        self.logger.info(f"[역배팅] 현재 모드: {'역배팅' if self.reverse_betting else '정배팅'}")
-        
+
         # 최대 마틴 단계 도달 시 방 이동 플래그 설정
         if self.current_step >= self.martin_count:
             self.need_room_change = True
@@ -224,7 +174,6 @@ class MartinBettingService:
         self.has_bet_in_current_room = False
         
         # 역배팅 변수 초기화
-        self.reverse_betting = False
         self.recent_results = []
         self.game_count_for_mode = 0
         self.original_pick = None
@@ -264,19 +213,39 @@ class MartinBettingService:
         return True
         
     def get_reverse_bet_pick(self, original_pick):
-        """역배팅 시 반대 PICK 값을 반환합니다."""
-        self.original_pick = original_pick  # 원래 선택을 기록
-        
-        if not self.reverse_betting:
+        self.original_pick = original_pick
+        self.logger.info(f"[PICK 결정] 현재 방향: {self.current_direction}, 원 PICK: {original_pick}")
+
+        if self.current_direction == 'forward':
             return original_pick
-            
-        # 역배팅 모드가 활성화된 경우 PICK 반전
         if original_pick == 'P':
-            self.logger.info(f"[역배팅] 원래 PICK: {original_pick} → 반전 PICK: B")
             return 'B'
         elif original_pick == 'B':
-            self.logger.info(f"[역배팅] 원래 PICK: {original_pick} → 반전 PICK: P")
             return 'P'
-        else:
-            # 다른 값(예: 'T')은 그대로 반환
-            return original_pick
+        return original_pick
+
+
+
+    def update_bet_direction_by_diff(self, game_count):
+        """10판 단위로 승패차 기록하고, 2연속 손실이면 방향 전환"""
+        
+        if game_count % 10 != 0 or game_count < 30:
+            return
+
+        current_diff = self.win_count - self.lose_count
+        self.diff_history.append(current_diff)
+
+        self.logger.info(f"[DEBUG] game_count={game_count}, win={self.win_count}, lose={self.lose_count}, current_diff={current_diff}")
+        self.logger.info(f"[DEBUG] diff_history = {self.diff_history}")
+
+        if len(self.diff_history) >= 3:
+            a, b, c = self.diff_history[-3:]
+            self.logger.info(f"[DEBUG] 최근 3개 diff: {a}, {b}, {c}")
+
+            if b < a and c < b:
+                old = self.current_direction
+                self.current_direction = 'reverse' if self.current_direction == 'forward' else 'forward'
+                self.logger.info(f"[방향 전환] 2연속 손실 감지 → {old.upper()} → {self.current_direction.upper()}")
+
+                if hasattr(self.main_window.betting_widget, 'update_reverse_mode'):
+                    self.main_window.betting_widget.update_reverse_mode(self.current_direction == 'reverse')

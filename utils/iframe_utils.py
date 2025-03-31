@@ -468,14 +468,14 @@ def switch_to_iframe_with_retry(driver, max_retries=3, max_depth=2):
             iframe = driver.find_elements(By.CSS_SELECTOR, "iframe")
             if iframe:
                 driver.switch_to.frame(iframe[0])
-                logger.info(f"단일 iframe 전환 성공 (시도 {retry+1}/{max_retries})")
+                # logger.info(f"단일 iframe 전환 성공 (시도 {retry+1}/{max_retries})")
                 
                 # 1.1 중첩된 iframe 확인
                 nested_iframe = driver.find_elements(By.TAG_NAME, "iframe")
                 if nested_iframe:
                     try:
                         driver.switch_to.frame(nested_iframe[0])
-                        logger.info("중첩된 iframe 발견 및 전환 성공")
+                        # logger.info("중첩된 iframe 발견 및 전환 성공")
                         return True
                     except:
                         logger.info("중첩된 iframe 전환 실패, 단일 iframe 상태 유지")

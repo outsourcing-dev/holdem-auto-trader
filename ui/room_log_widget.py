@@ -305,10 +305,11 @@ class RoomLogWidget(QWidget):
         # 현재 방문 ID가 없는 경우에만 새로 생성
         if self.current_visit_id is None:
             self.current_visit_id = self.create_new_visit_id(base_room_name)
-            print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
+            # print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
         else:
             # 이미 방문 중인 경우 로그만 출력
-            print(f"계속 '{base_room_name}' 방에 머무르는 중 (ID: {self.current_visit_id})")
+            # print(f"계속 '{base_room_name}' 방에 머무르는 중 (ID: {self.current_visit_id})")
+            pass
                
 
     def should_create_new_visit_id(self, base_room_name):

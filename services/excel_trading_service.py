@@ -80,7 +80,7 @@ class ExcelTradingService:
         """중복 결과인지 확인"""
         result_id = f"{new_game_count}_{latest_result}"
         if hasattr(self.main_window, 'trading_manager') and result_id in self.main_window.trading_manager.processed_rounds:
-            self.logger.info(f"이미 처리된 결과 감지 (ID: {result_id}) - 중복 처리 방지")
+            # self.logger.info(f"이미 처리된 결과 감지 (ID: {result_id}) - 중복 처리 방지")
             return True
         return False
         
