@@ -2,9 +2,10 @@
     "site1": "https://cb-8989.com",
     "site2": "https://drdr-1230.com/",
     "site3": "aii1dd.net",
-    "martin_count": 1,
+    "martin_count": 2,
     "martin_amounts": [
-        1000
+        1000,
+        2000
     ],
     "target_amount": 350000,
     "double_half_start": 15,

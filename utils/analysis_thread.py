@@ -14,7 +14,6 @@ class GameAnalysisThread(QThread):
         super().__init__()
         self.tm = trading_manager  # TradingManager 객체 참조
         self.logger = trading_manager.logger or logging.getLogger(__name__)
-        self.should_move_to_next_room = trading_manager.should_move_to_next_room
         self.game_count = trading_manager.game_count
         self.current_room_name = trading_manager.current_room_name
         
@@ -46,7 +45,7 @@ class GameAnalysisThread(QThread):
                 return
 
             # 방 이동이 필요한지 먼저 확인
-            if self.should_move_to_next_room:
+            if self.tm.should_move_to_next_room:
                 # 중지 요청 한번 더 확인
                 if hasattr(self.tm, 'stop_all_processes') and self.tm.stop_all_processes:
                     self.logger.info("중지 명령으로 인해 방 이동 요청을 무시합니다.")

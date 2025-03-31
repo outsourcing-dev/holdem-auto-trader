@@ -34,7 +34,6 @@ class TradingManager:
         self.game_count = 0
         self.result_count = 0
         self.current_pick = None
-        self.should_move_to_next_room = False
         self.processed_rounds = set()
 
         # 서비스 클래스 초기화
@@ -208,7 +207,6 @@ class TradingManager:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
 
-
     def _handle_analysis_result(self, result):
         """분석 결과 처리 핸들러"""
         try:
@@ -246,6 +244,12 @@ class TradingManager:
             # 무승부(T) 결과 시 베팅 시도
             self.game_helper.handle_tie_result(latest_result, game_state)
             
+            # 방 이동 판단 (60판 도달 or 초기화 감지 등)
+            if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
+                self.logger.info("방 이동 조건 충족 - change_room 실행")
+                self.change_room()
+                return
+
         except Exception as e:
             self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)
         finally:
@@ -279,7 +283,7 @@ class TradingManager:
             return
             
         self.logger.info("스레드에서 방 이동 요청 수신")
-        self.should_move_to_next_room = False  # 플래그 초기화
+        # self.should_move_to_next_room = False  # 플래그 초기화
         self.change_room()  # 방 이동 프로세스 시작
         
     def run_auto_trading(self):
@@ -307,8 +311,7 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매 중 심각한 오류가 발생했습니다.\n자동 매매가 중지됩니다.\n오류: {str(e)}"
             )
-
-    
+ 
     def stop_trading(self):
         """자동 매매 중지 - 스레드 안전하게 종료"""
         from PyQt6.QtWidgets import QApplication
@@ -336,7 +339,7 @@ class TradingManager:
             self.is_trading_active = False
             
             # 방 이동 플래그 초기화
-            self.should_move_to_next_room = False
+            # self.should_move_to_next_room = False
             
             # 타이머 중지 - 분석 스레드 예약 중단
             if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
@@ -466,7 +469,7 @@ class TradingManager:
                 self.room_manager.mark_room_visited(self.current_room_name)
             
             # 방 이동 플래그 초기화
-            self.should_move_to_next_room = False
+            # self.should_move_to_next_room = False
             
             # 현재 방 닫기 시도
             room_closed = self.game_monitoring_service.close_current_room()
@@ -566,3 +569,10 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"설정 새로고침 중 오류 발생: {e}")
             return False
+        
+    @property
+    def should_move_to_next_room(self):
+        """
+        현재 방을 이동해야 하는 조건을 판단합니다.
+        """
+        return self.game_count >= 60
