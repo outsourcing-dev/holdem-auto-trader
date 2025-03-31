@@ -122,7 +122,7 @@ class GameController:
         방 이동이 필요한지 확인합니다.
         단순 1승으로는 이동하지 않으며, 라운드 수로만 판단하도록 변경 가능
         """
-        if self.current_state and self.current_state.get('round', 0) >= 58:
+        if self.current_state and self.current_state.get('round', 0) >= 60:
             return True  # 60게임 도달 시 이동
         return False
 

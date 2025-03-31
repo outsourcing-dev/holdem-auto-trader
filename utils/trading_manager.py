@@ -220,16 +220,34 @@ class TradingManager:
             
             # 게임 카운트 변화 로깅
             current_game_count = game_state.get('round', 0)
+            # ✅ 게임 수 역행 감지
+            if current_game_count < previous_game_count and previous_game_count >= 10:
+                self.logger.warning(f"[❗게임 수 역행 감지] 이전: {previous_game_count} → 현재: {current_game_count} → 방 이동 시도")
+                self.change_room()
+                return
+
+            # ✅ 결과 없음 감지용 카운터
+            if not hasattr(self, 'no_result_counter'):
+                self.no_result_counter = 0
+
+            if current_game_count == previous_game_count:
+                self.no_result_counter += 1
+            else:
+                self.no_result_counter = 0  # 게임 수 바뀌면 초기화
+
+            if self.no_result_counter >= 20:
+                self.logger.warning(f"[⚠️ 결과 없음 누적] 25회 이상 동일한 게임 수 → 방 이동")
+                self.no_result_counter = 0
+                self.change_room()
+                return
+
             latest_result = game_state.get('latest_result')
-            
-            if current_game_count != previous_game_count:
-                self.logger.info(f"게임 카운트 변경: {previous_game_count} -> {current_game_count}")
-                
-                # 첫 입장 시 방 정보 출력
-                if previous_game_count == 0 and current_game_count > 0:
-                    display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
-                    self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
-            
+                        
+            # 첫 입장 시 방 정보 출력
+            if previous_game_count == 0 and current_game_count > 0:
+                display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
+                self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
+        
             # Excel 처리는 메인 스레드에서 수행
             excel_result = self.excel_trading_service.process_game_results(
                 game_state, 
