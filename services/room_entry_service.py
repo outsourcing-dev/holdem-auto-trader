@@ -39,7 +39,7 @@ class RoomEntryService:
     def enter_room(self):
         """
         랜덤 순서로 생성된 방 목록에서 다음 방에 입장합니다.
-        방 게임 수가 10판 미만이거나 50판 이상이면 다른 방을 찾습니다.
+        방 게임 수가 설정한 범위 내에 없다면 다른 방을 찾습니다.
         
         Returns:
             str: 선택된 방 이름 또는 None

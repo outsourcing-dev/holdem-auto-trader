@@ -100,22 +100,6 @@ class GameController:
             'betting_step': self.current_betting_step,
             'message': f'게임 결과 {result} 기록 완료, 배팅 결과: {result_value}'
         }
-        
-    # def should_change_room(self):
-    #     """
-    #     방 이동이 필요한지 확인합니다.
-        
-    #     Returns:
-    #         bool: 방 이동 필요 여부
-    #     """
-    #     # 배팅에 1번 성공하면 방 이동
-    #     if self.consecutive_losses == 0 and self.current_betting_step == 0:
-    #         # 방금 배팅에 성공한 경우
-    #         last_result = self.excel_manager.check_result(self.excel_manager.get_current_column())
-    #         if last_result and last_result[0]:  # 가장 최근 결과가 승리인 경우
-    #             return True
-                
-    #     return False
 
     def should_change_room(self):
         """

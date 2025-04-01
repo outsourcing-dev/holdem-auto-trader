@@ -213,30 +213,32 @@ class TradingManager:
     def _handle_analysis_result(self, result):
         """분석 결과 처리 핸들러"""
         try:
-            # 목표 금액 도달 확인 - 이미 도달했으면 처리 중단
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
                 return
-                
+                    
             game_state = result['game_state']
             previous_game_count = result['previous_game_count']
-            
-            # 게임 카운트 변화 로깅
             current_game_count = game_state.get('round', 0)
-            # ✅ 게임 수 역행 감지
-            if current_game_count < previous_game_count and previous_game_count >= 10:
-                self.logger.warning(f"[❗게임 수 역행 감지] 이전: {previous_game_count} → 현재: {current_game_count} → 방 이동 시도")
-                self.change_room()
-                return
 
-            # ✅ 결과 없음 감지용 카운터
+            # ✅ 방 이동 직후 게임 수 역행 체크 생략
+            if hasattr(self, 'just_changed_room') and self.just_changed_room:
+                self.logger.info("방 이동 직후이므로 게임 수 역행 체크를 생략합니다.")
+                self.just_changed_room = False  # 플래그 초기화
+            else:
+                # ✅ 게임 수 역행 감지
+                if current_game_count < previous_game_count and previous_game_count >= 10:
+                    self.logger.warning(f"[❗게임 수 역행 감지] 이전: {previous_game_count} → 현재: {current_game_count} → 방 이동 시도")
+                    self.change_room()
+                    return
+
             if not hasattr(self, 'no_result_counter'):
                 self.no_result_counter = 0
 
             if current_game_count == previous_game_count:
                 self.no_result_counter += 1
             else:
-                self.no_result_counter = 0  # 게임 수 바뀌면 초기화
+                self.no_result_counter = 0
 
             if self.no_result_counter >= 20:
                 self.logger.warning(f"[⚠️ 결과 없음 누적] 25회 이상 동일한 게임 수 → 방 이동")
@@ -245,27 +247,22 @@ class TradingManager:
                 return
 
             latest_result = game_state.get('latest_result')
-                        
-            # 첫 입장 시 방 정보 출력
+                            
             if previous_game_count == 0 and current_game_count > 0:
                 display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
                 self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
-        
-            # Excel 처리는 메인 스레드에서 수행
+
             excel_result = self.excel_trading_service.process_game_results(
                 game_state, 
                 self.game_count, 
                 self.current_room_name
             )
-            
-            # 결과 처리
+                
             if excel_result[0] is not None:
                 self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
-            
-            # 무승부(T) 결과 시 베팅 시도
+                
             self.game_helper.handle_tie_result(latest_result, game_state)
-            
-            # 방 이동 판단 (60판 도달 or 초기화 감지 등)
+                
             if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
                 self.logger.info("방 이동 조건 충족 - change_room 실행")
                 self.change_room()
@@ -274,18 +271,16 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)
         finally:
-            # 자동 매매가 여전히 활성화된 경우에만 다음 분석 예약
             if self.is_trading_active:
-                # 목표 금액에 도달했는지 다시 확인
                 if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                     self.logger.info("목표 금액 도달 확인됨: 다음 분석을 예약하지 않습니다.")
                     return
-                    
-                # 다음 분석 간격 설정
+                        
                 self.main_window.set_remaining_time(0, 0, 2)
             else:
                 self.logger.info("자동 매매 비활성화됨: 다음 분석을 예약하지 않습니다.")
-                
+
+
     def _handle_analysis_error(self, error_msg):
         """분석 오류 처리 핸들러"""
         self.logger.error(f"분석 스레드 오류: {error_msg}")
@@ -523,7 +518,7 @@ class TradingManager:
             if not new_room_name:
                 return self.game_helper.handle_room_entry_failure()
             
-            # 방 입장 성공 시 처리
+            self.just_changed_room = True  # 방 이동 직후 플래그 설정
             return self.game_helper.handle_successful_room_entry(new_room_name)
 
         except Exception as e:

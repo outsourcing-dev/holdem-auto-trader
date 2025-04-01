@@ -211,7 +211,7 @@ class TradingManagerBet:
 
             # 승리 시 마틴 리셋
             if is_win:
-                self.logger.info("승리 감지: 마틴 단계 즉시 초기화 (방 이동 전)")
+                self.logger.info("승리 감지: 마틴 단계 즉시 초기화")
                 self.tm.martin_service.current_step = 0
                 self.tm.martin_service.consecutive_losses = 0
 
@@ -239,8 +239,8 @@ class TradingManagerBet:
                 self.tm.main_window.betting_widget.prevent_reset = False
                 self.logger.info("승리 마커 표시 완료: 위젯 초기화 허용")
 
-            # ✅ 방 이동 체크 (마지막에)
-            if new_game_count >= 58:
+            # ✅ 방 이동 체크
+            if new_game_count >= 60:
                 self.logger.info(f"{new_game_count}번째 결과 도달 → 바로 방 이동 실행")
                 self.tm.change_room()
 
