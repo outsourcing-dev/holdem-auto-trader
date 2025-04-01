@@ -39,6 +39,9 @@ class TradingManager:
         # 서비스 클래스 초기화
         self._init_services()
         
+        self.recent_game_results = []  # 최근 게임 결과 (P, B, T 포함)
+        self.filtered_game_results = []  # 최근 게임 결과 (P, B만 포함)
+    
         # 헬퍼 클래스들 초기화 - 모듈 임포트
         from utils.trading_manager_helpers import TradingManagerHelpers
         from utils.trading_manager_bet import TradingManagerBet
@@ -495,11 +498,20 @@ class TradingManager:
                 self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
             
             # Excel 파일 초기화
+            # try:
+            #     self.logger.info("Excel 파일 초기화 중...")
+            #     self.excel_trading_service.excel_manager.initialize_excel()
+            # except Exception as e:
+            #     self.logger.error(f"Excel 파일 초기화 오류: {e}")
+            
             try:
-                self.logger.info("Excel 파일 초기화 중...")
-                self.excel_trading_service.excel_manager.initialize_excel()
+                self.logger.info("예측 엔진 초기화 중...")
+                self.excel_trading_service.prediction_engine.clear()
+                # 게임 결과 초기화
+                self.recent_game_results = []
+                self.filtered_game_results = []
             except Exception as e:
-                self.logger.error(f"Excel 파일 초기화 오류: {e}")
+                self.logger.error(f"예측 엔진 초기화 오류: {e}")
             
             # 상태 초기화
             self.game_helper.reset_room_state()
