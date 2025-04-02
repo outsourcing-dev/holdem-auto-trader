@@ -1,6 +1,6 @@
 # services/excel_trading_service.py 리팩토링
 import logging
-import openpyxl
+# import openpyxl
 from typing import Dict, Any, Tuple, List, Optional, Union
 import time
 from utils.prediction_engine import PredictionEngine
@@ -13,7 +13,7 @@ class ExcelTradingService:
         self.logger.setLevel(logging.INFO)
         
         from utils.excel_manager import ExcelManager # type: ignore
-        self.excel_manager = ExcelManager()
+        # self.excel_manager = ExcelManager()
         self.prediction_engine = PredictionEngine(logger=self.logger)
 
     # services/excel_trading_service.py의 process_game_results 함수 수정
@@ -29,9 +29,10 @@ class ExcelTradingService:
         filtered_results = game_state.get('filtered_results', [])  # TIE를 제외한 P/B 결과만
         
         # 중복 처리 방지 확인
-        if latest_result:
-            if self._is_duplicate_result(latest_result, new_game_count):
-                return self._handle_duplicate_result(new_game_count, recent_results)
+        if self._is_duplicate_result(latest_result, new_game_count):
+            # 중복 결과인 경우에도 예측은 시도한다
+            next_pick = self.prediction_engine.predict_next_pick()
+            return "DUPLICATE", new_game_count, recent_results, next_pick
         
         # 첫 실행 여부 확인 - 수정: 첫 실행 판단 로직 개선
         is_first_run = game_count == 0 or game_count < new_game_count - 3
@@ -56,24 +57,21 @@ class ExcelTradingService:
         return self._process_new_result(latest_result, new_game_count, recent_results)
 
     def _handle_first_run(self, filtered_results, recent_results, actual_game_count):
-        """첫 실행 시 처리 - 엑셀 대신 예측 엔진 사용"""
+        """첫 실행 시 처리 - 예측 엔진 사용"""
         self.logger.info(f"첫 실행 감지: 예측 엔진에 최근 결과 {len(filtered_results)}개 추가 (TIE 제외)")
-        
+
         # 예측 엔진 초기화 및 결과 추가
         self.prediction_engine.clear()
         self.prediction_engine.add_multiple_results(filtered_results)
-        
+
         # 다음 PICK 예측
         next_pick = self.prediction_engine.predict_next_pick()
-        
-        # 마지막 열 계산 (가상의 값, 이제 엑셀에 쓰지 않음)
-        last_column_idx = 1 + len(filtered_results)
-        last_column = openpyxl.utils.get_column_letter(last_column_idx)
-        
-        # 결과 처리 성공 시 processed_rounds에 추가
-        self._update_processed_rounds(filtered_results, start_count=actual_game_count-len(filtered_results))
-        
-        return last_column, actual_game_count, recent_results, next_pick
+
+        # processed_rounds 업데이트
+        self._update_processed_rounds(filtered_results, start_count=actual_game_count - len(filtered_results))
+
+        # 열 정보는 더 이상 의미 없으므로 None 반환
+        return "PREDICTED", actual_game_count, recent_results, next_pick
 
     def _record_new_result(self, result, column, new_game_count, recent_results):
         """새 결과 기록 - 엑셀 대신 예측 엔진 사용"""
@@ -92,29 +90,6 @@ class ExcelTradingService:
         
         # 이전 버전과의 호환성을 위해 열 정보 유지
         return column, new_game_count, recent_results, next_pick
-    
-    # _handle_first_run 함수 수정
-    # def _handle_first_run(self, filtered_results, recent_results, actual_game_count):
-    #     """첫 실행 시 처리 - 실제 게임 카운트 인자 추가"""
-    #     self.logger.info(f"첫 실행 감지: 엑셀에 최근 결과 {len(filtered_results)}개 기록 (TIE 제외)")
-        
-    #     # 전체 결과 초기화 및 기록
-    #     success = self.excel_manager.write_filtered_game_results([], filtered_results)
-    #     if not success:
-    #         return None, 0, recent_results, None
-            
-    #     # 마지막 열 계산
-    #     last_column_idx = 1 + len(filtered_results)
-    #     last_column = openpyxl.utils.get_column_letter(last_column_idx)
-        
-    #     # 다음 열의 PICK 값 확인
-    #     next_pick = self._get_pick_value(last_column)
-        
-    #     # 결과 처리 성공 시 processed_rounds에 추가 - 중요 변경: 실제 게임 카운트 사용
-    #     self._update_processed_rounds(filtered_results, start_count=actual_game_count-len(filtered_results))
-        
-    #     # 중요 변경: 실제 게임 카운트 반환
-    #     return last_column, actual_game_count, recent_results, next_pick
   
     def _is_duplicate_result(self, latest_result, new_game_count):
         """중복 결과인지 확인"""
@@ -123,20 +98,6 @@ class ExcelTradingService:
             # self.logger.info(f"이미 처리된 결과 감지 (ID: {result_id}) - 중복 처리 방지")
             return True
         return False
-        
-    def _handle_duplicate_result(self, new_game_count, recent_results):
-        """중복 결과 처리"""
-        # 현재 열 찾기 - 이미 기록되어 있으므로 다음 열의 PICK 값만 확인
-        current_column = self.excel_manager.get_current_column()
-        if not current_column:
-            return None, new_game_count, recent_results, None
-            
-        prev_column = self.excel_manager.get_prev_column_letter(current_column)
-        if not prev_column:
-            return None, new_game_count, recent_results, None
-            
-        next_pick = self._get_pick_value(prev_column)
-        return prev_column, new_game_count, recent_results, next_pick
         
     def _update_processed_rounds(self, results, start_count=None):
         """처리된 라운드 업데이트"""
@@ -147,100 +108,26 @@ class ExcelTradingService:
                 self.main_window.trading_manager.processed_rounds.add(result_id)
     
     def _process_new_result(self, latest_result, new_game_count, recent_results):
-        """새 게임 결과 처리"""
-        # 현재 열 찾기
-        current_column = self.excel_manager.get_current_column()
-        if not current_column:
-            self.logger.warning("기록할 빈 열을 찾을 수 없음")
-            return None, new_game_count, recent_results, None
-        
+        """새 게임 결과 처리 - 엑셀 제거 이후 리팩토링 버전"""
+
         # TIE 결과는 기록하지 않음
         if latest_result == 'T':
-            return self._handle_tie_result(current_column, new_game_count, recent_results)
-        
-        # 이미 결과가 기록되어 있는지 확인
-        if self._is_column_already_filled(current_column):
-            return self._handle_filled_column(current_column, new_game_count, recent_results)
-        
+            return self._handle_tie_result("AUTO", new_game_count, recent_results)
+
         # 새 결과 기록 (TIE가 아닌 경우에만)
         if latest_result in ['P', 'B']:
-            return self._record_new_result(latest_result, current_column, new_game_count, recent_results)
-        
+            return self._record_new_result(latest_result, "AUTO", new_game_count, recent_results)
+
+        # 기타 예외적 결과 처리
         return None, new_game_count, recent_results, None
+
 
     def _handle_tie_result(self, current_column, new_game_count, recent_results):
         """TIE 결과 처리 - 예측 엔진 사용"""
         self.logger.info(f"TIE 결과 감지 - 예측 엔진 기반 PICK 값 사용")
 
-        # 예측 엔진으로 현재까지 결과 기반으로 예측
         next_pick = self.prediction_engine.predict_next_pick()
         if next_pick == 'N':
             self.logger.warning("예측 엔진에서 PICK 값을 계산할 수 없음 (데이터 부족)")
-        
-        return current_column, new_game_count, recent_results, next_pick
 
-    
-    # def _handle_tie_result(self, current_column, new_game_count, recent_results):
-    #     """TIE 결과 처리"""
-    #     self.logger.info(f"TIE 결과는 엑셀에 기록하지 않습니다.")
-        
-    #     # 현재 열의 이전 열(이미 데이터가 있는 열)에서 PICK 값 확인
-    #     prev_column = self.excel_manager.get_prev_column_letter(current_column)
-    #     if not prev_column:
-    #         return None, new_game_count, recent_results, None
-            
-    #     next_pick = self._get_pick_value(prev_column)
-    #     self.logger.info(f"TIE 결과 감지 후 이전 PICK 값 확인: {next_pick}")
-        
-    #     return prev_column, new_game_count, recent_results, next_pick
-    
-    def _is_column_already_filled(self, column):
-        """해당 열에 이미 값이 있는지 확인"""
-        existing_value = self.excel_manager.read_cell_value(column, 3)
-        return existing_value is not None and existing_value != ""
-    
-    def _handle_filled_column(self, current_column, new_game_count, recent_results):
-        """이미 값이 채워진 열 처리"""
-        self.logger.warning(f"{current_column}3 셀에 이미 값이 존재함 - 중복 기록 방지")
-        
-        # 다음 열의 PICK 값만 확인
-        next_pick = self._get_pick_value(current_column)
-        
-        return current_column, new_game_count, recent_results, next_pick
-    
-    # def _record_new_result(self, result, column, new_game_count, recent_results):
-    #     """새 결과 기록"""
-    #     self.logger.info(f"{column}3에 새 결과 '{result}' 기록 중...")
-    #     self.excel_manager.write_game_result(column, result)
-        
-    #     # 처리된 결과 추적 - ID 추가
-    #     if hasattr(self.main_window, 'trading_manager'):
-    #         result_id = f"{new_game_count}_{result}"
-    #         self.main_window.trading_manager.processed_rounds.add(result_id)
-
-    #     # 다음 열의 PICK 값 확인
-    #     next_pick = self._get_pick_value(column)
-        
-    #     return column, new_game_count, recent_results, next_pick
-    
-    def _get_pick_value(self, column):
-        """PICK 값 확인 (더 안정적으로)"""
-        # Excel을 사용해 값 확인
-        try:
-            pick_value = self.excel_manager.check_next_column_pick(column)
-            
-            if pick_value in ['P', 'B']:
-                self.logger.info(f"다음 열 PICK 값: {pick_value}")
-                return pick_value
-            
-            # 직접 읽기 시도
-            next_column = self.excel_manager.get_next_column_letter(column)
-            if next_column:
-                direct_value = self.excel_manager.read_cell_value(next_column, 12)
-                if direct_value in ['P', 'B']:
-                    self.logger.info(f"직접 읽은 PICK 값: {direct_value}")
-                    return direct_value
-        except Exception as e:
-            self.logger.warning(f"PICK 값 확인 중 오류: {e}")
-        
-        return None
+        return "AUTO", new_game_count, recent_results, next_pick
