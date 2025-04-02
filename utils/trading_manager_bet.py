@@ -9,8 +9,9 @@ class TradingManagerBet:
 
     def __init__(self, trading_manager):
         self.tm = trading_manager  # trading_manager 참조
+        self.just_won = False
         self.logger = trading_manager.logger or logging.getLogger(__name__)
-
+        
     def place_bet(self, pick_value, game_count):
         try:
             self.tm.refresh_settings()
@@ -146,76 +147,60 @@ class TradingManagerBet:
         except Exception as e:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
             return False
-        
-    # trading_manager_bet.py의 process_bet_result 메서드 수정 - 역배팅 지원
+
     def process_bet_result(self, bet_type, latest_result, new_game_count):
-        """베팅 결과 처리 - 결과 표시 시 중지 버튼 비활성화 및 일시 정지 추가"""
         try:
             actual_bet_type = bet_type
 
-            # 역배팅 여부 확인 및 로깅
-            if self.tm.martin_service.current_direction == 'reverse':
-                original_pick = self.tm.martin_service.original_pick
-                if original_pick:
-                    self.logger.info(f"[역배팅] 원래 PICK: {original_pick}, 실제 베팅: {bet_type}")
-                else:
-                    self.logger.info(f"[역배팅] PICK: {bet_type}")
+            # 역배팅 여부 로그 생략 가능
 
-            # 결과 판단
             is_tie = (latest_result == 'T')
             is_win = (not is_tie and bet_type == latest_result)
 
-            # 중지 버튼 비활성화
-            self.tm.main_window.stop_button.setEnabled(False)
-            self.tm.main_window.update_button_styles()
-            self.logger.info("결과 확인 중: 중지 버튼 비활성화됨")
-
-            # 로그
-            if self.tm.martin_service.current_direction == 'reverse':
-                self.logger.info(f"[역배팅] 현재 PICK: {bet_type}")
-
-            # 결과에 따라 처리
+            # 결과 상태에 따라 마커 및 상태 처리
             if is_tie:
-                result_text = "무승부"
                 result_marker = "T"
                 result_status = "tie"
                 self.tm.betting_service.has_bet_current_round = False
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
 
             elif is_win:
-                result_text = "적중"
                 result_marker = "O"
                 result_status = "win"
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=True)
 
+                if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                    self.tm.main_window.betting_widget.prevent_reset = False
+
+                # ✅ 마커는 표시하되, 리셋은 다음 턴에서 수행되도록 플래그만 설정
+                self.tm.main_window.betting_widget.set_step_marker(
+                    self.tm.main_window.betting_widget.room_position_counter,
+                    result_marker
+                )
+                self.tm.just_won = True
+                
+                self.logger.info("✅ O 적중 마커 표시 → 다음 턴에서 마커 초기화 예정")
+
             else:
-                result_text = "실패"
                 result_marker = "X"
                 result_status = "lose"
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
 
+                if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                    self.tm.main_window.betting_widget.prevent_reset = True
+
+                # 실패 마커 누적
+                self.tm.main_window.betting_widget.set_step_marker(
+                    self.tm.main_window.betting_widget.room_position_counter,
+                    result_marker
+                )
+
+
+            # 결과 마커 로그 및 처리 유지
             self.tm.result_count += 1
-
-            # 마틴 결과 처리
-            result = self.tm.martin_service.process_bet_result(
-                result_status,
-                game_count=self.tm.game_count
-            )
-            
+            self.tm.martin_service.process_bet_result(result_status, game_count=self.tm.game_count)
             self.tm.martin_service.update_bet_direction_by_diff(self.tm.game_count)
-
-            current_step, consecutive_losses, result_position = result
-
-            # UI 마커 표시
-            self.tm.main_window.betting_widget.set_step_marker(result_position, result_marker)
-
-            # 승리 시 마틴 리셋
-            if is_win:
-                self.logger.info("승리 감지: 마틴 단계 즉시 초기화")
-                self.tm.martin_service.current_step = 0
-                self.tm.martin_service.consecutive_losses = 0
-
-            # 로그 위젯 업데이트
+            
             if hasattr(self.tm.main_window, 'room_log_widget'):
                 self.tm.main_window.room_log_widget.set_current_room(
                     self.tm.current_room_name,
@@ -226,27 +211,12 @@ class TradingManagerBet:
                     is_win=is_win,
                     is_tie=is_tie
                 )
+    
+            if hasattr(self.tm.main_window.betting_widget, 'set_step_marker') and not is_win and not is_tie:
+                # T 또는 X만 이쪽에서 마커 처리했을 경우
+                pass
 
-            # 결과 확인 대기
-            self.logger.info(f"결과 확인 대기: {result_text} (2초)")
-            time.sleep(2)
-
-            # 잔액 업데이트 예약
-            self.update_balance_after_result(is_win)
-
-            # prevent_reset → False 처리
-            if is_win and hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-                self.tm.main_window.betting_widget.prevent_reset = False
-                self.logger.info("승리 마커 표시 완료: 위젯 초기화 허용")
-
-            # ✅ 방 이동 체크
-            if new_game_count >= 60:
-                self.logger.info(f"{new_game_count}번째 결과 도달 → 바로 방 이동 실행")
-                self.tm.change_room()
-
-            # 중지 버튼 비활성화 유지
-            self.tm.main_window.stop_button.setEnabled(False)
-            self.tm.main_window.update_button_styles()
+            # 로그 기록 등 생략 가능
 
             return result_status
 
