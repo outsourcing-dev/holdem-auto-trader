@@ -1,15 +1,10 @@
 import sys
 import os
-import tempfile
-import atexit
-import shutil
-import time
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
 import urllib3
 import logging
-from utils.encrypt_excel import EncryptExcel
 
 # 로깅 설정
 logging.basicConfig(
@@ -21,8 +16,8 @@ logging.basicConfig(
 )
 
 # 전역 변수
-temp_excel_path = None
-backup_path = None
+# temp_excel_path = None
+# backup_path = None
 
 def get_default_style():
     """기본 스타일시트 반환"""
@@ -66,145 +61,6 @@ def get_style_path():
     logging.warning("스타일시트 파일을 찾을 수 없습니다.")
     return None
 
-def cleanup_temp_excel():
-    """프로그램 종료 시 임시 파일 삭제 - 강화된 버전"""
-    global temp_excel_path
-    if temp_excel_path and os.path.exists(temp_excel_path):
-        # 여러 번 시도 (파일 핸들이 늦게 해제될 수 있음)
-        for attempt in range(3):
-            try:
-                logging.info(f"임시 Excel 파일 삭제 시도 ({attempt+1}/3): {temp_excel_path}")
-                os.remove(temp_excel_path)
-                logging.info(f"임시 Excel 파일 삭제 완료: {temp_excel_path}")
-                break
-            except Exception as e:
-                logging.warning(f"임시 파일 삭제 실패 ({attempt+1}/3): {e}")
-                # Excel 프로세스 정리 시도
-                try:
-                    from utils.excel_cleanup import terminate_excel_processes
-                    terminate_excel_processes(save_first=False)
-                except:
-                    pass
-                # 잠시 대기 후 재시도
-                time.sleep(1)
-
-# 프로그램 종료 시 임시 파일 정리
-atexit.register(cleanup_temp_excel)
-
-def ensure_backup_exists():
-    """암호화 파일의 백업이 존재하는지 확인하고 필요시 생성"""
-    global backup_path
-    
-    # 실행 경로
-    base_path = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
-    
-    # 암호화된 파일 경로와 백업 경로
-    encrypted_path = os.path.join(base_path, "AUTO.encrypted")
-    backup_path = os.path.join(base_path, "AUTO.encrypted.bak")
-    
-    # 원본 파일이 있고 백업 파일이 없는 경우에만 백업 생성
-    if os.path.exists(encrypted_path) and not os.path.exists(backup_path):
-        try:
-            shutil.copy2(encrypted_path, backup_path)
-            logging.info(f"암호화 파일 백업 생성: {backup_path}")
-        except Exception as e:
-            logging.error(f"백업 생성 오류: {e}")
-    
-    return os.path.exists(backup_path)
-
-def prepare_excel_file():
-    """암호화된 Excel 파일을 복호화하여 임시 파일로 준비 - 개선된 버전"""
-    global temp_excel_path, backup_path
-    
-    # 백업 확인
-    backup_exists = ensure_backup_exists()
-    logging.info(f"백업 파일 존재 여부: {backup_exists}")
-    
-    # 실행 경로 및 파일 경로 설정
-    base_path = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
-    original_excel_path = os.path.join(base_path, "AUTO.xlsx")
-    encrypted_path = os.path.join(base_path, "AUTO.encrypted")
-    
-    # 1. 개발 환경에서 원본 Excel 파일 사용 (존재할 경우)
-    if os.path.exists(original_excel_path):
-        logging.info(f"원본 Excel 파일 사용: {original_excel_path}")
-        return original_excel_path
-    
-    # 2. 암호화된 파일 체크
-    if not os.path.exists(encrypted_path):
-        # 백업에서 복원 시도
-        if backup_exists:
-            try:
-                shutil.copy2(backup_path, encrypted_path)
-                logging.info(f"백업에서 암호화 파일 복원: {backup_path} -> {encrypted_path}")
-            except Exception as e:
-                logging.error(f"백업 복원 오류: {e}")
-        else:
-            logging.error(f"암호화된 Excel 파일을 찾을 수 없음: {encrypted_path}")
-            return None
-    
-    # 3. 임시 파일 경로 설정 - 고유한 파일 이름 사용
-    import uuid
-    temp_dir = tempfile.gettempdir()
-    unique_id = str(uuid.uuid4())[:8]  # 짧은 고유 ID 생성
-    temp_excel_path = os.path.join(temp_dir, f"AUTO_temp_{unique_id}.xlsx")
-    
-    # 4. 복호화 시도
-    SECRET_KEY = "holdem2025_secret_key"
-    encryptor = EncryptExcel()
-    
-    # 기존 Excel 프로세스 정리
-    try:
-        from utils.excel_cleanup import terminate_excel_processes
-        terminate_excel_processes(save_first=False)
-    except Exception as e:
-        logging.warning(f"Excel 프로세스 정리 실패: {e}")
-    
-    # 첫 번째 복호화 시도
-    try:
-        decrypt_result = encryptor.decrypt_file(encrypted_path, temp_excel_path, SECRET_KEY)
-        logging.info(f"복호화 결과: {decrypt_result}")
-        
-        if decrypt_result and os.path.exists(temp_excel_path) and os.path.getsize(temp_excel_path) > 0:
-            logging.info(f"Excel 파일 복호화 성공: {temp_excel_path}")
-            
-            # 가비지 컬렉션 강제 실행
-            import gc
-            gc.collect()
-            
-            return temp_excel_path
-        
-        # 복호화 실패 시 백업에서 복원 후 재시도
-        if backup_exists:
-            logging.info("복호화 실패, 백업에서 복원 후 재시도")
-            
-            # 손상된 파일 삭제
-            if os.path.exists(encrypted_path):
-                os.remove(encrypted_path)
-            
-            # 백업에서 복원
-            shutil.copy2(backup_path, encrypted_path)
-            
-            # 두 번째 복호화 시도
-            decrypt_result = encryptor.decrypt_file(encrypted_path, temp_excel_path, SECRET_KEY)
-            logging.info(f"두 번째 복호화 결과: {decrypt_result}")
-            
-            if decrypt_result and os.path.exists(temp_excel_path) and os.path.getsize(temp_excel_path) > 0:
-                logging.info(f"백업 복원 후 복호화 성공: {temp_excel_path}")
-                
-                # 가비지 컬렉션 강제 실행
-                import gc
-                gc.collect()
-                
-                return temp_excel_path
-        
-        logging.error("모든 복호화 시도 실패")
-        return None
-        
-    except Exception as e:
-        logging.error(f"복호화 중 오류: {str(e)}", exc_info=True)
-        return None
-    
 class MainApp(QApplication):
     def __init__(self, sys_argv):
         super().__init__(sys_argv)
@@ -220,22 +76,6 @@ class MainApp(QApplication):
                     self.setStyleSheet(f.read())
             except Exception as e:
                 logging.error(f"스타일시트 로딩 오류: {e}")
-        
-        # Excel 파일 준비 (최대 2번 시도)
-        for attempt in range(1, 3):
-            self.excel_path = prepare_excel_file()
-            if self.excel_path:
-                break
-            logging.warning(f"Excel 파일 준비 {attempt}번째 시도 실패")
-        
-        # 실패 시 종료
-        if not self.excel_path:
-            QMessageBox.critical(None, "오류", "필요한 Excel 파일을 준비할 수 없어 프로그램을 종료합니다.")
-            sys.exit(1)
-        
-        # 환경 변수에 경로 저장
-        os.environ["AUTO_EXCEL_PATH"] = self.excel_path
-        logging.info(f"Excel 파일 경로 설정: {self.excel_path}")
         
         # 로그인 창 표시
         self.username = ""
@@ -271,13 +111,6 @@ if __name__ == "__main__":
         sys.stderr = None  # ✅ 에러 메시지도 숨김
 
     try:
-        # Excel 정리 유틸리티 로드 시도
-        try:
-            from utils.excel_cleanup import cleanup_excel_on_startup
-            cleanup_excel_on_startup()
-        except ImportError:
-            logging.warning("Excel 정리 유틸리티를 가져올 수 없습니다.")
-        
         # 네트워크 풀 설정
         urllib3.PoolManager(maxsize=10)
         
