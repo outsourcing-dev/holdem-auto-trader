@@ -1,4 +1,4 @@
-# ui/settings_window.py 업데이트
+# ui/settings_window.py - Updated without Double & Half section
 
 import os
 import sys
@@ -34,7 +34,7 @@ class SettingsWindow(QWidget):
         martin_count, martin_amounts = self.settings_manager.get_martin_settings()
         target_amount = self.settings_manager.get_target_amount()
         
-        # Double & Half 설정 불러오기
+        # Load Double & Half settings for backward compatibility (but we won't display them)
         double_half_start, double_half_stop = self.settings_manager.get_double_half_settings()
 
         # 메인 레이아웃
@@ -98,38 +98,6 @@ class SettingsWindow(QWidget):
         
         target_group.setLayout(target_layout)
         main_layout.addWidget(target_group)
-        
-        # Double & Half 설정 그룹
-        double_half_group = QGroupBox("Double & Half")
-        double_half_group.setFont(label_font)
-        double_half_layout = QHBoxLayout()
-
-        # 시작 설정
-        start_layout = QHBoxLayout()
-        self.start_label = QLabel("시작:")
-        self.start_label.setFont(label_font)
-        self.start_input = QLineEdit(str(double_half_start))  # 저장된 값 사용
-        self.start_input.setFixedWidth(80)
-        self.start_input.setValidator(QIntValidator(1, 100))  # 1부터 100까지의 정수만 입력 가능
-        start_layout.addWidget(self.start_label)
-        start_layout.addWidget(self.start_input)
-
-        # 중지 설정
-        stop_layout = QHBoxLayout()
-        self.stop_label = QLabel("중지:")
-        self.stop_label.setFont(label_font)
-        self.stop_input = QLineEdit(str(double_half_stop))  # 저장된 값 사용
-        self.stop_input.setFixedWidth(80)
-        self.stop_input.setValidator(QIntValidator(1, 100))  # 1부터 100까지의 정수만 입력 가능
-        stop_layout.addWidget(self.stop_label)
-        stop_layout.addWidget(self.stop_input)
-
-        # 위젯 배치
-        double_half_layout.addLayout(start_layout)
-        double_half_layout.addLayout(stop_layout)
-
-        double_half_group.setLayout(double_half_layout)
-        main_layout.addWidget(double_half_group)
         
         # 마틴 설정 그룹
         martin_group = QGroupBox("마틴 설정")
@@ -420,8 +388,6 @@ class SettingsWindow(QWidget):
         except ValueError:
             return 0  # 변환 오류 시 0으로 처리 (비활성화)
 
-    # ui/settings_window.py에서 save_settings 메서드 수정
-
     def save_settings(self):
         """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장하고 다시 로드"""
         site1 = self.site1_input.text()
@@ -434,9 +400,8 @@ class SettingsWindow(QWidget):
         # 목표 금액 가져오기
         target_amount = self.get_target_amount()
         
-        # Double & Half 설정 가져오기
-        double_half_start = int(self.start_input.text() or "20")
-        double_half_stop = int(self.stop_input.text() or "8")
+        # 기존 Double & Half 설정 유지 (for backward compatibility)
+        double_half_start, double_half_stop = self.settings_manager.get_double_half_settings()
         
         # 설정 저장
         self.settings_manager.save_settings(
@@ -451,7 +416,7 @@ class SettingsWindow(QWidget):
         # 설정 파일을 명시적으로 다시 로드
         self.settings_manager.load_settings()
         
-        print(f"[INFO] 설정 저장 및 재로드 완료 - 목표 금액: {target_amount:,}원, Double & Half 설정: 시작={double_half_start}, 중지={double_half_stop}")
+        print(f"[INFO] 설정 저장 및 재로드 완료 - 목표 금액: {target_amount:,}원")
         
         # 부모 창에 있는 설정 관련 클래스들도 새로운 설정 로드
         try:
@@ -469,4 +434,3 @@ class SettingsWindow(QWidget):
             print(f"[WARNING] 부모 창 설정 업데이트 오류: {e}")
         
         self.close()
-       
