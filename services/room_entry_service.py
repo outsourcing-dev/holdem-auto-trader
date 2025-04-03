@@ -128,8 +128,8 @@ class RoomEntryService:
                 if game_state:
                     game_count = game_state.get('round', 0)
                     
-                    # 입장 기준 설정 (3.31 10~40으로 수정)
-                    if game_count < 10 or game_count > 40:
+                    # 입장 기준 설정 (4.3 14~57 수정)
+                    if game_count < 14 or game_count > 57:
                         # 방 나가기
                         if self.main_window.trading_manager.game_monitoring_service.close_current_room():
                             # 방문 처리하여 다음에 다시 시도하지 않도록 함

@@ -6,7 +6,6 @@ Excel 파일 백업 및 대량 데이터 처리 클래스
 - 필터링된 게임 결과 처리
 """
 import logging
-import openpyxl
 from typing import List, Optional
 
 class ExcelBackupManager:

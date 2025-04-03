@@ -214,15 +214,53 @@ class MartinBettingService:
         
     def get_reverse_bet_pick(self, original_pick):
         self.original_pick = original_pick
-        self.logger.info(f"[PICK 결정] 현재 방향: {self.current_direction}, 원 PICK: {original_pick}")
 
-        if self.current_direction == 'forward':
-            return original_pick
-        if original_pick == 'P':
-            return 'B'
-        elif original_pick == 'B':
-            return 'P'
-        return original_pick
+        # 초이스 픽이 이미 정해져 있으면 고정 사용
+        if hasattr(self, 'choice_pick') and self.choice_pick:
+            self.logger.info(f"[초이스 픽 고정] → {self.choice_pick}")
+            return self.choice_pick
+
+        recent_results = self.recent_results[-6:]  # 예: ['P', 'B', 'P', 'P', 'B', 'B']
+        recent_picks = self.pick_history[-6:]     # 예: ['P', 'P', 'B', 'P', 'B', 'P']
+        
+        candidate_picks = []
+
+        for i in range(len(recent_picks) - 2):
+            sub_pick = recent_picks[i:i+3]
+            sub_result = recent_results[i:i+3]
+
+            win = sum([1 for p, r in zip(sub_pick, sub_result) if p == r])
+            loss = 3 - win
+
+            last_result = sub_result[-1]
+            last_pick = sub_pick[-1]
+
+            # 정배팅 조건
+            if loss < 2 and last_result != last_pick:
+                candidate_picks.append((last_pick, win - loss, 'forward'))
+            # 역배팅 조건
+            elif win < 2 and last_result == last_pick:
+                reverse = 'B' if last_pick == 'P' else 'P'
+                candidate_picks.append((reverse, loss - win, 'reverse'))
+
+        # 승패차이 가장 큰 후보만 고름
+        if candidate_picks:
+            candidate_picks.sort(key=lambda x: x[1], reverse=True)
+            top_score = candidate_picks[0][1]
+            top_picks = [p for p in candidate_picks if p[1] == top_score]
+
+            # 동점이면 PASS
+            if len(top_picks) > 1:
+                self.logger.info("[배팅 PASS] 승패차이 동점 → 배팅하지 않음")
+                return None
+
+            selected = top_picks[0][0]
+            self.choice_pick = selected  # 고정
+            self.logger.info(f"[초이스 픽 선택] → {selected}")
+            return selected
+
+        self.logger.info("[배팅 PASS] 조건 만족하는 픽 없음")
+        return None
 
 
 

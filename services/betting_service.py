@@ -466,12 +466,20 @@ class BettingService:
     def reset_betting_state(self, new_round=None):
         """베팅 상태 초기화"""
         previous_round = self.current_bet_round
-        self.has_bet_current_round = False  # 항상 False로 초기화
-        # 새 라운드가 지정되면 저장, 아니면 0으로 초기화
+        self.has_bet_current_round = False
         self.current_bet_round = new_round if new_round is not None else 0
-        self.bet_result_confirmed = False   # 결과 확인 여부 초기화
-        self.last_bet_result = None         # 마지막 결과 초기화
-        # self.logger.info(f"베팅 상태 초기화 완료 (라운드: {previous_round} → {self.current_bet_round})")
+        self.bet_result_confirmed = False
+        self.last_bet_result = None
+
+        # 🔽 [추가: 초이스 픽, 결과 히스토리 초기화]
+        if hasattr(self, "prediction_engine"):
+            self.prediction_engine.clear()  # choice_pick + recent_results 초기화
+        if hasattr(self, "martin_service"):
+            self.martin_service.pick_history = []
+            self.martin_service.recent_results = []
+
+        self.logger.info("[RESET] 베팅 상태 및 예측 상태 초기화 완료")
+
 
     def check_is_bet_for_current_round(self, current_round):
         """현재 라운드에 베팅했는지 확인"""

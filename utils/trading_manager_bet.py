@@ -106,7 +106,23 @@ class TradingManagerBet:
             self.tm.current_pick = original_pick
 
             if bet_success:
+                # 🔽 [추가: 픽 & 결과 기록 저장]
+                if not hasattr(self.tm.martin_service, 'pick_history'):
+                    self.tm.martin_service.pick_history = []
+                if not hasattr(self.tm.martin_service, 'recent_results'):
+                    self.tm.martin_service.recent_results = []
+
+                self.tm.martin_service.pick_history.append(original_pick)
+                self.tm.martin_service.pick_history = self.tm.martin_service.pick_history[-15:]
+
+                # ✅ 실제 결과 가져오기 (니 프로젝트 구조에 맞게 수정 필요!)
+                game_state = self.tm.game_monitoring_service.get_current_game_state()
+                actual_result = game_state.get('latest_result') if game_state else None
+                self.tm.martin_service.recent_results.append(actual_result)
+                self.tm.martin_service.recent_results = self.tm.martin_service.recent_results[-15:]
+
                 self.process_successful_bet(final_bet_amount)
+
             else:
                 self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {original_pick}")
                 self.tm.main_window.update_betting_status(pick=original_pick)
@@ -124,12 +140,11 @@ class TradingManagerBet:
             self.logger.info("베팅 오류: 중지 버튼 다시 활성화")
             return False
 
+
+
     def process_successful_bet(self, bet_amount):
         """성공적인 베팅 처리"""
         try:
-            # self.tm.martin_service.has_bet_in_current_room = True
-            # self.logger.info("베팅 성공: 한 방에서 한 번 배팅 완료 표시")
-            
             # 누적 배팅 금액 업데이트
             self.tm.martin_service.total_bet_amount += bet_amount
             if hasattr(self.tm.main_window, 'total_bet_amount'):
@@ -137,6 +152,10 @@ class TradingManagerBet:
             else:
                 self.tm.main_window.total_bet_amount = bet_amount
             
+            # ✅ 마틴 1회 성공 시 방 이동 플래그 설정
+            self.tm.martin_service.need_room_change = True
+            self.logger.info("[마틴] 1회 성공 → need_room_change = True 설정 → 방 이동 준비 완료")
+
             # UI 업데이트
             self.tm.main_window.update_user_data(total_bet=self.tm.main_window.total_bet_amount)
             self.logger.info(f"누적 배팅 금액: {self.tm.main_window.total_bet_amount:,}원")

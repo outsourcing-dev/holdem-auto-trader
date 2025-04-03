@@ -40,60 +40,95 @@ class PredictionEngine:
             self.add_result(result)
     
     def predict_next_pick(self):
-        """
-        다음 픽 예측 (클라이언트 룰 기반)
-        """
-        if len(self.recent_results) < 10:
-            self.logger.warning(f"결과가 10개 미만으로 예측 불가: {len(self.recent_results)}개")
+        if len(self.recent_results) < 15:
+            self.logger.warning(f"결과가 15개 미만으로 예측 불가: {len(self.recent_results)}개")
             return 'N'
 
-        try:
-            # 최근 10개 기준
-            window = self.recent_results[-10:]
-            self.logger.info(f"[예측] 최근 10개 결과: {window}")
+        # 초이스 픽이 이미 선택되어 있으면 고정 사용
+        if hasattr(self, 'choice_pick') and self.choice_pick:
+            self.logger.info(f"[초이스 픽 고정 사용] → {self.choice_pick}")
+            return self.choice_pick
 
-            # 비교: 1-7, 2-8, 3-9
-            comparisons = [
-                (window[0], window[6]),
-                (window[1], window[7]),
-                (window[2], window[8])
-            ]
+        candidates = []
 
-            pattern = []
-            for idx, (a, b) in enumerate(comparisons, start=1):
-                result = 'O' if a == b else 'X'
-                pattern.append(result)
-                self.logger.info(f"[비교] {idx}-{idx+6}: {a} vs {b} → {result}")
+        for offset in range(6):  # 1~6번 픽
+            sequence = self.recent_results[offset:offset + 15]
+            stage1 = []
 
-            pattern_key = ''.join(pattern)
-            self.logger.info(f"[패턴] 패턴 키: {pattern_key}")
+            # 1단계: 기본 룰로 5~15번까지 예측
+            for i in range(4, 15):
+                a, b, ref = sequence[i - 4], sequence[i - 3], sequence[i - 1]
+                pick = ref if a == b else ('B' if ref == 'P' else 'P')
+                stage1.append(pick)
 
-            # 룰 정의
-            pattern_rule = {
-                "XXX": "O",
-                "OOO": "X",
-                "XOX": "O",
-                "OXO": "X",
-                "OOX": "X",
-                "XXO": "O",
-                "OXX": "O",
-                "XOO": "X",
-            }
+            # 2단계: 이전 4판 중 2승 이상이면 유지, 아니면 반대
+            stage2 = []
+            for i in range(4, len(stage1)):
+                window = stage1[i - 4:i]
+                actual = sequence[4 + i]
+                win = sum(1 for x, y in zip(window, sequence[i:i + 4]) if x == y)
+                if win >= 2:
+                    stage2.append(stage1[i])
+                else:
+                    flipped = 'B' if stage1[i] == 'P' else 'P'
+                    stage2.append(flipped)
 
-            match_target = pattern_rule.get(pattern_key, "X")
-            self.logger.info(f"[룰결정] 매치 타겟: {match_target} (기본값은 X)")
+            # 3~5단계는 동일 원리 반복
+            def stepwise(prev_stage, actuals):
+                result = prev_stage[:]
+                for i in range(len(prev_stage)):
+                    if i < 4:
+                        continue
+                    prev_pick = result[i - 1]
+                    prev_actual = actuals[i - 1]
+                    if prev_pick != prev_actual:
+                        flipped = 'B' if prev_pick == 'P' else 'P'
+                        if flipped == actuals[i]:
+                            result[i] = flipped
+                return result
 
-            reference_value = window[3]
-            prediction = reference_value if match_target == 'O' else ('P' if reference_value == 'B' else 'B')
-            self.logger.info(f"[결과] 참조값(4번): {reference_value} → 예측: {prediction}")
+            stage3 = stepwise(stage2, sequence[9:])
+            stage4 = stepwise(stage3, sequence[9:])
+            stage5 = stage3[:7] + stage4[7:]  # 5~11은 stage1 고정, 12~는 stage4 기반
 
-            return prediction
+            final_pick = stage5[-1]
 
-        except Exception as e:
-            self.logger.error(f"PICK 예측 중 오류 발생: {e}")
+            # 정배/역배 조건 체크
+            last3 = stage5[-3:]
+            actual3 = sequence[-3:]
+
+            wins = sum(1 for x, y in zip(last3, actual3) if x == y)
+            losses = 3 - wins
+
+            if losses < 2 and last3[-1] != actual3[-1]:
+                # 정배 조건
+                score = wins - losses
+                candidates.append(('정배', final_pick, score))
+            elif wins < 2 and last3[-1] == actual3[-1]:
+                # 역배 조건
+                flipped = 'B' if final_pick == 'P' else 'P'
+                score = losses - wins
+                candidates.append(('역배', flipped, score))
+
+        if not candidates:
+            self.logger.info("[초이스 실패] 조건 만족 픽 없음")
             return 'N'
 
+        # 점수 높은 후보 찾기
+        candidates.sort(key=lambda x: x[2], reverse=True)
+        top_score = candidates[0][2]
+        top_picks = [c for c in candidates if c[2] == top_score]
+
+        if len(top_picks) > 1:
+            self.logger.info("[초이스 실패] 승패차 동점 → PASS")
+            return 'N'
+
+        selected = top_picks[0][1]
+        self.choice_pick = selected  # 고정
+        self.logger.info(f"[초이스 픽 선택] {top_picks[0][0]} → {selected}")
+        return selected
 
     def clear(self):
         """결과 초기화"""
         self.recent_results = []
+        self.choice_pick = None
