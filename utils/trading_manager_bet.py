@@ -11,7 +11,7 @@ class TradingManagerBet:
         self.tm = trading_manager  # trading_manager 참조
         self.just_won = False
         self.logger = trading_manager.logger or logging.getLogger(__name__)
-        
+
     def place_bet(self, pick_value, game_count):
         try:
             self.tm.refresh_settings()
@@ -36,6 +36,12 @@ class TradingManagerBet:
                 self.logger.info(f"[역배팅 적용됨] 실제 PICK: {pick_value}")
                 if hasattr(self.tm.main_window.betting_widget, 'update_reverse_mode'):
                     self.tm.main_window.betting_widget.update_reverse_mode(direction == 'reverse')
+
+            # ✅ PICK 기록은 무조건 저장!
+            if not hasattr(self.tm.martin_service, 'pick_history'):
+                self.tm.martin_service.pick_history = []
+            self.tm.martin_service.pick_history.append(original_pick)
+            self.tm.martin_service.pick_history = self.tm.martin_service.pick_history[-15:]
 
             # 베팅 금액 설정
             win = self.tm.martin_service.win_count
@@ -106,16 +112,10 @@ class TradingManagerBet:
             self.tm.current_pick = original_pick
 
             if bet_success:
-                # 🔽 [추가: 픽 & 결과 기록 저장]
-                if not hasattr(self.tm.martin_service, 'pick_history'):
-                    self.tm.martin_service.pick_history = []
+                # 결과도 같이 저장
                 if not hasattr(self.tm.martin_service, 'recent_results'):
                     self.tm.martin_service.recent_results = []
 
-                self.tm.martin_service.pick_history.append(original_pick)
-                self.tm.martin_service.pick_history = self.tm.martin_service.pick_history[-15:]
-
-                # ✅ 실제 결과 가져오기 (니 프로젝트 구조에 맞게 수정 필요!)
                 game_state = self.tm.game_monitoring_service.get_current_game_state()
                 actual_result = game_state.get('latest_result') if game_state else None
                 self.tm.martin_service.recent_results.append(actual_result)
@@ -139,7 +139,6 @@ class TradingManagerBet:
             self.tm.main_window.update_button_styles()
             self.logger.info("베팅 오류: 중지 버튼 다시 활성화")
             return False
-
 
 
     def process_successful_bet(self, bet_amount):

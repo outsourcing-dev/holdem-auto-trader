@@ -26,7 +26,7 @@ class PredictionEngine:
             
         # 결과 추가 및 최대 10개 유지
         self.recent_results.append(result)
-        if len(self.recent_results) > 10:
+        if len(self.recent_results) > 15:
             self.recent_results.pop(0)
             
     def add_multiple_results(self, results):
@@ -51,70 +51,69 @@ class PredictionEngine:
 
         candidates = []
 
-        for offset in range(6):  # 1~6번 픽
+        for offset in range(len(self.recent_results) - 14):  # 유효한 시퀀스만
             sequence = self.recent_results[offset:offset + 15]
+            if len(sequence) < 15:
+                continue  # 데이터 부족시 스킵
+
             stage1 = []
+            try:
+                for i in range(4, 15):
+                    a, b, ref = sequence[i - 4], sequence[i - 3], sequence[i - 1]
+                    pick = ref if a == b else ('B' if ref == 'P' else 'P')
+                    stage1.append(pick)
 
-            # 1단계: 기본 룰로 5~15번까지 예측
-            for i in range(4, 15):
-                a, b, ref = sequence[i - 4], sequence[i - 3], sequence[i - 1]
-                pick = ref if a == b else ('B' if ref == 'P' else 'P')
-                stage1.append(pick)
+                # 2단계
+                stage2 = []
+                for i in range(4, len(stage1)):
+                    window = stage1[i - 4:i]
+                    actual = sequence[4 + i]
+                    win = sum(1 for x, y in zip(window, sequence[i:i + 4]) if x == y)
+                    if win >= 2:
+                        stage2.append(stage1[i])
+                    else:
+                        flipped = 'B' if stage1[i] == 'P' else 'P'
+                        stage2.append(flipped)
 
-            # 2단계: 이전 4판 중 2승 이상이면 유지, 아니면 반대
-            stage2 = []
-            for i in range(4, len(stage1)):
-                window = stage1[i - 4:i]
-                actual = sequence[4 + i]
-                win = sum(1 for x, y in zip(window, sequence[i:i + 4]) if x == y)
-                if win >= 2:
-                    stage2.append(stage1[i])
-                else:
-                    flipped = 'B' if stage1[i] == 'P' else 'P'
-                    stage2.append(flipped)
+                def stepwise(prev_stage, actuals):
+                    result = prev_stage[:]
+                    for i in range(len(prev_stage)):
+                        if i < 4:
+                            continue
+                        prev_pick = result[i - 1]
+                        prev_actual = actuals[i - 1]
+                        if prev_pick != prev_actual:
+                            flipped = 'B' if prev_pick == 'P' else 'P'
+                            if i < len(actuals) and flipped == actuals[i]:
+                                result[i] = flipped
+                    return result
 
-            # 3~5단계는 동일 원리 반복
-            def stepwise(prev_stage, actuals):
-                result = prev_stage[:]
-                for i in range(len(prev_stage)):
-                    if i < 4:
-                        continue
-                    prev_pick = result[i - 1]
-                    prev_actual = actuals[i - 1]
-                    if prev_pick != prev_actual:
-                        flipped = 'B' if prev_pick == 'P' else 'P'
-                        if flipped == actuals[i]:
-                            result[i] = flipped
-                return result
+                stage3 = stepwise(stage2, sequence[9:])
+                stage4 = stepwise(stage3, sequence[9:])
+                stage5 = stage3[:7] + stage4[7:]
 
-            stage3 = stepwise(stage2, sequence[9:])
-            stage4 = stepwise(stage3, sequence[9:])
-            stage5 = stage3[:7] + stage4[7:]  # 5~11은 stage1 고정, 12~는 stage4 기반
+                final_pick = stage5[-1]
 
-            final_pick = stage5[-1]
+                last3 = stage5[-3:]
+                actual3 = sequence[-3:]
 
-            # 정배/역배 조건 체크
-            last3 = stage5[-3:]
-            actual3 = sequence[-3:]
+                wins = sum(1 for x, y in zip(last3, actual3) if x == y)
+                losses = 3 - wins
 
-            wins = sum(1 for x, y in zip(last3, actual3) if x == y)
-            losses = 3 - wins
+                if losses < 2 and last3[-1] != actual3[-1]:
+                    candidates.append(('정배', final_pick, wins - losses))
+                elif wins < 2 and last3[-1] == actual3[-1]:
+                    flipped = 'B' if final_pick == 'P' else 'P'
+                    candidates.append(('역배', flipped, losses - wins))
 
-            if losses < 2 and last3[-1] != actual3[-1]:
-                # 정배 조건
-                score = wins - losses
-                candidates.append(('정배', final_pick, score))
-            elif wins < 2 and last3[-1] == actual3[-1]:
-                # 역배 조건
-                flipped = 'B' if final_pick == 'P' else 'P'
-                score = losses - wins
-                candidates.append(('역배', flipped, score))
+            except IndexError as e:
+                self.logger.warning(f"[예측 스킵] 시퀀스 처리 중 오류: {e}")
+                continue
 
         if not candidates:
             self.logger.info("[초이스 실패] 조건 만족 픽 없음")
             return 'N'
 
-        # 점수 높은 후보 찾기
         candidates.sort(key=lambda x: x[2], reverse=True)
         top_score = candidates[0][2]
         top_picks = [c for c in candidates if c[2] == top_score]
@@ -124,9 +123,10 @@ class PredictionEngine:
             return 'N'
 
         selected = top_picks[0][1]
-        self.choice_pick = selected  # 고정
+        self.choice_pick = selected
         self.logger.info(f"[초이스 픽 선택] {top_picks[0][0]} → {selected}")
         return selected
+
 
     def clear(self):
         """결과 초기화"""
