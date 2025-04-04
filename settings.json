@@ -2,9 +2,10 @@
     "site1": "https://cb-8989.com",
     "site2": "https://sm-782.com/#casino",
     "site3": "aii1dd.net",
-    "martin_count": 1,
+    "martin_count": 2,
     "martin_amounts": [
-        1000
+        1000,
+        2000
     ],
     "target_amount": 0,
     "double_half_start": 15,
