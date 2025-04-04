@@ -181,10 +181,6 @@ class TradingManagerGame:
             
             # 중요 변경: 실제 게임 카운트 사용 - 게임 카운트 강제 변환 방지
             actual_game_count = game_state.get('round', 0)
-            if self.tm.should_move_to_next_room:
-                self.logger.info(f"60번째 게임 도달 ({actual_game_count}회차). 다음 방으로 이동합니다.")
-                self.tm.change_room()
-                return
             
             # 게임 카운트 초기화 감지 (큰 값에서 작은 값으로 갑자기 변경되는 경우)
             if previous_game_count > 10 and actual_game_count <= 5:
@@ -192,6 +188,18 @@ class TradingManagerGame:
                 # 현재 방에서 나가고 다음 방으로 이동 시작
                 self.tm.change_room()
                 return  # 방 이동 시작했으므로 추가 처리 중단
+            
+            # ✅ 수정: 60번째 게임 도달 시 이미 베팅한 경우와 아직 베팅하지 않은 경우를 구분
+            if actual_game_count >= 60:
+                # 이미 베팅한 경우: 결과를 기다리고 나중에 방 이동
+                if self.tm.betting_service.has_bet_current_round:
+                    self.logger.info(f"60번째 게임에 이미 베팅함 ({actual_game_count}회차). 결과를 기다린 후 방 이동 예정")
+                    self.tm.should_move_to_next_room = True
+                # 아직 베팅하지 않은 경우: 즉시 방 이동
+                else:
+                    self.logger.info(f"60번째 게임 도달 ({actual_game_count}회차). 베팅 없이 바로 다음 방으로 이동")
+                    self.tm.change_room()
+                    return
             
             # 게임 카운트 변화 검증 - 조건 수정
             if new_game_count > previous_game_count:
@@ -204,7 +212,8 @@ class TradingManagerGame:
                     pass
                 
                 # PICK 값에 따른 베팅 실행
-                if not self.tm.should_move_to_next_room and next_pick in ['P', 'B'] and not self.tm.betting_service.has_bet_current_round:
+                # ✅ 수정: 60번째 이후의 게임에는 베팅하지 않도록 조건 추가
+                if not self.tm.should_move_to_next_room and next_pick in ['P', 'B'] and not self.tm.betting_service.has_bet_current_round and actual_game_count < 60:
                     self.tm.main_window.update_betting_status(pick=next_pick)
 
                     # 첫 입장 시 바로 베팅하지 않음
@@ -227,19 +236,28 @@ class TradingManagerGame:
                         if not self.tm.should_move_to_next_room:
                             # self.logger.info("베팅 결과 확인을 위해 다음 분석까지 대기")
                             pass
+                
+                # ✅ 수정: 베팅 결과가 처리된 후 방 이동 필요성 재확인
+                # should_move_to_next_room이 True이고 현재 베팅이 없으면 방 이동
+                if self.tm.should_move_to_next_room and not self.tm.betting_service.has_bet_current_round:
+                    self.logger.info("베팅 결과 확인 후 방 이동 조건 충족, 다음 방으로 이동")
+                    self.tm.change_room()
+                    return
             
             # 첫 입장 후 일정 시간 경과 시 베팅 - 수정: 실제 게임 카운트 참조
             elif previous_game_count == 0 and self.tm.game_count > 0 and not self.tm.betting_service.has_bet_current_round:
-                if hasattr(self.tm, '_first_entry_time'):
-                    elapsed = time.time() - self.tm._first_entry_time
-                    if elapsed > 1.0 and next_pick in ['P', 'B']:
-                        # self.logger.info(f"첫 입장 후 {elapsed:.1f}초 경과, 베팅 실행: {next_pick}")
-                        self.tm.current_pick = next_pick
-                        self.tm.main_window.update_betting_status(pick=next_pick)
-                        self.tm.bet_helper.place_bet(next_pick, self.tm.game_count)
-                        delattr(self.tm, '_first_entry_time')
-                else:
-                    self.tm._first_entry_time = time.time()
+                # ✅ 수정: 60번째 이후의 게임에는 베팅하지 않도록 조건 추가
+                if actual_game_count < 60:
+                    if hasattr(self.tm, '_first_entry_time'):
+                        elapsed = time.time() - self.tm._first_entry_time
+                        if elapsed > 1.0 and next_pick in ['P', 'B']:
+                            # self.logger.info(f"첫 입장 후 {elapsed:.1f}초 경과, 베팅 실행: {next_pick}")
+                            self.tm.current_pick = next_pick
+                            self.tm.main_window.update_betting_status(pick=next_pick)
+                            self.tm.bet_helper.place_bet(next_pick, self.tm.game_count)
+                            delattr(self.tm, '_first_entry_time')
+                    else:
+                        self.tm._first_entry_time = time.time()
         except Exception as e:
             self.logger.error(f"Excel 결과 처리 오류: {e}")
             

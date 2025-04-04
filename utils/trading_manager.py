@@ -263,10 +263,13 @@ class TradingManager:
                 
             self.game_helper.handle_tie_result(latest_result, game_state)
                 
+            # ✅ 수정: 베팅한 상태에서는 방 이동하지 않도록 수정
             if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
-                self.logger.info("방 이동 조건 충족 - change_room 실행")
+                self.logger.info("방 이동 조건 충족 및 현재 베팅 없음 - change_room 실행")
                 self.change_room()
                 return
+            elif self.should_move_to_next_room and self.betting_service.has_bet_current_round:
+                self.logger.info("방 이동 조건 충족했으나, 현재 베팅이 있어 베팅 결과를 기다림")
 
         except Exception as e:
             self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)
@@ -279,8 +282,7 @@ class TradingManager:
                 self.main_window.set_remaining_time(0, 0, 2)
             else:
                 self.logger.info("자동 매매 비활성화됨: 다음 분석을 예약하지 않습니다.")
-
-
+                
     def _handle_analysis_error(self, error_msg):
         """분석 오류 처리 핸들러"""
         self.logger.error(f"분석 스레드 오류: {error_msg}")
