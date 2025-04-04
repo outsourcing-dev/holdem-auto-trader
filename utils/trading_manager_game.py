@@ -9,7 +9,33 @@ class TradingManagerGame:
     def __init__(self, trading_manager):
         self.tm = trading_manager  # trading_manager 참조
         self.logger = trading_manager.logger or logging.getLogger(__name__)
-    
+        self.choice_fail_count = 0
+        self.last_win_game_count = None  # 마틴 성공 시 저장
+        
+    def check_room_move_conditions(self, actual_game_count):
+        """모든 방 이동 조건을 통합 체크"""
+        # 1. 마틴 3단계 실패 감지
+        if self.tm.martin_service.get_current_level() > 3:
+            self.logger.warning("[방 이동 조건] 마틴 3단계 실패 → 방 이동")
+            self.tm.should_move_to_next_room = True
+            return
+
+        # 2. 초이스 픽 실패 2회
+        if getattr(self, 'choice_fail_count', 0) >= 3:
+            self.logger.warning("[방 이동 조건] 초이스 실패 2회 누적 → 방 이동")
+            self.tm.should_move_to_next_room = True
+            return
+
+        # 3. 게임 수 초기화는 기존 코드에서 별도 처리됨 (여기선 생략)
+
+        # 4. 마틴 성공 이후 현재 게임 수가 57 이상
+        if self.last_win_game_count is not None:
+            if actual_game_count >= 57 and self.last_win_game_count < actual_game_count:
+                self.logger.warning("[방 이동 조건] 마틴 승 이후 57게임 이상 → 방 이동")
+                self.tm.should_move_to_next_room = True
+                return
+
+
     def enter_first_room(self):
         """첫 방 입장 및 모니터링 시작 - 게임 카운트 완전 초기화 보장"""
         try:
@@ -175,74 +201,66 @@ class TradingManagerGame:
 
     # utils/trading_manager_game.py의 process_excel_result 메서드 수정
     def process_excel_result(self, result, game_state, previous_game_count):
-        """엑셀 처리 결과 활용"""
         try:
             last_column, new_game_count, recent_results, next_pick = result
-            
-            # 중요 변경: 실제 게임 카운트 사용 - 게임 카운트 강제 변환 방지
             actual_game_count = game_state.get('round', 0)
+
+            # 초이스 실패 카운터
+            if next_pick == 'N':
+                self.choice_fail_count += 1
+                self.logger.info(f"[초이스 실패] 누적: {self.choice_fail_count}")
+            else:
+                self.choice_fail_count = 0
+
+            # 게임 수 초기화 감지는 기존 코드 유지
             if self.tm.should_move_to_next_room:
-                self.logger.info(f"60번째 게임 도달 ({actual_game_count}회차). 다음 방으로 이동합니다.")
                 self.tm.change_room()
                 return
-            
-            # 게임 카운트 초기화 감지 (큰 값에서 작은 값으로 갑자기 변경되는 경우)
+
             if previous_game_count > 10 and actual_game_count <= 5:
-                self.logger.info(f"게임 카운트 초기화 감지! {previous_game_count} -> {actual_game_count}")
-                # 현재 방에서 나가고 다음 방으로 이동 시작
+                self.logger.info(f"[게임 초기화 감지] {previous_game_count} → {actual_game_count}")
                 self.tm.change_room()
-                return  # 방 이동 시작했으므로 추가 처리 중단
-            
-            # 게임 카운트 변화 검증 - 조건 수정
+                return
+
             if new_game_count > previous_game_count:
-                # 이전 게임 결과 처리
                 self.process_previous_game_result(game_state, actual_game_count)
-                
-                # 타이(T) 결과 확인
-                if game_state.get('latest_result') == 'T':
-                    # self.tm.should_move_to_next_room = False
-                    pass
-                
-                # PICK 값에 따른 베팅 실행
+
+                # 베팅 성공 시 → 마틴 승 카운트 저장
+                last_bet = self.tm.betting_service.get_last_bet()
+                latest_result = game_state.get('latest_result')
+                if last_bet and latest_result in ['P', 'B']:
+                    if last_bet['pick'] == latest_result:
+                        self.last_win_game_count = new_game_count
+                        self.logger.info(f"[마틴 승] 마지막 승리 게임수 기록: {self.last_win_game_count}")
+
+                # 베팅 실행
                 if not self.tm.should_move_to_next_room and next_pick in ['P', 'B'] and not self.tm.betting_service.has_bet_current_round:
                     self.tm.main_window.update_betting_status(pick=next_pick)
-
-                    # 첫 입장 시 바로 베팅하지 않음
                     if previous_game_count > 0:
                         self.tm.bet_helper.place_bet(next_pick, actual_game_count)
                     else:
-                        # self.logger.info(f"첫 입장 후 게임 상황 파악 중 (PICK: {next_pick})")
                         self.tm.current_pick = next_pick
 
-                # 중요 변경: 실제 게임 카운트 저장
                 self.tm.game_count = actual_game_count
                 self.tm.recent_results = recent_results
-                
-                # 베팅 후 바로 결과가 나온 경우 처리 
-                if self.tm.betting_service.has_bet_current_round:
-                    last_bet = self.tm.betting_service.get_last_bet()
-                    if last_bet and last_bet['round'] < actual_game_count:
-                        # self.logger.info(f"베팅({last_bet['round']})과 현재 게임({actual_game_count})의 불일치 감지")
-                        # 이 경우 이전 게임 결과를 먼저 처리해야 함
-                        if not self.tm.should_move_to_next_room:
-                            # self.logger.info("베팅 결과 확인을 위해 다음 분석까지 대기")
-                            pass
-            
-            # 첫 입장 후 일정 시간 경과 시 베팅 - 수정: 실제 게임 카운트 참조
+
             elif previous_game_count == 0 and self.tm.game_count > 0 and not self.tm.betting_service.has_bet_current_round:
                 if hasattr(self.tm, '_first_entry_time'):
                     elapsed = time.time() - self.tm._first_entry_time
                     if elapsed > 1.0 and next_pick in ['P', 'B']:
-                        # self.logger.info(f"첫 입장 후 {elapsed:.1f}초 경과, 베팅 실행: {next_pick}")
                         self.tm.current_pick = next_pick
                         self.tm.main_window.update_betting_status(pick=next_pick)
                         self.tm.bet_helper.place_bet(next_pick, self.tm.game_count)
                         delattr(self.tm, '_first_entry_time')
                 else:
                     self.tm._first_entry_time = time.time()
+
+            # ✅ 방 이동 조건 통합 체크
+            self.check_room_move_conditions(actual_game_count)
+
         except Exception as e:
             self.logger.error(f"Excel 결과 처리 오류: {e}")
-            
+
     def handle_tie_result(self, latest_result, game_state):
         """무승부(T) 결과 처리"""
         try:

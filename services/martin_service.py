@@ -36,6 +36,10 @@ class MartinBettingService:
         self.diff_history = []  # 10판 단위 승패차 기록
         self.current_direction = 'forward'  # 현재 방향 (forward / reverse)
         self.pick_history = []  # 최근 배팅 픽 기록
+    def get_current_level(self):
+        """현재 마틴 단계 반환 (1단계부터 시작처럼 보이도록 보정)"""
+        return self.current_step + 1
+
 
     def get_current_bet_amount(self):
         """현재 마틴 단계에 따른 베팅 금액을 반환합니다."""
