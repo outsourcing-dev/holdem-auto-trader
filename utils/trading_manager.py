@@ -79,6 +79,7 @@ class TradingManager:
                 logger=self.logger
             )
 
+            # 여기가 중요! 이 부분이 제대로 실행되고 있는지 확인
             self.excel_trading_service = ExcelTradingService(
                 main_window=self.main_window, 
                 logger=self.logger
@@ -90,6 +91,8 @@ class TradingManager:
             )
         except Exception as e:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
+            # 여기서 어떤 서비스가 초기화에 실패했는지 추가 로깅
+            self.logger.error(f"초기화 실패한 서비스: {getattr(self, 'excel_trading_service', '없음')}")
 
     def start_trading(self):
         """자동 매매 시작"""
