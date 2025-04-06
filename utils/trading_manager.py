@@ -50,6 +50,7 @@ class TradingManager:
         self.helpers = TradingManagerHelpers(self)
         self.bet_helper = TradingManagerBet(self)
         self.game_helper = TradingManagerGame(self)
+        self._should_move_to_next_room = False
         
     def _init_services(self):
         """서비스 객체들을 초기화"""
@@ -579,18 +580,23 @@ class TradingManager:
     @property
     def should_move_to_next_room(self):
         """
-        현재 방을 이동해야 하는 조건을 판단합니다.
+        Property to check if we should move to the next room.
+        Uses the excel_trading_service or falls back to game count check.
         """
-        # 초이스 픽 시스템의 방 이동 신호 확인
+        # Check excel_trading_service first (choice_pick_system's signal)
         if hasattr(self, 'excel_trading_service'):
-            return self.excel_trading_service.should_change_room()
+            should_move = self.excel_trading_service.should_change_room()
+            if should_move:
+                return True
             
-        # 기본값: 60게임 이상이면 이동
+        # Then check the internal flag
+        if self._should_move_to_next_room:
+            return True
+            
+        # Finally, fall back to game count check (60 games or more)
         return self.game_count >= 60
 
-    @property
-    def should_move_to_next_room(self):
-        """
-        현재 방을 이동해야 하는 조건을 판단합니다.
-        """
-        return self.game_count >= 60
+    @should_move_to_next_room.setter
+    def should_move_to_next_room(self, value):
+        """Setter for the should_move_to_next_room property."""
+        self._should_move_to_next_room = value
