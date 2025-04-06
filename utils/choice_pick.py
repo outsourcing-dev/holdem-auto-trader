@@ -362,11 +362,13 @@ class ChoicePickSystem:
     def _select_final_pick(self, normal_candidates, reverse_candidates):
         """
         최종 초이스 픽 선택
-        수정된 기준:
-        1. 정배팅/역배팅 후보 중 점수가 가장 높은 픽 선택
-        2. 동점 시 처리 규칙:
-           - 동점인 후보들의 픽이 모두 같으면 -> 해당 픽 선택
-           - 동점인 후보들의 픽이 다르면 -> PASS
+        수정된 기준 (엑셀 로직):
+        1. 먼저 픽 자체가 모두 같은지 확인
+           - 모든 후보가 같은 픽이면 -> 해당 픽 선택
+        2. 픽이 서로 다른 경우에만 점수 비교
+           - 최고 점수를 가진 픽이 유일하면 -> 해당 픽 선택
+           - 최고 점수를 가진 픽이 여러 개이고 서로 다르면 -> PASS 
+           - 최고 점수를 가진 픽이 여러 개이지만 모두 같은 픽이면 -> 해당 픽 선택
         """
         write_log("최종 초이스 픽 선택 시작")
         
@@ -379,31 +381,62 @@ class ChoicePickSystem:
             write_log("적합한 후보가 없음: 모든 조건을 만족하는 후보가 없음", "WARNING")
             return None, "", 0
         
-        # 모든 후보의 점수 계산하여 가장 높은 점수 찾기
-        best_score = max(candidate['score'] for candidate in all_candidates.values())
-        write_log(f"최고 점수: {best_score}")
+        # 1. 모든 후보들의 픽 추출 및 중복 제거
+        unique_picks = set(candidate['pick'] for candidate in all_candidates.values())
+        write_log(f"모든 후보들의 유니크 픽: {unique_picks}")
         
-        # 가장 높은 점수를 가진 후보들만 추출
-        best_candidates = {key: candidate for key, candidate in all_candidates.items() 
-                          if candidate['score'] == best_score}
-        
-        write_log(f"최고 점수({best_score}) 후보 {len(best_candidates)}개: {list(best_candidates.keys())}")
-        
-        # 후보들의 픽 추출 및 중복 제거
-        unique_picks = set(candidate['pick'] for candidate in best_candidates.values())
-        write_log(f"최고 점수 후보들의 유니크 픽: {unique_picks}")
-        
+        # 모든 후보가 동일한 픽을 가지고 있는 경우
         if len(unique_picks) == 1:
-            # 모든 최고 점수 후보가 같은 픽을 가진 경우
-            sample_candidate = next(iter(best_candidates.values()))
+            sample_candidate = next(iter(all_candidates.values()))
             best_pick = sample_candidate['pick']
             best_direction = sample_candidate['direction']
+            best_score = sample_candidate['score']
+            write_log(f"모든 후보가 동일한 픽({best_pick})을 가짐 - 점수 비교 없이 선택")
             write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {best_score}")
             return best_pick, best_direction, best_score
-        else:
-            # 최고 점수 후보들이 서로 다른 픽을 가진 경우
-            write_log(f"최고 점수({best_score}) 후보들이 서로 다른 픽을 가짐 - PASS", "WARNING")
-            return None, "", 0
+        
+        # 2. 픽이 서로 다른 경우, 점수 비교 수행
+        write_log("후보들의 픽이 다름 - 점수 비교 수행")
+        
+        # 각 픽별로 최고 점수 찾기
+        pick_highest_scores = {}
+        for candidate in all_candidates.values():
+            pick = candidate['pick']
+            score = candidate['score']
+            
+            if pick not in pick_highest_scores or score > pick_highest_scores[pick]['score']:
+                pick_highest_scores[pick] = candidate
+        
+        # 최고 점수 후보 추출
+        highest_score = max(candidate['score'] for candidate in pick_highest_scores.values())
+        write_log(f"각 픽별 최고 점수 중 가장 높은 점수: {highest_score}")
+        
+        # 최고 점수를 가진 후보들 추출
+        best_candidates = {pick: candidate for pick, candidate in pick_highest_scores.items() 
+                          if candidate['score'] == highest_score}
+        
+        write_log(f"최고 점수({highest_score}) 후보: {list(best_candidates.keys())}")
+        
+        # 최고 점수를 가진 픽이 유일하면 선택
+        if len(best_candidates) == 1:
+            best_pick = next(iter(best_candidates.values()))['pick']
+            best_direction = next(iter(best_candidates.values()))['direction']
+            write_log(f"최고 점수를 가진 픽이 유일함 - {best_pick} 선택")
+            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
+            return best_pick, best_direction, highest_score
+        
+        # 최고 점수를 가진 픽이 여러 개지만 모두 같은 픽인 경우 (이론적으로 여기 올 수 없음)
+        unique_best_picks = set(candidate['pick'] for candidate in best_candidates.values())
+        if len(unique_best_picks) == 1:
+            best_pick = next(iter(best_candidates.values()))['pick']
+            best_direction = next(iter(best_candidates.values()))['direction']
+            write_log(f"최고 점수 후보들이 모두 같은 픽({best_pick})을 가짐")
+            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
+            return best_pick, best_direction, highest_score
+            
+        # 최고 점수를 가진 픽이 여러 개이고 서로 다른 경우 PASS
+        write_log(f"최고 점수({highest_score})를 가진 픽들이 서로 다름 - PASS", "WARNING")
+        return None, "", 0
 
     def _calculate_win_loss_diff(self, pick: str) -> int:
         """픽에 대한 승패 차이 계산"""
