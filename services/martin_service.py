@@ -97,7 +97,7 @@ class MartinBettingService:
         self.win_count += 1
         self.need_room_change = True
         self.has_bet_in_current_room = True
-        self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화, 방 이동 필요 설정")
+        self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화,")
         
         return self.current_step, self.consecutive_losses, position
         
@@ -106,7 +106,7 @@ class MartinBettingService:
         self.tie_count += 1
         self.has_bet_in_current_room = False
         self.need_room_change = False
-        self.logger.info(f"[마틴] 베팅 무승부: 마틴 단계 유지, 같은 방에서 재시도")
+        self.logger.info(f"[마틴] 베팅 무승부: 마틴 단계 유지")
         return self.current_step, self.consecutive_losses, position
         
     def _handle_lose_result(self, position):

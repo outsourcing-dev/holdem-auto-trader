@@ -91,6 +91,7 @@ class TradingManagerHelpers:
             self.logger.error(f"라이센스 확인 오류: {e}")
             return False
             
+    # utils/trading_manager_helpers.py - 주요 수정 내용
     def init_trading_settings(self):
         """설정 초기화"""
         try:
@@ -108,6 +109,11 @@ class TradingManagerHelpers:
                 self.tm.martin_service.reset()
                 self.tm.martin_service.settings_manager = self.tm.settings_manager
                 self.tm.martin_service.update_settings()
+                
+            # 초이스 픽 시스템 설정 - 마틴 금액 설정
+            if hasattr(self.tm, 'excel_trading_service'):
+                martin_count, martin_amounts = self.tm.settings_manager.get_martin_settings()
+                self.tm.excel_trading_service.set_martin_amounts(martin_amounts)
 
             # 베팅 서비스 상태 초기화
             if hasattr(self.tm, 'betting_service'):
@@ -120,14 +126,14 @@ class TradingManagerHelpers:
         except Exception as e:
             self.logger.error(f"설정 초기화 오류: {e}")
             return False
-    
+        
     def setup_browser_and_check_balance(self):
         """브라우저 실행 및 잔액 확인"""
         try:
             # 브라우저 실행 확인
             if not self.tm.devtools.driver:
                 self.tm.devtools.start_browser()
-                
+                    
             # 창 개수 확인
             window_handles = self.tm.devtools.driver.window_handles
             if len(window_handles) < 2:
@@ -138,7 +144,7 @@ class TradingManagerHelpers:
             if len(window_handles) >= 2:
                 self.tm.devtools.driver.switch_to.window(window_handles[1])
                 self.logger.info("카지노 로비 창으로 포커싱 전환")
-            
+                
             # 잔액 확인
             balance = self.tm.balance_service.get_lobby_balance()
             if balance is None:
@@ -156,7 +162,7 @@ class TradingManagerHelpers:
             # 마틴 배팅을 위한 잔고 확인
             if not self.check_martin_balance(balance):
                 return False
-                
+                    
             return True
         except Exception as e:
             self.logger.error(f"브라우저 설정 오류: {e}")

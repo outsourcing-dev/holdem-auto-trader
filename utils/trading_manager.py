@@ -39,6 +39,9 @@ class TradingManager:
         # 서비스 클래스 초기화
         self._init_services()
         
+        self.recent_game_results = []  # 최근 게임 결과 (P, B, T 포함)
+        self.filtered_game_results = []  # 최근 게임 결과 (P, B만 포함)
+    
         # 헬퍼 클래스들 초기화 - 모듈 임포트
         from utils.trading_manager_helpers import TradingManagerHelpers
         from utils.trading_manager_bet import TradingManagerBet
@@ -210,30 +213,32 @@ class TradingManager:
     def _handle_analysis_result(self, result):
         """분석 결과 처리 핸들러"""
         try:
-            # 목표 금액 도달 확인 - 이미 도달했으면 처리 중단
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
                 return
-                
+                    
             game_state = result['game_state']
             previous_game_count = result['previous_game_count']
-            
-            # 게임 카운트 변화 로깅
             current_game_count = game_state.get('round', 0)
-            # ✅ 게임 수 역행 감지
-            if current_game_count < previous_game_count and previous_game_count >= 10:
-                self.logger.warning(f"[❗게임 수 역행 감지] 이전: {previous_game_count} → 현재: {current_game_count} → 방 이동 시도")
-                self.change_room()
-                return
 
-            # ✅ 결과 없음 감지용 카운터
+            # ✅ 방 이동 직후 게임 수 역행 체크 생략
+            if hasattr(self, 'just_changed_room') and self.just_changed_room:
+                self.logger.info("방 이동 직후이므로 게임 수 역행 체크를 생략합니다.")
+                self.just_changed_room = False  # 플래그 초기화
+            else:
+                # ✅ 게임 수 역행 감지
+                if current_game_count < previous_game_count and previous_game_count >= 10:
+                    self.logger.warning(f"[❗게임 수 역행 감지] 이전: {previous_game_count} → 현재: {current_game_count} → 방 이동 시도")
+                    self.change_room()
+                    return
+
             if not hasattr(self, 'no_result_counter'):
                 self.no_result_counter = 0
 
             if current_game_count == previous_game_count:
                 self.no_result_counter += 1
             else:
-                self.no_result_counter = 0  # 게임 수 바뀌면 초기화
+                self.no_result_counter = 0
 
             if self.no_result_counter >= 20:
                 self.logger.warning(f"[⚠️ 결과 없음 누적] 25회 이상 동일한 게임 수 → 방 이동")
@@ -242,27 +247,22 @@ class TradingManager:
                 return
 
             latest_result = game_state.get('latest_result')
-                        
-            # 첫 입장 시 방 정보 출력
+                            
             if previous_game_count == 0 and current_game_count > 0:
                 display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
                 self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
-        
-            # Excel 처리는 메인 스레드에서 수행
+
             excel_result = self.excel_trading_service.process_game_results(
                 game_state, 
                 self.game_count, 
                 self.current_room_name
             )
-            
-            # 결과 처리
+                
             if excel_result[0] is not None:
                 self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
-            
-            # 무승부(T) 결과 시 베팅 시도
+                
             self.game_helper.handle_tie_result(latest_result, game_state)
-            
-            # 방 이동 판단 (60판 도달 or 초기화 감지 등)
+                
             if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
                 self.logger.info("방 이동 조건 충족 - change_room 실행")
                 self.change_room()
@@ -271,18 +271,16 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)
         finally:
-            # 자동 매매가 여전히 활성화된 경우에만 다음 분석 예약
             if self.is_trading_active:
-                # 목표 금액에 도달했는지 다시 확인
                 if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                     self.logger.info("목표 금액 도달 확인됨: 다음 분석을 예약하지 않습니다.")
                     return
-                    
-                # 다음 분석 간격 설정
+                        
                 self.main_window.set_remaining_time(0, 0, 2)
             else:
                 self.logger.info("자동 매매 비활성화됨: 다음 분석을 예약하지 않습니다.")
-                
+
+
     def _handle_analysis_error(self, error_msg):
         """분석 오류 처리 핸들러"""
         self.logger.error(f"분석 스레드 오류: {error_msg}")
@@ -452,78 +450,6 @@ class TradingManager:
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다."
             )        
             
-# utils/trading_manager.py에서 change_room 메서드 수정
-    def change_room(self):
-        """현재 방을 나가고 새로운 방으로 이동"""
-        try:
-            # 중요: stop_all_processes 플래그 확인 - 도중에 중지 명령이 내려졌는지 확인
-            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-                self.logger.info("중지 명령으로 인해 방 이동을 중단합니다.")
-                return False
-                
-            # 목표 금액 도달 확인도 추가
-            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-                self.logger.info("목표 금액 도달로 인해 방 이동을 중단합니다.")
-                return False
-                
-            # 자동 매매가 활성화된 상태인지 다시 한번 확인
-            if not self.is_trading_active:
-                self.logger.info("자동 매매 비활성화 상태로 방 이동 중단")
-                return False
-
-            self.logger.info("방 이동 준비 중...")
-            
-            # 방 이동 시 중지 버튼 비활성화 (추가된 부분 - 방 이동 중에는 비활성화)
-            self.main_window.stop_button.setEnabled(False)
-            self.main_window.update_button_styles()
-            self.logger.info("방 이동 중: 중지 버튼 비활성화됨")
-            
-            # 방 이동 플래그 설정 - room_log_widget에 방 변경 알림
-            if hasattr(self.main_window, 'room_log_widget'):
-                self.main_window.room_log_widget.has_changed_room = True
-                self.logger.info("방 이동 플래그 설정됨")
-            
-            if self.current_room_name:
-                self.room_manager.mark_room_visited(self.current_room_name)
-            
-            # 방 이동 플래그 초기화
-            # self.should_move_to_next_room = False
-            
-            # 현재 방 닫기 시도
-            room_closed = self.game_monitoring_service.close_current_room()
-            if not room_closed:
-                self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
-            
-            # Excel 파일 초기화
-            try:
-                self.logger.info("Excel 파일 초기화 중...")
-                self.excel_trading_service.excel_manager.initialize_excel()
-            except Exception as e:
-                self.logger.error(f"Excel 파일 초기화 오류: {e}")
-            
-            # 상태 초기화
-            self.game_helper.reset_room_state()
-            
-            # 새 방 입장
-            new_room_name = self.room_entry_service.enter_room()
-            
-            # 방 입장 실패 시 처리
-            if not new_room_name:
-                return self.game_helper.handle_room_entry_failure()
-            
-            # 방 입장 성공 시 처리
-            return self.game_helper.handle_successful_room_entry(new_room_name)
-
-        except Exception as e:
-            self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
-            # 실패 시 중지 버튼 비활성화 (추가된 부분)
-            self.main_window.stop_button.setEnabled(False)
-            # 스타일 강제 업데이트 추가
-            self.main_window.update_button_styles()
-            self.logger.info("방 이동 실패: 중지 버튼 비활성화 상태 유지")
-            QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
-            return False
-        
     # utils/trading_manager.py에 설정 업데이트 메서드 추가
     def update_settings(self):
         """설정이 변경된 경우 호출될 설정 업데이트 메서드"""
@@ -557,6 +483,8 @@ class TradingManager:
             self.logger.error(f"설정 업데이트 중 오류 발생: {e}")
             return False
         
+    # utils/trading_manager.py - 주요 수정 내용
+
     def refresh_settings(self):
         """설정을 파일에서 새로 로드하여 적용합니다."""
         try:
@@ -572,22 +500,94 @@ class TradingManager:
                         # 기존 객체가 있으면 업데이트
                         service.settings_manager = self.settings_manager
             
-            # 마틴 서비스는 특별 처리 (update_settings 메서드 호출)
-            if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'update_settings'):
-                self.martin_service.update_settings()
-                
-            # 설정 로그 출력
+            # 마틴 설정 로드
             martin_count, martin_amounts = self.settings_manager.get_martin_settings()
-            site1, site2, site3 = self.settings_manager.get_sites()
             
+            # 초이스 픽 시스템에 마틴 금액 설정
+            if hasattr(self, 'excel_trading_service'):
+                self.excel_trading_service.set_martin_amounts(martin_amounts)
+                    
+            # 설정 로그 출력
             self.logger.info(f"설정 새로고침 완료 - 마틴 설정: {martin_count}단계, {martin_amounts}")
-            self.logger.info(f"사이트 설정: site1={site1}, site2={site2}, site3={site3}")
             
             return True
         except Exception as e:
             self.logger.error(f"설정 새로고침 중 오류 발생: {e}")
             return False
-        
+
+    def change_room(self):
+        """현재 방을 나가고 새로운 방으로 이동"""
+        try:
+            # 중지 명령 확인
+            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
+                self.logger.info("중지 명령으로 인해 방 이동을 중단합니다.")
+                return False
+                    
+            # 목표 금액 도달 확인
+            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
+                self.logger.info("목표 금액 도달로 인해 방 이동을 중단합니다.")
+                return False
+                    
+            # 자동 매매 활성화 상태 확인
+            if not self.is_trading_active:
+                self.logger.info("자동 매매 비활성화 상태로 방 이동 중단")
+                return False
+
+            self.logger.info("방 이동 준비 중...")
+            
+            # 방 이동 중에는 중지 버튼 비활성화
+            self.main_window.stop_button.setEnabled(False)
+            self.main_window.update_button_styles()
+            
+            # 방 이동 알림 설정
+            if hasattr(self.main_window, 'room_log_widget'):
+                self.main_window.room_log_widget.has_changed_room = True
+            
+            # 현재 방 방문 처리
+            if self.current_room_name:
+                self.room_manager.mark_room_visited(self.current_room_name)
+            
+            # 현재 방 닫기
+            room_closed = self.game_monitoring_service.close_current_room()
+            if not room_closed:
+                self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
+            
+            # 상태 초기화
+            self.game_helper.reset_room_state()
+            
+            # 새 방 입장
+            new_room_name = self.room_entry_service.enter_room()
+            
+            # 방 입장 실패 시 처리
+            if not new_room_name:
+                return self.game_helper.handle_room_entry_failure()
+            
+            # 방 이동 직후 플래그 설정
+            self.just_changed_room = True
+            
+            # 방 입장 성공 처리
+            return self.game_helper.handle_successful_room_entry(new_room_name)
+
+        except Exception as e:
+            self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
+            # 실패 시 중지 버튼 비활성화
+            self.main_window.stop_button.setEnabled(False)
+            self.main_window.update_button_styles()
+            QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
+            return False
+
+    @property
+    def should_move_to_next_room(self):
+        """
+        현재 방을 이동해야 하는 조건을 판단합니다.
+        """
+        # 초이스 픽 시스템의 방 이동 신호 확인
+        if hasattr(self, 'excel_trading_service'):
+            return self.excel_trading_service.should_change_room()
+            
+        # 기본값: 60게임 이상이면 이동
+        return self.game_count >= 60
+
     @property
     def should_move_to_next_room(self):
         """
