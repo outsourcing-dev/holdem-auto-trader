@@ -226,7 +226,7 @@ class ChoicePickSystem:
         """
         정배팅 후보 및 점수 계산
         - 최근 결과에 3연패 이상 없어야 함
-        - 최근 2연패 이하이며 마지막 결과가 반드시 패여야 함
+        - 최근 2판 결과가 "승 → 패"이며, 2연패는 아님
         - 점수: 승 - 패
         
         Returns:
@@ -250,14 +250,19 @@ class ChoicePickSystem:
                     consecutive_losses += 1
                     max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
             
-            # 마지막 결과가 패배인지 확인
-            last_is_loss = self.results[-1] != pick
-            
-            # 3연패 이상이 없고, 마지막 결과가 패배인 경우에만 후보
-            if max_consecutive_losses < 3 and last_is_loss:
-                score = wins - losses
-                candidates[pick] = score
-                self.logger.info(f"정배팅 후보: 스테이지 {stage}의 픽 {pick}, 점수: {score}")
+            # 최근 2판 결과 확인 (승 → 패)
+            last_two_results = self.results[-2:]
+            if len(last_two_results) >= 2:
+                recent_pattern_match = (
+                    last_two_results[0] == pick and  # 첫 번째가 승리
+                    last_two_results[1] != pick       # 두 번째가 패배
+                )
+                
+                # 3연패 이상이 없고, 최근 2판이 "승 → 패" 패턴인 경우에만 후보
+                if max_consecutive_losses < 3 and recent_pattern_match:
+                    score = wins - losses
+                    candidates[pick] = score
+                    self.logger.info(f"정배팅 후보: 스테이지 {stage}의 픽 {pick}, 점수: {score}")
         
         return candidates
     
@@ -265,7 +270,7 @@ class ChoicePickSystem:
         """
         역배팅 후보 및 점수 계산
         - 최근 결과에 3연승 이상 없어야 함
-        - 최근 2연승 이하이며 마지막 결과가 반드시 승이어야 함
+        - 최근 2판 결과가 "패 → 승"이며, 2연승은 아님
         - 점수: 패 - 승
         
         Returns:
@@ -292,14 +297,19 @@ class ChoicePickSystem:
                     consecutive_wins += 1
                     max_consecutive_wins = max(max_consecutive_wins, consecutive_wins)
             
-            # 마지막 결과가 반대 픽의 승리인지 확인
-            last_is_win = self.results[-1] != pick  # 원래 픽과 다르면 반대 픽은 승리
-            
-            # 3연승 이상이 없고, 마지막 결과가 승리인 경우에만 후보
-            if max_consecutive_wins < 3 and last_is_win:
-                score = losses - wins  # 패 - 승 (반대 픽 관점)
-                candidates[opposite_pick] = score
-                self.logger.info(f"역배팅 후보: 스테이지 {stage}의 픽 {pick}의 반대 {opposite_pick}, 점수: {score}")
+            # 최근 2판 결과 확인 (패 → 승)
+            last_two_results = self.results[-2:]
+            if len(last_two_results) >= 2:
+                recent_pattern_match = (
+                    last_two_results[0] == pick and     # 첫 번째가 패배 (반대 픽 관점)
+                    last_two_results[1] != pick          # 두 번째가 승리 (반대 픽 관점)
+                )
+                
+                # 3연승 이상이 없고, 최근 2판이 "패 → 승" 패턴인 경우에만 후보
+                if max_consecutive_wins < 3 and recent_pattern_match:
+                    score = losses - wins  # 패 - 승 (반대 픽 관점)
+                    candidates[opposite_pick] = score
+                    self.logger.info(f"역배팅 후보: 스테이지 {stage}의 픽 {pick}의 반대 {opposite_pick}, 점수: {score}")
         
         return candidates
     
@@ -341,6 +351,8 @@ class ChoicePickSystem:
             reverse_same_score = [p for p, s in reverse_candidates.items() if s == best_score]
             
             if len(normal_same_score) + len(reverse_same_score) > 1:
+                # 동일 점수 픽이 여러 개인 경우, 승패 차이가 큰 픽 선택
+                # 여기서는 현재 픽을 유지하거나 패스 처리
                 self.logger.warning(f"동일 점수 픽 발견: {normal_same_score + reverse_same_score}, 점수: {best_score} - 패스")
                 return None, "", 0
                 

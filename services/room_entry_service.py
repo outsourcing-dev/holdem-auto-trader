@@ -39,7 +39,7 @@ class RoomEntryService:
     def enter_room(self):
         """
         랜덤 순서로 생성된 방 목록에서 다음 방에 입장합니다.
-        방 게임 수가 설정한 범위 내에 없다면 다른 방을 찾습니다.
+        방 게임 수가 설정한 범위(14-57판) 내에 없다면 다른 방을 찾습니다.
         
         Returns:
             str: 선택된 방 이름 또는 None
@@ -128,8 +128,8 @@ class RoomEntryService:
                 if game_state:
                     game_count = game_state.get('round', 0)
                     
-                    # 입장 기준 설정 (3.31 10~40으로 수정)
-                    if game_count < 10 or game_count > 40:
+                    # 👉 최종 업데이트된 조건: 14-57판 입장 기준
+                    if game_count < 14 or game_count > 57:
                         # 방 나가기
                         if self.main_window.trading_manager.game_monitoring_service.close_current_room():
                             # 방문 처리하여 다음에 다시 시도하지 않도록 함

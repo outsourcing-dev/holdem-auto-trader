@@ -1,4 +1,4 @@
-# services/game_monitoring_service.py 리팩토링
+# services/game_monitoring_service.py
 import logging
 from selenium.webdriver.common.by import By
 from modules.game_detector import GameDetector
