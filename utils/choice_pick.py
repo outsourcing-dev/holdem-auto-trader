@@ -126,11 +126,10 @@ class ChoicePickSystem:
     def _calculate_stage1_pick(self) -> str:
         """
         1단계 픽 계산:
-        - 1, 2번 픽 비교
-        - 같으면 4번 픽과 동일, 다르면 4번 픽의 반대
+        설명서 기준: 1~4번을 비교하여, 1, 2번이 같으면 → 4번과 같은 픽 / 다르면 반대
         """
         if len(self.results) < 4:
-            return self.results[0]  # 안전장치
+            return self.results[0] if self.results else 'P'  # 안전장치
         
         pick1 = self.results[0]  # 첫 번째 결과
         pick2 = self.results[1]  # 두 번째 결과
@@ -140,184 +139,176 @@ class ChoicePickSystem:
             return pick4
         else:
             return self.get_opposite_pick(pick4)
-    
+
     def _calculate_stage2_pick(self, stage1_pick: str) -> str:
         """
         2단계 픽 계산:
-        - 1단계의 4개 결과 중 2승 이상이면 1단계와 동일
-        - 1승 이하이면 반대 픽
+        설명서 기준: 1단계 중 최근 4판의 승이 2개 이상이면 유지, 아니면 반대
         """
         if len(self.results) < 4:
             return stage1_pick  # 안전장치
         
-        # 1단계 픽과 실제 결과 비교 (첫 4판)
-        wins = 0
-        for i in range(4):
-            if self.results[i] == stage1_pick:
-                wins += 1
+        # 최근 4판에서 stage1_pick과 같은 수 계산 (1~4번)
+        wins = sum(1 for i in range(4) if self.results[i] == stage1_pick)
         
         if wins >= 2:
             return stage1_pick
         else:
             return self.get_opposite_pick(stage1_pick)
-    
+
     def _calculate_stage3_pick(self, stage2_pick: str) -> str:
         """
         3단계 픽 계산:
-        - 5~8번 픽은 2단계 픽과 동일
-        - 9번부터 2단계 픽에서 1회 실패 후 반대 픽 성공시 이후는 동일
+        설명서 기준: 5번부터 8번까지는 2단계 결과 그대로 유지, 
+                    이후는 2단계 픽이 실패하면 반대로, 성공하면 유지
         """
         if len(self.results) < 9:
             return stage2_pick  # 안전장치
         
-        # 5~8번은 2단계 픽 사용
-        stage3_pick = stage2_pick
+        # 8번째 결과 (인덱스 7)와 2단계 픽 비교
+        if self.results[7] != stage2_pick:  # 2단계 픽 실패
+            # 9번째 결과 (인덱스 8)가 반대 픽과 같은지 확인
+            if self.results[8] == self.get_opposite_pick(stage2_pick):
+                return self.get_opposite_pick(stage2_pick)
         
-        # 9번부터는 특별 조건 확인
-        # 8번째 결과가 2단계 픽과 다르고(실패), 반대 픽이 성공한 경우
-        if (self.results[7] != stage2_pick) and (self.results[8] == self.get_opposite_pick(stage2_pick)):
-            stage3_pick = self.get_opposite_pick(stage2_pick)
-            
-        return stage3_pick
-    
+        # 그 외의 경우 2단계 픽 유지
+        return stage2_pick
+
     def _calculate_stage4_pick(self, stage3_pick: str) -> str:
         """
         4단계 픽 계산:
-        - 5~10번 픽은 3단계 픽과 동일
-        - 11번부터 3단계 픽에서 1회 실패 후 반대 픽 성공시 이후는 동일
+        설명서 기준: 5번부터 10번까지는 3단계 결과 그대로 유지, 
+                    이후는 3단계와 동일한 방식으로 반응
         """
         if len(self.results) < 11:
             return stage3_pick  # 안전장치
         
-        # 5~10번은 3단계 픽 사용
-        stage4_pick = stage3_pick
+        # 10번째 결과 (인덱스 9)와 3단계 픽 비교
+        if self.results[9] != stage3_pick:  # 3단계 픽 실패
+            # 11번째 결과 (인덱스 10)가 반대 픽과 같은지 확인
+            if self.results[10] == self.get_opposite_pick(stage3_pick):
+                return self.get_opposite_pick(stage3_pick)
         
-        # 11번부터는 특별 조건 확인
-        # 10번째 결과가 3단계 픽과 다르고(실패), 반대 픽이 성공한 경우
-        if (self.results[9] != stage3_pick) and (self.results[10] == self.get_opposite_pick(stage3_pick)):
-            stage4_pick = self.get_opposite_pick(stage3_pick)
-            
-        return stage4_pick
-    
+        # 그 외의 경우 3단계 픽 유지
+        return stage3_pick
+
     def _calculate_stage5_pick(self, stage4_pick: str) -> str:
         """
         5단계 픽 계산:
-        - 5~11번 픽은 1단계 픽과 동일
-        - 12번부터 이전 4단계 최근 4판 결과 중 2승 이상이면 4단계 픽과 동일, 이하면 반대
+        설명서 기준: 5~11번은 1단계 유지, 
+                    이후 4판 중 승 2개 이상이면 유지, 아니면 반대
         """
-        if len(self.results) < 12:
+        if len(self.results) < 15:
             return stage4_pick  # 안전장치
         
-        # 5~11번 결과는 원래 1단계 픽 사용하나, 
-        # 여기서는 전체 15판을 사용하므로 바로 12번 이후 규칙 적용
-        
-        # 이전 4단계 픽으로 최근 4판(11~14번)을 예측했을 때 승 수 계산
-        wins = 0
-        for i in range(11, 15):
-            if i < len(self.results) and self.results[i] == stage4_pick:
-                wins += 1
+        # 11~14번의 결과 (인덱스 10~13)에서 stage4_pick과 같은 수 계산
+        wins = sum(1 for i in range(10, 14) if i < len(self.results) and self.results[i] == stage4_pick)
         
         if wins >= 2:
             return stage4_pick
         else:
             return self.get_opposite_pick(stage4_pick)
-    
+
     def _find_normal_betting_candidates(self) -> Dict[str, int]:
         """
         정배팅 후보 및 점수 계산
-        - 최근 결과에 3연패 이상 없어야 함
-        - 최근 2판 결과가 "승 → 패"이며, 2연패는 아님
-        - 점수: 승 - 패
+        설명서 기준: 최근 2판 결과가 "승 → 패"이며, 2연패는 아님
+        점수: 승 - 패
         
         Returns:
             Dict[str, int]: 픽 후보와 점수 {픽: 점수}
         """
         candidates = {}
         
+        # 최소 2판 이상의 결과가 있어야 함
+        if len(self.results) < 2:
+            return candidates
+        
         for stage, pick in self.stage_picks.items():
-            # 최근 결과에서 해당 픽의 승패 확인
-            wins = 0
-            losses = 0
-            consecutive_losses = 0
-            max_consecutive_losses = 0
-            
-            for result in self.results:
-                if result == pick:
-                    wins += 1
-                    consecutive_losses = 0
-                else:
-                    losses += 1
-                    consecutive_losses += 1
-                    max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
-            
-            # 최근 2판 결과 확인 (승 → 패)
-            last_two_results = self.results[-2:]
-            if len(last_two_results) >= 2:
-                recent_pattern_match = (
-                    last_two_results[0] == pick and  # 첫 번째가 승리
-                    last_two_results[1] != pick       # 두 번째가 패배
+            # 최근 2판 결과에서 패턴 확인 ("승 → 패")
+            if len(self.results) >= 2:
+                # 뒤에서 두 번째 결과가 승리, 마지막 결과가 패배
+                recent_win_lose = (
+                    self.results[-2] == pick and  # 뒤에서 두 번째 결과가 픽과 일치 (승)
+                    self.results[-1] != pick       # 마지막 결과가 픽과 불일치 (패)
                 )
                 
-                # 3연패 이상이 없고, 최근 2판이 "승 → 패" 패턴인 경우에만 후보
-                if max_consecutive_losses < 3 and recent_pattern_match:
+                # 2연패가 아닌지 확인
+                consecutive_losses = 0
+                for idx in range(len(self.results) - 1, -1, -1):
+                    if self.results[idx] != pick:
+                        consecutive_losses += 1
+                    else:
+                        break
+                
+                not_consecutive_losses = consecutive_losses == 1  # 정확히 1번의 패배만 있어야 함
+                
+                if recent_win_lose and not_consecutive_losses:
+                    # 전체 승-패 계산
+                    wins = sum(1 for r in self.results if r == pick)
+                    losses = len(self.results) - wins
                     score = wins - losses
+                    
                     candidates[pick] = score
                     self.logger.info(f"정배팅 후보: 스테이지 {stage}의 픽 {pick}, 점수: {score}")
         
         return candidates
-    
+
     def _find_reverse_betting_candidates(self) -> Dict[str, int]:
         """
         역배팅 후보 및 점수 계산
-        - 최근 결과에 3연승 이상 없어야 함
-        - 최근 2판 결과가 "패 → 승"이며, 2연승은 아님
-        - 점수: 패 - 승
+        설명서 기준: 최근 2판 결과가 "패 → 승"이며, 2연승은 아님
+        점수: 패 - 승
         
         Returns:
             Dict[str, int]: 픽 후보와 점수 {픽: 점수}
         """
         candidates = {}
+        
+        # 최소 2판 이상의 결과가 있어야 함
+        if len(self.results) < 2:
+            return candidates
         
         for stage, pick in self.stage_picks.items():
             # 해당 픽의 반대 픽 가져오기
             opposite_pick = self.get_opposite_pick(pick)
             
-            # 최근 결과에서 반대 픽의 승패 확인 (원래 픽 기준으로는 반대)
-            wins = 0
-            losses = 0
-            consecutive_wins = 0
-            max_consecutive_wins = 0
-            
-            for result in self.results:
-                if result == pick:  # 원래 픽과 같으면 반대 픽 관점에서는 패배
-                    losses += 1
-                    consecutive_wins = 0
-                else:  # 원래 픽과 다르면 반대 픽 관점에서는 승리
-                    wins += 1
-                    consecutive_wins += 1
-                    max_consecutive_wins = max(max_consecutive_wins, consecutive_wins)
-            
-            # 최근 2판 결과 확인 (패 → 승)
-            last_two_results = self.results[-2:]
-            if len(last_two_results) >= 2:
-                recent_pattern_match = (
-                    last_two_results[0] == pick and     # 첫 번째가 패배 (반대 픽 관점)
-                    last_two_results[1] != pick          # 두 번째가 승리 (반대 픽 관점)
+            # 최근 2판 결과에서 패턴 확인 ("패 → 승")
+            if len(self.results) >= 2:
+                # 뒤에서 두 번째 결과가 패배, 마지막 결과가 승리
+                recent_lose_win = (
+                    self.results[-2] != opposite_pick and  # 뒤에서 두 번째 결과가 반대 픽과 불일치 (패)
+                    self.results[-1] == opposite_pick       # 마지막 결과가 반대 픽과 일치 (승)
                 )
                 
-                # 3연승 이상이 없고, 최근 2판이 "패 → 승" 패턴인 경우에만 후보
-                if max_consecutive_wins < 3 and recent_pattern_match:
-                    score = losses - wins  # 패 - 승 (반대 픽 관점)
+                # 2연승이 아닌지 확인
+                consecutive_wins = 0
+                for idx in range(len(self.results) - 1, -1, -1):
+                    if self.results[idx] == opposite_pick:
+                        consecutive_wins += 1
+                    else:
+                        break
+                
+                not_consecutive_wins = consecutive_wins == 1  # 정확히 1번의 승리만 있어야 함
+                
+                if recent_lose_win and not_consecutive_wins:
+                    # 전체 패-승 계산 (반대 픽 기준)
+                    wins = sum(1 for r in self.results if r == opposite_pick)
+                    losses = len(self.results) - wins
+                    score = losses - wins
+                    
                     candidates[opposite_pick] = score
                     self.logger.info(f"역배팅 후보: 스테이지 {stage}의 픽 {pick}의 반대 {opposite_pick}, 점수: {score}")
         
         return candidates
-    
+
     def _select_final_pick(self, normal_candidates: Dict[str, int], reverse_candidates: Dict[str, int]) -> Tuple[Optional[str], str, int]:
         """
         최종 초이스 픽 선택
+        설명서 기준: 
         - 정배팅/역배팅 후보 중 점수가 가장 높은 픽 선택
-        - 점수가 같은 경우 패스
+        - 점수가 같은 경우, 승패 차이가 큰 픽 선택
+        - 그래도 같으면 패스
         
         Args:
             normal_candidates: 정배팅 후보와 점수
@@ -347,19 +338,35 @@ class ChoicePickSystem:
         # 최종 픽 결정
         if best_pick is not None:
             # 마지막으로 점수 동일한 경우 체크
-            normal_same_score = [p for p, s in normal_candidates.items() if s == best_score]
-            reverse_same_score = [p for p, s in reverse_candidates.items() if s == best_score]
+            normal_same_score = [(p, self._calculate_win_loss_diff(p)) for p, s in normal_candidates.items() if s == best_score]
+            reverse_same_score = [(p, self._calculate_win_loss_diff(p)) for p, s in reverse_candidates.items() if s == best_score]
             
-            if len(normal_same_score) + len(reverse_same_score) > 1:
+            all_candidates = normal_same_score + reverse_same_score
+            
+            if len(all_candidates) > 1:
                 # 동일 점수 픽이 여러 개인 경우, 승패 차이가 큰 픽 선택
-                # 여기서는 현재 픽을 유지하거나 패스 처리
-                self.logger.warning(f"동일 점수 픽 발견: {normal_same_score + reverse_same_score}, 점수: {best_score} - 패스")
-                return None, "", 0
+                all_candidates.sort(key=lambda x: abs(x[1]), reverse=True)  # 절대값 기준 내림차순 정렬
                 
+                # 첫 번째와 두 번째의 승패 차이가 같은지 확인
+                if len(all_candidates) >= 2 and abs(all_candidates[0][1]) == abs(all_candidates[1][1]):
+                    self.logger.warning(f"동일 점수 및 동일 승패 차이 픽 발견: {[p[0] for p in all_candidates]}, 점수: {best_score} - 패스")
+                    return None, "", 0
+                
+                # 승패 차이가 가장 큰 픽 선택
+                best_pick = all_candidates[0][0]
+                best_direction = "normal" if best_pick in normal_candidates else "reverse"
+                self.logger.info(f"동일 점수 픽 중 승패 차이({all_candidates[0][1]})가 가장 큰 픽 {best_pick} 선택")
+                    
             return best_pick, best_direction, best_score
         else:
             return None, "", 0
-    
+            
+    def _calculate_win_loss_diff(self, pick: str) -> int:
+        """픽에 대한 승패 차이 계산"""
+        wins = sum(1 for r in self.results if r == pick)
+        losses = len(self.results) - wins
+        return wins - losses
+
     def record_betting_result(self, is_win: bool, reset_after_win: bool = True) -> None:
         """
         베팅 결과 기록 및 처리

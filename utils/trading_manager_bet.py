@@ -14,7 +14,7 @@ class TradingManagerBet:
         
     def place_bet(self, pick_value, game_count):
         """
-        베팅을 실행합니다.
+        베팅을 실행합니다. 설명서 기준: 3판 동안 마틴 베팅 진행
         
         Args:
             pick_value (str): 베팅할 타입 ('P' 또는 'B')
@@ -91,7 +91,7 @@ class TradingManagerBet:
             self.tm.main_window.update_button_styles()
             self.logger.info("베팅 오류: 중지 버튼 다시 활성화")
             return False
-
+        
     def process_successful_bet(self, bet_amount):
         """
         성공적인 베팅 처리

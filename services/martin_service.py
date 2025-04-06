@@ -55,7 +55,7 @@ class MartinBettingService:
     def _refresh_settings(self):
         """최신 마틴 설정 로드"""
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
-    
+
     def process_bet_result(self, result_status, game_count=None):
         """베팅 결과에 따라 마틴 단계를 조정합니다."""
         # 현재 베팅 금액 기록
@@ -73,15 +73,6 @@ class MartinBettingService:
         
         self.logger.info(f"[마틴] 베팅 결과 처리: {result_status}, 현재 단계: {self.current_step+1}")
         
-        # 역배팅 모드 관련 - 무승부가 아닌 경우에만 결과 저장 및 모드 체크
-        if result_status != "tie":
-            # 최근 결과 저장 (무승부 제외)
-            self.recent_results.append(result_status)
-            self.game_count_for_mode += 1
-            
-            # 로깅
-            self.logger.info(f"[역배팅] 최근 결과: {self.recent_results}")
-            
         # 결과에 따른 처리
         if result_status == "win":
             return self._handle_win_result(current_result_position)
@@ -91,26 +82,26 @@ class MartinBettingService:
             return self._handle_lose_result(current_result_position)
         
     def _handle_win_result(self, position):
-        """승리 결과 처리"""
-        self.current_step = 0
+        """승리 결과 처리 - 설명서 기준: 승리 시 다시 새롭게 픽을 선택"""
+        self.current_step = 0  # 마틴 단계 초기화
         self.consecutive_losses = 0
         self.win_count += 1
-        self.need_room_change = True
+        self.need_room_change = True  # 승리 시 방 이동 필요 (새로운 픽 선택을 위해)
         self.has_bet_in_current_room = True
-        self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화,")
+        self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화, 다음에 새 방으로 이동하여 새 픽 선택")
         
         return self.current_step, self.consecutive_losses, position
         
     def _handle_tie_result(self, position):
-        """무승부 결과 처리"""
+        """무승부 결과 처리 - 설명서 기준: TIE 발생 시 같은 방에서 동일 단계로 재배팅"""
         self.tie_count += 1
-        self.has_bet_in_current_room = False
+        self.has_bet_in_current_room = False  # 같은 방에서 재배팅 가능하도록 설정
         self.need_room_change = False
-        self.logger.info(f"[마틴] 베팅 무승부: 마틴 단계 유지")
+        self.logger.info(f"[마틴] 베팅 무승부: 마틴 단계 유지, 같은 방에서 동일 단계로 재배팅")
         return self.current_step, self.consecutive_losses, position
         
     def _handle_lose_result(self, position):
-        """패배 결과 처리"""
+        """패배 결과 처리 - 설명서 기준: 마틴 3단계까지 같은 방에서 진행, 3단계 실패 시 다음 방으로 이동"""
         self.consecutive_losses += 1
         self.current_step += 1
         self.lose_count += 1
@@ -120,9 +111,11 @@ class MartinBettingService:
         if self.current_step >= self.martin_count:
             self.need_room_change = True
             self.current_step = 0  # 다음 방을 위해 초기화
+            self.logger.info(f"[마틴] 3단계까지 모두 실패, 다음 방으로 이동")
         else:
-            # 패배 후 다음 단계로 진행하기 위해 방 이동 필요
-            self.need_room_change = True
+            # 같은 방에서 다음 마틴 단계로 진행
+            self.need_room_change = False
+            self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 증가 ({self.current_step+1}단계), 같은 방에서 계속")
             
         return self.current_step, self.consecutive_losses, position
 
