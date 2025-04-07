@@ -263,13 +263,19 @@ class TradingManager:
                 
             self.game_helper.handle_tie_result(latest_result, game_state)
                 
-            # ✅ 수정: 베팅한 상태에서는 방 이동하지 않도록 수정
-            if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
-                self.logger.info("방 이동 조건 충족 및 현재 베팅 없음 - change_room 실행")
+            # ✅ 수정: 내부 플래그를 사용하여 방 이동 결정
+            # 60번째 이상이고 베팅한 상태가 아니면 방 이동
+            if current_game_count >= 60 and not self.betting_service.has_bet_current_round:
+                self.logger.info("60번째 이상 게임 감지 및 현재 베팅 없음 - change_room 실행")
                 self.change_room()
                 return
-            elif self.should_move_to_next_room and self.betting_service.has_bet_current_round:
-                self.logger.info("방 이동 조건 충족했으나, 현재 베팅이 있어 베팅 결과를 기다림")
+            # 이미 방 이동이 필요하다고 표시되었고 현재 베팅이 없으면 방 이동
+            elif getattr(self, '_need_to_move_room', False) and not self.betting_service.has_bet_current_round:
+                self.logger.info("방 이동 플래그 및 베팅 없음 - change_room 실행")
+                # 플래그 리셋
+                setattr(self, '_need_to_move_room', False)
+                self.change_room()
+                return
 
         except Exception as e:
             self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)

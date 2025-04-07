@@ -194,7 +194,12 @@ class TradingManagerGame:
                 # 이미 베팅한 경우: 결과를 기다리고 나중에 방 이동
                 if self.tm.betting_service.has_bet_current_round:
                     self.logger.info(f"60번째 게임에 이미 베팅함 ({actual_game_count}회차). 결과를 기다린 후 방 이동 예정")
-                    self.tm.should_move_to_next_room = True
+                    # self.tm.should_move_to_next_room = True  <- 이 부분이 문제! 속성 직접 설정 불가
+                    
+                    # ✅ 해결책: 내부에 _need_to_move_room 플래그 추가
+                    if not hasattr(self.tm, '_need_to_move_room'):
+                        setattr(self.tm, '_need_to_move_room', True)
+                        self.logger.info("방 이동 플래그 설정됨 (_need_to_move_room)")
                 # 아직 베팅하지 않은 경우: 즉시 방 이동
                 else:
                     self.logger.info(f"60번째 게임 도달 ({actual_game_count}회차). 베팅 없이 바로 다음 방으로 이동")
@@ -213,7 +218,7 @@ class TradingManagerGame:
                 
                 # PICK 값에 따른 베팅 실행
                 # ✅ 수정: 60번째 이후의 게임에는 베팅하지 않도록 조건 추가
-                if not self.tm.should_move_to_next_room and next_pick in ['P', 'B'] and not self.tm.betting_service.has_bet_current_round and actual_game_count < 60:
+                if not getattr(self.tm, '_need_to_move_room', False) and next_pick in ['P', 'B'] and not self.tm.betting_service.has_bet_current_round and actual_game_count < 60:
                     self.tm.main_window.update_betting_status(pick=next_pick)
 
                     # 첫 입장 시 바로 베팅하지 않음
@@ -233,14 +238,14 @@ class TradingManagerGame:
                     if last_bet and last_bet['round'] < actual_game_count:
                         # self.logger.info(f"베팅({last_bet['round']})과 현재 게임({actual_game_count})의 불일치 감지")
                         # 이 경우 이전 게임 결과를 먼저 처리해야 함
-                        if not self.tm.should_move_to_next_room:
-                            # self.logger.info("베팅 결과 확인을 위해 다음 분석까지 대기")
-                            pass
+                        pass
                 
                 # ✅ 수정: 베팅 결과가 처리된 후 방 이동 필요성 재확인
-                # should_move_to_next_room이 True이고 현재 베팅이 없으면 방 이동
-                if self.tm.should_move_to_next_room and not self.tm.betting_service.has_bet_current_round:
+                # 내부 플래그가 True이고 현재 베팅이 없으면 방 이동
+                if getattr(self.tm, '_need_to_move_room', False) and not self.tm.betting_service.has_bet_current_round:
                     self.logger.info("베팅 결과 확인 후 방 이동 조건 충족, 다음 방으로 이동")
+                    # 플래그 리셋
+                    setattr(self.tm, '_need_to_move_room', False)
                     self.tm.change_room()
                     return
             
@@ -260,7 +265,7 @@ class TradingManagerGame:
                         self.tm._first_entry_time = time.time()
         except Exception as e:
             self.logger.error(f"Excel 결과 처리 오류: {e}")
-            
+
     def handle_tie_result(self, latest_result, game_state):
         """무승부(T) 결과 처리"""
         try:
