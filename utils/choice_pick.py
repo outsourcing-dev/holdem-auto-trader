@@ -420,28 +420,61 @@ class ChoicePickSystem:
         self.stage2_picks = []
         self.stage3_picks = []
         self.stage4_picks
-        
-# import pandas as pd
+    
+    def generate_six_pick_candidates(self) -> Dict[int, List[str]]:
+        """
+        후보 1~6번에 해당하는 5단계 최종픽 리스트를 생성합니다.
+        Returns:
+            Dict[int, List[str]]: 후보 번호별 최종픽 목록
+        """
+        candidates = {}
+        for i in range(6):  # 후보 1~6번
+            temp_system = ChoicePickSystem()
+            temp_system.add_multiple_results(self.results)  # 전체 전달
+            
+            all_stage = temp_system._generate_all_stage_picks()
 
-# if __name__ == "__main__":
-#     # 예시 결과 (15개)
-#     # sample_results = ["","","","","","","","","","","","","","",""]
-#     sample_results = ["B","B","P","B","B","P","B","B","P","B","P","B","B","P","P"]
-#     # 시스템 인스턴스 생성
-#     system = ChoicePickSystem()
-#     system.add_multiple_results(sample_results)
+            start_pick = 5 + i + 1  # 6 ~ 11번 픽부터
+            end_pick = 15  # 15번 픽까지
 
-#     # 단계별 결과 생성
-#     all_picks = system._generate_all_stage_picks()
+            picks = []
+            for pick_num in range(start_pick, end_pick + 1):
+                if pick_num in all_stage:
+                    picks.append(all_stage[pick_num]["최종픽"])
+            candidates[i + 1] = picks
 
-#     # 표로 정리
-#     rows = []
-#     for pick_num in sorted(all_picks.keys()):
-#         row = {"픽번호": pick_num}
-#         row.update(all_picks[pick_num])
-#         rows.append(row)
+        return candidates
 
-#     df = pd.DataFrame(rows)
-#     print("입력된 결과:", sample_results)
-#     print("\n[단계별 픽 결과 표]")
-#     print(df.to_string(index=False))
+
+
+import pandas as pd
+
+if __name__ == "__main__":
+    # 예시 결과 (15개)
+    # sample_results = ["","","","","","","","","","","","","","",""]
+    sample_results = ["B","B","P","B","B","P","B","B","P","B","P","B","B","P","P"]
+    # 시스템 인스턴스 생성
+    system = ChoicePickSystem()
+    system.add_multiple_results(sample_results)
+
+    # 단계별 결과 생성
+    all_picks = system._generate_all_stage_picks()
+
+    # 표로 정리
+    rows = []
+    for pick_num in sorted(all_picks.keys()):
+        row = {"픽번호": pick_num}
+        row.update(all_picks[pick_num])
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    print("입력된 결과:", sample_results)
+    print("\n[단계별 픽 결과 표]")
+    print(df.to_string(index=False))
+    
+        # 6픽 후보들 생성
+    print("\n[6개 후보 픽 결과]")
+    six_candidates = system.generate_six_pick_candidates()
+    for idx, picks in six_candidates.items():
+        print(f"{idx}번 후보: {picks}")
+
