@@ -421,27 +421,27 @@ class ChoicePickSystem:
         self.stage3_picks = []
         self.stage4_picks
         
-import pandas as pd
+# import pandas as pd
 
-if __name__ == "__main__":
-    # 예시 결과 (15개)
-    sample_results = ["B", "B", "P", "B", "B", "P", "B", "B", "P", "B", "P", "B", "B", "P", "P"]
+# if __name__ == "__main__":
+#     # 예시 결과 (15개)
+#     # sample_results = ["","","","","","","","","","","","","","",""]
+#     sample_results = ["B","B","P","B","B","P","B","B","P","B","P","B","B","P","P"]
+#     # 시스템 인스턴스 생성
+#     system = ChoicePickSystem()
+#     system.add_multiple_results(sample_results)
 
-    # 시스템 인스턴스 생성
-    system = ChoicePickSystem()
-    system.add_multiple_results(sample_results)
+#     # 단계별 결과 생성
+#     all_picks = system._generate_all_stage_picks()
 
-    # 단계별 결과 생성
-    all_picks = system._generate_all_stage_picks()
+#     # 표로 정리
+#     rows = []
+#     for pick_num in sorted(all_picks.keys()):
+#         row = {"픽번호": pick_num}
+#         row.update(all_picks[pick_num])
+#         rows.append(row)
 
-    # 표로 정리
-    rows = []
-    for pick_num in sorted(all_picks.keys()):
-        row = {"픽번호": pick_num}
-        row.update(all_picks[pick_num])
-        rows.append(row)
-
-    df = pd.DataFrame(rows)
-    print("입력된 결과:", sample_results)
-    print("\n[단계별 픽 결과 표]")
-    print(df.to_string(index=False))
+#     df = pd.DataFrame(rows)
+#     print("입력된 결과:", sample_results)
+#     print("\n[단계별 픽 결과 표]")
+#     print(df.to_string(index=False))
