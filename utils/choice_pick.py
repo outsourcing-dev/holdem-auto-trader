@@ -1,35 +1,12 @@
-import logging
-import os
-import sys
-from typing import List, Optional, Dict
-from datetime import datetime
+from typing import List, Dict, Optional, Tuple, Any
 
-# 로그 파일 경로 결정
-if getattr(sys, 'frozen', False):
-    # PyInstaller로 패키징된 경우
-    base_dir = os.path.dirname(sys.executable)
-    log_path = os.path.join(base_dir, 'choice_pick_log.txt')
-else:
-    # 일반 Python으로 실행된 경우
-    log_path = 'choice_pick_log.txt'
-
-# 간단한 로깅 함수 (파일에 직접 기록)
-def write_log(message, level="INFO"):
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(log_path, 'a', encoding='utf-8') as f:
-            f.write(f"{timestamp} - {level} - {message}\n")
-    except Exception as e:
-        print(f"로그 기록 실패: {e}")
-
-# 시작 로그 기록
-write_log(f"ChoicePickSystem 로그 시작 - 파일 경로: {log_path}")
 
 class ChoicePickSystem:
     """
     초이스 픽 시스템 - 15판 기준의 베팅 전략 구현
     """
     def __init__(self, logger=None):
+        """초기화"""
         self.logger = logger
         self.results: List[str] = []  # 최근 15판 결과 (P/B만)
         self.current_pick: Optional[str] = None  # 현재 초이스 픽
@@ -48,8 +25,22 @@ class ChoicePickSystem:
         # 방 이동 카운터
         self.last_win_count: int = 0  # 마지막 승리 이후 판 수
         
-        # 초기화 로그
-        write_log("ChoicePickSystem 인스턴스 생성")
+        # 알고리즘용 각 단계별 픽 저장
+        self.stage1_picks: List[str] = []  # 1단계 픽 리스트
+        self.stage2_picks: List[str] = []  # 2단계 픽 리스트
+        self.stage3_picks: List[str] = []  # 3단계 픽 리스트
+        self.stage4_picks = []
+        self.stage5_picks = []
+        if self.logger:
+            self.stage4_picks = []
+        self.stage5_picks = []
+        if self.logger:
+            self.logger.info("초이스 픽 시스템 전체 초기화 완료")
+        self.stage5_picks: List[str] = []  # 5단계 픽 리스트
+        
+        # 로그 메시지 (logger가 없을 경우 대비)
+        if self.logger:
+            self.logger.info("ChoicePickSystem 인스턴스 생성")
 
     def add_result(self, result: str) -> None:
         """
@@ -65,9 +56,10 @@ class ChoicePickSystem:
         if len(self.results) > 15:
             self.results.pop(0)
             
-        log_msg = f"결과 추가: {result} (현재 {len(self.results)}/15판)"
-        write_log(log_msg)
-        write_log(f"현재 결과 리스트: {self.results}", "DEBUG")
+        if self.logger:
+            self.logger.info(f"결과 추가: {result} (현재 {len(self.results)}/15판)")
+            self.logger.debug(f"현재 결과 리스트: {self.results}")
+        
         self.last_win_count += 1
 
     def add_multiple_results(self, results: List[str]) -> None:
@@ -82,8 +74,10 @@ class ChoicePickSystem:
             filtered_results = filtered_results[-15:]
             
         self.results = filtered_results
-        write_log(f"다중 결과 추가: 총 {len(self.results)}/15판")
-        write_log(f"현재 결과 리스트: {self.results}", "DEBUG")
+        
+        if self.logger:
+            self.logger.info(f"다중 결과 추가: 총 {len(self.results)}/15판")
+            self.logger.debug(f"현재 결과 리스트: {self.results}")
 
     def has_sufficient_data(self) -> bool:
         """15판 데이터가 모두 있는지 확인"""
@@ -92,6 +86,162 @@ class ChoicePickSystem:
     def get_opposite_pick(self, pick: str) -> str:
         """반대 픽 반환"""
         return 'B' if pick == 'P' else 'P'
+    
+    def _initialize_stage_picks(self, max_pick: int) -> None:
+        """
+        각 단계별 픽 리스트 초기화
+        
+        Args:
+            max_pick: 생성할 최대 픽 번호
+        """
+        # 인덱스는 0부터 시작하므로 최대 픽 번호만큼 공간 필요
+        self.stage1_picks = ['' for _ in range(max_pick)]
+        self.stage2_picks = ['' for _ in range(max_pick)]
+        self.stage3_picks = ['' for _ in range(max_pick)]
+        self.stage4_picks = ['' for _ in range(max_pick)]
+        self.stage5_picks = ['' for _ in range(max_pick)]
+
+    def _generate_all_stage_picks(self) -> Dict[int, Dict[str, str]]:
+        """
+        현재 결과 데이터를 기반으로 5~18번 모든 픽의 단계별 픽 생성
+        
+        Returns:
+            Dict[int, Dict[str, str]]: 각 픽 번호별 단계별 픽 정보
+        """
+        if len(self.results) < 15:
+            if self.logger:
+                self.logger.warning(f"데이터 부족: 현재 {len(self.results)}/15판, 모든 단계 픽 생성 불가")
+            return {}
+        
+        # 픽 생성 가능 범위: 5번부터 18번까지
+        min_pick = 5
+        max_pick = 18
+        
+        # 각 단계별 픽 리스트 초기화
+        self._initialize_stage_picks(max_pick)
+        
+        # 모든 픽 저장용 딕셔너리
+        all_picks = {}
+        
+        # 픽 번호별로 5단계 알고리즘 적용하여 픽 생성
+        for pick_number in range(min_pick, max_pick + 1):
+            # 5단계 알고리즘 적용
+            stage1, stage2, stage3, stage4, stage5 = self._apply_five_stage_algorithm(pick_number)
+            
+            # 각 단계별 픽 저장 (인덱스는 0부터 시작)
+            idx = pick_number - 1
+            self.stage1_picks[idx] = stage1
+            self.stage2_picks[idx] = stage2
+            self.stage3_picks[idx] = stage3
+            self.stage4_picks[idx] = stage4
+            self.stage5_picks[idx] = stage5
+            
+            # 결과 딕셔너리에 저장
+            all_picks[pick_number] = {
+                "1단계": stage1,
+                "2단계": stage2,
+                "3단계": stage3,
+                "4단계": stage4,
+                "5단계": stage5,
+                "최종픽": stage5  # 5단계 픽이 최종 픽
+            }
+            
+            if self.logger:
+                self.logger.debug(f"{pick_number}번 픽 생성: "
+                               f"1단계={stage1}, 2단계={stage2}, 3단계={stage3}, "
+                               f"4단계={stage4}, 5단계={stage5}")
+        
+        return all_picks
+
+    def _apply_five_stage_algorithm(self, pick_number: int) -> Tuple[str, str, str, str, str]:
+        pos = pick_number - 1
+
+        # ========= 1° =========
+        pick1_idx = pos - 4
+        pick2_idx = pos - 3
+        pick4_idx = pos - 1
+
+        if pick1_idx < 0 or pick2_idx < 0 or pick4_idx < 0 or pick4_idx >= len(self.results):
+            default = 'N'
+            return default, default, default, default, default
+
+        pick1 = self.results[pick1_idx]
+        pick2 = self.results[pick2_idx]
+        pick4 = self.results[pick4_idx]
+        stage1 = pick4 if pick1 == pick2 else self.get_opposite_pick(pick4)
+
+        # ========= 2° =========
+        if pick_number < 6:
+            stage2 = 'N'
+        else:
+            recent_results = self.results[pick_number - 5:pick_number - 1]
+            recent_picks = self.stage1_picks[pick_number - 5:pick_number - 1]
+            wins = sum(1 for r, p in zip(recent_results, recent_picks) if r == p)
+            stage2 = stage1 if wins >= 2 else self.get_opposite_pick(stage1)
+
+        # ========= 3° =========
+        if pick_number < 6:
+            stage3 = 'N'
+        elif 6 <= pick_number <= 8:
+            stage3 = stage2
+        else:
+            prev_idx = pick_number - 2
+            result_at_prev = self.results[prev_idx] if prev_idx < len(self.results) else None
+            prev_stage2 = self.stage2_picks[prev_idx] if prev_idx < len(self.stage2_picks) else None
+            if result_at_prev is None or prev_stage2 is None:
+                stage3 = stage2
+            else:
+                stage3 = stage2 if result_at_prev == prev_stage2 else self.get_opposite_pick(stage2)
+
+        # ========= 4단계 =========
+        if pick_number == 5:
+            stage4 = 'N'
+        elif 6 <= pick_number <= 10:
+            stage4 = stage3
+        else:
+            prev_pick_idx = pick_number - 2  # 전판의 3단계 픽 (예: 11번 픽이면 9번 index)
+            prev_result_idx = pick_number - 2  # 실제 결과 인덱스 (같음)
+
+            if (
+                prev_pick_idx < len(self.stage3_picks)
+                and prev_result_idx < len(self.results)
+            ):
+                prev_pick = self.stage3_picks[prev_pick_idx]
+                prev_result = self.results[prev_result_idx]
+
+                if prev_pick == prev_result:
+                    stage4 = stage3  # 성공 → 유지
+                else:
+                    stage4 = self.get_opposite_pick(stage3)  # 실패 → 반대픽
+            else:
+                stage4 = stage3  # 예외: 인덱스 벗어나면 유지
+
+        # ========= 5단계 =========
+        if pick_number == 5:
+            stage5 = 'N'
+        elif 6 <= pick_number <= 11:
+            stage5 = stage1  # 1단계와 동일
+        else:
+            # 이전 4개의 4단계 픽과 결과 비교
+            win_count = 0
+            for offset in range(4):
+                idx = pick_number - 2 - offset  # 1개 전부터 4개
+                if (
+                    0 <= idx < len(self.stage4_picks) and
+                    idx < len(self.results)
+                ):
+                    pred = self.stage4_picks[idx]
+                    actual = self.results[idx]
+                    if pred == actual:
+                        win_count += 1
+
+            if win_count >= 2:
+                stage5 = stage4  # 유지
+            else:
+                stage5 = self.get_opposite_pick(stage4)  # 반대
+
+
+        return stage1, stage2, stage3, stage4, stage5
 
     def _generate_six_picks(self) -> Dict[int, str]:
         """
@@ -100,99 +250,38 @@ class ChoicePickSystem:
         Returns:
             Dict[int, str]: 각 시작 위치별 최종 픽 값 {1: 'P', 2: 'B', ...}
         """
-        write_log("6개 픽 생성 시작")
+        if self.logger:
+            self.logger.info("6개 픽 생성 시작")
         
         if not self.has_sufficient_data():
-            write_log(f"6개 픽 생성 실패: 데이터 부족 (현재 {len(self.results)}/15판)", "WARNING")
+            if self.logger:
+                self.logger.warning(f"6개 픽 생성 실패: 데이터 부족 (현재 {len(self.results)}/15판)")
             return {}
         
+        # 먼저 모든 단계별 픽 생성
+        all_stage_picks = self._generate_all_stage_picks()
+        
+        # 요청받은 6개 픽 위치 (16, 17, 18번)
+        pick_positions = [16, 17, 18]
+        
+        # 6개 픽에 해당하는 최종 값 추출
         picks = {}
-        for start_pos in range(1, 7):
-            write_log(f"픽 {start_pos}번 생성 시작 (시작 위치: {start_pos})", "DEBUG")
-            final_pick = self._apply_five_stage_algorithm(start_pos)
-            picks[start_pos] = final_pick
-            write_log(f"픽 {start_pos}번 생성 완료: {final_pick} (시작 위치 {start_pos})")
+        for pos in range(1, 7):
+            pick_number = pick_positions[pos-1] if pos <= len(pick_positions) else pos  # 처음 3개는 16,17,18번, 나머지는 그대로
+            
+            if pick_number in all_stage_picks:
+                final_pick = all_stage_picks[pick_number]["최종픽"]
+                picks[pos] = final_pick
+                if self.logger:
+                    self.logger.info(f"픽 {pos}번 생성 완료: {final_pick} (위치 {pick_number}번)")
         
-        p_count = sum(1 for p in picks.values() if p == 'P')
-        b_count = sum(1 for p in picks.values() if p == 'B')
-        write_log(f"6개 픽 생성 완료: P={p_count}개, B={b_count}개")
-        write_log(f"6개 픽 전체: {picks}", "DEBUG")
+        if self.logger:
+            p_count = sum(1 for p in picks.values() if p == 'P')
+            b_count = sum(1 for p in picks.values() if p == 'B')
+            self.logger.info(f"6개 픽 생성 완료: P={p_count}개, B={b_count}개")
+            self.logger.debug(f"6개 픽 전체: {picks}")
+        
         return picks
-
-    def _apply_five_stage_algorithm(self, start_pos: int) -> str:
-        """
-        5단계 알고리즘을 적용하여 픽 생성
-        
-        Args:
-            start_pos: 시작 위치 (1~6)
-            
-        Returns:
-            str: 최종 픽 ('P' 또는 'B')
-        """
-        pos = start_pos - 1
-        if len(self.results) <= pos + 3:
-            write_log(f"[픽 {start_pos}] 데이터 부족: 사용 데이터 {self.results[:pos+4]} 반환값: {self.results[0] if self.results else 'P'}", "DEBUG")
-            return self.results[0] if self.results else 'P'
-            
-        pick1 = self.results[pos]
-        pick2 = self.results[pos + 1]
-        pick4 = self.results[pos + 3]
-        stage1_pick = pick4 if pick1 == pick2 else self.get_opposite_pick(pick4)
-        write_log(f"[픽 {start_pos} - 1단계] pick1={pick1}, pick2={pick2}, pick4={pick4} -> stage1_pick={stage1_pick}", "DEBUG")
-        
-        # 2단계: 1단계 중 최근 4판의 승이 2개 이상이면 유지, 아니면 반대
-        recent_four = self.results[pos:pos+4]
-        wins = sum(1 for r in recent_four if r == stage1_pick)
-        stage2_pick = stage1_pick if wins >= 2 else self.get_opposite_pick(stage1_pick)
-        write_log(f"[픽 {start_pos} - 2단계] 최근4={recent_four}, wins={wins} -> stage2_pick={stage2_pick}", "DEBUG")
-        
-        # 3단계: 수정된 로직 - 단순히 8번 결과와 2단계 픽을 비교하여 결정
-        eighth_pos = pos + 7
-        if len(self.results) <= eighth_pos:
-            stage3_pick = stage2_pick
-            write_log(f"[픽 {start_pos} - 3단계] 8번 인덱스 미존재 -> stage3_pick={stage3_pick}", "DEBUG")
-        else:
-            eighth_result = self.results[eighth_pos]
-            # 단순화된 로직: 2단계 픽이 성공하면 유지, 실패하면 반대
-            if eighth_result == stage2_pick:  # 2단계 픽 성공
-                stage3_pick = stage2_pick
-                write_log(f"[픽 {start_pos} - 3단계] 8번 일치(성공) -> 동일 픽 유지: stage3_pick={stage3_pick}", "DEBUG")
-            else:  # 2단계 픽 실패
-                stage3_pick = self.get_opposite_pick(stage2_pick)
-                write_log(f"[픽 {start_pos} - 3단계] 8번 불일치(실패) -> 반대 픽으로 전환: stage3_pick={stage3_pick}", "DEBUG")
-        
-        # 4단계: 수정된 로직 - 단순히 10번 결과와 3단계 픽을 비교하여 결정
-        tenth_pos = pos + 9
-        if len(self.results) <= tenth_pos:
-            stage4_pick = stage3_pick
-            write_log(f"[픽 {start_pos} - 4단계] 10번 인덱스 미존재 -> stage4_pick={stage4_pick}", "DEBUG")
-        else:
-            tenth_result = self.results[tenth_pos]
-            # 단순화된 로직: 3단계 픽이 성공하면 유지, 실패하면 반대
-            if tenth_result == stage3_pick:  # 3단계 픽 성공
-                stage4_pick = stage3_pick
-                write_log(f"[픽 {start_pos} - 4단계] 10번 일치(성공) -> 동일 픽 유지: stage4_pick={stage4_pick}", "DEBUG")
-            else:  # 3단계 픽 실패
-                stage4_pick = self.get_opposite_pick(stage3_pick)
-                write_log(f"[픽 {start_pos} - 4단계] 10번 불일치(실패) -> 반대 픽으로 전환: stage4_pick={stage4_pick}", "DEBUG")
-        
-        # 5단계: 수정된 로직 - 시작 인덱스를 사용해 4단계 픽과 비교
-        # 12번 결과부터 분석 (11번 이후 모든 결과)
-        twelfth_pos = pos + 11
-        if len(self.results) <= twelfth_pos:
-            stage5_pick = stage4_pick
-            write_log(f"[픽 {start_pos} - 5단계] 12번 인덱스 미존재 -> stage5_pick={stage5_pick}", "DEBUG")
-        else:
-            # 기존의 승률 기반 로직 대신 가장 최근 결과(11번)와 4단계 픽 비교
-            eleventh_result = self.results[twelfth_pos-1]  # 11번 결과
-            if eleventh_result == stage4_pick:  # 4단계 픽 성공
-                stage5_pick = stage4_pick
-                write_log(f"[픽 {start_pos} - 5단계] 11번 일치(성공) -> 동일 픽 유지: stage5_pick={stage5_pick}", "DEBUG")
-            else:  # 4단계 픽 실패
-                stage5_pick = self.get_opposite_pick(stage4_pick)
-                write_log(f"[픽 {start_pos} - 5단계] 11번 불일치(실패) -> 반대 픽으로 전환: stage5_pick={stage5_pick}", "DEBUG")
-        
-        return stage5_pick
 
     def _find_streaks(self, results: List[str], condition_func, min_length: int) -> List[tuple]:
         """
@@ -237,7 +326,8 @@ class ChoicePickSystem:
         wins = sum(1 for r in self.results if r == pick)
         losses = len(self.results) - wins
         diff = wins - losses
-        write_log(f"승패 차이 계산: pick={pick}, wins={wins}, losses={losses}, diff={diff}", "DEBUG")
+        if self.logger:
+            self.logger.debug(f"승패 차이 계산: pick={pick}, wins={wins}, losses={losses}, diff={diff}")
         return diff
 
     def record_betting_result(self, is_win: bool, reset_after_win: bool = True) -> None:
@@ -252,21 +342,26 @@ class ChoicePickSystem:
         self.pick_results.append(is_win)
         
         if is_win:
-            write_log(f"베팅 성공! 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
+            if self.logger:
+                self.logger.info(f"베팅 성공! 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
             if reset_after_win:
                 self.consecutive_failures = 0
                 self.martin_step = 0
                 self.last_win_count = 0
-                write_log("베팅 성공으로 마틴 단계와 실패 카운터 초기화")
+                if self.logger:
+                    self.logger.info("베팅 성공으로 마틴 단계와 실패 카운터 초기화")
         else:
-            write_log(f"베팅 실패. 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
+            if self.logger:
+                self.logger.info(f"베팅 실패. 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
             if self.martin_step < 2:
                 self.martin_step += 1
-                write_log(f"마틴 단계 증가: {self.martin_step+1}단계")
+                if self.logger:
+                    self.logger.info(f"마틴 단계 증가: {self.martin_step+1}단계")
             else:
                 self.consecutive_failures += 1
                 self.martin_step = 0
-                write_log(f"3마틴 모두 실패! 연속 실패: {self.consecutive_failures}회", "WARNING")
+                if self.logger:
+                    self.logger.warning(f"3마틴 모두 실패! 연속 실패: {self.consecutive_failures}회")
     
     def get_current_bet_amount(self) -> int:
         """현재 마틴 단계에 따른 베팅 금액 반환"""
@@ -282,15 +377,18 @@ class ChoicePickSystem:
             bool: 방 이동 필요 여부
         """
         if self.consecutive_failures >= 1 and self.martin_step == 0:
-            write_log("3마틴 모두 실패로 방 이동 필요")
+            if self.logger:
+                self.logger.info("3마틴 모두 실패로 방 이동 필요")
             return True
             
         if len(self.pick_results) >= 2 and not any(self.pick_results[-2:]):
-            write_log("초이스 픽 2회 연속 실패로 방 이동 필요")
+            if self.logger:
+                self.logger.info("초이스 픽 2회 연속 실패로 방 이동 필요")
             return True
             
         if self.betting_attempts == 0 and self.martin_step == 0 and self.last_win_count >= 57:
-            write_log(f"현재 게임 판수가 57판 이상이고 배팅 중이 아님 → 방 이동 필요")
+            if self.logger:
+                self.logger.info(f"현재 게임 판수가 57판 이상이고 배팅 중이 아님 → 방 이동 필요")
             return True
             
         return False
@@ -303,8 +401,9 @@ class ChoicePickSystem:
         self.betting_attempts = 0
         self.martin_step = 0
         self.current_pick = None
-        write_log(f"방 이동 후 초기화: 연속실패({prev_failures}→{self.consecutive_failures}), "
-                  f"마틴({prev_martin+1}→{self.martin_step+1}), 결과개수({prev_results})")
+        if self.logger:
+            self.logger.info(f"방 이동 후 초기화: 연속실패({prev_failures}→{self.consecutive_failures}), "
+                          f"마틴({prev_martin+1}→{self.martin_step+1}), 결과개수({prev_results})")
     
     def clear(self) -> None:
         """전체 데이터 초기화"""
@@ -317,233 +416,32 @@ class ChoicePickSystem:
         self.martin_step = 0
         self.pick_results = []
         self.last_win_count = 0
-        write_log("초이스 픽 시스템 전체 초기화 완료")
+        self.stage1_picks = []
+        self.stage2_picks = []
+        self.stage3_picks = []
+        self.stage4_picks
+        
+import pandas as pd
 
-    def set_martin_amounts(self, amounts: List[int]) -> None:
-        """마틴 금액 설정"""
-        if len(amounts) >= 3:
-            self.martin_amounts = amounts[:3]
-            write_log(f"마틴 금액 설정: {self.martin_amounts}")
-        else:
-            write_log(f"마틴 금액 설정 실패: 최소 3단계 필요 (현재 {len(amounts)}단계)", "WARNING")
-            
-    def analyze_pick_strategy(self, pick: str, start_pos: int) -> Optional[Dict]:
-        """
-        주어진 픽에 대해 최근 승/패 패턴을 분석하고 적합한 베팅 전략 반환
-        각 픽의 시작 위치(start_pos)를 기준으로 결과를 평가
-        
-        규칙:
-        1. False → True (패 → 승)이면 정배팅 (픽 그대로 베팅)
-        2. True → False (승 → 패)이면 역배팅 (픽의 반대 방향으로 베팅)
-        3. 위 두 조건이 아니면 제외 (승→승, 패→패 등)
-        4. 3연승 or 3연패가 있을 경우 해당 후보는 제외
-        
-        Args:
-            pick: 분석할 픽 ('P' 또는 'B')
-            start_pos: 픽이 생성된 시작 위치 (1-6)
-            
-        Returns:
-            Dict: 픽 분석 결과 (전략, 점수 등) 또는 None (조건 불만족 시)
-        """
-        # 시작 위치에 따른 결과 범위 설정
-        results_subset = self.results[start_pos-1:] if start_pos <= len(self.results) else []
-        
-        if not results_subset or len(results_subset) < 2:
-            write_log(f"픽 {pick} (시작위치 {start_pos}) 분석: 데이터 부족 (최소 2판 필요)", "WARNING")
-            return None
-        
-        write_log(f"픽 {pick} (시작위치 {start_pos}) 전략 분석 시작", "DEBUG")
-        write_log(f"분석 대상 결과 데이터: {results_subset}", "DEBUG")
-        
-        # 픽에 대한 승/패 시퀀스 생성 (True=승, False=패)
-        win_loss_sequence = [r == pick for r in results_subset]
-        write_log(f"픽 {pick} 승/패 시퀀스: {win_loss_sequence}", "DEBUG")
-        
-        # 마지막 2개의 승/패 패턴 확인
-        if len(win_loss_sequence) >= 2:
-            last_two = win_loss_sequence[-2:]
-            write_log(f"픽 {pick} 마지막 2개 승/패 패턴: {last_two}", "DEBUG")
-            
-            # 3연승 또는 3연패 확인
-            has_three_consecutive_wins = False
-            has_three_consecutive_losses = False
-            
-            for i in range(len(win_loss_sequence) - 2):
-                if all(win_loss_sequence[i:i+3]):
-                    has_three_consecutive_wins = True
-                    write_log(f"픽 {pick} (시작위치 {start_pos})에 3연승 발견: 인덱스 {i}부터", "DEBUG")
-                    break
-                elif not any(win_loss_sequence[i:i+3]):
-                    has_three_consecutive_losses = True
-                    write_log(f"픽 {pick} (시작위치 {start_pos})에 3연패 발견: 인덱스 {i}부터", "DEBUG")
-                    break
-            
-            if has_three_consecutive_wins or has_three_consecutive_losses:
-                write_log(f"픽 {pick} (시작위치 {start_pos}) 제외: 3연승 또는 3연패 존재", "DEBUG")
-                return None
-            
-            # 조건 1: 패 → 승 (정배팅)
-            if last_two == [False, True]:
-                wins = sum(win_loss_sequence)
-                losses = len(win_loss_sequence) - wins
-                score = wins - losses
-                write_log(f"픽 {pick} (시작위치 {start_pos}) 정배팅 조건 만족 (패→승), 점수: {score}")
-                return {
-                    'pick': pick,
-                    'direction': 'normal',
-                    'score': score
-                }
-            
-            # 조건 2: 승 → 패 (역배팅)
-            elif last_two == [True, False]:
-                wins = sum(win_loss_sequence)
-                losses = len(win_loss_sequence) - wins
-                score = losses - wins  # 역배팅은 패-승 점수 계산
-                write_log(f"픽 {pick} (시작위치 {start_pos}) 역배팅 조건 만족 (승→패), 점수: {score}")
-                return {
-                    'pick': self.get_opposite_pick(pick),  # 역배팅의 경우 반대 픽 반환
-                    'direction': 'reverse',
-                    'score': score
-                }
-        
-        write_log(f"픽 {pick} (시작위치 {start_pos}) 분석: 베팅 조건 불만족", "DEBUG")
-        return None
+if __name__ == "__main__":
+    # 예시 결과 (15개)
+    sample_results = ["B", "B", "P", "B", "B", "P", "B", "B", "P", "B", "P", "B", "B", "P", "P"]
 
-    def generate_betting_candidates(self, all_picks: Dict[int, str]) -> Dict[str, Dict]:
-        """
-        모든 픽에 대한 베팅 후보 생성
-        각 픽의 시작 위치를 고려하여 분석
-        
-        Args:
-            all_picks: 시작 위치별 생성된 픽 {1: 'P', 2: 'B', ...}
-            
-        Returns:
-            Dict[str, Dict]: 키는 'P-1'와 같은 픽-위치 형식, 값은 후보 정보
-        """
-        candidates = {}
-        write_log("베팅 후보 생성 시작")
-        
-        for pos, pick in all_picks.items():
-            # 픽 분석 (시작 위치 전달)
-            analysis_result = self.analyze_pick_strategy(pick, pos)
-            if analysis_result:
-                key = f"{analysis_result['pick']}-{pos}"
-                analysis_result['pos'] = pos  # 시작 위치 정보 추가
-                candidates[key] = analysis_result
-        
-        write_log(f"베팅 후보 생성 완료: 총 {len(candidates)}개 후보 발견")
-        return candidates
+    # 시스템 인스턴스 생성
+    system = ChoicePickSystem()
+    system.add_multiple_results(sample_results)
 
-    def generate_choice_pick(self) -> Optional[str]:
-        """
-        6개 픽 생성 및 전략 분석을 통해 초이스 픽 생성
-        
-        Returns:
-            초이스 픽 ('P' 또는 'B') 또는 None (데이터 부족 또는 조건 미충족 시)
-        """
-        write_log("초이스 픽 생성 시작")
-        write_log(f"현재 결과 데이터: {self.results}", "DEBUG")
-        
-        if not self.has_sufficient_data():
-            write_log(f"데이터 부족: 현재 {len(self.results)}/15판, 최소 15판 필요", "WARNING")
-            return None
-        
-        all_picks = self._generate_six_picks()
-        if not all_picks:
-            write_log(f"6개 픽 생성 실패: 현재 데이터 길이 {len(self.results)}", "WARNING")
-            return None
-        
-        write_log(f"생성된 6개 픽: {all_picks}")
-        
-        # 새로 구현한 함수로 통합 후보 생성
-        all_candidates = self.generate_betting_candidates(all_picks)
-        
-        if not all_candidates:
-            write_log("정배팅/역배팅 조건을 만족하는 후보가 없음 (패스)", "WARNING")
-            return None
-        
-        final_pick, direction, score = self._select_final_pick(all_candidates)
-        if final_pick:
-            self.current_pick = final_pick
-            self.betting_direction = direction
-            write_log(f"최종 초이스 픽: {final_pick} ({direction} 배팅), 점수: {score}")
-            self.betting_attempts = 0
-            self.martin_step = 0
-            return final_pick
-        else:
-            write_log("적합한 초이스 픽을 찾을 수 없음 (패스) - 동점 또는 기타 조건 미충족", "WARNING")
-            return None
+    # 단계별 결과 생성
+    all_picks = system._generate_all_stage_picks()
 
-    def _select_final_pick(self, all_candidates):
-        """
-        모든 후보 중에서 최종 초이스 픽 선택
-        수정된 기준:
-        1. 먼저 픽 자체가 모두 같은지 확인
-        - 모든 후보가 같은 픽이면 -> 해당 픽 선택
-        2. 픽이 서로 다른 경우에만 점수 비교
-        - 최고 점수를 가진 픽이 유일하면 -> 해당 픽 선택
-        - 최고 점수를 가진 픽이 여러 개이고 서로 다르면 -> PASS 
-        - 최고 점수를 가진 픽이 여러 개이지만 모두 같은 픽이면 -> 해당 픽 선택
-        """
-        write_log("최종 초이스 픽 선택 시작")
-        
-        if not all_candidates:
-            write_log("적합한 후보가 없음: 모든 조건을 만족하는 후보가 없음", "WARNING")
-            return None, "", 0
-        
-        # 1. 모든 후보들의 픽 추출 및 중복 제거
-        unique_picks = set(candidate['pick'] for candidate in all_candidates.values())
-        write_log(f"모든 후보들의 유니크 픽: {unique_picks}")
-        
-        # 모든 후보가 동일한 픽을 가지고 있는 경우
-        if len(unique_picks) == 1:
-            sample_candidate = next(iter(all_candidates.values()))
-            best_pick = sample_candidate['pick']
-            best_direction = sample_candidate['direction']
-            best_score = sample_candidate['score']
-            write_log(f"모든 후보가 동일한 픽({best_pick})을 가짐 - 점수 비교 없이 선택")
-            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {best_score}")
-            return best_pick, best_direction, best_score
-        
-        # 2. 픽이 서로 다른 경우, 점수 비교 수행
-        write_log("후보들의 픽이 다름 - 점수 비교 수행")
-        
-        # 각 픽별로 최고 점수 찾기
-        pick_highest_scores = {}
-        for candidate in all_candidates.values():
-            pick = candidate['pick']
-            score = candidate['score']
-            
-            if pick not in pick_highest_scores or score > pick_highest_scores[pick]['score']:
-                pick_highest_scores[pick] = candidate
-        
-        # 최고 점수 후보 추출
-        highest_score = max(candidate['score'] for candidate in pick_highest_scores.values())
-        write_log(f"각 픽별 최고 점수 중 가장 높은 점수: {highest_score}")
-        
-        # 최고 점수를 가진 후보들 추출
-        best_candidates = {pick: candidate for pick, candidate in pick_highest_scores.items() 
-                        if candidate['score'] == highest_score}
-        
-        write_log(f"최고 점수({highest_score}) 후보: {list(best_candidates.keys())}")
-        
-        # 최고 점수를 가진 픽이 유일하면 선택
-        if len(best_candidates) == 1:
-            best_pick = next(iter(best_candidates.values()))['pick']
-            best_direction = next(iter(best_candidates.values()))['direction']
-            write_log(f"최고 점수를 가진 픽이 유일함 - {best_pick} 선택")
-            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
-            return best_pick, best_direction, highest_score
-        
-        # 최고 점수를 가진 픽이 여러 개지만 모두 같은 픽인 경우 (이론적으로 여기 올 수 없음)
-        unique_best_picks = set(candidate['pick'] for candidate in best_candidates.values())
-        if len(unique_best_picks) == 1:
-            best_pick = next(iter(best_candidates.values()))['pick']
-            best_direction = next(iter(best_candidates.values()))['direction']
-            write_log(f"최고 점수 후보들이 모두 같은 픽({best_pick})을 가짐")
-            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
-            return best_pick, best_direction, highest_score
-            
-        # 최고 점수를 가진 픽이 여러 개이고 서로 다른 경우 PASS
-        write_log(f"최고 점수({highest_score})를 가진 픽들이 서로 다름 - PASS", "WARNING")
-        return None, "", 0
+    # 표로 정리
+    rows = []
+    for pick_num in sorted(all_picks.keys()):
+        row = {"픽번호": pick_num}
+        row.update(all_picks[pick_num])
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    print("입력된 결과:", sample_results)
+    print("\n[단계별 픽 결과 표]")
+    print(df.to_string(index=False))
