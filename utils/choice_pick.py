@@ -93,50 +93,6 @@ class ChoicePickSystem:
         """반대 픽 반환"""
         return 'B' if pick == 'P' else 'P'
 
-    def generate_choice_pick(self) -> Optional[str]:
-        """
-        6개 픽 생성 및 5단계 로직을 통해 초이스 픽 생성
-        
-        Returns:
-            초이스 픽 ('P' 또는 'B') 또는 None (데이터 부족 시)
-        """
-        write_log("초이스 픽 생성 시작")
-        write_log(f"현재 결과 데이터: {self.results}", "DEBUG")
-        
-        if not self.has_sufficient_data():
-            write_log(f"데이터 부족: 현재 {len(self.results)}/15판, 최소 15판 필요", "WARNING")
-            return None
-        
-        all_picks = self._generate_six_picks()
-        if not all_picks:
-            write_log(f"6개 픽 생성 실패: 현재 데이터 길이 {len(self.results)}", "WARNING")
-            return None
-        
-        write_log(f"생성된 6개 픽: {all_picks}")
-        
-        normal_candidates = self._find_normal_betting_candidates(all_picks)
-        reverse_candidates = self._find_reverse_betting_candidates(all_picks)
-        
-        write_log(f"정배팅 후보 수: {len(normal_candidates)}, 역배팅 후보 수: {len(reverse_candidates)}")
-        write_log(f"정배팅 후보들: {normal_candidates}", "DEBUG")
-        write_log(f"역배팅 후보들: {reverse_candidates}", "DEBUG")
-        
-        if not normal_candidates and not reverse_candidates:
-            write_log("정배팅/역배팅 조건을 만족하는 후보가 없음 (패스)", "WARNING")
-            return None
-        
-        final_pick, direction, score = self._select_final_pick(normal_candidates, reverse_candidates)
-        if final_pick:
-            self.current_pick = final_pick
-            self.betting_direction = direction
-            write_log(f"최종 초이스 픽: {final_pick} ({direction} 배팅), 점수: {score}")
-            self.betting_attempts = 0
-            self.martin_step = 0
-            return final_pick
-        else:
-            write_log("적합한 초이스 픽을 찾을 수 없음 (패스) - 동점 또는 기타 조건 미충족", "WARNING")
-            return None
-
     def _generate_six_picks(self) -> Dict[int, str]:
         """
         6개의 픽 생성 (시작 위치만 다른 동일한 알고리즘)
@@ -276,168 +232,6 @@ class ChoicePickSystem:
         
         return streaks
 
-    def _find_normal_betting_candidates(self, all_picks: Dict[int, str]) -> Dict[str, Dict[str, any]]:
-        """
-        정배팅 후보 및 점수 계산
-        수정된 기준: 
-        1. 해당 픽 기준 3연패가 없어야 함
-        2. 마지막 판이 승 또는 패일 것 (Tie만 아니면 OK)
-        점수: 승 - 패
-        """
-        candidates = {}
-        if not self.results:
-            write_log("정배팅 후보 검색: 데이터 없음", "WARNING")
-            return candidates
-            
-        write_log(f"정배팅 후보 검색 시작 (데이터 {len(self.results)}판)")
-        
-        for pos, pick in all_picks.items():
-            write_log(f"정배팅 후보 분석 - 픽 {pick} (시작 위치 {pos})", "DEBUG")
-            
-            # 마지막 판이 존재하는지 확인 (Tie가 아니어야 함)
-            # 이 조건은 사실 항상 True임 (add_result에서 P, B만 필터링하고 있음)
-            if len(self.results) > 0:
-                # 해당 픽 기준 3연패가 없는지 확인
-                losing_streaks = self._find_streaks(self.results, lambda r: r != pick, 3)
-                has_long_losing_streak = len(losing_streaks) > 0
-                
-                if has_long_losing_streak:
-                    write_log(f"  패의 3연패 발견 - 픽 {pick} (시작 위치 {pos}) 제외", "DEBUG")
-                    write_log(f"  패 연속 구간: {losing_streaks}", "DEBUG")
-                    continue
-                
-                # 모든 조건이 만족되면 점수 계산
-                wins = sum(1 for r in self.results if r == pick)
-                losses = len(self.results) - wins
-                score = wins - losses
-                key = f"{pick}-{pos}"
-                candidates[key] = {'pick': pick, 'pos': pos, 'score': score, 'direction': 'normal'}
-                write_log(f"정배팅 후보 확정: 픽 {pick} (시작 위치 {pos}), 승={wins}, 패={losses}, 점수={score}")
-        
-        write_log(f"정배팅 후보 검색 완료: {len(candidates)}개 발견")
-        return candidates
-
-    def _find_reverse_betting_candidates(self, all_picks: Dict[int, str]) -> Dict[str, Dict[str, any]]:
-        """
-        역배팅 후보 및 점수 계산
-        수정된 기준: 
-        1. 해당 픽 기준 3연승이 없어야 함 
-        2. 마지막 판이 패 또는 승일 것 (Tie만 아니면 OK)
-        점수: 패 - 승
-        """
-        candidates = {}
-        if not self.results:
-            write_log("역배팅 후보 검색: 데이터 없음", "WARNING")
-            return candidates
-            
-        write_log(f"역배팅 후보 검색 시작 (데이터 {len(self.results)}판)")
-        
-        for pos, pick in all_picks.items():
-            opposite_pick = self.get_opposite_pick(pick)
-            write_log(f"역배팅 후보 분석 - 픽 {opposite_pick} (시작 위치 {pos}, 원픽 {pick}의 반대)", "DEBUG")
-            
-            # 마지막 판이 존재하는지 확인 (Tie가 아니어야 함)
-            # 이 조건은 사실 항상 True임 (add_result에서 P, B만 필터링하고 있음)
-            if len(self.results) > 0:
-                # 해당 픽 기준 3연승이 없는지 확인
-                winning_streaks = self._find_streaks(self.results, lambda r: r == opposite_pick, 3)
-                has_long_winning_streak = len(winning_streaks) > 0
-                
-                if has_long_winning_streak:
-                    write_log(f"  승의 3연승 발견 - 픽 {opposite_pick} (시작 위치 {pos}) 제외", "DEBUG")
-                    write_log(f"  승 연속 구간: {winning_streaks}", "DEBUG")
-                    continue
-                
-                # 모든 조건이 만족되면 점수 계산
-                wins = sum(1 for r in self.results if r == opposite_pick)
-                losses = len(self.results) - wins
-                score = losses - wins
-                key = f"{opposite_pick}-{pos}"
-                candidates[key] = {'pick': opposite_pick, 'pos': pos, 'score': score, 'direction': 'reverse'}
-                write_log(f"역배팅 후보 확정: 픽 {opposite_pick} (시작 위치 {pos}), 승={wins}, 패={losses}, 점수={score}")
-        
-        write_log(f"역배팅 후보 검색 완료: {len(candidates)}개 발견")
-        return candidates
-
-    def _select_final_pick(self, normal_candidates, reverse_candidates):
-        """
-        최종 초이스 픽 선택
-        수정된 기준 (엑셀 로직):
-        1. 먼저 픽 자체가 모두 같은지 확인
-           - 모든 후보가 같은 픽이면 -> 해당 픽 선택
-        2. 픽이 서로 다른 경우에만 점수 비교
-           - 최고 점수를 가진 픽이 유일하면 -> 해당 픽 선택
-           - 최고 점수를 가진 픽이 여러 개이고 서로 다르면 -> PASS 
-           - 최고 점수를 가진 픽이 여러 개이지만 모두 같은 픽이면 -> 해당 픽 선택
-        """
-        write_log("최종 초이스 픽 선택 시작")
-        
-        # 모든 후보 합치기
-        all_candidates = {}
-        all_candidates.update(normal_candidates)
-        all_candidates.update(reverse_candidates)
-        
-        if not all_candidates:
-            write_log("적합한 후보가 없음: 모든 조건을 만족하는 후보가 없음", "WARNING")
-            return None, "", 0
-        
-        # 1. 모든 후보들의 픽 추출 및 중복 제거
-        unique_picks = set(candidate['pick'] for candidate in all_candidates.values())
-        write_log(f"모든 후보들의 유니크 픽: {unique_picks}")
-        
-        # 모든 후보가 동일한 픽을 가지고 있는 경우
-        if len(unique_picks) == 1:
-            sample_candidate = next(iter(all_candidates.values()))
-            best_pick = sample_candidate['pick']
-            best_direction = sample_candidate['direction']
-            best_score = sample_candidate['score']
-            write_log(f"모든 후보가 동일한 픽({best_pick})을 가짐 - 점수 비교 없이 선택")
-            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {best_score}")
-            return best_pick, best_direction, best_score
-        
-        # 2. 픽이 서로 다른 경우, 점수 비교 수행
-        write_log("후보들의 픽이 다름 - 점수 비교 수행")
-        
-        # 각 픽별로 최고 점수 찾기
-        pick_highest_scores = {}
-        for candidate in all_candidates.values():
-            pick = candidate['pick']
-            score = candidate['score']
-            
-            if pick not in pick_highest_scores or score > pick_highest_scores[pick]['score']:
-                pick_highest_scores[pick] = candidate
-        
-        # 최고 점수 후보 추출
-        highest_score = max(candidate['score'] for candidate in pick_highest_scores.values())
-        write_log(f"각 픽별 최고 점수 중 가장 높은 점수: {highest_score}")
-        
-        # 최고 점수를 가진 후보들 추출
-        best_candidates = {pick: candidate for pick, candidate in pick_highest_scores.items() 
-                          if candidate['score'] == highest_score}
-        
-        write_log(f"최고 점수({highest_score}) 후보: {list(best_candidates.keys())}")
-        
-        # 최고 점수를 가진 픽이 유일하면 선택
-        if len(best_candidates) == 1:
-            best_pick = next(iter(best_candidates.values()))['pick']
-            best_direction = next(iter(best_candidates.values()))['direction']
-            write_log(f"최고 점수를 가진 픽이 유일함 - {best_pick} 선택")
-            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
-            return best_pick, best_direction, highest_score
-        
-        # 최고 점수를 가진 픽이 여러 개지만 모두 같은 픽인 경우 (이론적으로 여기 올 수 없음)
-        unique_best_picks = set(candidate['pick'] for candidate in best_candidates.values())
-        if len(unique_best_picks) == 1:
-            best_pick = next(iter(best_candidates.values()))['pick']
-            best_direction = next(iter(best_candidates.values()))['direction']
-            write_log(f"최고 점수 후보들이 모두 같은 픽({best_pick})을 가짐")
-            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
-            return best_pick, best_direction, highest_score
-            
-        # 최고 점수를 가진 픽이 여러 개이고 서로 다른 경우 PASS
-        write_log(f"최고 점수({highest_score})를 가진 픽들이 서로 다름 - PASS", "WARNING")
-        return None, "", 0
-
     def _calculate_win_loss_diff(self, pick: str) -> int:
         """픽에 대한 승패 차이 계산"""
         wins = sum(1 for r in self.results if r == pick)
@@ -532,3 +326,224 @@ class ChoicePickSystem:
             write_log(f"마틴 금액 설정: {self.martin_amounts}")
         else:
             write_log(f"마틴 금액 설정 실패: 최소 3단계 필요 (현재 {len(amounts)}단계)", "WARNING")
+            
+    def analyze_pick_strategy(self, pick: str, start_pos: int) -> Optional[Dict]:
+        """
+        주어진 픽에 대해 최근 승/패 패턴을 분석하고 적합한 베팅 전략 반환
+        각 픽의 시작 위치(start_pos)를 기준으로 결과를 평가
+        
+        규칙:
+        1. False → True (패 → 승)이면 정배팅 (픽 그대로 베팅)
+        2. True → False (승 → 패)이면 역배팅 (픽의 반대 방향으로 베팅)
+        3. 위 두 조건이 아니면 제외 (승→승, 패→패 등)
+        4. 3연승 or 3연패가 있을 경우 해당 후보는 제외
+        
+        Args:
+            pick: 분석할 픽 ('P' 또는 'B')
+            start_pos: 픽이 생성된 시작 위치 (1-6)
+            
+        Returns:
+            Dict: 픽 분석 결과 (전략, 점수 등) 또는 None (조건 불만족 시)
+        """
+        # 시작 위치에 따른 결과 범위 설정
+        results_subset = self.results[start_pos-1:] if start_pos <= len(self.results) else []
+        
+        if not results_subset or len(results_subset) < 2:
+            write_log(f"픽 {pick} (시작위치 {start_pos}) 분석: 데이터 부족 (최소 2판 필요)", "WARNING")
+            return None
+        
+        write_log(f"픽 {pick} (시작위치 {start_pos}) 전략 분석 시작", "DEBUG")
+        write_log(f"분석 대상 결과 데이터: {results_subset}", "DEBUG")
+        
+        # 픽에 대한 승/패 시퀀스 생성 (True=승, False=패)
+        win_loss_sequence = [r == pick for r in results_subset]
+        write_log(f"픽 {pick} 승/패 시퀀스: {win_loss_sequence}", "DEBUG")
+        
+        # 마지막 2개의 승/패 패턴 확인
+        if len(win_loss_sequence) >= 2:
+            last_two = win_loss_sequence[-2:]
+            write_log(f"픽 {pick} 마지막 2개 승/패 패턴: {last_two}", "DEBUG")
+            
+            # 3연승 또는 3연패 확인
+            has_three_consecutive_wins = False
+            has_three_consecutive_losses = False
+            
+            for i in range(len(win_loss_sequence) - 2):
+                if all(win_loss_sequence[i:i+3]):
+                    has_three_consecutive_wins = True
+                    write_log(f"픽 {pick} (시작위치 {start_pos})에 3연승 발견: 인덱스 {i}부터", "DEBUG")
+                    break
+                elif not any(win_loss_sequence[i:i+3]):
+                    has_three_consecutive_losses = True
+                    write_log(f"픽 {pick} (시작위치 {start_pos})에 3연패 발견: 인덱스 {i}부터", "DEBUG")
+                    break
+            
+            if has_three_consecutive_wins or has_three_consecutive_losses:
+                write_log(f"픽 {pick} (시작위치 {start_pos}) 제외: 3연승 또는 3연패 존재", "DEBUG")
+                return None
+            
+            # 조건 1: 패 → 승 (정배팅)
+            if last_two == [False, True]:
+                wins = sum(win_loss_sequence)
+                losses = len(win_loss_sequence) - wins
+                score = wins - losses
+                write_log(f"픽 {pick} (시작위치 {start_pos}) 정배팅 조건 만족 (패→승), 점수: {score}")
+                return {
+                    'pick': pick,
+                    'direction': 'normal',
+                    'score': score
+                }
+            
+            # 조건 2: 승 → 패 (역배팅)
+            elif last_two == [True, False]:
+                wins = sum(win_loss_sequence)
+                losses = len(win_loss_sequence) - wins
+                score = losses - wins  # 역배팅은 패-승 점수 계산
+                write_log(f"픽 {pick} (시작위치 {start_pos}) 역배팅 조건 만족 (승→패), 점수: {score}")
+                return {
+                    'pick': self.get_opposite_pick(pick),  # 역배팅의 경우 반대 픽 반환
+                    'direction': 'reverse',
+                    'score': score
+                }
+        
+        write_log(f"픽 {pick} (시작위치 {start_pos}) 분석: 베팅 조건 불만족", "DEBUG")
+        return None
+
+    def generate_betting_candidates(self, all_picks: Dict[int, str]) -> Dict[str, Dict]:
+        """
+        모든 픽에 대한 베팅 후보 생성
+        각 픽의 시작 위치를 고려하여 분석
+        
+        Args:
+            all_picks: 시작 위치별 생성된 픽 {1: 'P', 2: 'B', ...}
+            
+        Returns:
+            Dict[str, Dict]: 키는 'P-1'와 같은 픽-위치 형식, 값은 후보 정보
+        """
+        candidates = {}
+        write_log("베팅 후보 생성 시작")
+        
+        for pos, pick in all_picks.items():
+            # 픽 분석 (시작 위치 전달)
+            analysis_result = self.analyze_pick_strategy(pick, pos)
+            if analysis_result:
+                key = f"{analysis_result['pick']}-{pos}"
+                analysis_result['pos'] = pos  # 시작 위치 정보 추가
+                candidates[key] = analysis_result
+        
+        write_log(f"베팅 후보 생성 완료: 총 {len(candidates)}개 후보 발견")
+        return candidates
+
+    def generate_choice_pick(self) -> Optional[str]:
+        """
+        6개 픽 생성 및 전략 분석을 통해 초이스 픽 생성
+        
+        Returns:
+            초이스 픽 ('P' 또는 'B') 또는 None (데이터 부족 또는 조건 미충족 시)
+        """
+        write_log("초이스 픽 생성 시작")
+        write_log(f"현재 결과 데이터: {self.results}", "DEBUG")
+        
+        if not self.has_sufficient_data():
+            write_log(f"데이터 부족: 현재 {len(self.results)}/15판, 최소 15판 필요", "WARNING")
+            return None
+        
+        all_picks = self._generate_six_picks()
+        if not all_picks:
+            write_log(f"6개 픽 생성 실패: 현재 데이터 길이 {len(self.results)}", "WARNING")
+            return None
+        
+        write_log(f"생성된 6개 픽: {all_picks}")
+        
+        # 새로 구현한 함수로 통합 후보 생성
+        all_candidates = self.generate_betting_candidates(all_picks)
+        
+        if not all_candidates:
+            write_log("정배팅/역배팅 조건을 만족하는 후보가 없음 (패스)", "WARNING")
+            return None
+        
+        final_pick, direction, score = self._select_final_pick(all_candidates)
+        if final_pick:
+            self.current_pick = final_pick
+            self.betting_direction = direction
+            write_log(f"최종 초이스 픽: {final_pick} ({direction} 배팅), 점수: {score}")
+            self.betting_attempts = 0
+            self.martin_step = 0
+            return final_pick
+        else:
+            write_log("적합한 초이스 픽을 찾을 수 없음 (패스) - 동점 또는 기타 조건 미충족", "WARNING")
+            return None
+
+    def _select_final_pick(self, all_candidates):
+        """
+        모든 후보 중에서 최종 초이스 픽 선택
+        수정된 기준:
+        1. 먼저 픽 자체가 모두 같은지 확인
+        - 모든 후보가 같은 픽이면 -> 해당 픽 선택
+        2. 픽이 서로 다른 경우에만 점수 비교
+        - 최고 점수를 가진 픽이 유일하면 -> 해당 픽 선택
+        - 최고 점수를 가진 픽이 여러 개이고 서로 다르면 -> PASS 
+        - 최고 점수를 가진 픽이 여러 개이지만 모두 같은 픽이면 -> 해당 픽 선택
+        """
+        write_log("최종 초이스 픽 선택 시작")
+        
+        if not all_candidates:
+            write_log("적합한 후보가 없음: 모든 조건을 만족하는 후보가 없음", "WARNING")
+            return None, "", 0
+        
+        # 1. 모든 후보들의 픽 추출 및 중복 제거
+        unique_picks = set(candidate['pick'] for candidate in all_candidates.values())
+        write_log(f"모든 후보들의 유니크 픽: {unique_picks}")
+        
+        # 모든 후보가 동일한 픽을 가지고 있는 경우
+        if len(unique_picks) == 1:
+            sample_candidate = next(iter(all_candidates.values()))
+            best_pick = sample_candidate['pick']
+            best_direction = sample_candidate['direction']
+            best_score = sample_candidate['score']
+            write_log(f"모든 후보가 동일한 픽({best_pick})을 가짐 - 점수 비교 없이 선택")
+            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {best_score}")
+            return best_pick, best_direction, best_score
+        
+        # 2. 픽이 서로 다른 경우, 점수 비교 수행
+        write_log("후보들의 픽이 다름 - 점수 비교 수행")
+        
+        # 각 픽별로 최고 점수 찾기
+        pick_highest_scores = {}
+        for candidate in all_candidates.values():
+            pick = candidate['pick']
+            score = candidate['score']
+            
+            if pick not in pick_highest_scores or score > pick_highest_scores[pick]['score']:
+                pick_highest_scores[pick] = candidate
+        
+        # 최고 점수 후보 추출
+        highest_score = max(candidate['score'] for candidate in pick_highest_scores.values())
+        write_log(f"각 픽별 최고 점수 중 가장 높은 점수: {highest_score}")
+        
+        # 최고 점수를 가진 후보들 추출
+        best_candidates = {pick: candidate for pick, candidate in pick_highest_scores.items() 
+                        if candidate['score'] == highest_score}
+        
+        write_log(f"최고 점수({highest_score}) 후보: {list(best_candidates.keys())}")
+        
+        # 최고 점수를 가진 픽이 유일하면 선택
+        if len(best_candidates) == 1:
+            best_pick = next(iter(best_candidates.values()))['pick']
+            best_direction = next(iter(best_candidates.values()))['direction']
+            write_log(f"최고 점수를 가진 픽이 유일함 - {best_pick} 선택")
+            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
+            return best_pick, best_direction, highest_score
+        
+        # 최고 점수를 가진 픽이 여러 개지만 모두 같은 픽인 경우 (이론적으로 여기 올 수 없음)
+        unique_best_picks = set(candidate['pick'] for candidate in best_candidates.values())
+        if len(unique_best_picks) == 1:
+            best_pick = next(iter(best_candidates.values()))['pick']
+            best_direction = next(iter(best_candidates.values()))['direction']
+            write_log(f"최고 점수 후보들이 모두 같은 픽({best_pick})을 가짐")
+            write_log(f"최종 초이스 픽 선택 완료: {best_pick} ({best_direction} 배팅), 점수: {highest_score}")
+            return best_pick, best_direction, highest_score
+            
+        # 최고 점수를 가진 픽이 여러 개이고 서로 다른 경우 PASS
+        write_log(f"최고 점수({highest_score})를 가진 픽들이 서로 다름 - PASS", "WARNING")
+        return None, "", 0
