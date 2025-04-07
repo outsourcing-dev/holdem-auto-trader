@@ -1,3 +1,4 @@
+from turtle import pd
 from typing import List, Dict, Optional, Tuple, Any
 
 
@@ -555,20 +556,118 @@ class ChoicePickSystem:
         
         return candidates
 
+    def generate_choice_pick(self) -> str:
+        if not self.has_sufficient_data():
+            if self.logger:
+                self.logger.warning("초이스 픽 생성 실패: 충분한 데이터가 없음 (15판 필요)")
+            return 'N'
+            
+        candidates = self.generate_six_pick_candidates()
+        valid_candidates = []
+        
+        for idx, picks in candidates.items():
+            if len(picks) < 2:
+                continue
+            
+            compare_start = idx + 4
+            compare_end = compare_start + len(picks)
+            
+            if compare_end > len(self.results):
+                continue
+            
+            results_to_compare = self.results[compare_start : compare_end]
+            
+            win_loss_pattern = []
+            for pick, result in zip(picks, results_to_compare):
+                win_loss_pattern.append('W' if pick == result else 'L')
+
+            has_three_consecutive = any(
+                win_loss_pattern[i] == win_loss_pattern[i+1] == win_loss_pattern[i+2]
+                for i in range(len(win_loss_pattern) - 2)
+            )
+            
+            if not has_three_consecutive:
+                last_pattern = win_loss_pattern[-2:]
+                win_count = win_loss_pattern.count('W')
+                loss_count = win_loss_pattern.count('L')
+                
+                if last_pattern == ['W', 'L']:
+                    score = win_count
+                    bet_direction = 'normal'
+                elif last_pattern == ['L', 'W']:
+                    score = loss_count
+                    bet_direction = 'reverse'
+                else:
+                    score = win_count
+                    bet_direction = 'normal'
+                
+                valid_candidates.append({
+                    'index': idx,
+                    'picks': picks,
+                    'pattern': last_pattern,
+                    'score': score,
+                    'bet_direction': bet_direction,
+                    'next_pick': picks[-1] if picks else 'N'
+                })
+
+        if not valid_candidates:
+            best_candidate = max(
+                candidates.items(), key=lambda x: len(x[1]), default=(None, [])
+            )
+            if best_candidate[0]:
+                self.betting_direction = 'normal'
+                return best_candidate[1][-1] if best_candidate[1] else 'N'
+            return 'N'
+        
+        best_candidate = max(valid_candidates, key=lambda x: x['score'])
+        self.selected_candidate_idx = best_candidate['index']
+        self.selected_candidate_score = best_candidate['score']
+        self.betting_direction = best_candidate['bet_direction']
+        
+        if self.logger:
+            self.logger.info(f"최고 승점 {best_candidate['score']}으로 후보 {best_candidate['index']}번 선택")
+            self.logger.info(f"배팅 방향: {'역배팅' if self.betting_direction == 'reverse' else '정배팅'}")
+        
+        return best_candidate['next_pick']
+
+    def get_reverse_bet_pick(self, original_pick):
+        """
+        베팅 방향에 따라 실제 베팅할 픽을 결정합니다.
+        
+        Args:
+            original_pick (str): 원래 선택된 픽
+            
+        Returns:
+            str: 실제 베팅할 픽
+        """
+        self.original_pick = original_pick
+        
+        if self.logger:
+            self.logger.info(f"[PICK 결정] 현재 방향: {self.betting_direction}, 원 PICK: {original_pick}")
+
+        if self.betting_direction == 'normal':
+            return original_pick
+        elif self.betting_direction == 'reverse':
+            if original_pick == 'P':
+                return 'B'
+            elif original_pick == 'B':
+                return 'P'
+        
+        return original_pick
 
 import pandas as pd
 
 if __name__ == "__main__":
     # 예시 결과 (15개)
-    # sample_results = ["","","","","","","","","","","","","","",""]
-    sample_results = ["B","B","P","B","B","P","B","B","P","B","P","B","B","P","P"]
+    sample_results = ["B","P","B","B","P","B","B","P","B","P","B","B","P","P","P"]
+    
     # 시스템 인스턴스 생성
     system = ChoicePickSystem()
     system.add_multiple_results(sample_results)
 
     # 단계별 결과 생성
     all_picks = system._generate_all_stage_picks()
-
+    
     # 표로 정리
     rows = []
     for pick_num in sorted(all_picks.keys()):
@@ -586,8 +685,23 @@ if __name__ == "__main__":
     six_candidates = system.generate_six_pick_candidates()
     for idx, picks in six_candidates.items():
         print(f"{idx}번 후보 ({len(picks)}개): {picks}")
-        
-    # 각 단계별 픽 값 테스트용 (개발 확인용)
+    
+    # 최종 선택된 픽과 배팅 방향
+    print("\n[최종 픽 선택 및 배팅 방향]")
+    final_pick = system.generate_choice_pick()
+    betting_direction = "정배팅" if system.betting_direction == "normal" else "역배팅"
+    actual_pick = system.get_reverse_bet_pick(final_pick)
+    
+    # 선택된 후보 번호와 승점 정보가 있다면 출력
+    if hasattr(system, 'selected_candidate_idx') and hasattr(system, 'selected_candidate_score'):
+        print(f"선택된 후보: {system.selected_candidate_idx}번")
+        print(f"승점: {system.selected_candidate_score}")
+    
+    print(f"최종 선택된 픽: {final_pick}")
+    print(f"배팅 방향: {betting_direction}")
+    print(f"실제 베팅할 픽: {actual_pick}")
+    
+    # 1번 후보 상세 분석
     print("\n[1번 후보 상세 분석]")
     candidate1_picks = system._generate_all_stage_picks(start_from=0)
     candidate1_df = pd.DataFrame([
