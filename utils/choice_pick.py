@@ -29,13 +29,7 @@ class ChoicePickSystem:
         self.stage1_picks: List[str] = []  # 1단계 픽 리스트
         self.stage2_picks: List[str] = []  # 2단계 픽 리스트
         self.stage3_picks: List[str] = []  # 3단계 픽 리스트
-        self.stage4_picks = []
-        self.stage5_picks = []
-        if self.logger:
-            self.stage4_picks = []
-        self.stage5_picks = []
-        if self.logger:
-            self.logger.info("초이스 픽 시스템 전체 초기화 완료")
+        self.stage4_picks: List[str] = []  # 4단계 픽 리스트
         self.stage5_picks: List[str] = []  # 5단계 픽 리스트
         
         # 로그 메시지 (logger가 없을 경우 대비)
@@ -101,81 +95,200 @@ class ChoicePickSystem:
         self.stage4_picks = ['' for _ in range(max_pick)]
         self.stage5_picks = ['' for _ in range(max_pick)]
 
-    def _generate_all_stage_picks(self) -> Dict[int, Dict[str, str]]:
+    def _generate_all_stage_picks(self, start_from: int = 0) -> Dict[int, Dict[str, str]]:
         """
-        현재 결과 데이터를 기반으로 5~18번 모든 픽의 단계별 픽 생성
+        모든 단계의 픽 생성
         
+        Args:
+            start_from: 시작 위치 (기본값: 0)
+            
         Returns:
-            Dict[int, Dict[str, str]]: 각 픽 번호별 단계별 픽 정보
+            Dict[int, Dict[str, str]]: 모든 단계별 픽 정보
         """
-        if len(self.results) < 15:
+        sliced_results = self.results[start_from:]
+        if len(sliced_results) < 5:  # 최소 5개 이상의 결과 필요
             if self.logger:
-                self.logger.warning(f"데이터 부족: 현재 {len(self.results)}/15판, 모든 단계 픽 생성 불가")
+                self.logger.warning(f"데이터 부족: {len(sliced_results)}개, 픽 생성 불가")
             return {}
-        
-        # 픽 생성 가능 범위: 5번부터 18번까지
-        min_pick = 5
-        max_pick = 18
-        
-        # 각 단계별 픽 리스트 초기화
+
+        # 계산에 필요한 실제 결과 수에 따라 최대 픽 번호 결정
+        max_pick = min(18, len(sliced_results))
+
+        # 단계별 픽 초기화
         self._initialize_stage_picks(max_pick)
         
-        # 모든 픽 저장용 딕셔너리
         all_picks = {}
-        
-        # 픽 번호별로 5단계 알고리즘 적용하여 픽 생성
-        for pick_number in range(min_pick, max_pick + 1):
-            # 5단계 알고리즘 적용
-            stage1, stage2, stage3, stage4, stage5 = self._apply_five_stage_algorithm(pick_number)
+
+        # 픽 번호는 1부터 시작하는 게 아니라 5부터 시작
+        # 5 이하는 계산 불가능 (이전 데이터 참조 필요)
+        for pick_number in range(5, max_pick + 1):
+            position = pick_number - 1  # 0-기반 인덱스로 변환
+            global_pick_num = start_from + pick_number
             
-            # 각 단계별 픽 저장 (인덱스는 0부터 시작)
-            idx = pick_number - 1
+            # stage1_ref, stage2_ref 등의 인자를 주는 대신, 직접 다섯 단계 알고리즘 적용
+            stage1, stage2, stage3, stage4, stage5 = self._calculate_five_stage_picks(
+                pick_number, sliced_results
+            )
+            
+            # 계산된 결과 저장
+            idx = position
             self.stage1_picks[idx] = stage1
             self.stage2_picks[idx] = stage2
             self.stage3_picks[idx] = stage3
             self.stage4_picks[idx] = stage4
             self.stage5_picks[idx] = stage5
             
-            # 결과 딕셔너리에 저장
-            all_picks[pick_number] = {
+            # 최종 결과 기록
+            all_picks[global_pick_num] = {
                 "1단계": stage1,
                 "2단계": stage2,
                 "3단계": stage3,
                 "4단계": stage4,
                 "5단계": stage5,
-                "최종픽": stage5  # 5단계 픽이 최종 픽
+                "최종픽": stage5
             }
             
-            if self.logger:
-                self.logger.debug(f"{pick_number}번 픽 생성: "
-                               f"1단계={stage1}, 2단계={stage2}, 3단계={stage3}, "
-                               f"4단계={stage4}, 5단계={stage5}")
-        
         return all_picks
+        
+    def _calculate_five_stage_picks(self, pick_number: int, results: List[str]) -> Tuple[str, str, str, str, str]:
+        """
+        5단계 픽 계산 함수 - 이전 단계 참조를 포함
+        
+        Args:
+            pick_number: 현재 픽 번호
+            results: 결과 리스트
+            
+        Returns:
+            Tuple[str, str, str, str, str]: 5단계 픽 값
+        """
+        # 안전하게 리스트에서 값 가져오는 헬퍼 함수
+        def safe_get(lst, idx, default='N'):
+            return lst[idx] if 0 <= idx < len(lst) else default
+        
+        pos = pick_number - 1  # 0-기반 인덱스로 변환
 
-    def _apply_five_stage_algorithm(self, pick_number: int) -> Tuple[str, str, str, str, str]:
+        # ========= 1단계 =========
+        # 1단계: pick1 == pick2 ? pick4 : !pick4
+        pick1 = safe_get(results, pos - 4)
+        pick2 = safe_get(results, pos - 3)
+        pick4 = safe_get(results, pos - 1)
+        
+        if pick1 == 'N' or pick2 == 'N' or pick4 == 'N':
+            stage1 = 'N'  # 필요한 데이터가 부족하면 'N' 반환
+        else:
+            stage1 = pick4 if pick1 == pick2 else self.get_opposite_pick(pick4)
+
+        # ========= 2단계 =========
+        if pick_number < 6:
+            stage2 = 'N'  # 픽 번호가 6 미만이면 계산 불가
+        else:
+            # 이전 4판의 결과와 1단계 픽 비교
+            win_count = 0
+            for i in range(1, 5):
+                prev_num = pick_number - i
+                if prev_num < 1:
+                    continue
+                    
+                prev_idx = prev_num - 1
+                if prev_idx < 0 or prev_idx >= len(self.stage1_picks):
+                    continue
+                    
+                prev_stage1 = self.stage1_picks[prev_idx]
+                prev_result = safe_get(results, prev_idx)
+                
+                if prev_stage1 != 'N' and prev_result != 'N' and prev_stage1 == prev_result:
+                    win_count += 1
+            
+            stage2 = stage1 if win_count >= 2 else self.get_opposite_pick(stage1)
+
+        # ========= 3단계 =========
+        if pick_number < 6:
+            stage3 = 'N'
+        elif 6 <= pick_number <= 8:
+            stage3 = stage2  # 6~8번 픽은 2단계와 동일
+        else:
+            # 이전 픽의 결과 확인
+            prev_num = pick_number - 1
+            prev_idx = prev_num - 1
+            
+            prev_stage2 = self.stage2_picks[prev_idx] if 0 <= prev_idx < len(self.stage2_picks) else 'N'
+            prev_result = safe_get(results, prev_idx)
+            
+            if prev_stage2 != 'N' and prev_result != 'N':
+                stage3 = stage2 if prev_result == prev_stage2 else self.get_opposite_pick(stage2)
+            else:
+                stage3 = stage2
+
+        # ========= 4단계 =========
+        if pick_number == 5:
+            stage4 = 'N'
+        elif 6 <= pick_number <= 10:
+            stage4 = stage3  # 6~10번 픽은 3단계와 동일
+        else:
+            # 이전 픽의 결과 확인
+            prev_num = pick_number - 1
+            prev_idx = prev_num - 1
+            
+            prev_stage3 = self.stage3_picks[prev_idx] if 0 <= prev_idx < len(self.stage3_picks) else 'N'
+            prev_result = safe_get(results, prev_idx)
+            
+            if prev_stage3 != 'N' and prev_result != 'N':
+                stage4 = stage3 if prev_result == prev_stage3 else self.get_opposite_pick(stage3)
+            else:
+                stage4 = stage3
+
+        # ========= 5단계 =========
+        if pick_number == 5:
+            stage5 = 'N'
+        elif 6 <= pick_number <= 11:
+            stage5 = stage1  # 6~11번 픽은 1단계와 동일
+        else:
+            # 이전 4판의 4단계 픽과 결과 비교해서 승률 계산
+            win_count = 0
+            for i in range(1, 5):
+                prev_num = pick_number - i
+                if prev_num < 5:
+                    continue
+                    
+                prev_idx = prev_num - 1
+                if prev_idx < 0 or prev_idx >= len(self.stage4_picks):
+                    continue
+                    
+                prev_stage4 = self.stage4_picks[prev_idx]
+                prev_result = safe_get(results, prev_idx)
+                
+                if prev_stage4 != 'N' and prev_result != 'N' and prev_stage4 == prev_result:
+                    win_count += 1
+            
+            stage5 = stage4 if win_count >= 2 else self.get_opposite_pick(stage4)
+
+        return stage1, stage2, stage3, stage4, stage5
+
+    def _apply_five_stage_algorithm(self, pick_number: int, results: List[str],
+                                    stage1_ref: List[str], stage2_ref: List[str],
+                                    stage3_ref: List[str], stage4_ref: List[str]) -> Tuple[str, str, str, str, str]:
+        """
+        5단계 알고리즘 적용 (더 이상 사용하지 않음 - _generate_all_stage_picks에서 대체)
+        
+        참고용으로 유지
+        """
         pos = pick_number - 1
 
+        def safe_get(lst, idx, default='N'):
+            return lst[idx] if 0 <= idx < len(lst) else default
+
         # ========= 1° =========
-        pick1_idx = pos - 4
-        pick2_idx = pos - 3
-        pick4_idx = pos - 1
-
-        if pick1_idx < 0 or pick2_idx < 0 or pick4_idx < 0 or pick4_idx >= len(self.results):
-            default = 'N'
-            return default, default, default, default, default
-
-        pick1 = self.results[pick1_idx]
-        pick2 = self.results[pick2_idx]
-        pick4 = self.results[pick4_idx]
+        pick1 = safe_get(results, pos - 4)
+        pick2 = safe_get(results, pos - 3)
+        pick4 = safe_get(results, pos - 1)
         stage1 = pick4 if pick1 == pick2 else self.get_opposite_pick(pick4)
 
         # ========= 2° =========
         if pick_number < 6:
             stage2 = 'N'
         else:
-            recent_results = self.results[pick_number - 5:pick_number - 1]
-            recent_picks = self.stage1_picks[pick_number - 5:pick_number - 1]
+            recent_results = results[pick_number - 5:pick_number - 1]
+            recent_picks = stage1_ref[pick_number - 5:pick_number - 1]
             wins = sum(1 for r, p in zip(recent_results, recent_picks) if r == p)
             stage2 = stage1 if wins >= 2 else self.get_opposite_pick(stage1)
 
@@ -186,62 +299,39 @@ class ChoicePickSystem:
             stage3 = stage2
         else:
             prev_idx = pick_number - 2
-            result_at_prev = self.results[prev_idx] if prev_idx < len(self.results) else None
-            prev_stage2 = self.stage2_picks[prev_idx] if prev_idx < len(self.stage2_picks) else None
-            if result_at_prev is None or prev_stage2 is None:
-                stage3 = stage2
-            else:
-                stage3 = stage2 if result_at_prev == prev_stage2 else self.get_opposite_pick(stage2)
+            result_at_prev = safe_get(results, prev_idx)
+            prev_stage2 = safe_get(stage2_ref, prev_idx)
+            stage3 = stage2 if result_at_prev == prev_stage2 else self.get_opposite_pick(stage2)
 
-        # ========= 4단계 =========
+        # ========= 4° =========
         if pick_number == 5:
             stage4 = 'N'
         elif 6 <= pick_number <= 10:
             stage4 = stage3
         else:
-            prev_pick_idx = pick_number - 2  # 전판의 3단계 픽 (예: 11번 픽이면 9번 index)
-            prev_result_idx = pick_number - 2  # 실제 결과 인덱스 (같음)
+            prev_idx = pick_number - 2
+            prev_pick = safe_get(stage3_ref, prev_idx)
+            prev_result = safe_get(results, prev_idx)
+            stage4 = stage3 if prev_pick == prev_result else self.get_opposite_pick(stage3)
 
-            if (
-                prev_pick_idx < len(self.stage3_picks)
-                and prev_result_idx < len(self.results)
-            ):
-                prev_pick = self.stage3_picks[prev_pick_idx]
-                prev_result = self.results[prev_result_idx]
-
-                if prev_pick == prev_result:
-                    stage4 = stage3  # 성공 → 유지
-                else:
-                    stage4 = self.get_opposite_pick(stage3)  # 실패 → 반대픽
-            else:
-                stage4 = stage3  # 예외: 인덱스 벗어나면 유지
-
-        # ========= 5단계 =========
+        # ========= 5° =========
         if pick_number == 5:
             stage5 = 'N'
         elif 6 <= pick_number <= 11:
-            stage5 = stage1  # 1단계와 동일
+            stage5 = stage1
         else:
-            # 이전 4개의 4단계 픽과 결과 비교
             win_count = 0
             for offset in range(4):
-                idx = pick_number - 2 - offset  # 1개 전부터 4개
-                if (
-                    0 <= idx < len(self.stage4_picks) and
-                    idx < len(self.results)
-                ):
-                    pred = self.stage4_picks[idx]
-                    actual = self.results[idx]
-                    if pred == actual:
-                        win_count += 1
+                idx = pick_number - 2 - offset
+                pred = safe_get(stage4_ref, idx)
+                actual = safe_get(results, idx)
+                if pred == actual:
+                    win_count += 1
 
-            if win_count >= 2:
-                stage5 = stage4  # 유지
-            else:
-                stage5 = self.get_opposite_pick(stage4)  # 반대
-
+            stage5 = stage4 if win_count >= 2 else self.get_opposite_pick(stage4)
 
         return stage1, stage2, stage3, stage4, stage5
+
 
     def _generate_six_picks(self) -> Dict[int, str]:
         """
@@ -419,32 +509,51 @@ class ChoicePickSystem:
         self.stage1_picks = []
         self.stage2_picks = []
         self.stage3_picks = []
-        self.stage4_picks
+        self.stage4_picks = []
+        self.stage5_picks = []
     
     def generate_six_pick_candidates(self) -> Dict[int, List[str]]:
         """
-        후보 1~6번에 해당하는 5단계 최종픽 리스트를 생성합니다.
+        6개의 후보 픽 생성 (시작 위치별)
+        
         Returns:
-            Dict[int, List[str]]: 후보 번호별 최종픽 목록
+            Dict[int, List[str]]: 각 후보별 픽 리스트 {1: ['P', 'B', ...], 2: ['B', 'P', ...], ...}
         """
+        if not self.has_sufficient_data():
+            if self.logger:
+                self.logger.warning(f"후보 픽 생성 실패: 데이터 부족 (현재 {len(self.results)}/15판)")
+            return {}
+        
         candidates = {}
+        
         for i in range(6):  # 후보 1~6번
-            temp_system = ChoicePickSystem()
-            temp_system.add_multiple_results(self.results)  # 전체 전달
+            # 시작 위치 설정 (0부터 5까지)
+            start = i
             
-            all_stage = temp_system._generate_all_stage_picks()
-
-            start_pick = 5 + i + 1  # 6 ~ 11번 픽부터
-            end_pick = 15  # 15번 픽까지
-
+            # i번째부터 시작하는 결과 슬라이스
+            results_slice = self.results[start:]
+            if len(results_slice) < 6:  # 최소 6개 결과 필요 (5번 픽부터 계산 가능)
+                continue
+                
+            # 현재 시작 위치에서 픽 생성
+            stage_picks = self._generate_all_stage_picks(start_from=start)
+            
             picks = []
-            for pick_num in range(start_pick, end_pick + 1):
-                if pick_num in all_stage:
-                    picks.append(all_stage[pick_num]["최종픽"])
+            # 최종 픽 수집 (6번부터 15번까지)
+            for local_pick_num in range(6, 16):  # 로컬 픽 번호 (6~15)
+                global_pick_num = start + local_pick_num  # 글로벌 픽 번호
+                
+                if global_pick_num in stage_picks:
+                    picks.append(stage_picks[global_pick_num]["최종픽"])
+            
             candidates[i + 1] = picks
-
+            
+            # 디버깅용
+            if self.logger:
+                self.logger.info(f"{i+1}번 후보 픽 생성: {len(picks)}개, 시작위치={start}")
+                self.logger.debug(f"{i+1}번 후보 픽 값: {picks}")
+        
         return candidates
-
 
 
 import pandas as pd
@@ -472,9 +581,25 @@ if __name__ == "__main__":
     print("\n[단계별 픽 결과 표]")
     print(df.to_string(index=False))
     
-        # 6픽 후보들 생성
+    # 6픽 후보들 생성
     print("\n[6개 후보 픽 결과]")
     six_candidates = system.generate_six_pick_candidates()
     for idx, picks in six_candidates.items():
-        print(f"{idx}번 후보: {picks}")
-
+        print(f"{idx}번 후보 ({len(picks)}개): {picks}")
+        
+    # 각 단계별 픽 값 테스트용 (개발 확인용)
+    print("\n[1번 후보 상세 분석]")
+    candidate1_picks = system._generate_all_stage_picks(start_from=0)
+    candidate1_df = pd.DataFrame([
+        {
+            "픽번호": num,
+            "1단계": pick["1단계"],
+            "2단계": pick["2단계"],
+            "3단계": pick["3단계"],
+            "4단계": pick["4단계"],
+            "5단계": pick["5단계"],
+            "최종": pick["최종픽"],
+        }
+        for num, pick in sorted(candidate1_picks.items())
+    ])
+    print(candidate1_df.to_string(index=False))
