@@ -120,7 +120,7 @@ class TradingManagerGame:
             pick=""
         )
 
-        # 게임 상태 확인 및 최근 결과 기록
+        # 게임 상태 확인 및 15게임 데이터 수집
         try:
             # 목표 금액 도달 여부 확인 후 게임 상태 확인
             if not hasattr(self.tm.balance_service, '_target_amount_reached') or not self.tm.balance_service._target_amount_reached:
@@ -131,10 +131,10 @@ class TradingManagerGame:
                     actual_game_count = game_state.get('round', 0)
                     self.tm.game_count = actual_game_count
                     
-                    # 최근 결과 처리 - P와 B 결과만 필터링하여 15개 이상 수집
-                    filtered_results = game_state.get('filtered_results', [])  # TIE를 제외한 P/B 결과
+                    # 15게임 데이터 추출 (TIE 제외한 P/B 결과)
+                    filtered_results = game_state.get('filtered_results', [])
                     
-                    # 로그 출력
+                    # 로그 출력 - 15게임 수집 상태 확인
                     self.logger.info(f"방 입장 후 수집된 결과: {len(filtered_results)}개, 필요: 15개")
                     
                     # Excel 처리 서비스를 통해 게임 결과 기록
@@ -147,16 +147,20 @@ class TradingManagerGame:
                     
                     if result[0] is not None:
                         if result[3] in ['P', 'B']:  # next_pick 값이 있는 경우
+                            # 원본 픽 저장
                             self.tm.current_pick = result[3]
                             
-                            # UI에 PICK 값 표시
+                            # 방향 적용된 픽 계산
+                            actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(result[3])
+                            
+                            # UI에 픽 값과 베팅 금액 표시
                             self.tm.main_window.update_betting_status(
-                                pick=result[3],
+                                pick=result[3],  # UI에는 원본 픽 표시
                                 bet_amount=self.tm.excel_trading_service.get_current_bet_amount()
                             )
                             
                             # 로그 출력
-                            self.logger.info(f"첫 분석 결과 PICK: {result[3]}")
+                            self.logger.info(f"첫 분석 결과 PICK: {result[3]} (실제 베팅: {actual_pick})")
         except Exception as e:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
 

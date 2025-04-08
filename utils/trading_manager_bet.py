@@ -43,8 +43,11 @@ class TradingManagerBet:
                     self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
                     return False
 
-            # 베팅 방향 결정 (초이스 픽 시스템에서 자동 관리)
+            # 원본 픽 값 저장
             original_pick = pick_value
+            
+            # 베팅 방향 적용하여 실제 베팅할 픽 결정
+            actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(original_pick)
             
             # 베팅 금액 결정 (초이스 픽 시스템 사용)
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
@@ -59,16 +62,16 @@ class TradingManagerBet:
             QApplication.processEvents()
             self.logger.info("베팅 전: 중지 버튼 활성화")
 
-            # 실제 베팅 실행
+            # 실제 베팅 실행 (방향이 적용된 픽으로 베팅)
             bet_success = self.tm.betting_service.place_bet(
-                pick_value,
+                actual_pick,  # 방향이 적용된 실제 베팅 픽
                 self.tm.current_room_name,
                 game_count,
                 self.tm.is_trading_active,
                 bet_amount
             )
 
-            # 현재 PICK 값 저장
+            # UI에는 원본 PICK 값 저장
             self.tm.current_pick = original_pick
 
             if bet_success:

@@ -231,3 +231,15 @@ class ExcelTradingService:
     def reset_after_room_change(self) -> None:
         """방 이동 후 초기화"""
         self.prediction_engine.reset_after_room_change()
+        
+    def get_reverse_bet_pick(self, original_pick):
+        """
+        원본 픽에 베팅 방향을 적용하여 실제 베팅할 픽 반환
+        
+        Args:
+            original_pick (str): 원본 픽 값
+            
+        Returns:
+            str: 베팅 방향이 적용된 실제 베팅할 픽
+        """
+        return self.prediction_engine.choice_pick_system.get_reverse_bet_pick(original_pick)

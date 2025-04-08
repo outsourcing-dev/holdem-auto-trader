@@ -45,6 +45,11 @@ class PredictionEngine:
         Returns:
             str: 다음 픽 ('P', 'B' 또는 'N')
         """
+        # 데이터가 충분한지 확인 (15판)
+        if not self.choice_pick_system.has_sufficient_data():
+            self.logger.warning(f"데이터 부족: {len(self.choice_pick_system.results)}/15판, 픽 생성 불가")
+            return 'N'
+        
         # 초이스 픽 시스템에서 픽 생성
         pick = self.choice_pick_system.generate_choice_pick()
         
