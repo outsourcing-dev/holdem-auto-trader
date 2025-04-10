@@ -33,6 +33,8 @@ class ChoicePickSystem:
         self.stage4_picks: List[str] = []  # 4단계 픽 리스트
         self.stage5_picks: List[str] = []  # 5단계 픽 리스트
         
+        self.consecutive_n_count: int = 0  # 연속 N 발생 카운트
+
         # 로그 메시지 (logger가 없을 경우 대비)
         if self.logger:
             self.logger.info("ChoicePickSystem 인스턴스 생성")
@@ -569,21 +571,23 @@ class ChoicePickSystem:
         Returns:
             bool: 방 이동 필요 여부
         """
+        # 기존 조건
         if self.consecutive_failures >= 1 and self.martin_step == 0:
             if self.logger:
                 self.logger.info("3마틴 모두 실패로 방 이동 필요")
             return True
             
-        # if len(self.pick_results) >= 3 and not any(self.pick_results[-2:]):
-        #     if self.logger:
-        #         self.logger.info("초이스 픽 2회 연속 실패로 방 이동 필요")
-        #     return True
-            
+        # 3번 연속 N이 발생하고, 충분한 게임 데이터가 있는 경우 방 이동
+        if self.consecutive_n_count >= 3 and len(self.results) >= 15:
+            if self.logger:
+                self.logger.info(f"3번 연속 유효한 픽 없음(N) 발생으로 방 이동 필요 (연속 카운트: {self.consecutive_n_count})")
+            return True
+                
         if self.betting_attempts == 0 and self.martin_step == 0 and self.last_win_count >= 57:
             if self.logger:
                 self.logger.info(f"현재 게임 판수가 57판 이상이고 배팅 중이 아님 → 방 이동 필요")
             return True
-            
+                
         return False
     
     def reset_after_room_change(self) -> None:
@@ -591,8 +595,12 @@ class ChoicePickSystem:
         prev_failures = self.consecutive_failures
         prev_martin = self.martin_step
         prev_results = len(self.pick_results)
+        
         self.betting_attempts = 0
         self.martin_step = 0
+        # N 카운트도 초기화
+        prev_n_count = self.consecutive_n_count
+        self.consecutive_n_count = 0
         self.current_pick = None
         if self.logger:
             self.logger.info(f"방 이동 후 초기화: 연속실패({prev_failures}→{self.consecutive_failures}), "
@@ -686,13 +694,22 @@ class ChoicePickSystem:
         return candidates
 
     def generate_choice_pick(self) -> str:
-        # 현재 저장된 15개 결과 로깅
+        # 클래스에 다음 두 변수를 추가 (초기화 부분에)
+        # self.last_results = []
+        # self.cached_pick = None
+        
+        # 결과가 변경되지 않았다면 캐시된 값 반환
+        if self.results == self.last_results and self.cached_pick is not None:
+            return self.cached_pick
+            
+        # 결과가 변경된 경우에만 로그 출력
         if self.logger:
             self.logger.info(f"현재 저장된 결과 (총 {len(self.results)}개): {self.results}")
         
         if not self.has_sufficient_data():
             if self.logger:
-                self.logger.warning("초이스 픽 생성 실패: 충분한 데이터가 없음 (15판 필요)")
+                self.logger.warning(f"초이스 픽 생성 실패: 데이터 부족 (현재 {len(self.results)}/15판)")
+            # 15게임 부족할 때는 N 카운트를 증가시키지 않음
             return 'N'
 
         candidates = self.generate_six_pick_candidates()
@@ -767,8 +784,13 @@ class ChoicePickSystem:
         if not valid_candidates:
             if self.logger:
                 self.logger.warning("유효한 후보 없음. 배팅 중단 (N 반환)")
+            # 유효한 후보가 없을 때 N 카운트 증가
+            self.consecutive_n_count += 1
+            if self.logger:
+                self.logger.warning(f"연속 N 카운트: {self.consecutive_n_count}")
             return 'N'
-
+        
+        self.consecutive_n_count = 0
 
         best = max(valid_candidates, key=lambda x: x['score'])
         self.selected_candidate_idx = best['index']
@@ -777,6 +799,10 @@ class ChoicePickSystem:
 
         if self.logger:
             self.logger.info(f"🏆 후보 {best['index']}번 선택 | 승점 {best['score']} | 방향: {self.betting_direction}")
+        
+        # 현재 결과 복사하고 결과 캐싱
+        self.last_results = self.results.copy()
+        self.cached_pick = best['next_pick']
         
         return best['next_pick']
 

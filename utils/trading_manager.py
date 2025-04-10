@@ -241,8 +241,8 @@ class TradingManager:
             else:
                 self.no_result_counter = 0
 
-            if self.no_result_counter >= 20:
-                self.logger.warning(f"[⚠️ 결과 없음 누적] 25회 이상 동일한 게임 수 → 방 이동")
+            if self.no_result_counter >= 30:
+                self.logger.warning(f"[⚠️ 결과 없음 누적] 30회 이상 동일한 게임 수 → 방 이동")
                 self.no_result_counter = 0
                 self.change_room()
                 return
