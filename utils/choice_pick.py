@@ -42,6 +42,13 @@ class ChoicePickSystem:
         
         self.last_results: List[str] = []
         self.cached_pick: Optional[str] = None
+        
+    # utils/choice_pick.py의 ChoicePickSystem 클래스에 추가할 메서드
+    def set_martin_amounts(self, amounts):
+        """마틴 금액 설정"""
+        self.martin_amounts = amounts
+        if self.logger:
+            self.logger.info(f"마틴 금액 업데이트: {amounts}")
 
     def add_result(self, result: str) -> None:
         """
