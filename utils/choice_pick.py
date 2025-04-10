@@ -589,7 +589,7 @@ class ChoicePickSystem:
             return True
             
         # 3번 연속 N이 발생하고, 충분한 게임 데이터가 있는 경우 방 이동
-        if self.consecutive_n_count >= 3 and self.betting_attempts == 0 and self.martin_step == 0:
+        if self.consecutive_n_count >= 6 and self.betting_attempts == 0 and self.martin_step == 0:
             if self.logger:
                 self.logger.info(f"3번 연속 유효한 픽 없음(N) 발생으로 방 이동 필요 (연속 카운트: {self.consecutive_n_count})")
             return True
