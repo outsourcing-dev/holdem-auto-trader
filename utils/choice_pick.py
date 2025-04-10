@@ -15,7 +15,8 @@ class ChoicePickSystem:
         self.consecutive_failures: int = 0  # 연속 실패 횟수
         self.pick_scores: Dict[str, int] = {}  # 픽 후보들의 점수
         self.betting_attempts: int = 0  # 현재 픽으로 배팅 시도 횟수
-        
+
+
         # 3마틴 배팅 관련 변수
         self.martin_step: int = 0  # 현재 마틴 단계 (0부터 시작)
         self.martin_amounts: List[int] = [1000, 2000, 4000]  # 기본 마틴 금액
@@ -38,6 +39,9 @@ class ChoicePickSystem:
         # 로그 메시지 (logger가 없을 경우 대비)
         if self.logger:
             self.logger.info("ChoicePickSystem 인스턴스 생성")
+        
+        self.last_results: List[str] = []
+        self.cached_pick: Optional[str] = None
 
     def add_result(self, result: str) -> None:
         """
@@ -578,7 +582,7 @@ class ChoicePickSystem:
             return True
             
         # 3번 연속 N이 발생하고, 충분한 게임 데이터가 있는 경우 방 이동
-        if self.consecutive_n_count >= 3 and len(self.results) >= 15:
+        if self.consecutive_n_count >= 3 and self.betting_attempts == 0 and self.martin_step == 0:
             if self.logger:
                 self.logger.info(f"3번 연속 유효한 픽 없음(N) 발생으로 방 이동 필요 (연속 카운트: {self.consecutive_n_count})")
             return True
