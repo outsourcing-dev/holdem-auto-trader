@@ -41,6 +41,7 @@ class PredictionEngine:
     def predict_next_pick(self) -> str:
         """
         다음 픽 예측 (15판 기준 초이스 픽 시스템 사용)
+        캐싱 로직 추가 - 동일한 결과에 대해 여러 번 계산하지 않음
         
         Returns:
             str: 다음 픽 ('P', 'B' 또는 'N')
@@ -50,7 +51,7 @@ class PredictionEngine:
             self.logger.warning(f"데이터 부족: {len(self.choice_pick_system.results)}/15판, 픽 생성 불가")
             return 'N'
         
-        # 초이스 픽 시스템에서 픽 생성
+        # 초이스 픽 시스템에서 픽 생성 - 내부적으로 캐싱 로직 사용
         pick = self.choice_pick_system.generate_choice_pick()
         
         if pick:

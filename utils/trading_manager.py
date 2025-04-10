@@ -212,7 +212,7 @@ class TradingManager:
             self.main_window.set_remaining_time(0, 0, 2)
 
     def _handle_analysis_result(self, result):
-        """분석 결과 처리 핸들러"""
+        """분석 결과 처리 핸들러 - 새 결과가 있을 때만 N 카운트 초기화 및 픽 생성"""
         try:
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
@@ -221,6 +221,28 @@ class TradingManager:
             game_state = result['game_state']
             previous_game_count = result['previous_game_count']
             current_game_count = game_state.get('round', 0)
+            new_result = result.get('new_result', False)  # 새 결과 여부 확인
+            
+            # 새 결과가 없을 경우 (게임 카운트가 같을 경우)
+            if not new_result:
+                # no_result_counter 증가
+                if not hasattr(self, 'no_result_counter'):
+                    self.no_result_counter = 0
+                self.no_result_counter += 1
+                
+                # 30회 이상 동일한 게임 수가 지속되면 방 이동
+                if self.no_result_counter >= 30:
+                    self.logger.warning(f"[⚠️ 결과 없음 누적] 30회 이상 동일한 게임 수 → 방 이동")
+                    self.no_result_counter = 0
+                    self.change_room()
+                    return
+                    
+                # 새 결과가 없는 경우 여기서 종료 (픽 생성 및 베팅 처리하지 않음)
+                self.logger.debug(f"새 게임 결과 없음: 카운터 {self.no_result_counter}/30")
+                
+                # 다음 분석 예약 (2초 후)
+                self.main_window.set_remaining_time(0, 0, 2)
+                return
 
             # ✅ 방 이동 직후 게임 수 역행 체크 생략
             if hasattr(self, 'just_changed_room') and self.just_changed_room:
@@ -233,26 +255,17 @@ class TradingManager:
                     self.change_room()
                     return
 
-            if not hasattr(self, 'no_result_counter'):
-                self.no_result_counter = 0
-
-            if current_game_count == previous_game_count:
-                self.no_result_counter += 1
-            else:
-                self.no_result_counter = 0
-
-            if self.no_result_counter >= 30:
-                self.logger.warning(f"[⚠️ 결과 없음 누적] 30회 이상 동일한 게임 수 → 방 이동")
-                self.no_result_counter = 0
-                self.change_room()
-                return
-
+            # 새 게임 결과가 있으면 no_result_counter 초기화
+            self.no_result_counter = 0
+            
+            # 결과 로깅
             latest_result = game_state.get('latest_result')
-                            
+            
             if previous_game_count == 0 and current_game_count > 0:
                 display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
                 self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
 
+            # 새 결과가 있을 때만 Excel 처리 (초이스 픽 생성)
             excel_result = self.excel_trading_service.process_game_results(
                 game_state, 
                 self.game_count, 
@@ -280,8 +293,7 @@ class TradingManager:
                 self.main_window.set_remaining_time(0, 0, 2)
             else:
                 self.logger.info("자동 매매 비활성화됨: 다음 분석을 예약하지 않습니다.")
-
-
+                
     def _handle_analysis_error(self, error_msg):
         """분석 오류 처리 핸들러"""
         self.logger.error(f"분석 스레드 오류: {error_msg}")

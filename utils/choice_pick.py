@@ -705,14 +705,22 @@ class ChoicePickSystem:
         return candidates
 
     def generate_choice_pick(self) -> str:
+        """
+        초이스 픽 생성 - 캐싱 개선으로 동일한 결과에 대해서는 픽을 다시 계산하지 않음
+        
+        Returns:
+            str: 다음 베팅 픽 ('P', 'B', 또는 'N')
+        """
         # 클래스에 다음 두 변수를 추가 (초기화 부분에)
         # self.last_results = []
         # self.cached_pick = None
         
         # 결과가 변경되지 않았다면 캐시된 값 반환
         if self.results == self.last_results and self.cached_pick is not None:
+            if self.logger:
+                self.logger.debug(f"결과 변경 없음, 캐시된 PICK 사용: {self.cached_pick}")
             return self.cached_pick
-            
+                
         # 결과가 변경된 경우에만 로그 출력
         if self.logger:
             self.logger.info(f"현재 저장된 결과 (총 {len(self.results)}개): {self.results}")
@@ -736,17 +744,13 @@ class ChoicePickSystem:
             compare_end = compare_start + len(picks_to_compare)
 
             if compare_end > len(self.results):
-                            # 디버그용 로그 출력
                 if self.logger:
-                    self.logger.info(
-                        f"후보 {idx}번: 결과 비교 구간={results_to_compare}, 픽={picks_to_compare}, "
-                        f"W/L 패턴={win_loss_pattern}, 마지막 패턴={last_pattern}"
-                    )
+                    self.logger.debug(f"후보 {idx}번: 결과 비교 부족 (필요: {compare_end}, 있음: {len(self.results)})")
                 continue  # 결과가 부족하면 제외
 
             results_to_compare = self.results[compare_start:compare_end]
             win_loss_pattern = ['W' if p == r else 'L' for p, r in zip(picks_to_compare, results_to_compare)]
-            last_pattern = win_loss_pattern[-2:]
+            last_pattern = win_loss_pattern[-2:] if len(win_loss_pattern) >= 2 else []
             
             if 'WWW' in ''.join(win_loss_pattern) or 'LLL' in ''.join(win_loss_pattern):
                 if self.logger:
@@ -761,7 +765,7 @@ class ChoicePickSystem:
                     f"  - 승패: {win_loss_pattern}\n"
                     f"  - 마지막 2판: {last_pattern}"
                 )
-    
+
             # 정배 or 역배 판단
             if last_pattern == ['W', 'L']:
                 score = win_loss_pattern.count('W') - win_loss_pattern.count('L')
@@ -799,8 +803,13 @@ class ChoicePickSystem:
             self.consecutive_n_count += 1
             if self.logger:
                 self.logger.warning(f"연속 N 카운트: {self.consecutive_n_count}")
+                
+            # 현재 결과 복사 및 'N' 값 캐싱
+            self.last_results = self.results.copy()
+            self.cached_pick = 'N'
             return 'N'
         
+        # N 카운트 초기화 (유효한 후보가 있으므로)
         self.consecutive_n_count = 0
 
         best = max(valid_candidates, key=lambda x: x['score'])
@@ -816,7 +825,6 @@ class ChoicePickSystem:
         self.cached_pick = best['next_pick']
         
         return best['next_pick']
-
 
     def get_reverse_bet_pick(self, original_pick):
         """
