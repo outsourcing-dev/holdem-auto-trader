@@ -190,7 +190,7 @@ class TradingManagerGame:
             
             # 게임 카운트가 너무 많은 경우 (60회 이상) 방 이동
             if actual_game_count >= 60:
-                self.logger.info(f"60번째 게임 도달 ({actual_game_count}회차). 다음 방으로 이동합니다.")
+                self.logger.info(f"60 게임 도달 ({actual_game_count}회차). 다음 방으로 이동합니다.")
                 self.tm.change_room()
                 return
             
@@ -212,8 +212,14 @@ class TradingManagerGame:
                 
                 # 방 이동 필요한지 확인
                 if self.tm.excel_trading_service.should_change_room():
-                    self.logger.info("초이스 픽 시스템에서 방 이동 필요 신호")
-                    self.tm.change_room()
+                    # N값 감지 확인하여 플래그 설정
+                    consecutive_n = False
+                    if hasattr(self.tm.excel_trading_service, 'choice_pick_system') and \
+                    hasattr(self.tm.excel_trading_service.choice_pick_system, 'consecutive_n_count'):
+                        consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
+                    
+                    self.logger.info(f"초이스 픽 시스템에서 방 이동 필요 신호 (N값 연속: {consecutive_n})")
+                    self.tm.change_room(due_to_consecutive_n=consecutive_n)
                     return
                 
                 # PICK 값에 따른 베팅 실행

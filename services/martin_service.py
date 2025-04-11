@@ -101,17 +101,18 @@ class MartinBettingService:
         return self.current_step, self.consecutive_losses, position
         
     def _handle_lose_result(self, position):
-        """패배 결과 처리 - 설명서 기준: 마틴 3단계까지 같은 방에서 진행, 3단계 실패 시 다음 방으로 이동"""
+        """패배 결과 처리 - 설명서 기준: 마틴 설정 단계까지 같은 방에서 진행, 마지막 단계 실패 시 다음 방으로 이동"""
         self.consecutive_losses += 1
         self.current_step += 1
         self.lose_count += 1
         self.has_bet_in_current_room = True
 
         # 최대 마틴 단계 도달 시 방 이동 플래그 설정
+        # 수정: 하드코딩된 단계(3) 대신 현재 설정된 martin_count 사용
         if self.current_step >= self.martin_count:
             self.need_room_change = True
             self.current_step = 0  # 다음 방을 위해 초기화
-            self.logger.info(f"[마틴] 3단계까지 모두 실패, 다음 방으로 이동")
+            self.logger.info(f"[마틴] {self.martin_count}단계까지 모두 실패, 다음 방으로 이동")
         else:
             # 같은 방에서 다음 마틴 단계로 진행
             self.need_room_change = False

@@ -227,6 +227,7 @@ class TradingManager:
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
                 if self.excel_trading_service.choice_pick_system.consecutive_n_count >= 3:
                     self.logger.warning(f"3회 연속 N 감지 - N값으로 인한 방 이동 시작")
+                    # 여기를 수정: due_to_consecutive_n=True 플래그 전달
                     self.change_room(due_to_consecutive_n=True)
                     return
             

@@ -356,10 +356,10 @@ class ChoicePickSystem:
                     win_count += 1
             
             stage5 = stage4 if win_count >= 2 else self.get_opposite_pick(stage4)
-            if self.logger:
-                self.logger.info(
-                    f"[5단계 계산] pick={pick_number}, 이전 4판 승수={win_count}, stage4={stage4}, 결정={stage5}"
-                )
+            # if self.logger:
+            #     self.logger.info(
+            #         f"[5단계 계산] pick={pick_number}, 이전 4판 승수={win_count}, stage4={stage4}, 결정={stage5}"
+            #     )
         
         return stage1, stage2, stage3, stage4, stage5
 
@@ -559,7 +559,9 @@ class ChoicePickSystem:
         else:
             if self.logger:
                 self.logger.info(f"베팅 실패. 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
-            if self.martin_step < 2:
+            # 수정: martin_amounts 길이 기반으로 마틴 한도 확인
+            max_martin_steps = len(self.martin_amounts) - 1
+            if self.martin_step < max_martin_steps:
                 self.martin_step += 1
                 if self.logger:
                     self.logger.info(f"마틴 단계 증가: {self.martin_step+1}단계")
@@ -567,8 +569,8 @@ class ChoicePickSystem:
                 self.consecutive_failures += 1
                 self.martin_step = 0
                 if self.logger:
-                    self.logger.warning(f"3마틴 모두 실패! 연속 실패: {self.consecutive_failures}회")
-    
+                    self.logger.warning(f"{max_martin_steps + 1}마틴 모두 실패! 연속 실패: {self.consecutive_failures}회")
+                    
     def get_current_bet_amount(self) -> int:
         """현재 마틴 단계에 따른 베팅 금액 반환"""
         if self.martin_step < len(self.martin_amounts):
@@ -595,7 +597,7 @@ class ChoicePickSystem:
                 self.logger.info(f"3번 연속 유효한 픽 없음(N) 발생으로 방 이동 필요 (연속 카운트: {self.consecutive_n_count})")
             return True
                 
-        if self.betting_attempts == 0 and self.martin_step == 0 and self.last_win_count >= 57:
+        if self.betting_attempts == 0 and self.martin_step == 0 and self.last_win_count >= 60:
             if self.logger:
                 self.logger.info(f"현재 게임 판수가 57판 이상이고 배팅 중이 아님 → 방 이동 필요")
             return True
@@ -604,19 +606,33 @@ class ChoicePickSystem:
     
     def reset_after_room_change(self) -> None:
         """방 이동 후 초기화"""
+
         prev_failures = self.consecutive_failures
         prev_martin = self.martin_step
         prev_results = len(self.pick_results)
-        
-        self.betting_attempts = 0
-        self.martin_step = 0
-        # N 카운트도 초기화
         prev_n_count = self.consecutive_n_count
+
+        self.betting_attempts = 0
+
+        # ✅ 조건 분기: N값 3회로 이동하는 경우 마틴 상태 유지
+        if self.consecutive_n_count < 3:
+            self.martin_step = 0
+            self.consecutive_failures = 0
+        else:
+            if self.logger:
+                self.logger.info("N값 3회로 방 이동: 마틴 상태 유지")
+
+        # ✅ 무조건 초기화되는 항목
         self.consecutive_n_count = 0
         self.current_pick = None
+
         if self.logger:
-            self.logger.info(f"방 이동 후 초기화: 연속실패({prev_failures}→{self.consecutive_failures}), "
-                          f"마틴({prev_martin+1}→{self.martin_step+1}), 결과개수({prev_results})")
+            self.logger.info(
+                f"방 이동 후 초기화 완료 - 연속실패({prev_failures}→{self.consecutive_failures}), "
+                f"마틴({prev_martin+1}→{self.martin_step+1}), 결과개수({prev_results})"
+            )
+
+
     
     def clear(self) -> None:
         """전체 데이터 초기화"""
@@ -804,6 +820,12 @@ class ChoicePickSystem:
             self.consecutive_n_count += 1
             if self.logger:
                 self.logger.warning(f"연속 N 카운트: {self.consecutive_n_count}")
+                
+            # 여기 추가: 연속 N 카운트가 3 이상이면 should_change_room 메소드에서 감지될 수 있게 설정
+            if self.consecutive_n_count >= 3:
+                self._n_consecutive_detected = True
+            else:
+                self._n_consecutive_detected = False
                 
             # 현재 결과 복사 및 'N' 값 캐싱
             self.last_results = self.results.copy()
