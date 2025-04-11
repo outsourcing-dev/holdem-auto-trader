@@ -17,6 +17,7 @@ class ChoicePickSystem:
         self.consecutive_failures: int = 0  # 연속 실패 횟수
         self.pick_scores: Dict[str, int] = {}  # 픽 후보들의 점수
         self.betting_attempts: int = 0  # 현재 픽으로 배팅 시도 횟수
+        self.confidence: float = 0.0
 
         # 3마틴 배팅 관련 변수
         self.martin_step: int = 0  # 현재 마틴 단계 (0부터 시작)
@@ -122,6 +123,9 @@ class ChoicePickSystem:
         Returns:
             str: 다음 베팅 픽 ('P', 'B', 또는 'N')
         """
+        
+        
+
         # 결과가 변경되지 않았다면 캐시된 값 반환
         if self.results == self.last_results and self.cached_pick is not None:
             if self.logger:
@@ -140,6 +144,7 @@ class ChoicePickSystem:
         
         # AI 예측
         next_pick, confidence = self.ai_predictor.predict(self.results)
+        self.confidence = confidence
         
         # N 값 처리
         if next_pick == 'N':
@@ -192,7 +197,7 @@ class ChoicePickSystem:
         bet_info = {
             'room': self.room_name,
             'pick': self.current_pick,
-            'confidence': 0.0,  # 예측 시점의 confidence 값이 없으므로 0.0으로 설정
+            'confidence': self.confidence,  # 예측 시점의 confidence 값이 없으므로 0.0으로 설정
             'accuracy': self.ai_predictor.get_accuracy(),
             'amount': self.get_current_bet_amount(),
             'result': self.results[-1] if self.results else 'Unknown',

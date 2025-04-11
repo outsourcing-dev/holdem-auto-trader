@@ -30,7 +30,7 @@ class OnlineAIPredictor:
         self.history = []  # 학습에 사용된 최근 데이터 저장
         self.prediction_history = []  # 예측 결과 및 실제 결과 저장
         self.window_size = 10  # 예측에 사용할 이전 게임 수
-        self.confidence_threshold = 0.515  # 예측 신뢰도 임계값
+        self.confidence_threshold = 0.51  # 예측 신뢰도 임계값
         self.min_training_samples = 10  # 초기 학습에 필요한 최소 샘플 수
         
         # 정확도 추적
@@ -199,7 +199,7 @@ class OnlineAIPredictor:
 
             # 예측 9회 이상이면 accuracy까지 같이 고려
             accuracy = self.get_accuracy()
-            if max_proba >= self.confidence_threshold and accuracy >= 0.60:
+            if max_proba >= self.confidence_threshold and accuracy >= 0.55:
                 if self.logger:
                     self.logger.info(f"[정상 픽] confidence={max_proba:.4f}, accuracy={accuracy:.4f}")
                 
