@@ -198,7 +198,8 @@ class TradingManager:
             self._analysis_thread.analysis_complete.connect(self._handle_analysis_result)
             self._analysis_thread.analysis_error.connect(self._handle_analysis_error)
             self._analysis_thread.room_change_needed.connect(self._handle_room_change)
-            
+            self._analysis_thread.consecutive_n_detected.connect(self._handle_consecutive_n)
+
             # 스레드 시작
             # self.logger.info("게임 분석 스레드 시작")
             self._analysis_thread.start()
@@ -211,6 +212,23 @@ class TradingManager:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
 
+
+    # 새로운 핸들러 메서드 추가
+    def _handle_consecutive_n(self):
+        """N값 3회 연속 감지 처리 핸들러"""
+        # 중지 플래그 확인
+        if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
+            self.logger.info("중지 명령으로 인해 N값 3회 감지 처리를 무시합니다.")
+            return
+            
+        # 자동 매매 활성화 상태 확인
+        if not self.is_trading_active:
+            self.logger.info("자동 매매가 비활성화되어 N값 3회 감지 처리를 무시합니다.")
+            return
+        
+        self.logger.info("N값 3회 연속 감지 - 마틴 유지하며 방 이동")
+        self.change_room(due_to_consecutive_n=True)
+        
     def _handle_analysis_result(self, result):
         """분석 결과 처리 핸들러 - 새 결과가 있을 때만 N 카운트 초기화 및 픽 생성"""
         try:
@@ -322,8 +340,14 @@ class TradingManager:
             return
             
         self.logger.info("스레드에서 방 이동 요청 수신")
-        # self.should_move_to_next_room = False  # 플래그 초기화
-        self.change_room()  # 방 이동 프로세스 시작
+        
+        # N값 3회 감지 여부 확인 추가
+        consecutive_n = False
+        if hasattr(self.excel_trading_service, 'choice_pick_system'):
+            consecutive_n = self.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
+        
+        # due_to_consecutive_n 플래그 전달
+        self.change_room(due_to_consecutive_n=consecutive_n)
         
     def run_auto_trading(self):
         """자동 매매 루프"""

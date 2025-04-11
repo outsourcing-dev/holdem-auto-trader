@@ -8,7 +8,9 @@ class GameAnalysisThread(QThread):
     analysis_complete = pyqtSignal(dict)  # 게임 상태 결과를 담은 신호
     analysis_error = pyqtSignal(str)      # 오류 메시지를 담은 신호
     room_change_needed = pyqtSignal()     # 방 이동이 필요할 때 발생하는 신호
-    
+    consecutive_n_detected = pyqtSignal() # N값 3회 감지 시 발생하는 신호 추가
+
+
     def __init__(self, trading_manager):
         super().__init__()
         self.tm = trading_manager  # TradingManager 객체 참조
@@ -50,8 +52,18 @@ class GameAnalysisThread(QThread):
                     self.logger.info("중지 명령으로 인해 방 이동 요청을 무시합니다.")
                     return
                 
-                self.logger.info("방 이동 필요 감지 (스레드)")
-                self.room_change_needed.emit()
+                # N값 3회 감지 확인을 위한 속성 추가
+                consecutive_n = False
+                if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                    consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
+                    
+                self.logger.info(f"방 이동 필요 감지 (스레드) - N값 3회 감지: {consecutive_n}")
+                
+                # 스레드 통신 변경: N값 정보 전달을 위한 별도 신호 추가
+                if consecutive_n:
+                    self.consecutive_n_detected.emit()  # 새로운 시그널 추가 필요
+                else:
+                    self.room_change_needed.emit()
                 return
                     
             # 게임 상태 가져오기만 스레드에서 수행
