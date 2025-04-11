@@ -1,13 +1,15 @@
 from typing import List, Dict, Optional, Tuple, Any
 import logging
+from utils.bet_logger import log_bet_to_file
 from utils.online_ai_predictor import OnlineAIPredictor  # 별도 파일로 저장될 AI 예측기 임포트
 
 class ChoicePickSystem:
     """
     초이스 픽 시스템 - AI 기반 예측 엔진 통합
     """
-    def __init__(self, logger=None):
+    def __init__(self, room_name: str, logger=None):
         """초기화"""
+        self.room_name = room_name
         self.logger = logger
         self.results: List[str] = []  # 최근 게임 결과 (P/B만)
         self.current_pick: Optional[str] = None  # 현재 초이스 픽
@@ -74,7 +76,7 @@ class ChoicePickSystem:
         self.game_count += 1
         
         # 60게임마다 모델 리셋
-        if self.game_count > 0 and self.game_count % 60 == 0:
+        if self.game_count > 0 and self.game_count % 80 == 0:
             if self.logger:
                 self.logger.info(f"60게임 도달 ({self.game_count}회차) - AI 모델 초기화")
             self.ai_predictor.reset()
@@ -165,6 +167,17 @@ class ChoicePickSystem:
         self.last_results = self.results.copy()
         self.cached_pick = next_pick
         
+        # 베팅할 때만 로그 기록
+        if next_pick != 'N':
+            bet_info = {
+                'room': self.room_name,
+                'pick': next_pick,
+                'confidence': confidence,
+                'accuracy': self.ai_predictor.get_accuracy(),
+                'amount': self.get_current_bet_amount()
+            }
+            log_bet_to_file(bet_info)
+            
         return next_pick
 
     def record_betting_result(self, is_win: bool, reset_after_win: bool = True) -> None:
@@ -175,6 +188,18 @@ class ChoicePickSystem:
             is_win: 베팅이 성공했는지 여부
             reset_after_win: 승리 시 카운터 리셋 여부
         """
+        
+        bet_info = {
+            'room': self.room_name,
+            'pick': self.current_pick,
+            'confidence': 0.0,  # 예측 시점의 confidence 값이 없으므로 0.0으로 설정
+            'accuracy': self.ai_predictor.get_accuracy(),
+            'amount': self.get_current_bet_amount(),
+            'result': self.results[-1] if self.results else 'Unknown',
+            'is_win': is_win
+        }
+        log_bet_to_file(bet_info)
+        
         self.betting_attempts += 1
         self.pick_results.append(is_win)
         
@@ -228,7 +253,7 @@ class ChoicePickSystem:
             return True
         
         # 60게임 도달 시 방 이동
-        if self.game_count >= 60:
+        if self.game_count >= 80:
             if self.logger:
                 self.logger.info(f"현재 게임 판수가 60판 이상 → 방 이동 필요")
             return True

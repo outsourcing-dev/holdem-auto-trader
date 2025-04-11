@@ -15,7 +15,7 @@ class PredictionEngine:
         self.logger.setLevel(logging.INFO)
         
         # 초이스 픽 시스템 초기화
-        self.choice_pick_system = ChoicePickSystem(logger)
+        self.choice_pick_system = ChoicePickSystem(room_name="Room001", logger=self.logger)
     
     def add_result(self, result):
         """

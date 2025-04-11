@@ -182,6 +182,15 @@ class OnlineAIPredictor:
                 if max_proba >= self.confidence_threshold:
                     if self.logger:
                         self.logger.info(f"[초기 픽] confidence={max_proba:.4f} ≥ threshold={self.confidence_threshold:.4f}")
+                    
+                    # 예측 결과를 prediction_history에 저장 (추가된 부분)
+                    prediction_entry = {
+                        'prediction': predicted_class,
+                        'confidence': max_proba,
+                        'actual': None  # 실제 결과는 나중에 update에서 채워짐
+                    }
+                    self.prediction_history.append(prediction_entry)
+                    
                     return predicted_class, max_proba
                 else:
                     if self.logger:
@@ -193,6 +202,15 @@ class OnlineAIPredictor:
             if max_proba >= self.confidence_threshold and accuracy >= 0.60:
                 if self.logger:
                     self.logger.info(f"[정상 픽] confidence={max_proba:.4f}, accuracy={accuracy:.4f}")
+                
+                # 예측 결과를 prediction_history에 저장 (추가된 부분)
+                prediction_entry = {
+                    'prediction': predicted_class,
+                    'confidence': max_proba,
+                    'actual': None
+                }
+                self.prediction_history.append(prediction_entry)
+                
                 return predicted_class, max_proba
             else:
                 if self.logger:
@@ -203,7 +221,7 @@ class OnlineAIPredictor:
             if self.logger:
                 self.logger.error(f"예측 중 오류 발생: {e}")
             return 'N', 0.0
-    
+        
     def update(self, results: List[str], actual_result: str) -> bool:
         """
         실제 결과로 모델 업데이트
@@ -223,15 +241,15 @@ class OnlineAIPredictor:
         if len(results) < self.window_size:
             return False
         
-        # 최근 예측 결과 업데이트
-        if self.prediction_history:
+        # 최근 예측 결과 업데이트 (수정된 부분)
+        if self.prediction_history and self.prediction_history[-1]['actual'] is None:
             self.prediction_history[-1]['actual'] = actual_result
             
-            # 예측이 맞았는지 확인
-            if self.prediction_history[-1]['prediction'] == actual_result:
-                self.correct_predictions += 1
-                
-            self.predictions_count += 1
+            # 예측이 유효하고(N이 아님) 맞았는지 확인
+            if self.prediction_history[-1]['prediction'] in ['P', 'B']:
+                self.predictions_count += 1
+                if self.prediction_history[-1]['prediction'] == actual_result:
+                    self.correct_predictions += 1
         
         try:
             # 특성 준비
@@ -261,7 +279,7 @@ class OnlineAIPredictor:
             if self.logger:
                 self.logger.error(f"모델 업데이트 중 오류 발생: {e}")
             return False
-    
+        
     def get_accuracy(self) -> float:
         """
         현재 모델의 정확도 반환

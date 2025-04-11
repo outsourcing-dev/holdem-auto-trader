@@ -189,8 +189,8 @@ class TradingManagerGame:
             actual_game_count = game_state.get('round', 0)
             
             # 게임 카운트가 너무 많은 경우 (60회 이상) 방 이동
-            if actual_game_count >= 60:
-                self.logger.info(f"60 게임 도달 ({actual_game_count}회차). 다음 방으로 이동합니다.")
+            if actual_game_count >= 80:
+                self.logger.info(f"80 게임 도달 ({actual_game_count}회차). 다음 방으로 이동합니다.")
                 self.tm.change_room()
                 return
             

@@ -645,7 +645,7 @@ class TradingManager:
             return True
             
         # Finally, fall back to game count check (60 games or more)
-        return self.game_count >= 60
+        return self.game_count >= 80
 
     @should_move_to_next_room.setter
     def should_move_to_next_room(self, value):
