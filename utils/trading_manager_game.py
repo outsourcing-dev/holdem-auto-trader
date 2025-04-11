@@ -70,8 +70,14 @@ class TradingManagerGame:
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
 
-    def handle_successful_room_entry(self, new_room_name):
-        """방 입장 성공 처리"""
+    def handle_successful_room_entry(self, new_room_name, preserve_martin=False):
+        """
+        방 입장 성공 처리
+        
+        Args:
+            new_room_name (str): 새 방 이름
+            preserve_martin (bool): 마틴 단계 유지 여부
+        """
         # 중지 버튼 활성화
         self.tm.main_window.stop_button.setEnabled(True)
         self.tm.main_window.update_button_styles()
@@ -101,23 +107,24 @@ class TradingManagerGame:
                 self.logger.error(f"방 이동 후 잔액 확인 오류: {e}")
                 self.tm.check_balance_after_room_change = False
 
-        # 룸 엔트리 후 베팅 위젯
-        # 베팅 위젯 초기화 (새 방 입장 시)
+        # 베팅 위젯 초기화 (새 방 입장 시) - 마틴 유지 여부에 따라 다르게 처리
         if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-            self.tm.main_window.betting_widget.prevent_reset = False
+            self.tm.main_window.betting_widget.prevent_reset = preserve_martin
         
-        # 마커 초기화 및 룸 결과 초기화
-        self.tm.main_window.betting_widget.reset_step_markers()
-        self.tm.main_window.betting_widget.reset_room_results(success=True)
-        
-        # room_position_counter 초기화
-        self.tm.main_window.betting_widget.room_position_counter = 0
+        # 마틴 유지가 아닌 경우에만 마커 초기화
+        if not preserve_martin:
+            # 마커 초기화 및 룸 결과 초기화
+            self.tm.main_window.betting_widget.reset_step_markers()
+            self.tm.main_window.betting_widget.reset_room_results(success=True)
+            
+            # room_position_counter 초기화
+            self.tm.main_window.betting_widget.room_position_counter = 0
         
         # UI 업데이트
         self.tm.current_room_name = new_room_name
         self.tm.main_window.update_betting_status(
             room_name=self.tm.current_room_name,
-            pick=""
+            pick=self.tm.current_pick if preserve_martin else ""
         )
 
         # 게임 상태 확인 및 15게임 데이터 수집
@@ -319,8 +326,13 @@ class TradingManagerGame:
             self.logger.warning(f"방 나가기 중 오류 발생: {e}")
             return False
         
-    def reset_room_state(self):
-        """방 이동 시 상태 초기화"""
+    def reset_room_state(self, preserve_martin=False):
+        """
+        방 이동 시 상태 초기화
+        
+        Args:
+            preserve_martin (bool): True인 경우 마틴 단계 유지
+        """
         # 게임 정보 초기화
         self.tm.game_count = 0
         self.tm.result_count = 0
@@ -338,14 +350,27 @@ class TradingManagerGame:
                 from modules.game_detector import GameDetector
                 self.tm.game_monitoring_service.game_detector = GameDetector()
         
-        # 초이스 픽 시스템 초기화
-        self.tm.excel_trading_service.reset_after_room_change()
+        # 마틴 단계 유지 옵션에 따라 처리
+        if not preserve_martin:
+            # 초이스 픽 시스템 초기화
+            self.tm.excel_trading_service.reset_after_room_change()
+            
+            # 마틴 서비스 초기화
+            if hasattr(self.tm, 'martin_service'):
+                self.tm.martin_service.reset()
+            
+            self.logger.info("방 이동 시 마틴 단계 초기화 완료")
+        else:
+            self.logger.info("N값 연속 발생으로 인한 방 이동: 마틴 단계 유지")
         
         # 이전 방 이동 신호 초기화
         self.tm.should_move_to_next_room = False
         
-        # 베팅 위젯 초기화 방지 플래그
+        # 베팅 위젯 초기화 방지 플래그 - 마틴 유지 시에는 항상
         if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-            self.tm.main_window.betting_widget.prevent_reset = True
+            if preserve_martin:
+                self.tm.main_window.betting_widget.prevent_reset = True
+            else:
+                self.tm.main_window.betting_widget.prevent_reset = False
         
-        self.logger.info("방 이동 시 상태 초기화 완료")
+        self.logger.info(f"방 이동 시 상태 초기화 완료 (마틴 유지: {preserve_martin})")

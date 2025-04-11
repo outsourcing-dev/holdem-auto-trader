@@ -250,7 +250,7 @@ class TradingManager:
                 self.just_changed_room = False  # 플래그 초기화
             else:
                 # ✅ 게임 수 역행 감지
-                if current_game_count < previous_game_count and previous_game_count >= 10:
+                if current_game_count < previous_game_count and previous_game_count >= 10 and current_game_count < 5:
                     self.logger.warning(f"[❗게임 수 역행 감지] 이전: {previous_game_count} → 현재: {current_game_count} → 방 이동 시도")
                     self.change_room()
                     return
@@ -528,8 +528,13 @@ class TradingManager:
             self.logger.error(f"설정 새로고침 중 오류 발생: {e}")
             return False
 
-    def change_room(self):
-        """현재 방을 나가고 새로운 방으로 이동"""
+    def change_room(self, due_to_consecutive_n=False):
+        """
+        현재 방을 나가고 새로운 방으로 이동
+        
+        Args:
+            due_to_consecutive_n (bool): N값 3번 이상 연속 발생으로 인한 방 이동 여부
+        """
         try:
             # 중지 명령 확인
             if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
@@ -546,7 +551,7 @@ class TradingManager:
                 self.logger.info("자동 매매 비활성화 상태로 방 이동 중단")
                 return False
 
-            self.logger.info("방 이동 준비 중...")
+            self.logger.info(f"방 이동 준비 중... (N값으로 인한 이동: {due_to_consecutive_n})")
             
             # 방 이동 중에는 중지 버튼 비활성화
             self.main_window.stop_button.setEnabled(False)
@@ -565,8 +570,8 @@ class TradingManager:
             if not room_closed:
                 self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
             
-            # 상태 초기화
-            self.game_helper.reset_room_state()
+            # 상태 초기화 - N값으로 인한 이동 시 마틴 유지
+            self.game_helper.reset_room_state(preserve_martin=due_to_consecutive_n)
             
             # 새 방 입장
             new_room_name = self.room_entry_service.enter_room()
@@ -578,8 +583,8 @@ class TradingManager:
             # 방 이동 직후 플래그 설정
             self.just_changed_room = True
             
-            # 방 입장 성공 처리
-            return self.game_helper.handle_successful_room_entry(new_room_name)
+            # 방 입장 성공 처리 - N값으로 인한 이동 정보 전달
+            return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=due_to_consecutive_n)
 
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
@@ -588,7 +593,7 @@ class TradingManager:
             self.main_window.update_button_styles()
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
             return False
-
+        
     @property
     def should_move_to_next_room(self):
         """
