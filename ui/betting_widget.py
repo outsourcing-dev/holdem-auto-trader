@@ -443,6 +443,17 @@ class BettingWidget(QWidget):
         # 기본 위치 계산 - 현재 마커 위치 + 1
         display_step = self.room_position_counter + 1
         
+        # N값으로 인한 방 이동 시 마커 보존 로직 추가
+        if hasattr(self, 'prevent_reset') and self.prevent_reset:
+            # 이전 최대 마커 위치 이후에 새 마커 배치
+            last_used_pos = 0
+            for s in range(1, self.progress_table.columnCount()):
+                if s in self.step_items and self.step_items[s].text().strip():
+                    last_used_pos = max(last_used_pos, s)
+                    
+            # 마지막 사용 위치 이후에 배치
+            display_step = max(display_step, last_used_pos + 1)
+        
         # 성공(O) 마커일 경우 특별 처리
         if marker == "O":
             # 테이블에서 마지막으로 사용된 위치 찾기
@@ -510,7 +521,7 @@ class BettingWidget(QWidget):
                 print(f"[DEBUG] 단계 {display_step}에 이미 마커가 있음: '{item.text()}'")
         else:
             print(f"[WARNING] 잘못된 단계 번호: {display_step} (step_items 키에 없음)")
-
+            
     def _ensure_column_exists(self, step):
         """필요한 경우 테이블에 열 추가"""
         current_cols = self.progress_table.columnCount()

@@ -82,7 +82,8 @@ class TradingManagerGame:
         self.tm.main_window.stop_button.setEnabled(True)
         self.tm.main_window.update_button_styles()
         QApplication.processEvents()
-
+        
+        self.tm.just_changed_room = True  # 여기에 플래그 추가
         # 방 이동 후 로비에서 잔액 확인
         if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
             try:
@@ -120,11 +121,17 @@ class TradingManagerGame:
             # room_position_counter 초기화
             self.tm.main_window.betting_widget.room_position_counter = 0
         
+        # 마틴 유지 시 현재 베팅 금액 다시 설정
+        bet_amount = None
+        if preserve_martin and hasattr(self.tm.excel_trading_service, 'get_current_bet_amount'):
+            bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
+        
         # UI 업데이트
         self.tm.current_room_name = new_room_name
         self.tm.main_window.update_betting_status(
             room_name=self.tm.current_room_name,
-            pick=self.tm.current_pick if preserve_martin else ""
+            pick=self.tm.current_pick if preserve_martin else "",
+            bet_amount=bet_amount
         )
 
         # 게임 상태 확인 및 15게임 데이터 수집

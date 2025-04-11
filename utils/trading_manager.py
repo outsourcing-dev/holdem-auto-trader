@@ -223,6 +223,13 @@ class TradingManager:
             current_game_count = game_state.get('round', 0)
             new_result = result.get('new_result', False)  # 새 결과 여부 확인
             
+            # PICK 값이 'N'이고 consecutive_n_count가 3 이상인지 확인
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                if self.excel_trading_service.choice_pick_system.consecutive_n_count >= 3:
+                    self.logger.warning(f"3회 연속 N 감지 - N값으로 인한 방 이동 시작")
+                    self.change_room(due_to_consecutive_n=True)
+                    return
+            
             # 새 결과가 없을 경우 (게임 카운트가 같을 경우)
             if not new_result:
                 # no_result_counter 증가
@@ -247,6 +254,8 @@ class TradingManager:
             # ✅ 방 이동 직후 게임 수 역행 체크 생략
             if hasattr(self, 'just_changed_room') and self.just_changed_room:
                 self.logger.info("방 이동 직후이므로 게임 수 역행 체크를 생략합니다.")
+                # 이 부분 추가: 새 게임 카운트로 설정
+                self.game_count = current_game_count
                 self.just_changed_room = False  # 플래그 초기화
             else:
                 # ✅ 게임 수 역행 감지
