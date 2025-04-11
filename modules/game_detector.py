@@ -152,7 +152,7 @@ class GameDetector:
         recent_results = game_info["recent_results"] if game_info["recent_results"] else []
         
         # TIE를 제외한 결과를 정확히 10개 얻기 위한 처리
-        desired_pb_count = 15  # P와 B를 합쳐 10개 필요
+        desired_pb_count = 20  # P와 B를 합쳐 10개 필요
         
         # 결과에서 TIE를 제외한 P/B만의 결과 필터링
         filtered_results = []

@@ -78,7 +78,7 @@ class GameBoardParser:
         # 가장 마지막 결과 반환
         return results[-1]
     
-    def get_result_sequence(self, count=15):
+    def get_result_sequence(self, count=20):
         """
         최근 N개의 게임 결과 시퀀스를 가져옵니다.
         
