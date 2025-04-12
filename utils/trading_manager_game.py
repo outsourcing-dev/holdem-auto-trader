@@ -1,4 +1,4 @@
-# utils/trading_manager_game.py
+# utils/trading_manager_game.py 수정된 코드
 import time
 import logging
 from PyQt6.QtWidgets import QMessageBox, QApplication
@@ -181,18 +181,17 @@ class TradingManagerGame:
         return True
 
     def process_excel_result(self, result, game_state, previous_game_count):
-        """엑셀 처리 결과 활용"""
+        """엑셀 처리 결과 활용 - 마틴 단계에 따른 방 이동 로직 수정"""
         try:
             last_column, new_game_count, recent_results, next_pick = result
             
             # 실제 게임 카운트 사용
             actual_game_count = game_state.get('round', 0)
             
-            # 게임 카운트가 너무 많은 경우 (60회 이상) 방 이동
-            if actual_game_count >= 60:
-                self.logger.info(f"60 게임 도달 ({actual_game_count}회차). 다음 방으로 이동합니다.")
-                self.tm.change_room()
-                return
+            # 현재 마틴 단계 확인
+            current_martin_step = 0
+            if hasattr(self.tm, 'martin_service'):
+                current_martin_step = self.tm.martin_service.current_step
             
             # 게임 카운트 초기화 감지 (갑자기 작은 값으로 변경된 경우)
             if previous_game_count > 10 and actual_game_count <= 5:
@@ -210,7 +209,10 @@ class TradingManagerGame:
                 if game_state.get('latest_result') == 'T':
                     pass
                 
-                # 방 이동 필요한지 확인
+                # 방 이동 필요 조건 확인 (수정된 로직)
+                should_move = False
+                
+                # 1. 초이스 픽 시스템의 방 이동 신호
                 if self.tm.excel_trading_service.should_change_room():
                     # N값 감지 확인하여 플래그 설정
                     consecutive_n = False
@@ -219,7 +221,24 @@ class TradingManagerGame:
                         consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
                     
                     self.logger.info(f"초이스 픽 시스템에서 방 이동 필요 신호 (N값 연속: {consecutive_n})")
-                    self.tm.change_room(due_to_consecutive_n=consecutive_n)
+                    should_move = True
+                    due_to_consecutive_n = consecutive_n
+                
+                # 2. 60게임 조건 확인
+                # - 마틴 1단계(시작 단계)이거나 승리 후인 경우에만 60게임 조건 적용
+                # - 마틴 2단계 이상 진행 중이면 60게임 조건 무시하고 계속 진행
+                elif actual_game_count >= 60:
+                    # 마틴 단계 확인
+                    if current_martin_step <= 0 or getattr(self.tm, 'just_won', False):
+                        self.logger.info(f"60 게임 도달 ({actual_game_count}회차) 및 마틴 진행 없음 또는 승리 후 상태. 방 이동 필요")
+                        should_move = True
+                        due_to_consecutive_n = False
+                    else:
+                        self.logger.info(f"60 게임 도달 ({actual_game_count}회차)했지만 마틴 {current_martin_step+1}단계 진행 중이므로 계속 베팅")
+                
+                # 방 이동 필요 시 실행
+                if should_move:
+                    self.tm.change_room(due_to_consecutive_n=due_to_consecutive_n)
                     return
                 
                 # PICK 값에 따른 베팅 실행
@@ -295,6 +314,13 @@ class TradingManagerGame:
             if last_bet and last_bet['type'] in ['P', 'B']:
                 # 베팅 결과 처리
                 result_status = self.tm.bet_helper.process_bet_result(last_bet['type'], latest_result, new_game_count)
+                
+                # 승리 후 60게임 이상인지 확인
+                actual_game_count = game_state.get('round', 0)
+                if result_status == 'win' and actual_game_count >= 60:
+                    self.logger.info(f"승리 후 60게임 이상 도달 ({actual_game_count}회차). 방 이동 진행")
+                    self.tm.change_room()
+                    return
                 
                 # 방 이동 확인
                 if self.tm.excel_trading_service.should_change_room():

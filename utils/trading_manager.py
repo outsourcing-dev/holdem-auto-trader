@@ -632,20 +632,30 @@ class TradingManager:
     def should_move_to_next_room(self):
         """
         Property to check if we should move to the next room.
-        Uses the excel_trading_service or falls back to game count check.
+        Uses the excel_trading_service or falls back to game count and martin stage check.
         """
         # Check excel_trading_service first (choice_pick_system's signal)
         if hasattr(self, 'excel_trading_service'):
             should_move = self.excel_trading_service.should_change_room()
             if should_move:
                 return True
-            
+                
         # Then check the internal flag
         if self._should_move_to_next_room:
             return True
+                
+        # Check if we're in the middle of a martin bet sequence
+        # If martin stage is greater than 0, we should NOT move rooms due to game count
+        current_martin_step = 0
+        if hasattr(self, 'martin_service'):
+            current_martin_step = self.martin_service.current_step
             
-        # Finally, fall back to game count check (60 games or more)
-        return self.game_count >= 60
+        # Only move due to game count if we're not in a martin sequence or just won
+        if current_martin_step <= 0 or getattr(self, 'just_won', False):
+            return self.game_count >= 60
+        
+        # If we're in the middle of a martin sequence, don't move due to game count
+        return False
 
     @should_move_to_next_room.setter
     def should_move_to_next_room(self, value):

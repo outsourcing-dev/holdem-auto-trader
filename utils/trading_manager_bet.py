@@ -169,6 +169,11 @@ class TradingManagerBet:
                 # 초이스 픽 시스템에 승리 기록
                 self.tm.excel_trading_service.record_betting_result(True)
                 self.logger.info("베팅 적중 (O) - 초이스 픽 시스템에 승리 기록")
+                
+                # 승리 후 60게임 이상인지 확인
+                if self.tm.game_count >= 60:
+                    self.logger.info(f"승리 후 게임 수 확인: {self.tm.game_count}판 - 60판 이상으로 방 이동 필요")
+                    self.tm.should_move_to_next_room = True
 
             else:
                 # 패배 처리
@@ -208,13 +213,13 @@ class TradingManagerBet:
                     is_win=is_win,
                     is_tie=is_tie
                 )
-    
+        
             return result_status
 
         except Exception as e:
             self.logger.error(f"베팅 결과 처리 오류: {e}", exc_info=True)
             return "error"
-
+        
     def update_balance_after_result(self, is_win):
         """
         베팅 결과 후 잔액 업데이트
