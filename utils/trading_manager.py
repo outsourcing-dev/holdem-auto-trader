@@ -36,6 +36,9 @@ class TradingManager:
         self.current_pick = None
         self.processed_rounds = set()
 
+        # 여기에 추가: 마틴 상태 추적 변수
+        self.last_martin_step = 0  # 마지막으로 기록된 마틴 단계
+
         # 서비스 클래스 초기화
         self._init_services()
         
@@ -583,6 +586,11 @@ class TradingManager:
 
             self.logger.info(f"방 이동 준비 중... (N값으로 인한 이동: {due_to_consecutive_n})")
             
+            # 여기에 추가: 방 이동 전 마틴 상태 기록
+            if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'current_step'):
+                self.last_martin_step = self.martin_service.current_step
+                self.logger.info(f"[마틴 추적] 방 이동 전 마틴 단계: {self.last_martin_step+1}")
+            
             # 방 이동 중에는 중지 버튼 비활성화
             self.main_window.stop_button.setEnabled(False)
             self.main_window.update_button_styles()
@@ -614,7 +622,17 @@ class TradingManager:
             self.just_changed_room = True
             
             # 항상 마틴값 유지
-            return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=True)
+            result = self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=True)
+            
+            # 여기에 추가: 방 이동 후 마틴 상태 확인
+            if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'current_step'):
+                current_step = self.martin_service.current_step
+                self.logger.info(f"[마틴 추적] 방 이동 후 마틴 단계: {current_step+1}, 이전: {self.last_martin_step+1}")
+                # 마틴 단계가 유지되었는지 검증
+                if current_step != self.last_martin_step:
+                    self.logger.warning(f"[마틴 추적 오류] 마틴 단계가 변경됨: {self.last_martin_step+1} → {current_step+1}")
+            
+            return result
 
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)

@@ -57,10 +57,13 @@ class MartinBettingService:
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
 
     def process_bet_result(self, result_status, game_count=None):
-        """베팅 결과에 따라 마틴 단계를 조정합니다."""
         # 현재 베팅 금액 기록
         current_bet = self.get_current_bet_amount()
         self.total_bet_amount += current_bet
+        
+        # 여기에 추가: 처리 전 마틴 상태 로깅
+        prev_step = self.current_step
+        self.logger.info(f"[마틴] 베팅 결과 처리 전: {result_status}, 현재 단계: {prev_step+1}")
         
         # 카운터 증가
         self.result_counter += 1

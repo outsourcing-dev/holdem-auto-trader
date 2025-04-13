@@ -419,15 +419,19 @@ class TradingManagerGame:
             # 마틴 서비스 초기화
             if hasattr(self.tm, 'martin_service'):
                 self.tm.martin_service.reset()
-            
+                
             self.logger.info("방 이동 시 마틴 단계 초기화 완료")
         else:
-            # 여기에 로그 추가: 마틴 단계 유지 확인
+            # 여기에 추가: 초이스 픽 시스템 마틴 유지 설정
+            self.tm.excel_trading_service.reset_after_room_change(preserve_martin=True)
+            
+            # 여기에 추가: 마틴 단계 로깅 강화
             if hasattr(self.tm, 'martin_service'):
                 current_step = self.tm.martin_service.current_step
-                self.logger.info(f"방 이동 시 마틴 단계 유지: {current_step+1}단계")
+                self.logger.info(f"방 이동 시 마틴 단계 유지 상태: {current_step+1}단계, 금액: {self.tm.martin_service.get_current_bet_amount():,}원")
             else:
                 self.logger.info("방 이동 시 마틴 단계 유지 (martin_service 없음)")
+
         
         # 이전 방 이동 신호 초기화
         self.tm.should_move_to_next_room = False

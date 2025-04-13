@@ -605,11 +605,7 @@ class ChoicePickSystem:
         return False
     
     def reset_after_room_change(self, preserve_martin: bool = False) -> None:
-        """방 이동 후 상태 초기화
-
-        Args:
-            preserve_martin (bool): True일 경우 마틴 상태를 유지하고, False일 경우 초기화함
-        """
+        """방 이동 후 상태 초기화"""
         prev_failures = self.consecutive_failures
         prev_martin = self.martin_step
         prev_results = len(self.pick_results)
