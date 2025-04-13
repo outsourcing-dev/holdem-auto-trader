@@ -637,7 +637,7 @@ class TradingManager:
                 # 로그 추가: 방 이동 결정 원인 추적
                 if hasattr(self.excel_trading_service, 'choice_pick_system'):
                     cs = self.excel_trading_service.choice_pick_system
-                    consecutive_n = hasattr(cs, 'consecutive_n_count') and cs.consecutive_n_count >= 4
+                    consecutive_n = hasattr(cs, 'consecutive_n_count') and cs.consecutive_n_count >= 3
                     consecutive_failures = hasattr(cs, 'consecutive_failures') and cs.consecutive_failures >= 1
                     martin_step = hasattr(cs, 'martin_step') and cs.martin_step == 0
                     high_game_count = hasattr(cs, 'last_win_count') and cs.last_win_count >= 55

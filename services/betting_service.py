@@ -134,7 +134,7 @@ class BettingService:
     def _wait_for_betting_available(self):
         """베팅 가능 상태가 될 때까지 대기"""
         self.logger.info("베팅 가능 상태 확인 시작...")
-        max_attempts = 30  # 최대 30초 대기 (2초 간격)
+        max_attempts = 60  # 최대 60초 대기 (1초 간격)
         
         for attempt in range(max_attempts):
             try:
@@ -158,10 +158,10 @@ class BettingService:
                                 return True
                 
                 self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempt+1}/{max_attempts}")
-                time.sleep(2)
+                time.sleep(1)
             except Exception as e:
                 self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
-                time.sleep(2)
+                time.sleep(1)
         
         self.logger.warning("베팅 가능 상태 대기 시간 초과.")
         return False
