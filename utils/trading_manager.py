@@ -227,6 +227,7 @@ class TradingManager:
             return
         
         self.logger.info("N값 3회 연속 감지 - 마틴 유지하며 방 이동")
+        # 이미 due_to_consecutive_n=True이므로 변경 필요 없음
         self.change_room(due_to_consecutive_n=True)
         
     def _handle_analysis_result(self, result):
@@ -341,13 +342,8 @@ class TradingManager:
             
         self.logger.info("스레드에서 방 이동 요청 수신")
         
-        # N값 3회 감지 여부 확인 추가
-        consecutive_n = False
-        if hasattr(self.excel_trading_service, 'choice_pick_system'):
-            consecutive_n = self.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
-        
-        # due_to_consecutive_n 플래그 전달
-        self.change_room(due_to_consecutive_n=consecutive_n)
+        # 항상 마틴 유지하도록 변경
+        self.change_room(due_to_consecutive_n=True)
         
     def run_auto_trading(self):
         """자동 매매 루프"""
@@ -604,8 +600,8 @@ class TradingManager:
             if not room_closed:
                 self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
             
-            # 상태 초기화 - N값으로 인한 이동 시 마틴 유지
-            self.game_helper.reset_room_state(preserve_martin=due_to_consecutive_n)
+            # 상태 초기화 - 항상 마틴 유지 (due_to_consecutive_n 파라미터와 무관하게)
+            self.game_helper.reset_room_state(preserve_martin=True)
             
             # 새 방 입장
             new_room_name = self.room_entry_service.enter_room()
@@ -617,8 +613,8 @@ class TradingManager:
             # 방 이동 직후 플래그 설정
             self.just_changed_room = True
             
-            # 방 입장 성공 처리 - N값으로 인한 이동 정보 전달
-            return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=due_to_consecutive_n)
+            # 항상 마틴값 유지
+            return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=True)
 
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
@@ -638,10 +634,21 @@ class TradingManager:
         if hasattr(self, 'excel_trading_service'):
             should_move = self.excel_trading_service.should_change_room()
             if should_move:
+                # 로그 추가: 방 이동 결정 원인 추적
+                if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                    cs = self.excel_trading_service.choice_pick_system
+                    consecutive_n = hasattr(cs, 'consecutive_n_count') and cs.consecutive_n_count >= 3
+                    consecutive_failures = hasattr(cs, 'consecutive_failures') and cs.consecutive_failures >= 1
+                    martin_step = hasattr(cs, 'martin_step') and cs.martin_step == 0
+                    high_game_count = hasattr(cs, 'last_win_count') and cs.last_win_count >= 55
+                    
+                    self.logger.info(f"[방 이동 결정] ExcelService: 연속N={consecutive_n}, 연속실패={consecutive_failures}, 마틴단계={martin_step}, 60게임이상={high_game_count}")
+                
                 return True
                 
         # Then check the internal flag
         if self._should_move_to_next_room:
+            self.logger.info("[방 이동 결정] 내부 플래그")
             return True
                 
         # Check if we're in the middle of a martin bet sequence
@@ -652,7 +659,10 @@ class TradingManager:
             
         # Only move due to game count if we're not in a martin sequence or just won
         if current_martin_step <= 0 or getattr(self, 'just_won', False):
-            return self.game_count >= 60
+            should_move = self.game_count >= 55
+            if should_move:
+                self.logger.info(f"[방 이동 결정] 게임카운트: {self.game_count}판, 마틴단계: {current_martin_step+1}단계")
+            return should_move
         
         # If we're in the middle of a martin sequence (step > 0), don't move due to game count
         return False
