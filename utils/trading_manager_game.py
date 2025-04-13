@@ -414,7 +414,7 @@ class TradingManagerGame:
         # 마틴 단계 유지 옵션에 따라 처리
         if not preserve_martin:
             # 초이스 픽 시스템 초기화
-            self.tm.excel_trading_service.reset_after_room_change()
+            self.tm.excel_trading_service.reset_after_room_change(preserve_martin=preserve_martin)
             
             # 마틴 서비스 초기화
             if hasattr(self.tm, 'martin_service'):

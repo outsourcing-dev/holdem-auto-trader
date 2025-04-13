@@ -604,9 +604,12 @@ class ChoicePickSystem:
                 
         return False
     
-    def reset_after_room_change(self) -> None:
-        """방 이동 후 초기화"""
+    def reset_after_room_change(self, preserve_martin: bool = False) -> None:
+        """방 이동 후 상태 초기화
 
+        Args:
+            preserve_martin (bool): True일 경우 마틴 상태를 유지하고, False일 경우 초기화함
+        """
         prev_failures = self.consecutive_failures
         prev_martin = self.martin_step
         prev_results = len(self.pick_results)
@@ -614,25 +617,26 @@ class ChoicePickSystem:
 
         self.betting_attempts = 0
 
-        # ✅ 조건 분기: N값 3회로 이동하는 경우 마틴 상태 유지
-        if self.consecutive_n_count < 3:
+        # ✅ 마틴 상태 유지 여부에 따라 분기
+        if preserve_martin:
+            if self.logger:
+                self.logger.info("방 이동 시 preserve_martin=True → 마틴 상태 유지")
+        else:
             self.martin_step = 0
             self.consecutive_failures = 0
-        else:
             if self.logger:
-                self.logger.info("N값 3회로 방 이동: 마틴 상태 유지")
+                self.logger.info("방 이동 시 preserve_martin=False → 마틴 상태 초기화")
 
-        # ✅ 무조건 초기화되는 항목
+        # ✅ 공통 초기화 항목
         self.consecutive_n_count = 0
         self.current_pick = None
 
         if self.logger:
             self.logger.info(
                 f"방 이동 후 초기화 완료 - 연속실패({prev_failures}→{self.consecutive_failures}), "
-                f"마틴({prev_martin+1}→{self.martin_step+1}), 결과개수({prev_results})"
+                f"마틴({prev_martin + 1}→{self.martin_step + 1}), 결과개수({prev_results}), "
+                f"연속 N({prev_n_count}→{self.consecutive_n_count})"
             )
-
-
     
     def clear(self) -> None:
         """전체 데이터 초기화"""

@@ -99,9 +99,8 @@ class PredictionEngine:
         """
         self.choice_pick_system.set_martin_amounts(amounts)
     
-    def reset_after_room_change(self) -> None:
-        """방 이동 후 초기화"""
-        self.choice_pick_system.reset_after_room_change()
+    def reset_after_room_change(self, preserve_martin: bool = False) -> None:
+        self.choice_pick_system.reset_after_room_change(preserve_martin=preserve_martin)
     
     def clear(self) -> None:
         """모든 데이터 초기화"""

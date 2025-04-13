@@ -228,9 +228,10 @@ class ExcelTradingService:
         """
         self.prediction_engine.set_martin_amounts(amounts)
         
-    def reset_after_room_change(self) -> None:
+    def reset_after_room_change(self, preserve_martin: bool = False) -> None:
         """방 이동 후 초기화"""
-        self.prediction_engine.reset_after_room_change()
+        self.prediction_engine.reset_after_room_change(preserve_martin=preserve_martin)
+
         
     def get_reverse_bet_pick(self, original_pick):
         """

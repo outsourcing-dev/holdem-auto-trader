@@ -106,7 +106,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='holdem_auto_trader',  # 영문 이름으로 변경
+    name='JD Soft',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -129,5 +129,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='holdem_auto_trader',  # 영문 이름으로 변경
+    name='JD Soft',  # 영문 이름으로 변경
 )
