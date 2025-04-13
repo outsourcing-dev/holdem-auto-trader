@@ -161,7 +161,7 @@ class BettingService:
                 time.sleep(2)
             except Exception as e:
                 self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
-                time.sleep(1)
+                time.sleep(2)
         
         self.logger.warning("베팅 가능 상태 대기 시간 초과.")
         return False
@@ -378,7 +378,7 @@ class BettingService:
 
             # 칩 클릭 시도 (우선 일반 클릭, 실패 시 JS)
             try:
-                time.sleep(0.3)
+                time.sleep(0.5)
                 try:
                     chip_element.click()
                     self.logger.info(f"[클릭] {chip_value:,}원 칩 클릭 성공")
@@ -386,7 +386,7 @@ class BettingService:
                     self.logger.warning(f"{chip_value:,}원 칩 일반 클릭 실패 → JS 클릭 시도")
                     self.devtools.driver.execute_script("arguments[0].click();", chip_element)
                     self.logger.info(f"[JS 클릭] {chip_value:,}원 칩 클릭 완료")
-                time.sleep(0.3)
+                time.sleep(0.5)
             except Exception as e:
                 self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
                 continue

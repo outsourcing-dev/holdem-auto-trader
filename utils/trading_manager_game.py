@@ -213,18 +213,29 @@ class TradingManagerGame:
                 
                 # 방 이동 필요 조건 확인 (수정된 로직)
                 should_move = False
-                
-                # 1. 초이스 픽 시스템의 방 이동 신호
+                due_to_consecutive_n = False
+
+                # 1. 초이스 픽 시스템의 방 이동 신호 - 여기서 N 값 3회 이상 확인
                 if self.tm.excel_trading_service.should_change_room():
-                    # N값 감지 확인하여 플래그 설정
+                    # N값 감지 확인
                     consecutive_n = False
                     if hasattr(self.tm.excel_trading_service, 'choice_pick_system') and \
                     hasattr(self.tm.excel_trading_service.choice_pick_system, 'consecutive_n_count'):
                         consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
                     
-                    self.logger.info(f"초이스 픽 시스템에서 방 이동 필요 신호 (N값 연속: {consecutive_n})")
-                    should_move = True
-                    due_to_consecutive_n = consecutive_n
+                    if consecutive_n:
+                        # N값 3회 이상인 경우에만 방 이동 허용
+                        self.logger.info(f"N값 3회 이상 연속 감지 - 마틴 유지하며 방 이동")
+                        should_move = True
+                        due_to_consecutive_n = True  # 마틴 유지
+                    elif current_martin_step <= 0:
+                        # 마틴 단계가 0이면 일반 방 이동 허용
+                        self.logger.info(f"초이스 픽 시스템 방 이동 신호 - 마틴 없으므로 방 이동")
+                        should_move = True
+                        due_to_consecutive_n = False  # 마틴 초기화
+                    else:
+                        # 마틴 중이고 N값 조건도 아니면 방 이동 안함
+                        self.logger.info(f"초이스 픽 방 이동 신호지만 마틴 {current_martin_step+1}단계 진행 중이므로 무시")
                 
                 # 2. 55게임 조건 확인
                 elif actual_game_count >= 55:
@@ -232,23 +243,24 @@ class TradingManagerGame:
                     if hasattr(self.tm, 'current_martin_step'):
                         current_martin_step = self.tm.current_martin_step
                     else:
-                        # 기존 방식으로 가져오기
                         if hasattr(self.tm, 'martin_service'):
                             current_martin_step = self.tm.martin_service.current_step
-                    
+                            
                     self.logger.info(f"55게임 체크 시 마틴 단계 재확인: {current_martin_step+1}단계")
                     
-                    # 마틴 단계에 따라 방 이동 결정
+                    # 마틴 단계에 따라 방 이동 결정 - 마틴 0단계일 때만 이동
                     if current_martin_step <= 0 or getattr(self.tm, 'just_won', False):
-                        self.logger.info(f"60 게임 도달 ({actual_game_count}회차) 및 마틴 진행 없음 또는 승리 후 상태. 방 이동 필요")
+                        self.logger.info(f"55게임 도달 ({actual_game_count}회차) 및 마틴 진행 없음 또는 승리 후 상태. 방 이동 필요")
                         should_move = True
-                        due_to_consecutive_n = False
+                        due_to_consecutive_n = False  # 마틴 초기화
                     else:
-                        self.logger.info(f"60 게임 도달 ({actual_game_count}회차)했지만 마틴 {current_martin_step+1}단계 진행 중이므로 계속 베팅")
-                        
+                        self.logger.info(f"55게임 도달 ({actual_game_count}회차)했지만 마틴 {current_martin_step+1}단계 진행 중이므로 계속 베팅")
+                        # 방 이동 안함
+                
                 # 방 이동 필요 시 실행
                 if should_move:
-                    self.tm.change_room(due_to_consecutive_n=True)
+                    # 수정: 항상 True가 아닌 상황에 맞게 플래그 전달
+                    self.tm.change_room(due_to_consecutive_n=due_to_consecutive_n)
                     return
                 
                 # PICK 값에 따른 베팅 실행
@@ -287,7 +299,7 @@ class TradingManagerGame:
                 self.tm.betting_service.has_bet_current_round = False
                 
                 # 대기 시간
-                time.sleep(1.5)
+                time.sleep(1)
                 
                 # 현재 방에 계속 있음을 표시
                 if hasattr(self.tm.main_window, 'room_log_widget'):

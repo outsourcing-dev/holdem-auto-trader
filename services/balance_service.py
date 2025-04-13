@@ -393,43 +393,44 @@ class BalanceService:
             return None
         
     def update_balance_after_bet_result(self, is_win=False):
-        """
-        베팅 결과 확인 후 잔액을 업데이트합니다.
+        # """
+        # 베팅 결과 확인 후 잔액을 업데이트합니다.
         
-        Args:
-            is_win (bool): 베팅 성공 여부 (성공 시 지연 적용)
+        # Args:
+        #     is_win (bool): 베팅 성공 여부 (성공 시 지연 적용)
         
-        Returns:
-            int: 업데이트된 잔액 또는 None (실패 시)
-        """
-        try:
-            # 성공 시 3~4초 지연
-            if is_win:
-                self.logger.info("베팅 성공! 잔액 업데이트 전 3초 대기...")
-                time.sleep(2)
+        # Returns:
+        #     int: 업데이트된 잔액 또는 None (실패 시)
+        # """
+        # try:
+        #     # # 성공 시 3~4초 지연
+        #     # if is_win:
+        #     #     self.logger.info("베팅 성공! 잔액 업데이트 전 3초 대기...")
+        #     #     time.sleep(2)
             
-            self.logger.info("베팅 결과 후 잔액 확인")
+        #     self.logger.info("베팅 결과 후 잔액 확인")
             
-            # iframe 내에서 잔액 가져오기
-            balance = self.get_iframe_balance()
+        #     # iframe 내에서 잔액 가져오기
+        #     balance = self.get_iframe_balance()
             
-            if balance is None:
-                self.logger.error("iframe에서 잔액을 가져올 수 없습니다.")
-                return None
+        #     if balance is None:
+        #         self.logger.error("iframe에서 잔액을 가져올 수 없습니다.")
+        #         return None
             
-            self.logger.info(f"현재 잔액: {balance:,}원")
+        #     self.logger.info(f"현재 잔액: {balance:,}원")
             
-            # UI 업데이트
-            self.main_window.update_user_data(current_amount=balance)
+        #     # UI 업데이트
+        #     self.main_window.update_user_data(current_amount=balance)
             
-            # 목표 금액 확인하여 도달 시 자동 매매 중지
-            self.check_target_amount(balance, source="베팅 결과")
+        #     # 목표 금액 확인하여 도달 시 자동 매매 중지
+        #     self.check_target_amount(balance, source="베팅 결과")
             
-            return balance
+        #     return balance
             
-        except Exception as e:
-            self.logger.error(f"잔액 확인 중 오류 발생: {e}")
-            return None
+        # except Exception as e:
+        #     self.logger.error(f"잔액 확인 중 오류 발생: {e}")
+        #     return None
+        pass
         
     # services/balance_service.py의 check_target_amount 메서드 수정 부분
     def check_target_amount(self, current_balance, source="BalanceService"):
