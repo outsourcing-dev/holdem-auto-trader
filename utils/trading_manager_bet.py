@@ -180,6 +180,11 @@ class TradingManagerBet:
                 result_marker = "X"
                 result_status = "lose"
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
+                
+                # 마틴 단계 업데이트 기록 (이 부분 추가)
+                if hasattr(self.tm.martin_service, 'current_step'):
+                    self.tm.current_martin_step = self.tm.martin_service.current_step
+                    self.logger.info(f"[마틴 상태 캐시] 패배 후 현재 마틴 단계: {self.tm.current_martin_step+1}단계")
 
                 if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
                     self.tm.main_window.betting_widget.prevent_reset = True
@@ -213,7 +218,10 @@ class TradingManagerBet:
                     is_win=is_win,
                     is_tie=is_tie
                 )
-        
+            # 반환 전 TradingManager에 마틴 단계 최신값 저장
+            if hasattr(self.tm.martin_service, 'current_step'):
+                self.tm.current_martin_step = self.tm.martin_service.current_step
+
             return result_status
 
         except Exception as e:

@@ -645,16 +645,16 @@ class TradingManager:
             return True
                 
         # Check if we're in the middle of a martin bet sequence
-        # If martin stage is greater than 0, we should NOT move rooms due to game count
+        # ALWAYS get the latest martin step directly (not rely on cached value)
         current_martin_step = 0
-        if hasattr(self, 'martin_service'):
+        if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'current_step'):
             current_martin_step = self.martin_service.current_step
             
         # Only move due to game count if we're not in a martin sequence or just won
         if current_martin_step <= 0 or getattr(self, 'just_won', False):
             return self.game_count >= 60
         
-        # If we're in the middle of a martin sequence, don't move due to game count
+        # If we're in the middle of a martin sequence (step > 0), don't move due to game count
         return False
 
     @should_move_to_next_room.setter

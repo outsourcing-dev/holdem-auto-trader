@@ -188,10 +188,12 @@ class TradingManagerGame:
             # 실제 게임 카운트 사용
             actual_game_count = game_state.get('round', 0)
             
-            # 현재 마틴 단계 확인
+            # 현재 마틴 단계 확인 - 항상 최신 값을 가져옴
             current_martin_step = 0
-            if hasattr(self.tm, 'martin_service'):
+            if hasattr(self.tm, 'martin_service') and hasattr(self.tm.martin_service, 'current_step'):
+                # 실시간으로 마틴 단계 다시 확인
                 current_martin_step = self.tm.martin_service.current_step
+                self.logger.info(f"현재 마틴 단계 확인: {current_martin_step+1}단계")
             
             # 게임 카운트 초기화 감지 (갑자기 작은 값으로 변경된 경우)
             if previous_game_count > 10 and actual_game_count <= 5:
@@ -225,17 +227,25 @@ class TradingManagerGame:
                     due_to_consecutive_n = consecutive_n
                 
                 # 2. 60게임 조건 확인
-                # - 마틴 1단계(시작 단계)이거나 승리 후인 경우에만 60게임 조건 적용
-                # - 마틴 2단계 이상 진행 중이면 60게임 조건 무시하고 계속 진행
                 elif actual_game_count >= 60:
-                    # 마틴 단계 확인
+                    # TradingManager에 직접 저장된 최신 마틴 단계 확인
+                    if hasattr(self.tm, 'current_martin_step'):
+                        current_martin_step = self.tm.current_martin_step
+                    else:
+                        # 기존 방식으로 가져오기
+                        if hasattr(self.tm, 'martin_service'):
+                            current_martin_step = self.tm.martin_service.current_step
+                    
+                    self.logger.info(f"60게임 체크 시 마틴 단계 재확인: {current_martin_step+1}단계")
+                    
+                    # 마틴 단계에 따라 방 이동 결정
                     if current_martin_step <= 0 or getattr(self.tm, 'just_won', False):
                         self.logger.info(f"60 게임 도달 ({actual_game_count}회차) 및 마틴 진행 없음 또는 승리 후 상태. 방 이동 필요")
                         should_move = True
                         due_to_consecutive_n = False
                     else:
                         self.logger.info(f"60 게임 도달 ({actual_game_count}회차)했지만 마틴 {current_martin_step+1}단계 진행 중이므로 계속 베팅")
-                
+                        
                 # 방 이동 필요 시 실행
                 if should_move:
                     self.tm.change_room(due_to_consecutive_n=due_to_consecutive_n)
