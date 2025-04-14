@@ -580,32 +580,41 @@ class ChoicePickSystem:
     def should_change_room(self) -> bool:
         """
         방 이동이 필요한지 확인
-        
         Returns:
             bool: 방 이동 필요 여부
         """
-        # 기존 조건
+
+        # ✅ 2연패 조건 (pick_results에서 False 2번 연속 확인)
+        if len(self.pick_results) >= 2 and all(not r for r in self.pick_results[-2:]):
+            if self.logger:
+                self.logger.info("최근 2연패 감지로 방 이동 필요")
+            return True
+
+        # ✅ 마틴 3단계 모두 실패 후 리셋된 상태
         if self.consecutive_failures >= 1 and self.martin_step == 0:
             if self.logger:
                 self.logger.info("3마틴 모두 실패로 방 이동 필요")
             return True
-            
-        # 3번 연속 N이 발생하고, 충분한 게임 데이터가 있는 경우 방 이동
-        # if self.consecutive_n_count >= 4 and self.betting_attempts == 0 and self.martin_step == 0:
+
+        # ✅ 4연속 N
         if self.consecutive_n_count >= 4:
             if self.logger:
                 self.logger.info(f"4번 연속 유효한 픽 없음(N) 발생으로 방 이동 필요 (연속 카운트: {self.consecutive_n_count})")
             return True
-                
+
+        # ✅ 55판 이상이고 배팅 안함
         if self.betting_attempts == 0 and self.martin_step == 0 and self.last_win_count >= 55:
             if self.logger:
                 self.logger.info(f"현재 게임 판수가 55판 이상이고 배팅 중이 아님 → 방 이동 필요")
             return True
-                
+
         return False
+
     
+    # utils/choice_pick.py 파일 수정
     def reset_after_room_change(self, preserve_martin: bool = False) -> None:
         """방 이동 후 상태 초기화"""
+        # 'consecutive_losses' 대신 'consecutive_failures' 사용
         prev_failures = self.consecutive_failures
         prev_martin = self.martin_step
         prev_results = len(self.pick_results)
@@ -633,7 +642,7 @@ class ChoicePickSystem:
                 f"마틴({prev_martin + 1}→{self.martin_step + 1}), 결과개수({prev_results}), "
                 f"연속 N({prev_n_count}→{self.consecutive_n_count})"
             )
-    
+            
     def clear(self) -> None:
         """전체 데이터 초기화"""
         self.results = []
@@ -726,7 +735,7 @@ class ChoicePickSystem:
         초이스 픽 생성 - 캐싱 개선으로 동일한 결과에 대해서는 픽을 다시 계산하지 않음
         
         Returns:
-            str: 다음 베팅 픽 ('P', 'B', 또는 'N')
+            str: 다음 베팅 픽 ('P', 'B' 또는 'N')
         """
         # 클래스에 다음 두 변수를 추가 (초기화 부분에)
         # self.last_results = []
@@ -736,8 +745,16 @@ class ChoicePickSystem:
         if self.results == self.last_results and self.cached_pick is not None:
             if self.logger:
                 self.logger.debug(f"결과 변경 없음, 캐시된 PICK 사용: {self.cached_pick}")
-            return self.cached_pick
                 
+            # 중요: 캐시된 픽이 'N'이 아니면 N 카운트 초기화
+            if self.cached_pick != 'N' and hasattr(self, 'consecutive_n_count') and self.consecutive_n_count > 0:
+                prev_count = self.consecutive_n_count
+                self.consecutive_n_count = 0
+                if self.logger:
+                    self.logger.info(f"캐시된 유효한 픽 '{self.cached_pick}' 사용으로 연속 N 카운트 초기화: {prev_count} → 0")
+                    
+            return self.cached_pick
+                    
         # 결과가 변경된 경우에만 로그 출력
         if self.logger:
             self.logger.info(f"현재 저장된 결과 (총 {len(self.results)}개): {self.results}")
@@ -817,9 +834,10 @@ class ChoicePickSystem:
             if self.logger:
                 self.logger.warning("유효한 후보 없음. 배팅 중단 (N 반환)")
             # 유효한 후보가 없을 때 N 카운트 증가
+            prev_count = self.consecutive_n_count if hasattr(self, 'consecutive_n_count') else 0
             self.consecutive_n_count += 1
             if self.logger:
-                self.logger.warning(f"연속 N 카운트: {self.consecutive_n_count}")
+                self.logger.warning(f"연속 N 카운트 증가: {prev_count} → {self.consecutive_n_count}")
                 
             # 여기 추가: 연속 N 카운트가 3 이상이면 should_change_room 메소드에서 감지될 수 있게 설정
             if self.consecutive_n_count >= 4:
@@ -833,7 +851,11 @@ class ChoicePickSystem:
             return 'N'
         
         # N 카운트 초기화 (유효한 후보가 있으므로)
-        self.consecutive_n_count = 0
+        if hasattr(self, 'consecutive_n_count') and self.consecutive_n_count > 0:
+            prev_count = self.consecutive_n_count
+            self.consecutive_n_count = 0
+            if self.logger:
+                self.logger.info(f"유효한 후보 생성으로 연속 N 카운트 초기화: {prev_count} → 0")
 
         best = max(valid_candidates, key=lambda x: x['score'])
         self.selected_candidate_idx = best['index']

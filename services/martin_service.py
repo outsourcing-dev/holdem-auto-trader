@@ -36,6 +36,9 @@ class MartinBettingService:
         self.diff_history = []  # 10판 단위 승패차 기록
         self.current_direction = 'forward'  # 현재 방향 (forward / reverse)
         
+        self.recent_results = []  # 승패 결과 추적 리스트 (True=승리, False=패배)
+
+
     def get_current_bet_amount(self):
         """현재 마틴 단계에 따른 베팅 금액을 반환합니다."""
         # 최신 설정 로드
@@ -78,10 +81,27 @@ class MartinBettingService:
         
         # 결과에 따른 처리
         if result_status == "win":
+            # 승리 결과 기록 (True 추가)
+            self.recent_results.append(True)
+            self.logger.info(f"승리 결과 추가: {self.recent_results}")
             return self._handle_win_result(current_result_position)
         elif result_status == "tie":
+            # 무승부는 결과에 추가하지 않음
+            self.logger.info("무승부: 결과 기록 없음")
             return self._handle_tie_result(current_result_position)
         else:  # "lose"
+            # 패배 결과 기록 (False 추가)
+            self.recent_results.append(False)
+            self.logger.info(f"패배 결과 추가: {self.recent_results}")
+            
+            # 여기서 3연패 체크 - 바로 확인
+            if len(self.recent_results) >= 3:
+                recent_three = self.recent_results[-3:]
+                self.logger.info(f"최근 3결과 확인: {recent_three}")
+                if len(recent_three) == 3 and all(not r for r in recent_three):
+                    self.logger.info(f"[마틴] 3연패 감지! need_room_change=True 설정")
+                    self.need_room_change = True
+            
             return self._handle_lose_result(current_result_position)
         
     def _handle_win_result(self, position):
@@ -104,24 +124,25 @@ class MartinBettingService:
         return self.current_step, self.consecutive_losses, position
         
     def _handle_lose_result(self, position):
-        """패배 결과 처리 - 설명서 기준: 마틴 설정 단계까지 같은 방에서 진행, 마지막 단계 실패 시 다음 방으로 이동"""
+        """패배 결과 처리"""
         self.consecutive_losses += 1
         self.current_step += 1
         self.lose_count += 1
         self.has_bet_in_current_room = True
 
-        # 최대 마틴 단계 도달 시 방 이동 플래그 설정
-        # 수정: 하드코딩된 단계(3) 대신 현재 설정된 martin_count 사용
-        if self.current_step >= self.martin_count:
-            self.need_room_change = True
-            self.current_step = 0  # 다음 방을 위해 초기화
-            self.logger.info(f"[마틴] {self.martin_count}단계까지 모두 실패, 다음 방으로 이동")
-        else:
-            # 같은 방에서 다음 마틴 단계로 진행
+        # 최대 마틴 단계 도달 시 방 이동 로직 비활성화 (3연패만 사용)
+        # if self.current_step >= self.martin_count:
+        #     self.need_room_change = True
+        #     self.current_step = 0
+        #     self.logger.info(f"[마틴] {self.martin_count}단계까지 모두 실패, 다음 방으로 이동")
+        # else:
+        # 3연패 검사에서 플래그가 설정되지 않은 경우에만 False로 설정
+        if not getattr(self, 'need_room_change', False):
             self.need_room_change = False
             self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 증가 ({self.current_step+1}단계), 같은 방에서 계속")
-            
+        
         return self.current_step, self.consecutive_losses, position
+
 
     def get_result_position_for_game(self, game_count):
         """특정 게임 카운트에 해당하는 결과 위치를 반환합니다."""
@@ -134,10 +155,12 @@ class MartinBettingService:
     
     def should_change_room(self):
         """방 이동이 필요한지 확인합니다."""
-        # 3연패로 인한 방 이동 필요
-        if hasattr(self, 'recent_results') and len(self.recent_results) >= 3:
-            if not any(self.recent_results[-3:]):  # 최근 3개 결과가 모두 False(패배)
-                self.logger.info(f"[마틴] 3연패로 인한 방 이동 필요")
+        # 2연패로 인한 방 이동 필요 (3 → 2로 변경)
+        if hasattr(self, 'recent_results') and len(self.recent_results) >= 2:
+            # 최근 2개 결과가 모두 False(패배)인지 확인
+            recent_two = self.recent_results[-2:]
+            if len(recent_two) == 2 and all(not result for result in recent_two):
+                self.logger.info(f"[마틴] 2연패로 인한 방 이동 필요: {recent_two}")
                 return True
         
         # 현재 방에서 이미 배팅했는지 확인
@@ -151,7 +174,7 @@ class MartinBettingService:
             return True
         
         return False
-    
+
     def reset_room_bet_status(self):
         """새 방 입장 시 현재 방 배팅 상태 초기화"""
         self.has_bet_in_current_room = False

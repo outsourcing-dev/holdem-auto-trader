@@ -387,6 +387,9 @@ class TradingManagerGame:
             self.logger.warning(f"방 나가기 중 오류 발생: {e}")
             return False
         
+
+    # utils/trading_manager_game.py에서 수정할 부분
+
     def reset_room_state(self, preserve_martin=False):
         """
         방 이동 시 상태 초기화
@@ -422,20 +425,27 @@ class TradingManagerGame:
             
             self.logger.info("방 이동 시 마틴 단계 초기화 완료")
         else:
-            # 여기에 로그 추가: 마틴 단계 유지 확인if not is_win:
-
+            # 마틴 단계 유지하되 연패 기록은 초기화
             if hasattr(self.tm, 'martin_service'):
+                # 마틴 서비스의 recent_results 및 연패 기록 초기화
+                self.tm.martin_service.recent_results = []
+                self.tm.martin_service.consecutive_losses = 0
+                
+                # 마틴 단계는 유지
                 current_step = self.tm.martin_service.current_step
-                self.logger.info(f"방 이동 시 마틴 단계 유지: {current_step+1}단계")
+                self.logger.info(f"방 이동 시 마틴 단계 유지: {current_step+1}단계, 연패 기록 초기화")
             else:
                 self.logger.info("방 이동 시 마틴 단계 유지 (martin_service 없음)")
+            
+            # 초이스 픽 시스템 초기화 (마틴 단계 유지)
+            self.tm.excel_trading_service.reset_after_room_change(preserve_martin=preserve_martin)
         
         # 이전 방 이동 신호 초기화
         self.tm.should_move_to_next_room = False
         
         # 베팅 위젯 초기화 방지 플래그 - 마틴 유지 시에는 항상 True 설정
         if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-            # 항상 마틴 유지이므로 항상 True
-            self.tm.main_window.betting_widget.prevent_reset = True
+            # 마틴 유지시 True
+            self.tm.main_window.betting_widget.prevent_reset = preserve_martin
         
         self.logger.info(f"방 이동 시 상태 초기화 완료 (마틴 유지: {preserve_martin})")

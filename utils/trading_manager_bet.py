@@ -120,6 +120,7 @@ class TradingManagerBet:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
             return False
 
+
     def process_bet_result(self, bet_type, latest_result, new_game_count):
         """
         베팅 결과 처리
@@ -199,12 +200,20 @@ class TradingManagerBet:
                 self.tm.excel_trading_service.record_betting_result(False)
                 self.logger.info("베팅 실패 (X) - 초이스 픽 시스템에 패배 기록")
 
+                # 3연패 확인 (여기서 바로 확인)
+                if hasattr(self.tm.martin_service, 'recent_results'):
+                    recent_results = self.tm.martin_service.recent_results
+                    # 3연패 확인
+                    if len(recent_results) >= 3 and all(not result for result in recent_results[-3:]):
+                        self.logger.info("3연패 감지! 방 이동 플래그 설정")
+                        self.tm.should_move_to_next_room = True
+
             # 결과 카운터 증가
             self.tm.result_count += 1
             
             # 방 이동 필요 여부 확인
-            if self.tm.excel_trading_service.should_change_room():
-                self.logger.info("초이스 픽 시스템 기준으로 방 이동 필요")
+            if self.tm.excel_trading_service.should_change_room() or (hasattr(self.tm.martin_service, 'should_change_room') and self.tm.martin_service.should_change_room()):
+                self.logger.info("베팅 시스템 기준으로 방 이동 필요")
                 self.tm.should_move_to_next_room = True
             
             # 방 로그 위젯 업데이트 (있는 경우)
