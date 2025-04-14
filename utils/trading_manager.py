@@ -611,11 +611,13 @@ class TradingManager:
             self.logger.info(f"[마틴 추적] 방 이동 전 마틴 단계: {effective_martin_step+1}")
             
             # 마틴 유지 결정 - 마틴이 0보다 크거나 N값 연속 감지로 인한 이동인 경우 유지
-            preserve_martin = (
-                effective_martin_step > 0 
-                or due_to_consecutive_n 
-                or self.excel_trading_service.should_change_room()
-            )
+            # preserve_martin = (
+            #     effective_martin_step > 0 
+            #     or due_to_consecutive_n 
+            #     or self.excel_trading_service.should_change_room()
+            # )
+
+            preserve_martin = True  # 항상 마틴 상태와 위젯 유지
 
 
             # 방 이동 중에는 중지 버튼 비활성화

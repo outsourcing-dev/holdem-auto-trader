@@ -571,8 +571,27 @@ class ChoicePickSystem:
                 if self.logger:
                     self.logger.warning(f"{max_martin_steps + 1}마틴 모두 실패! 연속 실패: {self.consecutive_failures}회")
                     
-    def get_current_bet_amount(self) -> int:
+    def get_current_bet_amount(self, widget_position=None) -> int:
         """현재 마틴 단계에 따른 베팅 금액 반환"""
+        # 위젯 위치가 전달되면 모듈러 방식 적용
+        if widget_position is not None:
+            martin_stages = len(self.martin_amounts)
+            effective_step = widget_position % martin_stages
+            
+            if self.logger:
+                self.logger.info(f"위젯 포지션: {widget_position+1}, 마틴 설정: {martin_stages}단계, 적용 마틴 단계: {effective_step+1}")
+            
+            # 내부 상태 동기화
+            self.martin_step = effective_step
+            
+            bet_amount = self.martin_amounts[effective_step]
+            
+            if self.logger:
+                self.logger.info(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position+1}단계, 마틴: {effective_step+1}단계)")
+                
+            return bet_amount
+        
+        # 위젯 위치가 없으면 내부 martin_step 사용
         if self.martin_step < len(self.martin_amounts):
             return self.martin_amounts[self.martin_step]
         return self.martin_amounts[-1]

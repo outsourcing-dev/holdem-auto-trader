@@ -44,23 +44,35 @@ class MartinBettingService:
         # 최신 설정 로드
         self._refresh_settings()
         
-        # 단계가 범위를 벗어나면 마지막 단계 금액 사용
-        if self.current_step >= len(self.martin_amounts):
-            self.logger.warning(f"마틴 단계({self.current_step})가 최대 단계({len(self.martin_amounts)})를 초과하여 마지막 단계 금액 사용: {self.martin_amounts[-1]:,}원")
-            return self.martin_amounts[-1]
+        # 위젯 포지션 확인
+        widget_position = 0
+        if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
+            widget_position = self.main_window.betting_widget.room_position_counter
         
-        # 현재 마틴 단계에 해당하는 금액 반환
-        bet_amount = self.martin_amounts[self.current_step]
-        self.logger.info(f"현재 마틴 단계: {self.current_step+1}, 베팅 금액: {bet_amount:,}원")
+        # 설정된 마틴 단계 수 확인
+        martin_stages = len(self.martin_amounts)
+        
+        # 마틴 단계는 위젯 포지션을 마틴 단계 수로 나눈 나머지로 계산
+        # 예: 위젯이 7이고 마틴이 3단계면 7 % 3 = 1 (두 번째 단계)
+        effective_martin_step = widget_position % martin_stages
+        
+        # 실제 사용할 마틴 단계 로깅
+        self.logger.info(f"위젯 포지션: {widget_position+1}, 마틴 설정: {martin_stages}단계, 적용 마틴 단계: {effective_martin_step+1}")
+        
+        # 계산된 단계에 해당하는 금액 반환
+        bet_amount = self.martin_amounts[effective_martin_step]
+        self.logger.info(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position+1}단계, 마틴: {effective_martin_step+1}단계)")
+        
+        # 내부적으로 current_step 동기화 (다른 코드와의 일관성 유지)
+        self.current_step = effective_martin_step
         
         return bet_amount
-    
+
     def _refresh_settings(self):
         """최신 마틴 설정 로드"""
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
 
     # services/martin_service.py에서 process_bet_result 메서드 수정
-
     def process_bet_result(self, result_status, game_count=None):
         # 현재 베팅 금액 기록
         current_bet = self.get_current_bet_amount()
@@ -78,6 +90,15 @@ class MartinBettingService:
         # 게임 카운트 기록
         if game_count is not None:
             self.current_game_position[game_count] = current_result_position
+        
+        # 추가: 현재 위젯 위치에 따른 마틴 단계 동기화
+        if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
+            widget_position = self.main_window.betting_widget.room_position_counter
+            martin_stages = len(self.martin_amounts)
+            
+            # 모듈러 마틴 단계 계산
+            self.current_step = widget_position % martin_stages
+            self.logger.info(f"[마틴] 위젯 포지션({widget_position+1})에 따라 마틴 단계 동기화: {self.current_step+1}/{martin_stages}단계")
         
         self.logger.info(f"[마틴] 베팅 결과 처리: {result_status}, 현재 단계: {self.current_step+1}")
         
@@ -101,7 +122,7 @@ class MartinBettingService:
 
     def _handle_win_result(self, position):
         """승리 결과 처리 - 설명서 기준: 승리 시 다시 새롭게 픽을 선택"""
-        self.current_step = 0  # 마틴 단계 초기화
+        self.current_step = 0  # 마틴 단계 초기화 (위젯에서도 초기화됨)
         self.consecutive_losses = 0
         self.win_count += 1
         self.need_room_change = True  # 승리 시 방 이동 필요 (새로운 픽 선택을 위해)
@@ -121,7 +142,8 @@ class MartinBettingService:
     def _handle_lose_result(self, position):
         """패배 결과 처리"""
         self.consecutive_losses += 1
-        self.current_step += 1
+        # 위젯 기반 시스템에서는 current_step을 변경할 필요가 없음 (위젯 카운터가 증가할 것임)
+        # self.current_step += 1  # 주석 처리
         self.lose_count += 1
         self.has_bet_in_current_room = True
 
@@ -134,7 +156,7 @@ class MartinBettingService:
         # 3연패 검사에서 플래그가 설정되지 않은 경우에만 False로 설정
         if not getattr(self, 'need_room_change', False):
             self.need_room_change = False
-            self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 증가 ({self.current_step+1}단계), 같은 방에서 계속")
+            self.logger.info(f"[마틴] 베팅 실패: 위젯 단계 증가, 같은 방에서 계속")
         
         return self.current_step, self.consecutive_losses, position
 

@@ -69,11 +69,11 @@ class TradingManagerGame:
             self.tm.stop_trading()
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
-
+        
     def handle_successful_room_entry(self, new_room_name, preserve_martin=False):
         """
         방 입장 성공 처리
-        
+
         Args:
             new_room_name (str): 새 방 이름
             preserve_martin (bool): 마틴 단계 유지 여부
@@ -82,81 +82,53 @@ class TradingManagerGame:
         self.tm.main_window.stop_button.setEnabled(True)
         self.tm.main_window.update_button_styles()
         QApplication.processEvents()
-        
-        self.tm.just_changed_room = True  # 여기에 플래그 추가
-        # 방 이동 후 로비에서 잔액 확인
+
+        self.tm.just_changed_room = True
+
+        # 방 이동 후 로비 잔액 확인
         if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
             try:
                 balance = self.tm.balance_service.get_lobby_balance()
-                
+
                 if balance is not None:
-                    # UI 업데이트
                     self.tm.main_window.update_user_data(current_amount=balance)
-                    
-                    # 목표 금액 확인
                     if self.tm.balance_service.check_target_amount(balance, source="방 이동 후 확인"):
-                        # 목표 금액 도달 시 자동 매매 중지
                         self.exit_current_game_room()
                         self.tm.stop_trading()
                         self.tm.check_balance_after_room_change = False
                         return False
-                
-                # 플래그 초기화
+
                 self.tm.check_balance_after_room_change = False
-                
+
             except Exception as e:
                 self.logger.error(f"방 이동 후 잔액 확인 오류: {e}")
                 self.tm.check_balance_after_room_change = False
 
-    # utils/trading_manager_game.py의 handle_successful_room_entry 메서드 수정
-
-    def handle_successful_room_entry(self, new_room_name, preserve_martin=False):
-        """
-        방 입장 성공 처리
-        
-        Args:
-            new_room_name (str): 새 방 이름
-            preserve_martin (bool): 마틴 단계 유지 여부
-        """
-        # 중지 버튼 활성화
-        self.tm.main_window.stop_button.setEnabled(True)
-        self.tm.main_window.update_button_styles()
-        QApplication.processEvents()
-        
-        self.tm.just_changed_room = True
-        
-        # 방 이동 후 로비에서 잔액 확인
-        if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
-            # 기존 코드 유지...
+        # ✅ 마커 상태에 따라 위젯 초기화 여부 판단
+        last_marker = None
+        if hasattr(self.tm.main_window.betting_widget, 'get_current_marker'):
+            last_marker = self.tm.main_window.betting_widget.get_current_marker()
+        elif hasattr(self.tm.main_window.betting_widget, 'room_position_counter'):
+            # fallback: 포지션만 확인 가능 (마커 직접 접근 불가 시 무시)
             pass
 
-        # 베팅 위젯 초기화 (새 방 입장 시) - 마틴 유지 여부에 따라 다르게 처리
-        if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-            self.tm.main_window.betting_widget.prevent_reset = preserve_martin
-        
-        # 마틴 유지가 아닌 경우에만 마커 초기화
-        if not preserve_martin:
-            # 마커 초기화 및 룸 결과 초기화
+        if last_marker == "O" or getattr(self.tm, 'just_won', False):
+            self.logger.info("마커가 O 또는 just_won 상태 → 위젯 초기화 진행")
             self.tm.main_window.betting_widget.reset_step_markers()
             self.tm.main_window.betting_widget.reset_room_results(success=True)
-            
-            # room_position_counter 초기화
             self.tm.main_window.betting_widget.room_position_counter = 0
+            if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                self.tm.main_window.betting_widget.prevent_reset = False
         else:
-            # 마틴 유지 시 position_counter를 마틴 단계와 동기화
-            if hasattr(self.tm.martin_service, 'current_step'):
-                current_martin_step = self.tm.martin_service.current_step
-                # 중요: widget의 room_position_counter는 0부터 시작하지만, 
-                # 마틴 단계 표시는 1부터이므로 그대로 유지
-                self.tm.main_window.betting_widget.room_position_counter = current_martin_step
-                self.logger.info(f"마틴 유지 시 위젯 카운터 동기화: {current_martin_step}")
-        
+            if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                self.tm.main_window.betting_widget.prevent_reset = True
+
         # 마틴 유지 시 현재 베팅 금액 다시 설정
         bet_amount = None
-        if preserve_martin and hasattr(self.tm.excel_trading_service, 'get_current_bet_amount'):
+        if hasattr(self.tm.excel_trading_service, 'get_current_bet_amount'):
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
-        
-        # UI 업데이트
+
+        # UI 상태 업데이트
         self.tm.current_room_name = new_room_name
         self.tm.main_window.update_betting_status(
             room_name=self.tm.current_room_name,
@@ -164,51 +136,40 @@ class TradingManagerGame:
             bet_amount=bet_amount
         )
 
-        # 게임 상태 확인 및 15게임 데이터 수집
+        # ✅ 입장 직후 게임 상태 분석 및 15게임 처리
         try:
-            # 목표 금액 도달 여부 확인 후 게임 상태 확인
-            if not hasattr(self.tm.balance_service, '_target_amount_reached') or not self.tm.balance_service._target_amount_reached:
+            if not getattr(self.tm.balance_service, '_target_amount_reached', False):
                 game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
-                
+
                 if game_state:
-                    # 실제 게임 카운트 저장
                     actual_game_count = game_state.get('round', 0)
                     self.tm.game_count = actual_game_count
-                    
-                    # 15게임 데이터 추출 (TIE 제외한 P/B 결과)
+
                     filtered_results = game_state.get('filtered_results', [])
-                    
-                    # 로그 출력 - 15게임 수집 상태 확인
                     self.logger.info(f"방 입장 후 수집된 결과: {len(filtered_results)}개, 필요: 15개")
-                    
-                    # Excel 처리 서비스를 통해 게임 결과 기록
+
                     result = self.tm.excel_trading_service.process_game_results(
-                        game_state, 
-                        0,  # 첫 진입으로 처리
+                        game_state,
+                        0,
                         self.tm.current_room_name,
                         log_on_change=True
                     )
-                    
-                    if result[0] is not None:
-                        if result[3] in ['P', 'B']:  # next_pick 값이 있는 경우
-                            # 원본 픽 저장
-                            self.tm.current_pick = result[3]
-                            
-                            # 방향 적용된 픽 계산
-                            actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(result[3])
-                            
-                            # UI에 픽 값과 베팅 금액 표시
-                            self.tm.main_window.update_betting_status(
-                                pick=result[3],  # UI에는 원본 픽 표시
-                                bet_amount=self.tm.excel_trading_service.get_current_bet_amount()
-                            )
-                            
-                            # 로그 출력
-                            self.logger.info(f"첫 분석 결과 PICK: {result[3]} (실제 베팅: {actual_pick})")
+
+                    if result[0] is not None and result[3] in ['P', 'B']:
+                        self.tm.current_pick = result[3]
+                        actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(result[3])
+
+                        self.tm.main_window.update_betting_status(
+                            pick=result[3],
+                            bet_amount=self.tm.excel_trading_service.get_current_bet_amount()
+                        )
+                        self.logger.info(f"첫 분석 결과 PICK: {result[3]} (실제 베팅: {actual_pick})")
+
         except Exception as e:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
 
         return True
+
 
     def process_excel_result(self, result, game_state, previous_game_count):
         """엑셀 처리 결과 활용 - 마틴 단계에 따른 방 이동 로직 수정"""
@@ -419,7 +380,6 @@ class TradingManagerGame:
         
 
     # utils/trading_manager_game.py에서 수정할 부분
-
     def reset_room_state(self, preserve_martin=False):
         """
         방 이동 시 상태 초기화
@@ -473,9 +433,8 @@ class TradingManagerGame:
         # 이전 방 이동 신호 초기화
         self.tm.should_move_to_next_room = False
         
-        # 베팅 위젯 초기화 방지 플래그 - 마틴 유지 시에는 항상 True 설정
+        # 베팅 위젯 초기화 방지 플래그 - 항상 True 설정하여 위젯 상태 유지
         if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
-            # 마틴 유지시 True
-            self.tm.main_window.betting_widget.prevent_reset = preserve_martin
+            self.tm.main_window.betting_widget.prevent_reset = True  # 항상 위젯 유지
         
         self.logger.info(f"방 이동 시 상태 초기화 완료 (마틴 유지: {preserve_martin})")
