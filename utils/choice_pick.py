@@ -569,6 +569,8 @@ class ChoicePickSystem:
                 self.consecutive_failures = 0
                 self.martin_step = 0
                 self.last_win_count = 0
+                if hasattr(self, 'tm'):
+                    self.tm.just_won = True  # UI는 외부에서 초기화하도록 신호만 보냄
                 if self.logger:
                     self.logger.info("베팅 성공으로 마틴 단계와 실패 카운터 초기화")
         else:
