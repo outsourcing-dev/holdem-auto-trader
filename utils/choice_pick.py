@@ -591,10 +591,13 @@ class ChoicePickSystem:
         # 위젯 위치가 전달되면 모듈러 방식 적용
         if widget_position is not None:
             martin_stages = len(self.martin_amounts)
-            effective_step = widget_position % martin_stages
+            
+            # 중요: 모듈러 방식을 사용하지 않고 위젯 포지션을 직접 사용
+            # 단, 최대 마틴 단계를 초과하지 않도록 제한
+            effective_step = min(widget_position, martin_stages - 1)
             
             if self.logger:
-                self.logger.info(f"위젯 포지션: {widget_position+1}, 마틴 설정: {martin_stages}단계, 적용 마틴 단계: {effective_step+1}")
+                self.logger.info(f"위젯 포지션: {widget_position}, 마틴 설정: {martin_stages}단계, 적용 마틴 단계: {effective_step}")
             
             # 내부 상태 동기화
             self.martin_step = effective_step
@@ -602,7 +605,7 @@ class ChoicePickSystem:
             bet_amount = self.martin_amounts[effective_step]
             
             if self.logger:
-                self.logger.info(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position+1}단계, 마틴: {effective_step+1}단계)")
+                self.logger.info(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position}단계, 마틴: {effective_step}단계)")
                 
             return bet_amount
         
@@ -610,7 +613,7 @@ class ChoicePickSystem:
         if self.martin_step < len(self.martin_amounts):
             return self.martin_amounts[self.martin_step]
         return self.martin_amounts[-1]
-        
+
     def should_change_room(self) -> bool:
         """
         방 이동이 필요한지 확인

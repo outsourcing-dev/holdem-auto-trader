@@ -129,6 +129,11 @@ class MartinBettingService:
         self.has_bet_in_current_room = True
         self.logger.info(f"[마틴] 베팅 성공: 마틴 단계 초기화, 다음에 새 방으로 이동하여 새 픽 선택")
         
+        # 추가: 승리 시 베팅 위젯 카운터 명시적으로 0으로 설정
+        if hasattr(self.main_window, 'betting_widget'):
+            self.main_window.betting_widget.room_position_counter = 0
+            self.logger.info(f"[마틴] 승리로 인해 베팅 위젯 카운터를 0으로 초기화")
+        
         return self.current_step, self.consecutive_losses, position
         
     def _handle_tie_result(self, position):
@@ -142,23 +147,30 @@ class MartinBettingService:
     def _handle_lose_result(self, position):
         """패배 결과 처리"""
         self.consecutive_losses += 1
-        # 위젯 기반 시스템에서는 current_step을 변경할 필요가 없음 (위젯 카운터가 증가할 것임)
-        # self.current_step += 1  # 주석 처리
+        # 중요: 위젯 기반 시스템에서 current_step은 바로 증가시킴
+        self.current_step += 1  # 주석 해제하고 명시적으로 증가시킴
+        
+        # 최대 마틴 단계 체크
+        martin_stages = len(self.martin_amounts)
+        if self.current_step >= martin_stages:
+            self.current_step = 0
+            self.logger.info(f"[마틴] 최대 단계({martin_stages})를 초과하여 0으로 리셋")
+        
         self.lose_count += 1
         self.has_bet_in_current_room = True
 
-        # 최대 마틴 단계 도달 시 방 이동 로직 비활성화 (3연패만 사용)
-        # if self.current_step >= self.martin_count:
-        #     self.need_room_change = True
-        #     self.current_step = 0
-        #     self.logger.info(f"[마틴] {self.martin_count}단계까지 모두 실패, 다음 방으로 이동")
-        # else:
         # 3연패 검사에서 플래그가 설정되지 않은 경우에만 False로 설정
         if not getattr(self, 'need_room_change', False):
             self.need_room_change = False
-            self.logger.info(f"[마틴] 베팅 실패: 위젯 단계 증가, 같은 방에서 계속")
+            self.logger.info(f"[마틴] 베팅 실패: 마틴 단계 {self.current_step}로 증가, 같은 방에서 계속")
+        
+        # 추가: 위젯 카운터를 현재 마틴 단계와 동기화
+        if hasattr(self.main_window, 'betting_widget'):
+            self.main_window.betting_widget.room_position_counter = self.current_step
+            self.logger.info(f"[마틴] 베팅 실패로 위젯 카운터를 {self.current_step}으로 설정")
         
         return self.current_step, self.consecutive_losses, position
+
 
 
     def get_result_position_for_game(self, game_count):

@@ -475,14 +475,16 @@ class BettingService:
             
             # 베팅 위젯의 위치 카운터 동기화 (위젯이 있는 경우)
             if hasattr(self.main_window, 'betting_widget'):
+                # 중요: 베팅 후에는 위젯 카운터를 마틴 단계와 정확히 일치시킴
                 self.main_window.betting_widget.room_position_counter = martin_step
-                self.logger.info(f"베팅 위젯 위치 카운터를 마틴 단계({martin_step+1})와 동기화")
+                self.logger.info(f"베팅 위젯 위치 카운터를 마틴 단계({martin_step})와 동기화")
         
         # UI 업데이트
         self.main_window.update_betting_status(
             room_name=f"{display_room_name}",
             pick=bet_type  # PICK 값 직접 설정
         )
+
         
     def reset_betting_state(self, new_round=None):
         """베팅 상태 초기화"""
