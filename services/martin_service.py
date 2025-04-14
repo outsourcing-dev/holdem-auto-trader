@@ -134,6 +134,12 @@ class MartinBettingService:
     
     def should_change_room(self):
         """방 이동이 필요한지 확인합니다."""
+        # 3연패로 인한 방 이동 필요
+        if hasattr(self, 'recent_results') and len(self.recent_results) >= 3:
+            if not any(self.recent_results[-3:]):  # 최근 3개 결과가 모두 False(패배)
+                self.logger.info(f"[마틴] 3연패로 인한 방 이동 필요")
+                return True
+        
         # 현재 방에서 이미 배팅했는지 확인
         if self.has_bet_in_current_room:
             self.logger.info(f"[마틴] 현재 방에서 이미 배팅했으므로 방 이동 필요")

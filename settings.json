@@ -12,7 +12,7 @@
         32000,
         64000
     ],
-    "target_amount": 350000,
+    "target_amount": 800000,
     "double_half_start": 15,
     "double_half_stop": 10
 }

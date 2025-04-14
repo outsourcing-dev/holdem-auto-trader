@@ -770,33 +770,33 @@ class ChoicePickSystem:
             last_pattern = win_loss_pattern[-2:] if len(win_loss_pattern) >= 2 else []
             
             if 'WWW' in ''.join(win_loss_pattern) or 'LLL' in ''.join(win_loss_pattern):
-                if self.logger:
-                    self.logger.info(f"  - 3연속 승/패 발견 → 무효 후보")
+                # if self.logger:
+                #     self.logger.info(f"  - 3연속 승/패 발견 → 무효 후보")
                 continue
             
-            if self.logger:
-                self.logger.info(
-                    f"\n후보 {idx}번 패턴 분석:\n"
-                    f"  - 픽: {picks_to_compare}\n"
-                    f"  - 결과: {results_to_compare}\n"
-                    f"  - 승패: {win_loss_pattern}\n"
-                    f"  - 마지막 2판: {last_pattern}"
-                )
+            # if self.logger:
+            #     self.logger.info(
+            #         f"\n후보 {idx}번 패턴 분석:\n"
+            #         f"  - 픽: {picks_to_compare}\n"
+            #         f"  - 결과: {results_to_compare}\n"
+            #         f"  - 승패: {win_loss_pattern}\n"
+            #         f"  - 마지막 2판: {last_pattern}"
+            #     )
 
             # 정배 or 역배 판단
             if last_pattern == ['W', 'L']:
                 score = win_loss_pattern.count('W') - win_loss_pattern.count('L')
                 bet_direction = 'normal'
-                if self.logger:
-                    self.logger.info(f"  - 패턴 [W,L] → 정배팅 → 승-패: {win_loss_pattern.count('W')}-{win_loss_pattern.count('L')} → 점수={score}")
+                # if self.logger:
+                    # self.logger.info(f"  - 패턴 [W,L] → 정배팅 → 승-패: {win_loss_pattern.count('W')}-{win_loss_pattern.count('L')} → 점수={score}")
             elif last_pattern == ['L', 'W']:
                 score = win_loss_pattern.count('L') - win_loss_pattern.count('W')
                 bet_direction = 'reverse'
-                if self.logger:
-                    self.logger.info(f"  - 패턴 [L,W] → 역배팅 → 패-승: {win_loss_pattern.count('L')}-{win_loss_pattern.count('W')} → 점수={score}")
+                # if self.logger:
+                    # self.logger.info(f"  - 패턴 [L,W] → 역배팅 → 패-승: {win_loss_pattern.count('L')}-{win_loss_pattern.count('W')} → 점수={score}")
             else:
-                if self.logger:
-                    self.logger.info(f"  - 패턴 {last_pattern} → 무효 후보")
+                # if self.logger:
+                #     self.logger.info(f"  - 패턴 {last_pattern} → 무효 후보")
                 continue
 
             if self.logger:
