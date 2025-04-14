@@ -212,9 +212,9 @@ class ExcelTradingService:
         """
         return self.prediction_engine.should_change_room()
         
-    def get_current_bet_amount(self) -> int:
+    def get_current_bet_amount(self, widget_position=None) -> int:
         """현재 마틴 단계에 따른 베팅 금액 반환"""
-        widget_position = 0
+        # widget_position = 0
         # 위젯 위치 가져오기
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
             widget_position = self.main_window.betting_widget.room_position_counter

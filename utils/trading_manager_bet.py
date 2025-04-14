@@ -50,7 +50,8 @@ class TradingManagerBet:
             actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(original_pick)
             
             # 베팅 금액 결정 (초이스 픽 시스템 사용)
-            bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
+            widget_pos = self.tm.main_window.betting_widget.room_position_counter
+            bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
             
             # 베팅 금액 UI 표시
             self.tm.main_window.betting_widget.update_bet_amount(bet_amount)

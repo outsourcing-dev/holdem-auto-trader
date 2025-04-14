@@ -113,7 +113,7 @@ class TradingManagerGame:
             pass
 
         if last_marker == "O" or getattr(self.tm, 'just_won', False):
-            self.logger.info("마커가 O 또는 just_won 상태 → 위젯 초기화 진행")
+            self.logger.info("마지막 마커가 승리(O)로 확인되어 위젯 초기화")
             self.tm.main_window.betting_widget.reset_step_markers()
             self.tm.main_window.betting_widget.reset_room_results(success=True)
             self.tm.main_window.betting_widget.room_position_counter = 0
@@ -126,7 +126,8 @@ class TradingManagerGame:
         # 마틴 유지 시 현재 베팅 금액 다시 설정
         bet_amount = None
         if hasattr(self.tm.excel_trading_service, 'get_current_bet_amount'):
-            bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
+            widget_pos = self.tm.main_window.betting_widget.room_position_counter
+            bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
 
         # UI 상태 업데이트
         self.tm.current_room_name = new_room_name
@@ -230,23 +231,17 @@ class TradingManagerGame:
                 
                 # 2. 55게임 조건 확인
                 elif actual_game_count >= 55:
-                    # 명확한 로그 추가
                     self.logger.info(f"55게임 체크 - current_martin_step: {current_martin_step}, just_won: {getattr(self.tm, 'just_won', False)}")
-                    
-                    # 마틴 진행 중인지 명확히 확인
-                    is_martin_in_progress = current_martin_step > 0
-                    
-                    if not is_martin_in_progress and not getattr(self.tm, 'just_won', False):
-                        self.logger.info(f"55게임 도달 ({actual_game_count}회차) 및 마틴 진행 없음. 방 이동")
-                        should_move = True
-                        due_to_consecutive_n = False  # 마틴 초기화
-                    elif getattr(self.tm, 'just_won', False):
+
+                    # ✅ 무조건 승리했을 때만 55게임 조건 확인
+                    if getattr(self.tm, 'just_won', False):
                         self.logger.info(f"55게임 도달 ({actual_game_count}회차) 및 승리 후 상태. 방 이동")
                         should_move = True
                         due_to_consecutive_n = False  # 마틴 초기화
                     else:
-                        self.logger.info(f"55게임 도달했지만 마틴 {current_martin_step+1}단계 진행 중. 계속 진행")
-                        should_move = False  # 방 이동 안함
+                        self.logger.info(f"마틴 중이거나 아직 승리 안했으므로 55게임 무시하고 진행")
+                        should_move = False
+
                 
                 # 방 이동 필요 시 실행
                 if should_move:
@@ -255,14 +250,24 @@ class TradingManagerGame:
                     return
                 
                 # PICK 값에 따른 베팅 실행
+                # utils/trading_manager_game.py → process_excel_result 내부
                 if not self.tm.betting_service.has_bet_current_round and next_pick in ['P', 'B']:
+                    # ✅ 베팅 전에 just_won 상태라면 마커 초기화 먼저!
+                    if getattr(self.tm, 'just_won', False):
+                        self.logger.info("[베팅 전 초기화] just_won 상태이므로 마커 리셋")
+                        self.tm.main_window.betting_widget.reset_step_markers()
+                        self.tm.main_window.betting_widget.room_position_counter = 0
+                        self.tm.just_won = False
+
+                    # PICK UI 갱신
                     self.tm.main_window.update_betting_status(pick=next_pick)
 
                     # 베팅 실행
-                    if previous_game_count > 0:  # 첫 입장이 아닌 경우에만 베팅
+                    if previous_game_count > 0:
                         self.tm.bet_helper.place_bet(next_pick, actual_game_count)
                     else:
                         self.tm.current_pick = next_pick
+
 
                 # 실제 게임 카운트 저장
                 self.tm.game_count = actual_game_count

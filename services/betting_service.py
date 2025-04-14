@@ -81,7 +81,6 @@ class BettingService:
 
             # 2. 메모리 최적화
             gc.collect()
-            time.sleep(0.5)
             
             # 3. iframe 전환
             if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=5, max_depth=3):
@@ -91,7 +90,18 @@ class BettingService:
             # 4. 베팅 가능 상태 확인
             if not self._wait_for_betting_available():
                 return False
+            
+            # ✅ 베팅 직전: 위젯 마커가 'O'이면 마커 리셋
+            if hasattr(self.main_window, 'betting_widget'):
+                marker = None
+                if hasattr(self.main_window.betting_widget, 'get_current_marker'):
+                    marker = self.main_window.betting_widget.get_current_marker()
                 
+                if marker == "O":
+                    self.logger.info("베팅 직전: 위젯 마커 'O' 확인됨 → 마커 초기화")
+                    self.main_window.betting_widget.reset_step_markers()
+                    self.main_window.betting_widget.room_position_counter = 0
+            
             # 5. 베팅 실행
             bet_success = self._execute_betting(bet_type, bet_amount)
             
