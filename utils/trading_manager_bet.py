@@ -194,7 +194,7 @@ class TradingManagerBet:
                 self.logger.info("초이스 픽 시스템에 승리 기록")
                 
                 # 승리 후 60게임 이상인지 확인
-                if self.tm.game_count >= 57:
+                if self.tm.game_count >= 55:
                     self.logger.info(f"승리 후 게임 수 확인: {self.tm.game_count}판 - 57판 이상으로 방 이동 필요")
                     self.tm.should_move_to_next_room = True
 

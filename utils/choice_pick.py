@@ -552,81 +552,32 @@ class ChoicePickSystem:
         return diff
 
     def record_betting_result(self, is_win: bool, reset_after_win: bool = True) -> None:
-        """
-        베팅 결과 기록 및 처리
-        
-        Args:
-            is_win: 베팅이 성공했는지 여부
-            reset_after_win: 승리 시 카운터 리셋 여부
-        """
         self.betting_attempts += 1
         self.pick_results.append(is_win)
-        
+
         if is_win:
             if self.logger:
-                self.logger.info(f"베팅 성공! 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
-
+                self.logger.info(f"베팅 성공! 시도: {self.betting_attempts}번째")
+            
             if reset_after_win:
                 self.consecutive_failures = 0
-                self.martin_step = 0
                 self.last_win_count = 0
 
-                # 트레이딩 매니저 및 마틴 서비스까지 동기화
+                # ✅ UI 위젯 포지션 초기화 (예: widget_position = 0)
                 if hasattr(self, 'tm'):
-                    self.tm.just_won = True  # 승리 상태 표시
-
-                    # TradingManager 마틴 상태 초기화
-                    if hasattr(self.tm, 'current_martin_step'):
-                        self.tm.current_martin_step = 0
-
-                    # martin_service 쪽도 초기화
-                    if hasattr(self.tm, 'martin_service') and hasattr(self.tm.martin_service, 'current_step'):
-                        self.tm.martin_service.current_step = 0
-                        self.tm.martin_service.recent_results = []  # 최근 결과도 클리어해주는 게 안전함
-
-                    if self.logger:
-                        self.logger.info("TradingManager 및 MartinService 상태 초기화 완료")
+                    self.tm.widget_position = 0
+                    self.tm.just_won = True
         else:
             if self.logger:
-                self.logger.info(f"베팅 실패. 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
-            # 수정: martin_amounts 길이 기반으로 마틴 한도 확인
-            max_martin_steps = len(self.martin_amounts) - 1
-            if self.martin_step < max_martin_steps:
-                self.martin_step += 1
-                if self.logger:
-                    self.logger.info(f"마틴 단계 증가: {self.martin_step+1}단계")
-            else:
-                self.consecutive_failures += 1
-                self.martin_step = 0
-                if self.logger:
-                    self.logger.warning(f"{max_martin_steps + 1}마틴 모두 실패! 연속 실패: {self.consecutive_failures}회")
-                    
+                self.logger.info(f"베팅 실패. 시도: {self.betting_attempts}번째")
+            self.consecutive_failures += 1
+
+
     def get_current_bet_amount(self, widget_position=None) -> int:
-        """현재 마틴 단계에 따른 베팅 금액 반환"""
-        # 위젯 위치가 전달되면 모듈러 방식 적용
         if widget_position is not None:
             martin_stages = len(self.martin_amounts)
-            
-            # 중요: 모듈러 방식을 사용하지 않고 위젯 포지션을 직접 사용
-            # 단, 최대 마틴 단계를 초과하지 않도록 제한
-            effective_step = min(widget_position, martin_stages - 1)
-            
-            if self.logger:
-                self.logger.info(f"위젯 포지션: {widget_position}, 마틴 설정: {martin_stages}단계, 적용 마틴 단계: {effective_step}")
-            
-            # 내부 상태 동기화
-            self.martin_step = effective_step
-            
-            bet_amount = self.martin_amounts[effective_step]
-            
-            if self.logger:
-                self.logger.info(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position}단계, 마틴: {effective_step}단계)")
-                
-            return bet_amount
-        
-        # 위젯 위치가 없으면 내부 martin_step 사용
-        if self.martin_step < len(self.martin_amounts):
-            return self.martin_amounts[self.martin_step]
+            effective_step = widget_position % martin_stages
+            return self.martin_amounts[effective_step]
         return self.martin_amounts[-1]
 
     def should_change_room(self) -> bool:
@@ -641,13 +592,7 @@ class ChoicePickSystem:
             if self.logger:
                 self.logger.info("최근 3연패 감지로 방 이동 필요")
             return True
-
-        # ✅ 마틴 3단계 모두 실패 후 리셋된 상태
-        if self.consecutive_failures >= 1 and self.martin_step == 0:
-            if self.logger:
-                self.logger.info("3마틴 모두 실패로 방 이동 필요")
-            return True
-
+        
         # ✅ 4연속 N
         if self.consecutive_n_count >= 4:
             if self.logger:
@@ -655,7 +600,7 @@ class ChoicePickSystem:
             return True
 
         # ✅ 55판 이상이고 배팅 안함
-        if self.betting_attempts == 0 and self.martin_step == 0 and self.last_win_count >= 55:
+        if self.betting_attempts == 0 and self.last_win_count >= 55:
             if self.logger:
                 self.logger.info(f"현재 게임 판수가 55판 이상이고 배팅 중이 아님 → 방 이동 필요")
             return True
@@ -680,7 +625,6 @@ class ChoicePickSystem:
             # 최근 실패 기록 유지
             self.pick_results = self.pick_results[-3:]  # 최근 3개 정도 유지
         else:
-            self.martin_step = 0
             self.consecutive_failures = 0
             self.pick_results = []
             self.logger.info("방 이동 시 preserve_martin=False → 마틴 상태 초기화")
@@ -705,7 +649,6 @@ class ChoicePickSystem:
         self.consecutive_failures = 0
         self.pick_scores = {}
         self.betting_attempts = 0
-        self.martin_step = 0
         self.pick_results = []
         self.last_win_count = 0
         self.stage1_picks = []
