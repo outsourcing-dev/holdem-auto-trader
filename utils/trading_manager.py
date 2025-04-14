@@ -586,12 +586,32 @@ class TradingManager:
 
             self.logger.info(f"방 이동 준비 중... (N값으로 인한 이동: {due_to_consecutive_n})")
             
-            # 방 이동 전 마틴 상태 저장 - 수정된 부분
+            # 방 이동 전 마틴 상태 확인
             current_martin_step = 0
-            if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'current_step'):
+            if hasattr(self, 'martin_service'):
                 current_martin_step = self.martin_service.current_step
-                self.last_martin_step = current_martin_step  # 클래스 변수에 저장
-                self.logger.info(f"[마틴 추적] 방 이동 전 마틴 단계: {current_martin_step+1}")
+                
+            # 초이스 픽 시스템의 마틴 단계도 확인 (동기화)
+            choice_pick_martin_step = 0
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                choice_pick_martin_step = self.excel_trading_service.choice_pick_system.martin_step
+                
+            # 일관성을 위해 동일한 값으로 통일
+            effective_martin_step = max(current_martin_step, choice_pick_martin_step)
+            self.logger.info(f"[마틴 동기화] Service: {current_martin_step+1}, ChoicePick: {choice_pick_martin_step+1}, 적용: {effective_martin_step+1}")
+            
+            # 양쪽 모두 동일한 값으로 설정
+            if hasattr(self, 'martin_service'):
+                self.martin_service.current_step = effective_martin_step
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                self.excel_trading_service.choice_pick_system.martin_step = effective_martin_step
+            
+            # 마틴 상태 추적 저장
+            self.last_martin_step = effective_martin_step
+            self.logger.info(f"[마틴 추적] 방 이동 전 마틴 단계: {effective_martin_step+1}")
+            
+            # 마틴 유지 결정 - 마틴이 0보다 크거나 N값 연속 감지로 인한 이동인 경우 유지
+            preserve_martin = due_to_consecutive_n or effective_martin_step > 0
             
             # 방 이동 중에는 중지 버튼 비활성화
             self.main_window.stop_button.setEnabled(False)
@@ -610,11 +630,9 @@ class TradingManager:
             if not room_closed:
                 self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
             
-            # 상태 초기화 - due_to_consecutive_n 또는 마틴 단계에 따라 마틴 유지 결정
-            preserve_martin = due_to_consecutive_n or current_martin_step > 0
+            # 상태 초기화 - preserve_martin 값에 따라 마틴 유지 여부 결정
             self.game_helper.reset_room_state(preserve_martin=preserve_martin)
-            self.logger.info(f"change_room에서 preserve_martin 값: {preserve_martin} (due_to_consecutive_n: {due_to_consecutive_n}, current_martin_step: {current_martin_step})")
-
+            
             # 새 방 입장
             new_room_name = self.room_entry_service.enter_room()
             
@@ -625,24 +643,8 @@ class TradingManager:
             # 방 이동 직후 플래그 설정
             self.just_changed_room = True
             
-            # 마틴 값 유지하며 방 입장 처리
-            result = self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=preserve_martin)
-            
-            # 방 이동 후 마틴 상태 확인 및 복원 - 수정된 부분
-            if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'current_step'):
-                after_change_step = self.martin_service.current_step
-                self.logger.info(f"[마틴 추적] 방 이동 후 마틴 단계: {after_change_step+1}, 이전: {current_martin_step+1}")
-                
-                # 마틴 단계가 변경되었고 보존해야 하는 경우 복원
-                if preserve_martin and after_change_step != current_martin_step:
-                    self.logger.warning(f"[마틴 추적 오류] 마틴 단계가 변경됨: {current_martin_step+1} → {after_change_step+1}, 복원 시도")
-                    self.martin_service.current_step = current_martin_step
-                    # 초이스 픽 시스템도 확인 및 복원
-                    if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                        self.excel_trading_service.choice_pick_system.martin_step = current_martin_step
-                        self.logger.info(f"초이스 픽 시스템 마틴 단계도 {current_martin_step+1}로 복원됨")
-            
-            return result
+            # preserve_martin 값에 따라 마틴 유지 결정
+            return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=preserve_martin)
 
         except Exception as e:
             self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
