@@ -252,16 +252,22 @@ class TradingManagerGame:
                 
                 # 2. 55게임 조건 확인 - 수정된 부분
                 elif actual_game_count >= 55:
-                    self.logger.info(f"55게임 체크 - 위젯 마지막 마커: {last_marker}, 마틴 진행중: {is_martin_in_progress}, 최근 승리: {is_last_bet_win}")
+                    # 위젯 포지션 확인
+                    widget_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
 
-                    # 수정: 마틴이 진행중이 아니거나(마커가 X가 아님) 마지막 베팅이 성공(O)이면 방 이동
-                    if not is_martin_in_progress or is_last_bet_win:
-                        self.logger.info(f"55게임 도달 ({actual_game_count}회차) 및 마틴 완료/미진행 상태. 방 이동")
-                        should_move = True
-                        due_to_consecutive_n = False  # 마틴 초기화
-                    else:
-                        self.logger.info(f"마틴 실패 후 아직 성공하지 못한 상태(X 마커)로 55게임 무시하고 진행")
+                    self.logger.info(
+                        f"55게임 체크 - 게임 수: {actual_game_count}, "
+                        f"위젯 포지션: {widget_pos + 1}번"
+                    )
+
+                    if widget_pos != 0:
+                        self.logger.info(f"현재 포지션이 {widget_pos + 1}번이므로 방 유지")
                         should_move = False
+                    else:
+                        self.logger.info(f"처음 위치 (1번)에서 55게임 도달 → 방 이동")
+                        should_move = True
+                        due_to_consecutive_n = False  # 마틴은 초기화
+
                 
                 # 방 이동 필요 시 실행
                 if should_move:
