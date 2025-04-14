@@ -744,12 +744,12 @@ class ChoicePickSystem:
 
             candidates[i + 1] = picks
 
-            if self.logger:
-                self.logger.info(f"\n----- 후보 {i+1}번 상세 (시작 위치={start}) -----")
-                self.logger.info(f"픽 리스트: {picks}")
-                self.logger.info(f"결과 리스트: {actual_results}")
-                self.logger.info(f"승패 리스트: {win_loss}")
-                self.logger.info(f"마지막 2판 패턴: {last_two}")
+            # if self.logger:
+            #     self.logger.info(f"\n----- 후보 {i+1}번 상세 (시작 위치={start}) -----")
+            #     self.logger.info(f"픽 리스트: {picks}")
+            #     self.logger.info(f"결과 리스트: {actual_results}")
+            #     self.logger.info(f"승패 리스트: {win_loss}")
+            #     self.logger.info(f"마지막 2판 패턴: {last_two}")
 
             picks = []
             # 최종 픽 수집 (6번부터 15번까지)
