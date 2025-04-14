@@ -1,3 +1,4 @@
+import logging
 from turtle import pd
 from typing import List, Dict, Optional, Tuple, Any
 
@@ -8,7 +9,23 @@ class ChoicePickSystem:
     """
     def __init__(self, logger=None):
         """초기화"""
-        self.logger = logger
+        self.logger = logger or logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+
+        # 설정 매니저를 통해 마틴 금액 불러오기
+        from utils.settings_manager import SettingsManager
+        settings_manager = SettingsManager()
+        
+        # 설정 파일에서 마틴 금액 불러오기
+        _, self.martin_amounts = settings_manager.get_martin_settings()
+        
+        # 만약 설정 파일에서 불러오지 못하면 기본값 사용
+        if not self.martin_amounts:
+            self.martin_amounts = [1000, 2000, 4000, 8000, 16000, 32000]
+        
+        self.logger.info(f"초이스 픽 시스템 초기화 - 마틴 금액: {self.martin_amounts}")
+
+        # 기존 초기화 변수들
         self.results: List[str] = []  # 최근 15판 결과 (P/B만)
         self.current_pick: Optional[str] = None  # 현재 초이스 픽
         self.betting_direction: str = "normal"  # 'normal' 또는 'reverse'
@@ -16,10 +33,8 @@ class ChoicePickSystem:
         self.pick_scores: Dict[str, int] = {}  # 픽 후보들의 점수
         self.betting_attempts: int = 0  # 현재 픽으로 배팅 시도 횟수
 
-
         # 3마틴 배팅 관련 변수
         self.martin_step: int = 0  # 현재 마틴 단계 (0부터 시작)
-        self.martin_amounts: List[int] = [1000, 2000, 4000]  # 기본 마틴 금액
         
         # 픽 생성 후 성공/실패 여부 추적
         self.pick_results: List[bool] = []  # True=성공, False=실패

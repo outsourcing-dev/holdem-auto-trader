@@ -213,10 +213,18 @@ class TradingManagerBet:
             # 결과 카운터 증가
             self.tm.result_count += 1
             
-            # 방 이동 필요 여부 확인
-            if self.tm.excel_trading_service.should_change_room() or (hasattr(self.tm.martin_service, 'should_change_room') and self.tm.martin_service.should_change_room()):
-                self.logger.info("베팅 시스템 기준으로 방 이동 필요")
-                self.tm.should_move_to_next_room = True
+            # 55게임 이상이고, 마틴이 진행 중이면 방 이동 보류
+            if self.tm.game_count >= 55 and not getattr(self.tm, 'just_won', False) and self.tm.current_martin_step > 0:
+                self.logger.info(
+                    f"55게임 도달 ({self.tm.game_count}회차) & 마틴 진행 중 (단계: {self.tm.current_martin_step+1}) → 방 이동 보류"
+                )
+            else:
+                # 원래 조건: 베팅 시스템 판단에 따라 이동
+                if self.tm.excel_trading_service.should_change_room() or (
+                    hasattr(self.tm.martin_service, 'should_change_room') and self.tm.martin_service.should_change_room()
+                ):
+                    self.logger.info("베팅 시스템 기준으로 방 이동 필요")
+                    self.tm.should_move_to_next_room = True
             
             # 방 로그 위젯 업데이트 (있는 경우)
             if hasattr(self.tm.main_window, 'room_log_widget'):
