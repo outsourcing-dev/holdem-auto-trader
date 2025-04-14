@@ -230,8 +230,7 @@ class TradingManager:
             return
         
         self.logger.info("N값 3회 연속 감지 - 마틴 유지하며 방 이동")
-        # 이미 due_to_consecutive_n=True이므로 변경 필요 없음
-        self.change_room(due_to_consecutive_n=True)
+        self.change_room()
         
     def _handle_analysis_result(self, result):
         """분석 결과 처리 핸들러 - 새 결과가 있을 때만 N 카운트 초기화 및 픽 생성"""
@@ -249,8 +248,7 @@ class TradingManager:
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
                 if self.excel_trading_service.choice_pick_system.consecutive_n_count >= 4:
                     self.logger.warning(f"4회 연속 N 감지 - N값으로 인한 방 이동 시작")
-                    # 여기를 수정: due_to_consecutive_n=True 플래그 전달
-                    self.change_room(due_to_consecutive_n=True)
+                    self.change_room()
                     return
             
             # 새 결과가 없을 경우 (게임 카운트가 같을 경우)
@@ -346,7 +344,7 @@ class TradingManager:
         self.logger.info("스레드에서 방 이동 요청 수신")
         
         # 항상 마틴 유지하도록 변경
-        self.change_room(due_to_consecutive_n=True)
+        self.change_roo()
         
     def run_auto_trading(self):
         """자동 매매 루프"""
@@ -611,8 +609,8 @@ class TradingManager:
             self.logger.info(f"[마틴 추적] 방 이동 전 마틴 단계: {effective_martin_step+1}")
             
             # 마틴 유지 결정 - 마틴이 0보다 크거나 N값 연속 감지로 인한 이동인 경우 유지
-            preserve_martin = due_to_consecutive_n or effective_martin_step > 0
-            
+            preserve_martin = effective_martin_step > 0
+
             # 방 이동 중에는 중지 버튼 비활성화
             self.main_window.stop_button.setEnabled(False)
             self.main_window.update_button_styles()

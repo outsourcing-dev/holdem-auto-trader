@@ -337,11 +337,11 @@ class TradingManagerGame:
                 # 베팅 결과 처리
                 result_status = self.tm.bet_helper.process_bet_result(last_bet['type'], latest_result, new_game_count)
                 
-                # 승리 후 60게임 이상인지 확인
+                # 승리 후 게임 판수 확인
                 actual_game_count = game_state.get('round', 0)
                 if result_status == 'win' and actual_game_count >= 55:
                     self.logger.info(f"trading_manager_game : 승리 후 55게임 이상 도달 ({actual_game_count}회차). 방 이동 진행")
-                    self.tm.change_room(due_to_consecutive_n=True)
+                    self.tm.change_room()
                     return
                 
                 # 방 이동 확인
