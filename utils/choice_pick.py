@@ -565,14 +565,27 @@ class ChoicePickSystem:
         if is_win:
             if self.logger:
                 self.logger.info(f"베팅 성공! 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
+
             if reset_after_win:
                 self.consecutive_failures = 0
                 self.martin_step = 0
                 self.last_win_count = 0
+
+                # 트레이딩 매니저 및 마틴 서비스까지 동기화
                 if hasattr(self, 'tm'):
-                    self.tm.just_won = True  # UI는 외부에서 초기화하도록 신호만 보냄
-                if self.logger:
-                    self.logger.info("베팅 성공으로 마틴 단계와 실패 카운터 초기화")
+                    self.tm.just_won = True  # 승리 상태 표시
+
+                    # TradingManager 마틴 상태 초기화
+                    if hasattr(self.tm, 'current_martin_step'):
+                        self.tm.current_martin_step = 0
+
+                    # martin_service 쪽도 초기화
+                    if hasattr(self.tm, 'martin_service') and hasattr(self.tm.martin_service, 'current_step'):
+                        self.tm.martin_service.current_step = 0
+                        self.tm.martin_service.recent_results = []  # 최근 결과도 클리어해주는 게 안전함
+
+                    if self.logger:
+                        self.logger.info("TradingManager 및 MartinService 상태 초기화 완료")
         else:
             if self.logger:
                 self.logger.info(f"베팅 실패. 시도: {self.betting_attempts}번째, 마틴 단계: {self.martin_step+1}")
