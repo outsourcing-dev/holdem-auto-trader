@@ -294,12 +294,12 @@ class BettingService:
         
         # 최후의 수단: iframe_utils의 find_element_in_iframes 사용
         self.logger.info(f"기본 방법으로 {bet_type} 베팅 영역을 찾지 못함. 고급 검색 시도...")
+        # 'timeout' 매개변수 제거
         success, element = find_element_in_iframes(
             self.devtools.driver,
             By.XPATH, 
             f"//div[contains(@*, '{bet_type}') and (contains(@class, 'spot') or contains(@class, 'bet'))]",
-            max_depth=3,
-            timeout=5
+            max_depth=3
         )
         
         if success:
@@ -409,17 +409,16 @@ class BettingService:
         if bet_successful:
             time.sleep(1.5)
             amount_after = self._get_current_bet_amount()
-            if amount_after > 0:
+            if amount_after == bet_amount:
                 self.logger.info(f"[성공] 베팅 금액 확인됨: {amount_after}원")
                 return True
             else:
-                self.logger.warning("[실패] 베팅 후에도 금액이 0원입니다.")
+                self.logger.warning(f"[실패] UI 표시 베팅 금액({amount_after}원)이 기대값({bet_amount}원)과 다릅니다.")
                 return False
         else:
             self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
             return False
-
-
+        
     def _get_current_bet_amount(self):
         """현재 베팅 금액 조회"""
         try:
