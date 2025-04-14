@@ -1,6 +1,7 @@
 # services/excel_trading_service.py
 import logging
 from typing import Dict, Any, Tuple, List, Optional, Union
+from utils.choice_pick import ChoicePickSystem
 
 class ExcelTradingService:
     def __init__(self, main_window, logger=None):
@@ -8,7 +9,8 @@ class ExcelTradingService:
         self.main_window = main_window
         self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
-        
+        self.choice_pick_system = ChoicePickSystem(logger=self.logger)
+
         # 내부 예측 엔진 사용 (Excel 없이 동작)
         from utils.prediction_engine import PredictionEngine
         self.prediction_engine = PredictionEngine(logger=self.logger)

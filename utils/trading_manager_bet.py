@@ -172,8 +172,8 @@ class TradingManagerBet:
                 self.logger.info("베팅 적중 (O) - 초이스 픽 시스템에 승리 기록")
                 
                 # 승리 후 60게임 이상인지 확인
-                if self.tm.game_count >= 60:
-                    self.logger.info(f"승리 후 게임 수 확인: {self.tm.game_count}판 - 60판 이상으로 방 이동 필요")
+                if self.tm.game_count >= 57:
+                    self.logger.info(f"승리 후 게임 수 확인: {self.tm.game_count}판 - 57판 이상으로 방 이동 필요")
                     self.tm.should_move_to_next_room = True
 
             else:
@@ -182,10 +182,11 @@ class TradingManagerBet:
                 result_status = "lose"
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
                 
-                # 마틴 단계 업데이트 기록 (이 부분 추가)
+                # 마틴 단계 업데이트 기록 
                 if hasattr(self.tm.martin_service, 'current_step'):
                     self.tm.current_martin_step = self.tm.martin_service.current_step
                     self.logger.info(f"[마틴 상태 캐시] 패배 후 현재 마틴 단계: {self.tm.current_martin_step+1}단계")
+                    self.tm.excel_trading_service.choice_pick_system.martin_step = self.tm.martin_service.current_step
 
                 if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
                     self.tm.main_window.betting_widget.prevent_reset = True

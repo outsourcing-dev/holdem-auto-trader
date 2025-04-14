@@ -60,7 +60,7 @@ class TradingManagerGame:
         # 방문 큐 리셋
         if self.tm.room_manager.reset_visit_queue():
             self.logger.info("방 입장 실패. 방문 큐를 리셋하고 다시 시도합니다.")
-            return self.tm.change_room()  # 재귀적으로 다시 시도
+            return self.tm.change_room(due_to_consecutive_n=True)  # ✅ 여기!
         else:
             # 중지 버튼 비활성화
             self.tm.main_window.stop_button.setEnabled(False)

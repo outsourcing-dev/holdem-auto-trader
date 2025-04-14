@@ -585,9 +585,9 @@ class ChoicePickSystem:
         """
 
         # ✅ 2연패 조건 (pick_results에서 False 2번 연속 확인)
-        if len(self.pick_results) >= 2 and all(not r for r in self.pick_results[-2:]):
+        if len(self.pick_results) >= 3 and all(not r for r in self.pick_results[-3:]):
             if self.logger:
-                self.logger.info("최근 2연패 감지로 방 이동 필요")
+                self.logger.info("최근 3연패 감지로 방 이동 필요")
             return True
 
         # ✅ 마틴 3단계 모두 실패 후 리셋된 상태
@@ -624,13 +624,15 @@ class ChoicePickSystem:
 
         # ✅ 마틴 상태 유지 여부에 따라 분기
         if preserve_martin:
-            if self.logger:
-                self.logger.info("방 이동 시 preserve_martin=True → 마틴 상태 유지")
+            self.logger.info("방 이동 시 preserve_martin=True → 마틴 상태 유지")
+            # 최근 실패 기록 유지
+            self.pick_results = self.pick_results[-3:]  # 최근 3개 정도 유지
         else:
             self.martin_step = 0
             self.consecutive_failures = 0
-            if self.logger:
-                self.logger.info("방 이동 시 preserve_martin=False → 마틴 상태 초기화")
+            self.pick_results = []
+            self.logger.info("방 이동 시 preserve_martin=False → 마틴 상태 초기화")
+
 
         # ✅ 공통 초기화 항목
         self.consecutive_n_count = 0
