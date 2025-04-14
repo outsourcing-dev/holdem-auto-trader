@@ -221,7 +221,7 @@ class TradingManagerGame:
                     consecutive_n = False
                     if hasattr(self.tm.excel_trading_service, 'choice_pick_system') and \
                     hasattr(self.tm.excel_trading_service.choice_pick_system, 'consecutive_n_count'):
-                        consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
+                        consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 4
                     
                     if consecutive_n:
                         # N값 3회 이상인 경우에만 방 이동 허용
@@ -239,23 +239,23 @@ class TradingManagerGame:
                 
                 # 2. 55게임 조건 확인
                 elif actual_game_count >= 55:
-                    # TradingManager에 직접 저장된 최신 마틴 단계 확인
-                    if hasattr(self.tm, 'current_martin_step'):
-                        current_martin_step = self.tm.current_martin_step
-                    else:
-                        if hasattr(self.tm, 'martin_service'):
-                            current_martin_step = self.tm.martin_service.current_step
-                            
-                    self.logger.info(f"55게임 체크 시 마틴 단계 재확인: {current_martin_step+1}단계")
+                    # 명확한 로그 추가
+                    self.logger.info(f"55게임 체크 - current_martin_step: {current_martin_step}, just_won: {getattr(self.tm, 'just_won', False)}")
                     
-                    # 마틴 단계에 따라 방 이동 결정 - 마틴 0단계일 때만 이동
-                    if current_martin_step <= 0 or getattr(self.tm, 'just_won', False):
-                        self.logger.info(f"55게임 도달 ({actual_game_count}회차) 및 마틴 진행 없음 또는 승리 후 상태. 방 이동 필요")
+                    # 마틴 진행 중인지 명확히 확인
+                    is_martin_in_progress = current_martin_step > 0
+                    
+                    if not is_martin_in_progress and not getattr(self.tm, 'just_won', False):
+                        self.logger.info(f"55게임 도달 ({actual_game_count}회차) 및 마틴 진행 없음. 방 이동")
+                        should_move = True
+                        due_to_consecutive_n = False  # 마틴 초기화
+                    elif getattr(self.tm, 'just_won', False):
+                        self.logger.info(f"55게임 도달 ({actual_game_count}회차) 및 승리 후 상태. 방 이동")
                         should_move = True
                         due_to_consecutive_n = False  # 마틴 초기화
                     else:
-                        self.logger.info(f"55게임 도달 ({actual_game_count}회차)했지만 마틴 {current_martin_step+1}단계 진행 중이므로 계속 베팅")
-                        # 방 이동 안함
+                        self.logger.info(f"55게임 도달했지만 마틴 {current_martin_step+1}단계 진행 중. 계속 진행")
+                        should_move = False  # 방 이동 안함
                 
                 # 방 이동 필요 시 실행
                 if should_move:
@@ -394,6 +394,8 @@ class TradingManagerGame:
         Args:
             preserve_martin (bool): True인 경우 마틴 단계 유지
         """
+        self.logger.info(f"reset_room_state 호출됨 - preserve_martin: {preserve_martin}")
+
         # 게임 정보 초기화
         self.tm.game_count = 0
         self.tm.result_count = 0
@@ -428,6 +430,8 @@ class TradingManagerGame:
             # 여기에 추가: 마틴 단계 로깅 강화
             if hasattr(self.tm, 'martin_service'):
                 current_step = self.tm.martin_service.current_step
+                self.tm.martin_service.current_step += 1  # 마틴 단계 증가
+
                 self.logger.info(f"방 이동 시 마틴 단계 유지 상태: {current_step+1}단계, 금액: {self.tm.martin_service.get_current_bet_amount():,}원")
             else:
                 self.logger.info("방 이동 시 마틴 단계 유지 (martin_service 없음)")

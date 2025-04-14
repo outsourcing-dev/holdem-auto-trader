@@ -591,8 +591,8 @@ class ChoicePickSystem:
             return True
             
         # 3번 연속 N이 발생하고, 충분한 게임 데이터가 있는 경우 방 이동
-        # if self.consecutive_n_count >= 3 and self.betting_attempts == 0 and self.martin_step == 0:
-        if self.consecutive_n_count >= 3:
+        # if self.consecutive_n_count >= 4 and self.betting_attempts == 0 and self.martin_step == 0:
+        if self.consecutive_n_count >= 4:
             if self.logger:
                 self.logger.info(f"4번 연속 유효한 픽 없음(N) 발생으로 방 이동 필요 (연속 카운트: {self.consecutive_n_count})")
             return True
@@ -822,7 +822,7 @@ class ChoicePickSystem:
                 self.logger.warning(f"연속 N 카운트: {self.consecutive_n_count}")
                 
             # 여기 추가: 연속 N 카운트가 3 이상이면 should_change_room 메소드에서 감지될 수 있게 설정
-            if self.consecutive_n_count >= 3:
+            if self.consecutive_n_count >= 4:
                 self._n_consecutive_detected = True
             else:
                 self._n_consecutive_detected = False

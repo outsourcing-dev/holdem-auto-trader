@@ -1,6 +1,6 @@
 {
     "site1": "https://cb-8989.com ",
-    "site2": "https://lf-1122.com",
+    "site2": "http://lf-1122.com",
     "site3": "aii1dd.net",
     "martin_count": 7,
     "martin_amounts": [
@@ -12,7 +12,7 @@
         32000,
         64000
     ],
-    "target_amount": 0,
+    "target_amount": 350000,
     "double_half_start": 15,
     "double_half_stop": 10
 }
