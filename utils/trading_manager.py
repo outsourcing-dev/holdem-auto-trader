@@ -346,7 +346,7 @@ class TradingManager:
         self.logger.info("스레드에서 방 이동 요청 수신")
         
         # 항상 마틴 유지하도록 변경
-        self.change_roo()
+        self.change_room()
         
     def run_auto_trading(self):
         """자동 매매 루프"""
