@@ -108,6 +108,28 @@ class TradingManagerGame:
                 self.logger.error(f"방 이동 후 잔액 확인 오류: {e}")
                 self.tm.check_balance_after_room_change = False
 
+    # utils/trading_manager_game.py의 handle_successful_room_entry 메서드 수정
+
+    def handle_successful_room_entry(self, new_room_name, preserve_martin=False):
+        """
+        방 입장 성공 처리
+        
+        Args:
+            new_room_name (str): 새 방 이름
+            preserve_martin (bool): 마틴 단계 유지 여부
+        """
+        # 중지 버튼 활성화
+        self.tm.main_window.stop_button.setEnabled(True)
+        self.tm.main_window.update_button_styles()
+        QApplication.processEvents()
+        
+        self.tm.just_changed_room = True
+        
+        # 방 이동 후 로비에서 잔액 확인
+        if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
+            # 기존 코드 유지...
+            pass
+
         # 베팅 위젯 초기화 (새 방 입장 시) - 마틴 유지 여부에 따라 다르게 처리
         if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
             self.tm.main_window.betting_widget.prevent_reset = preserve_martin
@@ -120,6 +142,14 @@ class TradingManagerGame:
             
             # room_position_counter 초기화
             self.tm.main_window.betting_widget.room_position_counter = 0
+        else:
+            # 마틴 유지 시 position_counter를 마틴 단계와 동기화
+            if hasattr(self.tm.martin_service, 'current_step'):
+                current_martin_step = self.tm.martin_service.current_step
+                # 중요: widget의 room_position_counter는 0부터 시작하지만, 
+                # 마틴 단계 표시는 1부터이므로 그대로 유지
+                self.tm.main_window.betting_widget.room_position_counter = current_martin_step
+                self.logger.info(f"마틴 유지 시 위젯 카운터 동기화: {current_martin_step}")
         
         # 마틴 유지 시 현재 베팅 금액 다시 설정
         bet_amount = None

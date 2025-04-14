@@ -59,6 +59,8 @@ class MartinBettingService:
         """최신 마틴 설정 로드"""
         self.martin_count, self.martin_amounts = self.settings_manager.get_martin_settings()
 
+    # services/martin_service.py에서 process_bet_result 메서드 수정
+
     def process_bet_result(self, result_status, game_count=None):
         # 현재 베팅 금액 기록
         current_bet = self.get_current_bet_amount()
@@ -79,31 +81,24 @@ class MartinBettingService:
         
         self.logger.info(f"[마틴] 베팅 결과 처리: {result_status}, 현재 단계: {self.current_step+1}")
         
-        # 결과에 따른 처리
+        # 결과에 따른 처리 (승리, 패배, 무승부)
         if result_status == "win":
-            # 승리 결과 기록 (True 추가)
-            self.recent_results.append(True)
-            self.logger.info(f"승리 결과 추가: {self.recent_results}")
-            return self._handle_win_result(current_result_position)
+            # 승리 결과 처리...
+            result = self._handle_win_result(current_result_position)
         elif result_status == "tie":
-            # 무승부는 결과에 추가하지 않음
-            self.logger.info("무승부: 결과 기록 없음")
-            return self._handle_tie_result(current_result_position)
+            # 무승부 결과 처리...
+            result = self._handle_tie_result(current_result_position)
         else:  # "lose"
-            # 패배 결과 기록 (False 추가)
-            self.recent_results.append(False)
-            self.logger.info(f"패배 결과 추가: {self.recent_results}")
-            
-            # 여기서 3연패 체크 - 바로 확인
-            if len(self.recent_results) >= 3:
-                recent_three = self.recent_results[-3:]
-                self.logger.info(f"최근 3결과 확인: {recent_three}")
-                if len(recent_three) == 3 and all(not r for r in recent_three):
-                    self.logger.info(f"[마틴] 3연패 감지! need_room_change=True 설정")
-                    self.need_room_change = True
-            
-            return self._handle_lose_result(current_result_position)
+            # 패배 결과 처리...
+            result = self._handle_lose_result(current_result_position)
         
+        # 베팅 위젯 위치 카운터 동기화 (새로 추가)
+        if hasattr(self.main_window, 'betting_widget'):
+            self.main_window.betting_widget.room_position_counter = self.current_step
+            self.logger.info(f"[마틴] 베팅 결과 처리 후 위젯 카운터 동기화: {self.current_step}")
+        
+        return result
+
     def _handle_win_result(self, position):
         """승리 결과 처리 - 설명서 기준: 승리 시 다시 새롭게 픽을 선택"""
         self.current_step = 0  # 마틴 단계 초기화
