@@ -73,7 +73,7 @@ class TradingManagerGame:
     # utils/trading_manager_game.py의 handle_successful_room_entry 메서드 수정
     def handle_successful_room_entry(self, new_room_name, preserve_martin=False):
         """
-        방 입장 성공 처리 - 위젯 포지션 기반으로 리팩토링
+        방 입장 성공 처리 - 첫 입장 시 바로 베팅하지 않고 한 번의 결과 추가 대기
         
         Args:
             new_room_name (str): 새 방 이름
@@ -86,6 +86,10 @@ class TradingManagerGame:
         QApplication.processEvents()
 
         self.tm.just_changed_room = True
+        
+        # ✅ 최초 방 입장 플래그 설정 - 첫 결과를 기다리기 위한 플래그
+        self.tm.wait_first_result = True
+        self.logger.info("방 입장 후 첫 결과 대기 모드 활성화")
 
         # 방 이동 후 로비 잔액 확인
         if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
@@ -168,6 +172,7 @@ class TradingManagerGame:
                             bet_amount=bet_amount
                         )
                         self.logger.info(f"첫 분석 결과 PICK: {result[3]} (실제 베팅: {actual_pick})")
+                        # ✅ 하지만 바로 베팅하지는 않음 (wait_first_result 플래그로 첫 결과 대기)
 
         except Exception as e:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
@@ -177,7 +182,7 @@ class TradingManagerGame:
     # utils/trading_manager_game.py 수정 부분
 
     def process_excel_result(self, result, game_state, previous_game_count):
-        """엑셀 처리 결과 활용 - 마틴 단계에 따른 방 이동 로직 수정"""
+        """엑셀 처리 결과 활용 - 첫 결과 대기 플래그 확인 추가"""
         try:
             last_column, new_game_count, recent_results, next_pick = result
             
@@ -277,22 +282,28 @@ class TradingManagerGame:
                     self.tm.change_room(due_to_consecutive_n=due_to_consecutive_n)
                     return
                 
-                # PICK 값에 따른 베팅 실행
-                if not self.tm.betting_service.has_bet_current_round and next_pick in ['P', 'B']:
-                    # ✅ 베팅 전에 just_won 상태라면 마커 초기화 먼저!
-                    if getattr(self.tm, 'just_won', False):
-                        self.logger.info("[베팅 전 초기화] just_won 상태이므로 마커 리셋")
-                        self.tm.main_window.betting_widget.reset_step_markers()
-                        self.tm.main_window.betting_widget.room_position_counter = 0
-                        self.tm.just_won = False
+                # ✅ PICK 값에 따른 베팅 실행 (첫 결과 대기 모드가 아닌 경우에만)
+                if not hasattr(self.tm, 'wait_first_result') or not self.tm.wait_first_result:
+                    if not self.tm.betting_service.has_bet_current_round and next_pick in ['P', 'B']:
+                        # ✅ 베팅 전에 just_won 상태라면 마커 초기화 먼저!
+                        if getattr(self.tm, 'just_won', False):
+                            self.logger.info("[베팅 전 초기화] just_won 상태이므로 마커 리셋")
+                            self.tm.main_window.betting_widget.reset_step_markers()
+                            self.tm.main_window.betting_widget.room_position_counter = 0
+                            self.tm.just_won = False
 
-                    # PICK UI 갱신
-                    self.tm.main_window.update_betting_status(pick=next_pick)
+                        # PICK UI 갱신
+                        self.tm.main_window.update_betting_status(pick=next_pick)
 
-                    # 베팅 실행
+                        # 베팅 실행
+                        if previous_game_count > 0:
+                            self.tm.bet_helper.place_bet(next_pick, actual_game_count)
+                        else:
+                            self.tm.current_pick = next_pick
+                else:
+                    # 첫 결과 대기 모드일 경우 로그만 남김
+                    self.logger.info(f"첫 결과 대기 모드입니다. 아직 베팅하지 않습니다. (PICK: {next_pick})")
                     if previous_game_count > 0:
-                        self.tm.bet_helper.place_bet(next_pick, actual_game_count)
-                    else:
                         self.tm.current_pick = next_pick
 
                 # 실제 게임 카운트 저장

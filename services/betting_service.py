@@ -367,9 +367,9 @@ class BettingService:
         except Exception as e:
             self.logger.debug(f"베팅 레이블 확인 실패: {e}")
             return None
-
+        
     def _execute_betting(self, bet_type, bet_amount=None):
-        """베팅 실행"""
+        """베팅 실행 - 칩 클릭 속도 개선"""
         bet_element = self._find_betting_area(bet_type)
         if not bet_element:
             self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
@@ -413,7 +413,8 @@ class BettingService:
 
             # 칩 클릭 시도 (우선 일반 클릭, 실패 시 JS)
             try:
-                time.sleep(0.5)
+                # ✅ 대기 시간 단축 (0.5초 → 0.2초)
+                time.sleep(0.2)
                 try:
                     chip_element.click()
                     self.logger.info(f"[클릭] {chip_value:,}원 칩 클릭 성공")
@@ -421,14 +422,16 @@ class BettingService:
                     self.logger.warning(f"{chip_value:,}원 칩 일반 클릭 실패 → JS 클릭 시도")
                     self.devtools.driver.execute_script("arguments[0].click();", chip_element)
                     self.logger.info(f"[JS 클릭] {chip_value:,}원 칩 클릭 완료")
-                time.sleep(0.5)
+                # ✅ 대기 시간 단축 (0.5초 → 0.1초)
+                time.sleep(0.1)
             except Exception as e:
                 self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
                 continue
 
             for i in range(clicks):
                 try:
-                    time.sleep(0.2)
+                    # ✅ 대기 시간 단축 (0.2초 → 0.1초)
+                    time.sleep(0.1)
                     try:
                         bet_element.click()
                         self.logger.info(f"{bet_type} 영역 {i+1}/{clicks} 클릭 완료")
@@ -442,7 +445,8 @@ class BettingService:
                     continue
 
         if bet_successful:
-            time.sleep(1.5)
+            # ✅ 대기 시간 단축 (1.5초 → 1.0초)
+            time.sleep(1.0)
             current_label = self._check_betting_label()
             amount_after = self._get_current_bet_amount()
             

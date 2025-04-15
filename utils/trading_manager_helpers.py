@@ -109,11 +109,18 @@ class TradingManagerHelpers:
                 self.tm.martin_service.reset()
                 self.tm.martin_service.settings_manager = self.tm.settings_manager
                 self.tm.martin_service.update_settings()
+            
+            # 마틴 설정 로드
+            martin_count, martin_amounts = self.tm.settings_manager.get_martin_settings()
+            
+            # 마틴 금액 로그 출력
+            self.logger.info(f"로드된 마틴 설정: 단계={martin_count}, 금액={martin_amounts}")
                 
             # 초이스 픽 시스템 설정 - 마틴 금액 설정
             if hasattr(self.tm, 'excel_trading_service'):
-                martin_count, martin_amounts = self.tm.settings_manager.get_martin_settings()
                 self.tm.excel_trading_service.set_martin_amounts(martin_amounts)
+                # 로그 추가
+                self.logger.info(f"초이스 픽 시스템에 마틴 금액 설정: {martin_amounts}")
 
             # 베팅 서비스 상태 초기화
             if hasattr(self.tm, 'betting_service'):
@@ -126,7 +133,7 @@ class TradingManagerHelpers:
         except Exception as e:
             self.logger.error(f"설정 초기화 오류: {e}")
             return False
-        
+
     def setup_browser_and_check_balance(self):
         """브라우저 실행 및 잔액 확인"""
         try:

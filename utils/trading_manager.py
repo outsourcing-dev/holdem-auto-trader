@@ -235,7 +235,7 @@ class TradingManager:
 
         
     def _handle_analysis_result(self, result):
-        """분석 결과 처리 핸들러 - 새 결과가 있을 때만 N 카운트 초기화 및 픽 생성"""
+        """분석 결과 처리 핸들러 - 첫 결과 대기 로직 추가"""
         try:
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
@@ -308,6 +308,11 @@ class TradingManager:
                 self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
                 
             self.game_helper.handle_tie_result(latest_result, game_state)
+                
+            # ✅ 첫 결과 대기 플래그 확인 (새 결과가 있을 때만 처리)
+            if hasattr(self, 'wait_first_result') and self.wait_first_result and new_result:
+                self.logger.info("첫 결과를 받았습니다. 이제 베팅 시작 가능")
+                self.wait_first_result = False
                 
             if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
                 self.logger.info("방 이동 조건 충족 - change_room 실행")

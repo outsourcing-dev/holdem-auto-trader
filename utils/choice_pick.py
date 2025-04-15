@@ -606,8 +606,13 @@ class ChoicePickSystem:
         if self.logger:
             self.logger.debug(f"위젯 포지션: {widget_position}, 마틴 단계: {effective_step+1}/{martin_stages}")
         
-        # 계산된 단계에 해당하는 베팅 금액 반환
-        return self.martin_amounts[effective_step]
+        # 계산된 단계에 해당하는 금액 반환
+        bet_amount = self.martin_amounts[effective_step]
+        if self.logger:
+            self.logger.debug(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position+1}번, 마틴: {effective_step+1}단계)")
+            self.logger.debug(f"전체 마틴 금액 설정: {self.martin_amounts}")
+        
+        return bet_amount
 
     def should_change_room(self) -> bool:
         """

@@ -60,6 +60,7 @@ class MartinBettingService:
         
         # 실제 사용할 마틴 단계 로깅
         self.logger.info(f"위젯 포지션: {widget_position+1}, 마틴 설정: {martin_stages}단계, 적용 마틴 단계: {effective_martin_step+1}")
+        self.logger.info(f"마틴 금액 배열: {self.martin_amounts}")
         
         # 계산된 단계에 해당하는 금액 반환
         bet_amount = self.martin_amounts[effective_martin_step]
