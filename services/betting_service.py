@@ -347,6 +347,27 @@ class BettingService:
         
         return None
 
+    def _check_betting_label(self):
+        """
+        베팅 레이블 확인 ("총 베팅금" 또는 "지난 우승")
+        
+        Returns:
+            str: 레이블 텍스트 또는 None
+        """
+        try:
+            # 정확한 데이터 속성으로 레이블 요소 찾기
+            label_element = self.devtools.driver.find_element(
+                By.CSS_SELECTOR, 
+                "span[data-role='total-bet-label-title']"
+            )
+            
+            if label_element:
+                return label_element.text.strip()
+            return None
+        except Exception as e:
+            self.logger.debug(f"베팅 레이블 확인 실패: {e}")
+            return None
+
     def _execute_betting(self, bet_type, bet_amount=None):
         """베팅 실행"""
         bet_element = self._find_betting_area(bet_type)
@@ -357,6 +378,10 @@ class BettingService:
         if bet_amount is None:
             bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
 
+        # 베팅 전 레이블 확인
+        initial_label = self._check_betting_label()
+        self.logger.info(f"베팅 전 레이블: {initial_label}")
+        
         self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
 
         available_chips = [500000, 100000, 25000, 5000, 1000]
@@ -418,12 +443,25 @@ class BettingService:
 
         if bet_successful:
             time.sleep(1.5)
+            current_label = self._check_betting_label()
             amount_after = self._get_current_bet_amount()
-            if amount_after == bet_amount:
-                self.logger.info(f"[성공] 베팅 금액 확인됨: {amount_after}원")
+            
+            self.logger.info(f"베팅 후 레이블: {current_label}, 금액: {amount_after:,}원")
+            
+            # "총 베팅금" 레이블이 있고 금액이 일치하면 성공
+            if current_label == "총 베팅금" and amount_after == bet_amount:
+                self.logger.info(f"[성공] 베팅 확인: 레이블={current_label}, 금액={amount_after:,}원")
+                return True
+            # "지난 우승" 레이블이 표시되었다면, 베팅 타이밍을 놓친 상태
+            elif current_label == "지난 우승":
+                self.logger.warning(f"[실패] 베팅 시간 종료: 현재 레이블은 '{current_label}'")
+                return False
+            # 금액만 확인 (레이블이 예상과 다를 때의 백업 로직)
+            elif amount_after == bet_amount:
+                self.logger.info(f"[성공] 레이블은 예상과 다르지만({current_label}) 베팅 금액 확인됨: {amount_after:,}원")
                 return True
             else:
-                self.logger.warning(f"[실패] UI 표시 베팅 금액({amount_after}원)이 기대값({bet_amount}원)과 다릅니다.")
+                self.logger.warning(f"[실패] 예상된 베팅 상태가 아님: 레이블={current_label}, 금액={amount_after:,}원 (기대값: {bet_amount:,}원)")
                 return False
         else:
             self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
