@@ -128,9 +128,11 @@ class TradingManagerBet:
 
 
     # utils/trading_manager_bet.py의 process_bet_result 메서드 수정
+    # utils/trading_manager_bet.py - 방 로그 중복 기록 문제 수정
+
     def process_bet_result(self, bet_type, latest_result, new_game_count):
         """
-        베팅 결과 처리 - UI와 다른 서비스들의 마틴 상태를 일관성 있게 유지
+        베팅 결과 처리 - 중복 로그 방지 수정
         
         Args:
             bet_type (str): 베팅 타입 ('P' 또는 'B')
@@ -158,18 +160,6 @@ class TradingManagerBet:
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
                 self.logger.info("무승부 (T) 결과 - 베팅 상태 초기화")
 
-                # 방 로그 위젯 업데이트 (있는 경우)
-                if hasattr(self.tm.main_window, 'room_log_widget'):
-                    self.tm.main_window.room_log_widget.set_current_room(
-                        self.tm.current_room_name,
-                        is_new_visit=False
-                    )
-                    self.tm.main_window.room_log_widget.add_bet_result(
-                        room_name=self.tm.current_room_name,
-                        is_win=False,
-                        is_tie=True
-                    )
-
             elif is_win:
                 # 승리 처리
                 result_marker = "O"
@@ -186,9 +176,10 @@ class TradingManagerBet:
                     self.tm.main_window.betting_widget.set_step_marker(current_pos, result_marker)
                     self.logger.info(f"승리 마커(O) 표시: 위치 {current_pos}")
                     
-                    # 다음에 1번부터 시작하도록 카운터를 0으로 리셋
+                    # 적중 시 UI 초기화 강화 - 추가된 부분
+                    self.tm.main_window.betting_widget.reset_step_markers()
                     self.tm.main_window.betting_widget.room_position_counter = 0
-                    self.logger.info(f"다음 베팅을 위해 위젯 카운터 리셋: {current_pos} → 0")
+                    self.logger.info("적중 후 UI 초기화: 마커 리셋 및 카운터 0으로 설정")
                 
                 # 초이스 픽 시스템에 승리 기록
                 self.tm.excel_trading_service.record_betting_result(True)
@@ -196,20 +187,12 @@ class TradingManagerBet:
                 
                 self.tm.just_won = True
                 
-                # UI 업데이트 - 위젯 카운터 리셋
-                self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=True)
-                
-                # 방 로그 위젯 업데이트 (있는 경우)
-                if hasattr(self.tm.main_window, 'room_log_widget'):
-                    self.tm.main_window.room_log_widget.set_current_room(
-                        self.tm.current_room_name,
-                        is_new_visit=False
-                    )
-                    self.tm.main_window.room_log_widget.add_bet_result(
-                        room_name=self.tm.current_room_name,
-                        is_win=True,
-                        is_tie=False
-                    )
+                # UI 업데이트 - 위젯 카운터 리셋 및 적중 표시 강화
+                self.tm.main_window.update_betting_status(
+                    room_name=self.tm.current_room_name, 
+                    reset_counter=True,
+                    pick=None  # 적중 후 PICK 값도 초기화
+                )
                 
                 # 승리 후 60게임 이상인지 확인
                 if self.tm.game_count >= 55:
@@ -244,18 +227,6 @@ class TradingManagerBet:
                 # UI 업데이트 - 방 이름은 유지하고 카운터는 그대로 둠
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
                 
-                # 방 로그 위젯 업데이트 (있는 경우)
-                if hasattr(self.tm.main_window, 'room_log_widget'):
-                    self.tm.main_window.room_log_widget.set_current_room(
-                        self.tm.current_room_name,
-                        is_new_visit=False
-                    )
-                    self.tm.main_window.room_log_widget.add_bet_result(
-                        room_name=self.tm.current_room_name,
-                        is_win=False,
-                        is_tie=False
-                    )
-
                 # 3연패 확인 (여기서 바로 확인)
                 if hasattr(self.tm.martin_service, 'recent_results'):
                     recent_results = self.tm.martin_service.recent_results
@@ -263,7 +234,6 @@ class TradingManagerBet:
                     if len(recent_results) >= 3 and all(not result for result in recent_results[-3:]):
                         self.logger.info("3연패 감지! 방 이동 플래그 설정")
                         self.tm.should_move_to_next_room = True
-                        
 
             # 결과 카운터 증가
             self.tm.result_count += 1
@@ -290,17 +260,18 @@ class TradingManagerBet:
                 else:
                     self.logger.info(f"55게임 도달했지만 패배 마커 있음 → 계속 진행")
             
-            # 방 로그 위젯 업데이트 (있는 경우)
+            # 중요: 방 로그 위젯 업데이트 - 한 번만 호출 (이중 호출 수정)
             if hasattr(self.tm.main_window, 'room_log_widget'):
                 self.tm.main_window.room_log_widget.set_current_room(
                     self.tm.current_room_name,
-                    is_new_visit=not is_tie
+                    is_new_visit=False  # 항상 False로 설정해 중복 방지
                 )
                 self.tm.main_window.room_log_widget.add_bet_result(
                     room_name=self.tm.current_room_name,
                     is_win=is_win,
                     is_tie=is_tie
                 )
+                self.logger.info(f"방 로그 업데이트 완료: 승리={is_win}, 무승부={is_tie}")
 
             # 반환 전 TradingManager에 마틴 단계 최신값 저장
             if hasattr(self.tm.martin_service, 'current_step'):
@@ -311,7 +282,7 @@ class TradingManagerBet:
         except Exception as e:
             self.logger.error(f"베팅 결과 처리 오류: {e}", exc_info=True)
             return "error"
-            
+        
     def update_balance_after_result(self, is_win):
         """
         베팅 결과 후 잔액 업데이트

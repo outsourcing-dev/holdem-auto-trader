@@ -1,3 +1,4 @@
+import time
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, 
                              QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox, QGridLayout)
 from PyQt6.QtCore import Qt
@@ -128,67 +129,35 @@ class RoomLogWidget(QWidget):
         print(f"[DEBUG] 새 방문 ID 생성: {visit_id}, 현재 카운터: {self.visit_counter}")
         return visit_id
     
-    def add_bet_result(self, room_name, is_win, is_tie=False):
+    def add_bet_result(self, room_name, is_win, is_tie):
         """
-        배팅 결과 추가 - 방별로 한 행씩만 표시하고 통계 업데이트
-        베팅이 발생한 경우에만 로그에 추가
-        TIE일 때는 새 행을 만들지 않고 기존 행의 시도 횟수만 증가
+        베팅 결과 추가 - 중복 방지 로직 강화
         
         Args:
             room_name (str): 방 이름
             is_win (bool): 승리 여부
-            is_tie (bool): 타이(무승부) 여부
+            is_tie (bool): 무승부 여부
         """
-        # 방문 ID가 없는 경우 (새 방에 입장한 경우) 먼저 생성
-        if self.current_visit_id is None:
-            if room_name:
-                base_room_name = extract_room_base_name(room_name)
-            else:
-                base_room_name = "알 수 없는 방"
-            self.current_visit_id = self.create_new_visit_id(base_room_name)
-            print(f"새 방 '{base_room_name}'에 방문 ID 생성: {self.current_visit_id}")
-        
-        # 현재 방문 ID에 해당하는 로그가 없으면 새로 생성
-        if self.current_visit_id not in self.room_logs:
-            # 방 이름에서 기본 이름 추출
-            if room_name:
-                base_room_name = extract_room_base_name(room_name)
-            else:
-                base_room_name = "알 수 없는 방"
-                
-            # 새 방문 로그 초기화
-            self.room_logs[self.current_visit_id] = {
-                'room_name': base_room_name,
-                'attempts': 0,
-                'win': 0,
-                'lose': 0,
-                'tie': 0
-            }
-            print(f"방 '{base_room_name}'에 첫 베팅 결과 기록을 시작합니다.")
-        
-        # 현재 방문 로그 카운트 증가
-        self.room_logs[self.current_visit_id]['attempts'] += 1
-        print(f"방 '{self.room_logs[self.current_visit_id]['room_name']}'의 시도 횟수 증가: {self.room_logs[self.current_visit_id]['attempts']}")
-        
-        # 승패 기록
-        if is_tie:
-            self.room_logs[self.current_visit_id]['tie'] += 1
-            self.total_tie_count += 1
-            print(f"타이 결과 기록 - 같은 방에서 계속 베팅")
-        elif is_win:
-            self.room_logs[self.current_visit_id]['win'] += 1
-            self.total_win_count += 1
-            self.win_count_label.setText(str(self.total_win_count))
-            print(f"승리 결과 기록 - 다음에 새 방으로 이동 예정")
-        else:
-            self.room_logs[self.current_visit_id]['lose'] += 1
-            self.total_lose_count += 1
-            self.lose_count_label.setText(str(self.total_lose_count))
-            print(f"패배 결과 기록 - 다음에 새 방으로 이동 예정")
-        
-        # 테이블 업데이트
-        self.update_table()
+        # 마지막으로 기록된 결과 시간 확인 (중복 방지)
+        current_time = time.time()
+        if hasattr(self, 'last_recorded_time') and current_time - self.last_recorded_time < 1.0:
+            # 1초 이내에 중복 호출되면 무시
+            self.logger.debug("1초 이내 중복 호출 무시")
+            return
             
+        # 결과 시간 기록
+        self.last_recorded_time = current_time
+        
+        # 현재 로그 항목 없으면 생성
+        if not hasattr(self, 'current_room_name') or self.current_room_name != room_name:
+            self.set_current_room(room_name, is_new_visit=False)
+        
+        # 현재 방에 대한 베팅 결과 기록
+        result_type = "무승부" if is_tie else "적중" if is_win else "실패"
+        
+        # 로그 항목 업데이트
+        self._update_last_log_item(result_type)
+        
     def update_table(self):
         """로그 테이블 업데이트 - 최신 방문 순으로 정렬하되, 번호는 오래된 방이 1번부터 시작"""
         # 테이블 초기화
@@ -281,35 +250,28 @@ class RoomLogWidget(QWidget):
         self.lose_count_label.setText("0")
         self.log_table.setRowCount(0)
     
-    # set_current_room 메서드 수정
-    def set_current_room(self, room_name, is_new_visit=True):
+    def set_current_room(self, room_name, is_new_visit=False):
         """
-        현재 방 이름 설정 - 방 이름이 변경된 경우에만 새 방문 ID 생성
+        현재 방 설정 - 중복 방지 로직 강화
         
         Args:
             room_name (str): 방 이름
-            is_new_visit (bool): 새 방문으로 처리할지 여부 (무승부 시 False)
+            is_new_visit (bool): 새 방문 여부
         """
-        # 방 이름 기본 처리
-        if not room_name:
-            base_room_name = "알 수 없는 방"
-        else:
-            # 방 이름에서 괄호와 뒷부분 제거 (예: "스피드 바카라 V)" -> "스피드 바카라 V")
-            base_room_name = room_name.split('\n')[0].strip().rstrip(')')
-        
-        # 실제 새 방 방문 여부 확인
-        if is_new_visit and self.has_changed_room:
-            self.current_visit_id = None  # 강제로 새 ID 생성하도록 초기화
-            self.has_changed_room = False  # 플래그 리셋
+        # 이미 같은 방에 대한 기록이 진행 중이면 중복 방문 플래그만 업데이트
+        if hasattr(self, 'current_room_name') and self.current_room_name == room_name:
+            # 방 이름이 같으면 has_changed_room 플래그만 업데이트하고 리턴
+            self.has_changed_room = is_new_visit
+            return
             
-        # 현재 방문 ID가 없는 경우에만 새로 생성
-        if self.current_visit_id is None:
-            self.current_visit_id = self.create_new_visit_id(base_room_name)
-            # print(f"방 '{base_room_name}'으로 이동했습니다. (ID: {self.current_visit_id})")
-        else:
-            # 이미 방문 중인 경우 로그만 출력
-            # print(f"계속 '{base_room_name}' 방에 머무르는 중 (ID: {self.current_visit_id})")
-            pass
+        # 새 방문인 경우에만 로그 항목 추가
+        self.current_room_name = room_name
+        self.has_changed_room = is_new_visit
+        
+        # 새 방문일 때만 로그 추가
+        if is_new_visit:
+            # 방 로그 항목 추가
+            self._add_room_log_item(room_name)
                
 
     def should_create_new_visit_id(self, base_room_name):

@@ -333,22 +333,35 @@ class TradingManagerGame:
         except Exception as e:
             self.logger.error(f"TIE 결과 처리 오류: {e}")
                 
+# utils/trading_manager_game.py - process_previous_game_result 메서드 수정
+
     def process_previous_game_result(self, game_state, new_game_count):
-        """이전 게임 결과 처리"""
+        """이전 게임 결과 처리 - 중복 로그 방지 수정"""
         try:
             # 적중 마커 리셋 (적중 후 다음 턴)
             if getattr(self.tm, 'just_won', False):
-                self.logger.info("이전 적중 후 마커 전체 초기화")
+                self.logger.info("이전 적중 후 UI 완전 초기화")
+                # 마커 초기화
                 self.tm.main_window.betting_widget.reset_step_markers()
+                # 카운터 초기화
                 self.tm.main_window.betting_widget.room_position_counter = 0
+                # PICK 값 초기화
+                self.tm.current_pick = None
+                # 상태 초기화
                 self.tm.just_won = False
+                # UI 업데이트
+                self.tm.main_window.update_betting_status(
+                    room_name=self.tm.current_room_name,
+                    pick=None,  # PICK 값도 초기화
+                    reset_counter=True
+                )
 
             # 베팅 결과 처리
             last_bet = self.tm.betting_service.get_last_bet()
             latest_result = game_state.get('latest_result')
 
             if last_bet and last_bet['type'] in ['P', 'B']:
-                # 베팅 결과 처리
+                # 베팅 결과 처리 - room_log 업데이트는 process_bet_result에서만 한 번 실행
                 result_status = self.tm.bet_helper.process_bet_result(last_bet['type'], latest_result, new_game_count)
                 
                 # 승리 후 게임 판수 확인
@@ -374,6 +387,9 @@ class TradingManagerGame:
                 room_name=f"{display_room_name}",
                 pick=self.tm.current_pick
             )
+
+        except Exception as e:
+            self.logger.error(f"이전 게임 결과 처리 오류: {e}")
 
         except Exception as e:
             self.logger.error(f"이전 게임 결과 처리 오류: {e}")
