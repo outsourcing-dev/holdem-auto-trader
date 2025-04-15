@@ -453,8 +453,6 @@ class BettingService:
             self.logger.warning(f"베팅 금액 확인 실패: {e}")
             return 0
 
-    # services/betting_service.py의 _handle_successful_bet 메서드 수정 또는 확장
-
     def _handle_successful_bet(self, bet_type, game_count, current_room_name):
         """성공한 베팅 처리"""
         self.has_bet_current_round = True
@@ -468,23 +466,23 @@ class BettingService:
         # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
         display_room_name = current_room_name.split('\n')[0] if '\n' in current_room_name else current_room_name
         
-        # 마틴 단계 확인 및 동기화
+        # 마틴 단계 확인 및 동기화 - 오류 수정
         martin_step = 0
-        if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'martin_service'):
-            martin_step = self.main_window.trading_manager.martin_service.current_step
+        if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
+            martin_step = self.main_window.betting_widget.room_position_counter
             
-            # 베팅 위젯의 위치 카운터 동기화 (위젯이 있는 경우)
-            if hasattr(self.main_window, 'betting_widget'):
-                # 중요: 베팅 후에는 위젯 카운터를 마틴 단계와 정확히 일치시킴
-                self.main_window.betting_widget.room_position_counter = martin_step
-                self.logger.info(f"베팅 위젯 위치 카운터를 마틴 단계({martin_step})와 동기화")
+            # 호환성을 위해 martin_service에 current_step 동기화
+            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'martin_service'):
+                self.main_window.trading_manager.martin_service.current_step = martin_step
+                
+            # 로그 추가
+            self.logger.info(f"베팅 위젯 위치 카운터를 마틴 단계와 동기화: 포지션={martin_step+1}")
         
         # UI 업데이트
         self.main_window.update_betting_status(
             room_name=f"{display_room_name}",
             pick=bet_type  # PICK 값 직접 설정
         )
-
         
     def reset_betting_state(self, new_round=None):
         """베팅 상태 초기화"""

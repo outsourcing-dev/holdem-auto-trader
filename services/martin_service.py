@@ -1,4 +1,3 @@
-# services/martin_service.py - 리팩토링된 코드
 import logging
 from utils.settings_manager import SettingsManager
 
@@ -16,7 +15,8 @@ class MartinBettingService:
         self.logger.info(f"마틴 설정 로드 완료 - 단계 수: {self.martin_count}, 금액: {self.martin_amounts}")
         
         # 상태 변수 초기화
-        # self.current_step 제거 - 위젯의 카운터를 사용
+        # current_step 속성 추가 - 호환성을 위해 유지
+        self.current_step = 0  # 위젯의 position_counter와 동기화할 값
         self.consecutive_losses = 0
         self.total_bet_amount = 0
         self.win_count = 0
@@ -48,6 +48,9 @@ class MartinBettingService:
         widget_position = 0
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
             widget_position = self.main_window.betting_widget.room_position_counter
+        
+        # 호환성을 위해 current_step 동기화
+        self.current_step = widget_position
         
         # 설정된 마틴 단계 수 확인
         martin_stages = len(self.martin_amounts)
@@ -91,6 +94,9 @@ class MartinBettingService:
             widget_position = self.main_window.betting_widget.room_position_counter
             self.logger.info(f"[마틴] 결과 처리 전 위젯 포지션: {widget_position+1}")
         
+        # 호환성을 위해 current_step 동기화
+        self.current_step = widget_position
+        
         self.logger.info(f"[마틴] 베팅 결과 처리: {result_status}")
         
         # 결과에 따른 처리 (승리, 패배, 무승부)
@@ -115,6 +121,8 @@ class MartinBettingService:
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
             new_position = self.main_window.betting_widget.room_position_counter
             self.logger.info(f"[마틴] 결과 처리 후 위젯 포지션: {new_position+1}")
+            # 호환성을 위해 current_step 동기화
+            self.current_step = new_position
         
         return result
 
@@ -123,10 +131,15 @@ class MartinBettingService:
         승리 결과 처리 - 위젯의 카운터는 TradingManagerBet에서 0으로 설정함
         """
         self.consecutive_losses = 0
-        self.win_count += 1
         self.need_room_change = True  # 승리 시 방 이동 필요 (새로운 픽 선택을 위해)
         self.has_bet_in_current_room = True
         self.logger.info(f"[마틴] 베팅 성공: 승리 처리 완료, 다음에 새 방으로 이동하여 새 픽 선택")
+        
+        # 위젯 포지션을 0으로 설정
+        if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
+            self.main_window.betting_widget.room_position_counter = 0
+            # 호환성을 위해 current_step도 0으로 설정
+            self.current_step = 0
         
         return 0, self.consecutive_losses, position
         
@@ -143,6 +156,8 @@ class MartinBettingService:
         widget_position = 0
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
             widget_position = self.main_window.betting_widget.room_position_counter
+            # 호환성을 위해 current_step 동기화
+            self.current_step = widget_position
             
         return widget_position, self.consecutive_losses, position
         
@@ -163,6 +178,8 @@ class MartinBettingService:
         widget_position = 0
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
             widget_position = self.main_window.betting_widget.room_position_counter
+            # 호환성을 위해 current_step 동기화
+            self.current_step = widget_position
         
         return widget_position, self.consecutive_losses, position
 
@@ -207,6 +224,9 @@ class MartinBettingService:
         """마틴 베팅 상태를 완전히 초기화합니다."""
         # 연속 실패 카운터 초기화
         self.consecutive_losses = 0
+        
+        # 호환성을 위해 current_step 초기화
+        self.current_step = 0
         
         # 카운터 초기화
         self.win_count = 0
