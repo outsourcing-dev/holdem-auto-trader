@@ -586,39 +586,22 @@ class TradingManager:
 
             self.logger.info(f"방 이동 준비 중... (N값으로 인한 이동: {due_to_consecutive_n})")
             
-            # 방 이동 전 마틴 상태 확인
-            current_martin_step = 0
-            if hasattr(self, 'martin_service'):
-                current_martin_step = self.martin_service.current_step
+            # 현재 위젯 포지션을 직접 확인 (마틴 단계의 소스)
+            current_widget_pos = 0
+            if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
+                current_widget_pos = self.main_window.betting_widget.room_position_counter
                 
-            # 초이스 픽 시스템의 마틴 단계도 확인 (동기화)
-            choice_pick_martin_step = 0
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                choice_pick_martin_step = self.excel_trading_service.choice_pick_system.martin_step
-                
-            # 일관성을 위해 동일한 값으로 통일
-            effective_martin_step = max(current_martin_step, choice_pick_martin_step)
-            self.logger.info(f"[마틴 동기화] Service: {current_martin_step+1}, ChoicePick: {choice_pick_martin_step+1}, 적용: {effective_martin_step+1}")
+            self.logger.info(f"[방 이동] 현재 위젯 포지션: {current_widget_pos+1}번")
             
-            # 양쪽 모두 동일한 값으로 설정
-            if hasattr(self, 'martin_service'):
-                self.martin_service.current_step = effective_martin_step
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                self.excel_trading_service.choice_pick_system.martin_step = effective_martin_step
+            # 마틴 유지 결정 기준
+            # 1. 위젯 포지션이 0이 아니면 마틴 유지 (마틴 진행중)
+            # 2. N값 연속 감지로 인한 이동일 경우 마틴 유지
+            preserve_martin = (current_widget_pos > 0 or due_to_consecutive_n)
             
-            # 마틴 상태 추적 저장
-            self.last_martin_step = effective_martin_step
-            self.logger.info(f"[마틴 추적] 방 이동 전 마틴 단계: {effective_martin_step+1}")
+            # 항상 마틴 상태와 위젯 유지 (더 강력한 설정)
+            # preserve_martin = True
             
-            # 마틴 유지 결정 - 마틴이 0보다 크거나 N값 연속 감지로 인한 이동인 경우 유지
-            # preserve_martin = (
-            #     effective_martin_step > 0 
-            #     or due_to_consecutive_n 
-            #     or self.excel_trading_service.should_change_room()
-            # )
-
-            preserve_martin = True  # 항상 마틴 상태와 위젯 유지
-
+            self.logger.info(f"[방 이동] 마틴 유지 결정: {preserve_martin} (위젯 포지션: {current_widget_pos+1}번)")
 
             # 방 이동 중에는 중지 버튼 비활성화
             self.main_window.stop_button.setEnabled(False)
@@ -658,6 +641,7 @@ class TradingManager:
             # 실패 시 중지 버튼 비활성화
             self.main_window.stop_button.setEnabled(False)
             self.main_window.update_button_styles()
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
             return False
         

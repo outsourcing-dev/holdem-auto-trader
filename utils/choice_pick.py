@@ -551,7 +551,15 @@ class ChoicePickSystem:
             self.logger.debug(f"승패 차이 계산: pick={pick}, wins={wins}, losses={losses}, diff={diff}")
         return diff
 
+    # record_betting_result 메서드 수정 
     def record_betting_result(self, is_win: bool, reset_after_win: bool = True) -> None:
+        """
+        베팅 결과 기록
+        
+        Args:
+            is_win (bool): 베팅 성공 여부
+            reset_after_win (bool): 승리 후 초기화 여부
+        """
         self.betting_attempts += 1
         self.pick_results.append(is_win)
 
@@ -562,11 +570,8 @@ class ChoicePickSystem:
             if reset_after_win:
                 self.consecutive_failures = 0
                 self.last_win_count = 0
-
-                # ✅ UI 위젯 포지션 초기화 (예: widget_position = 0)
-                if hasattr(self, 'tm'):
-                    self.tm.widget_position = 0
-                    self.tm.just_won = True
+                
+                # martin_step 변수 제거 - 위젯 포지션으로 마틴 단계 관리
         else:
             if self.logger:
                 self.logger.info(f"베팅 실패. 시도: {self.betting_attempts}번째")
@@ -574,11 +579,35 @@ class ChoicePickSystem:
 
 
     def get_current_bet_amount(self, widget_position=None) -> int:
-        if widget_position is not None:
-            martin_stages = len(self.martin_amounts)
-            effective_step = widget_position % martin_stages
-            return self.martin_amounts[effective_step]
-        return self.martin_amounts[-1]
+        """
+        현재 마틴 단계에 따른 베팅 금액 반환
+        위젯의 position_counter를 기준으로 계산
+        
+        Args:
+            widget_position (int, optional): 위젯 포지션. None이면 0 사용
+        
+        Returns:
+            int: 베팅 금액
+        """
+        # widget_position이 제공되지 않으면 기본값 0 사용
+        if widget_position is None:
+            widget_position = 0
+            # 로그 추가
+            if self.logger:
+                self.logger.debug(f"위젯 포지션 제공되지 않음, 기본값 0 사용")
+        
+        # 마틴 단계 수 확인
+        martin_stages = len(self.martin_amounts)
+        
+        # 마틴 단계 계산 (모듈러 방식)
+        effective_step = widget_position % martin_stages
+        
+        # 로그 추가
+        if self.logger:
+            self.logger.debug(f"위젯 포지션: {widget_position}, 마틴 단계: {effective_step+1}/{martin_stages}")
+        
+        # 계산된 단계에 해당하는 베팅 금액 반환
+        return self.martin_amounts[effective_step]
 
     def should_change_room(self) -> bool:
         """
@@ -610,10 +639,14 @@ class ChoicePickSystem:
     
     # utils/choice_pick.py 파일 수정
     def reset_after_room_change(self, preserve_martin: bool = False) -> None:
-        """방 이동 후 상태 초기화"""
+        """
+        방 이동 후 상태 초기화
+        
+        Args:
+            preserve_martin (bool): True면 마틴 단계 유지
+        """
         # 'consecutive_losses' 대신 'consecutive_failures' 사용
         prev_failures = self.consecutive_failures
-        prev_martin = self.martin_step
         prev_results = len(self.pick_results)
         prev_n_count = self.consecutive_n_count
 
@@ -629,7 +662,6 @@ class ChoicePickSystem:
             self.pick_results = []
             self.logger.info("방 이동 시 preserve_martin=False → 마틴 상태 초기화")
 
-
         # ✅ 공통 초기화 항목
         self.consecutive_n_count = 0
         self.current_pick = None
@@ -637,10 +669,10 @@ class ChoicePickSystem:
         if self.logger:
             self.logger.info(
                 f"방 이동 후 초기화 완료 - 연속실패({prev_failures}→{self.consecutive_failures}), "
-                f"마틴({prev_martin + 1}→{self.martin_step + 1}), 결과개수({prev_results}), "
-                f"연속 N({prev_n_count}→{self.consecutive_n_count})"
+                f"결과개수({prev_results}), 연속 N({prev_n_count}→{self.consecutive_n_count})"
             )
-            
+
+
     def clear(self) -> None:
         """전체 데이터 초기화"""
         self.results = []
