@@ -70,6 +70,7 @@ class TradingManagerGame:
             QMessageBox.warning(self.tm.main_window, "오류", "체크된 방이 없거나 모든 방 입장에 실패했습니다.")
             return False
 
+    # utils/trading_manager_game.py의 handle_successful_room_entry 메서드 수정
     def handle_successful_room_entry(self, new_room_name, preserve_martin=False):
         """
         방 입장 성공 처리 - 위젯 포지션 기반으로 리팩토링
@@ -125,12 +126,19 @@ class TradingManagerGame:
             bet_amount=bet_amount
         )
 
-        # 방 로그 위젯 설정
+        # 방 로그 위젯 설정 - 수정된 부분: 항상 is_new_visit=True로 설정
         if hasattr(self.tm.main_window, 'room_log_widget'):
+            # 디버그 로그 추가
+            self.logger.info(f"[방 이동 성공] 방 로그 위젯 설정: {self.tm.current_room_name}, 새방문=True")
+            
+            # 명시적으로 is_new_visit=True로 설정하여 새 방문으로 처리
             self.tm.main_window.room_log_widget.set_current_room(
                 self.tm.current_room_name,
                 is_new_visit=True
             )
+            
+            # has_changed_room 플래그 명시적으로 설정
+            self.tm.main_window.room_log_widget.has_changed_room = True
 
         # 입장 직후 게임 상태 분석 및 15게임 처리
         try:

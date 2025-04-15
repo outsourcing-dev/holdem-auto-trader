@@ -129,29 +129,7 @@ class RoomLogWidget(QWidget):
         print(f"[DEBUG] 새 방문 ID 생성: {visit_id}, 현재 카운터: {self.visit_counter}")
         return visit_id
     
-    def _update_last_log_item(self, result_type):
-        """
-        현재 방의 로그 항목에 결과 업데이트
-        
-        Args:
-            result_type (str): 결과 타입 ("적중", "실패", "무승부")
-        """
-        # 현재 방의 로그 항목 확인
-        if self.current_visit_id and self.current_visit_id in self.room_logs:
-            # 결과 타입에 따라 카운터 증가
-            if result_type == "적중":
-                self.room_logs[self.current_visit_id]['win'] += 1
-            elif result_type == "실패":
-                self.room_logs[self.current_visit_id]['lose'] += 1
-            elif result_type == "무승부":
-                self.room_logs[self.current_visit_id]['tie'] += 1
-                
-            # 시도 횟수 증가
-            self.room_logs[self.current_visit_id]['attempts'] += 1
-            
-            # 테이블 업데이트
-            self.update_table()
-        
+    # ui/room_log_widget.py의 add_bet_result 메서드 수정
     def add_bet_result(self, room_name, is_win, is_tie):
         """
         베팅 결과 추가 - 중복 방지 로직 강화
@@ -165,14 +143,18 @@ class RoomLogWidget(QWidget):
         current_time = time.time()
         if hasattr(self, 'last_recorded_time') and current_time - self.last_recorded_time < 1.0:
             # 1초 이내에 중복 호출되면 무시
-            self.logger.debug("1초 이내 중복 호출 무시")
+            if hasattr(self, 'logger'):
+                self.logger.debug("1초 이내 중복 호출 무시")
+            else:
+                print("[DEBUG] 1초 이내 중복 호출 무시")
             return
             
         # 결과 시간 기록
         self.last_recorded_time = current_time
         
-        # 현재 로그 항목 없으면 생성
+        # 현재 로그 항목 없으면 생성 (중요: 항상 확인하고 필요시 생성)
         if not hasattr(self, 'current_room_name') or self.current_room_name != room_name:
+            # 방 이름이 바뀌었을 때만 새로 설정 (방문 플래그는 False로 유지)
             self.set_current_room(room_name, is_new_visit=False)
         
         # 현재 방에 대한 베팅 결과 기록
@@ -181,6 +163,43 @@ class RoomLogWidget(QWidget):
         # 로그 항목 업데이트
         self._update_last_log_item(result_type)
         
+        # 디버그 로그 추가
+        print(f"[DEBUG] 방 로그 기록: 방={room_name}, 결과={result_type}, 현재 항목 ID={self.current_visit_id}")
+
+    # ui/room_log_widget.py의 set_current_room 메서드 수정
+    def set_current_room(self, room_name, is_new_visit=False):
+        """
+        현재 방 설정 - 중복 방지 로직 강화
+        
+        Args:
+            room_name (str): 방 이름
+            is_new_visit (bool): 새 방문 여부
+        """
+        # 이미 같은 방에 대한 기록이 진행 중이면 has_changed_room 플래그만 업데이트
+        if hasattr(self, 'current_room_name') and self.current_room_name == room_name:
+            # 방 이름이 같으면 has_changed_room 플래그만 업데이트하고 리턴
+            self.has_changed_room = is_new_visit
+            return
+            
+        # 디버그 로그
+        print(f"[DEBUG] 방 설정: 이전={getattr(self, 'current_room_name', None)}, 새로운={room_name}, 새방문={is_new_visit}")
+        
+        # 방 이름 업데이트
+        self.current_room_name = room_name
+        self.has_changed_room = is_new_visit
+        
+        # 새 방문일 때만 로그 추가 (같은 방 재방문은 제외)
+        if is_new_visit:
+            # 방 로그 항목 추가
+            self._add_room_log_item(room_name)
+        else:
+            # 같은 방에 계속 있는 경우에도 로그 항목이 없다면 추가
+            if not self.current_visit_id or self.current_visit_id not in self.room_logs:
+                self._add_room_log_item(room_name)
+                print(f"[DEBUG] 같은 방 계속 있음 (로그 항목 미존재로 추가): {room_name}")
+            else:
+                print(f"[DEBUG] 같은 방 계속 있음 (로그 항목 존재): {room_name}")
+                
     def update_table(self):
         """로그 테이블 업데이트 - 최신 방문 순으로 정렬하되, 번호는 오래된 방이 1번부터 시작"""
         # 테이블 초기화
@@ -272,31 +291,8 @@ class RoomLogWidget(QWidget):
         self.win_count_label.setText("0")
         self.lose_count_label.setText("0")
         self.log_table.setRowCount(0)
-    
-    def set_current_room(self, room_name, is_new_visit=False):
-        """
-        현재 방 설정 - 중복 방지 로직 강화
-        
-        Args:
-            room_name (str): 방 이름
-            is_new_visit (bool): 새 방문 여부
-        """
-        # 이미 같은 방에 대한 기록이 진행 중이면 중복 방문 플래그만 업데이트
-        if hasattr(self, 'current_room_name') and self.current_room_name == room_name:
-            # 방 이름이 같으면 has_changed_room 플래그만 업데이트하고 리턴
-            self.has_changed_room = is_new_visit
-            return
-            
-        # 새 방문인 경우에만 로그 항목 추가
-        self.current_room_name = room_name
-        self.has_changed_room = is_new_visit
-        
-        # 새 방문일 때만 로그 추가
-        if is_new_visit:
-            # 방 로그 항목 추가
-            self._add_room_log_item(room_name)
-               
 
+    # ui/room_log_widget.py의 _add_room_log_item 메서드 수정
     def _add_room_log_item(self, room_name):
         """
         방 로그 항목 추가
@@ -309,7 +305,8 @@ class RoomLogWidget(QWidget):
         
         # 이미 있는 로그 항목인지 확인
         if self.current_visit_id in self.room_logs:
-            # 이미 있는 경우 재사용
+            # 디버그 로그
+            print(f"[DEBUG] 이미 존재하는 방문 ID 재사용: {self.current_visit_id}")
             return
         
         # 새 로그 항목 생성
@@ -326,7 +323,56 @@ class RoomLogWidget(QWidget):
         
         # 디버그 로그
         print(f"[DEBUG] 새 방 로그 항목 추가: {self.current_visit_id}, 방: {room_name}")
+
+    # ui/room_log_widget.py의 _update_last_log_item 메서드 수정
+    def _update_last_log_item(self, result_type):
+        """
+        현재 방의 로그 항목에 결과 업데이트
         
+        Args:
+            result_type (str): 결과 타입 ("적중", "실패", "무승부")
+        """
+        # 현재 방의 로그 항목 확인
+        if self.current_visit_id and self.current_visit_id in self.room_logs:
+            # 디버그 로그
+            prev_win = self.room_logs[self.current_visit_id]['win']
+            prev_lose = self.room_logs[self.current_visit_id]['lose']
+            prev_tie = self.room_logs[self.current_visit_id]['tie']
+            print(f"[DEBUG] 로그 업데이트 전: 승={prev_win}, 패={prev_lose}, 무={prev_tie}")
+            
+            # 결과 타입에 따라 카운터 증가
+            if result_type == "적중":
+                self.room_logs[self.current_visit_id]['win'] += 1
+                # 전체 카운터도 증가
+                self.total_win_count += 1
+            elif result_type == "실패":
+                self.room_logs[self.current_visit_id]['lose'] += 1
+                # 전체 카운터도 증가
+                self.total_lose_count += 1
+            elif result_type == "무승부":
+                self.room_logs[self.current_visit_id]['tie'] += 1
+                # 전체 카운터도 증가
+                self.total_tie_count += 1
+                
+            # 시도 횟수 증가
+            self.room_logs[self.current_visit_id]['attempts'] += 1
+            
+            # UI 업데이트
+            self.win_count_label.setText(str(self.total_win_count))
+            self.lose_count_label.setText(str(self.total_lose_count))
+            
+            # 테이블 업데이트
+            self.update_table()
+            
+            # 디버그 로그
+            new_win = self.room_logs[self.current_visit_id]['win']
+            new_lose = self.room_logs[self.current_visit_id]['lose']
+            new_tie = self.room_logs[self.current_visit_id]['tie']
+            print(f"[DEBUG] 로그 업데이트 후: 승={new_win}, 패={new_lose}, 무={new_tie}")
+        else:
+            # 로그 항목이 없는 경우 경고
+            print(f"[WARNING] 결과 기록 실패: 현재 방문 ID가 없거나 로그 항목이 없음 (ID={self.current_visit_id})")
+            
     def should_create_new_visit_id(self, base_room_name):
         """
         새 방문 ID 생성 여부 결정 (무승부 시 현재 방에 계속 있어야 함)

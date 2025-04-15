@@ -125,10 +125,8 @@ class TradingManagerBet:
         except Exception as e:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
             return False
-
-    # In utils/trading_manager_bet.py - process_bet_result method
-    # This is the key part that needs modification:
-
+        
+    # utils/trading_manager_bet.py의 process_bet_result 메서드를 수정합니다
     def process_bet_result(self, bet_type, latest_result, new_game_count):
         """
         베팅 결과 처리 - 중복 로그 방지 수정
@@ -265,12 +263,14 @@ class TradingManagerBet:
                 else:
                     self.logger.info(f"55게임 도달했지만 패배 마커 있음 → 계속 진행")
             
-            # 중요: 방 로그 위젯 업데이트 - 한 번만 호출 (이중 호출 수정)
+            # 중요: 방 로그 위젯 업데이트 - 수정된 부분: has_changed_room 상태와 관계없이 항상 업데이트
             if hasattr(self.tm.main_window, 'room_log_widget'):
+                # 항상 현재 방 설정 먼저 (is_new_visit=False로 중복 방지)
                 self.tm.main_window.room_log_widget.set_current_room(
                     self.tm.current_room_name,
-                    is_new_visit=False  # 항상 False로 설정해 중복 방지
+                    is_new_visit=False
                 )
+                # 그 다음 베팅 결과 추가 - 항상 호출하도록 수정
                 self.tm.main_window.room_log_widget.add_bet_result(
                     room_name=self.tm.current_room_name,
                     is_win=is_win,
