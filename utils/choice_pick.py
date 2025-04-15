@@ -579,20 +579,17 @@ class ChoicePickSystem:
 
 
     def get_current_bet_amount(self, widget_position=None) -> int:
-        """
-        현재 마틴 단계에 따른 베팅 금액 반환
-        위젯의 position_counter를 기준으로 계산
+        # 최신 설정 로드
+        from utils.settings_manager import SettingsManager
+        settings_manager = SettingsManager()
+        _, latest_martin_amounts = settings_manager.get_martin_settings()
         
-        Args:
-            widget_position (int, optional): 위젯 포지션. None이면 0 사용
-        
-        Returns:
-            int: 베팅 금액
-        """
+        # 최신 마틴 금액으로 업데이트
+        self.martin_amounts = latest_martin_amounts
+
         # widget_position이 제공되지 않으면 기본값 0 사용
         if widget_position is None:
             widget_position = 0
-            # 로그 추가
             if self.logger:
                 self.logger.debug(f"위젯 포지션 제공되지 않음, 기본값 0 사용")
         
