@@ -610,6 +610,7 @@ class TradingManager:
             # 방 이동 알림 설정
             if hasattr(self.main_window, 'room_log_widget'):
                 self.main_window.room_log_widget.has_changed_room = True
+                self.logger.info("방 로그 위젯 has_changed_room 플래그를 True로 설정")
             
             # 현재 방 방문 처리
             if self.current_room_name:

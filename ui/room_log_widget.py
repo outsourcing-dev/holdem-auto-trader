@@ -166,7 +166,7 @@ class RoomLogWidget(QWidget):
         # 디버그 로그 추가
         print(f"[DEBUG] 방 로그 기록: 방={room_name}, 결과={result_type}, 현재 항목 ID={self.current_visit_id}")
 
-    # ui/room_log_widget.py의 set_current_room 메서드 수정
+    # ui/room_log_widget.py에서 set_current_room 메서드 수정
     def set_current_room(self, room_name, is_new_visit=False):
         """
         현재 방 설정 - 중복 방지 로직 강화
@@ -175,30 +175,31 @@ class RoomLogWidget(QWidget):
             room_name (str): 방 이름
             is_new_visit (bool): 새 방문 여부
         """
+        # 방 이동 감지 플래그 확인 - 추가된 부분
+        if self.has_changed_room:
+            is_new_visit = True
+            print(f"[DEBUG] has_changed_room 플래그로 인해 새 방문으로 처리: {room_name}")
+            self.has_changed_room = False  # 플래그 사용 후 초기화
+        
         # 이미 같은 방에 대한 기록이 진행 중이면 has_changed_room 플래그만 업데이트
         if hasattr(self, 'current_room_name') and self.current_room_name == room_name:
-            # 방 이름이 같으면 has_changed_room 플래그만 업데이트하고 리턴
-            self.has_changed_room = is_new_visit
-            return
-            
-        # 디버그 로그
-        print(f"[DEBUG] 방 설정: 이전={getattr(self, 'current_room_name', None)}, 새로운={room_name}, 새방문={is_new_visit}")
+            if not is_new_visit:
+                # 방 이름이 같으면 has_changed_room 플래그만 업데이트하고 리턴
+                return
         
         # 방 이름 업데이트
         self.current_room_name = room_name
-        self.has_changed_room = is_new_visit
         
-        # 새 방문일 때만 로그 추가 (같은 방 재방문은 제외)
+        # 새 방문인 경우 로그 항목 추가
         if is_new_visit:
+            # 현재 방문 ID 초기화 (새 방문 강제)
+            self.current_visit_id = None
             # 방 로그 항목 추가
             self._add_room_log_item(room_name)
         else:
-            # 같은 방에 계속 있는 경우에도 로그 항목이 없다면 추가
+            # 같은 방에 계속 있는 경우, 로그 항목이 없다면 추가
             if not self.current_visit_id or self.current_visit_id not in self.room_logs:
                 self._add_room_log_item(room_name)
-                print(f"[DEBUG] 같은 방 계속 있음 (로그 항목 미존재로 추가): {room_name}")
-            else:
-                print(f"[DEBUG] 같은 방 계속 있음 (로그 항목 존재): {room_name}")
                 
     def update_table(self):
         """로그 테이블 업데이트 - 최신 방문 순으로 정렬하되, 번호는 오래된 방이 1번부터 시작"""
