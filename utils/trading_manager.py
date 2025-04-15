@@ -651,7 +651,17 @@ class TradingManager:
         Property to check if we should move to the next room.
         Uses the excel_trading_service or falls back to game count and martin stage check.
         """
-        # Check excel_trading_service first (choice_pick_system's signal)
+        # 중지 명령 확인
+        if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
+            self.logger.info("중지 명령으로 인해 방 이동이 필요하지 않습니다.")
+            return False
+            
+        # 목표 금액 도달 확인
+        if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
+            self.logger.info("목표 금액 도달로 인해 방 이동이 필요하지 않습니다.")
+            return False
+        
+        # Check excel_trading_service first (초이스 픽 시스템의 신호)
         if hasattr(self, 'excel_trading_service'):
             should_move = self.excel_trading_service.should_change_room()
             if should_move:
@@ -659,33 +669,32 @@ class TradingManager:
                 if hasattr(self.excel_trading_service, 'choice_pick_system'):
                     cs = self.excel_trading_service.choice_pick_system
                     consecutive_n = hasattr(cs, 'consecutive_n_count') and cs.consecutive_n_count >= 3
-                    consecutive_failures = hasattr(cs, 'consecutive_failures') and cs.consecutive_failures >= 1
-                    martin_step = hasattr(cs, 'martin_step') and cs.martin_step == 0
+                    consecutive_failures = hasattr(cs, 'consecutive_failures') and cs.consecutive_failures >= 2
                     high_game_count = hasattr(cs, 'last_win_count') and cs.last_win_count >= 55
                     
-                    self.logger.info(f"[방 이동 결정] ExcelService: 연속N={consecutive_n}, 연속실패={consecutive_failures}, 마틴단계={martin_step}, 60게임이상={high_game_count}")
+                    self.logger.info(f"[방 이동 결정] ExcelService: 연속N={consecutive_n}, 연속실패={consecutive_failures}, 55게임이상={high_game_count}")
                 
                 return True
                 
-        # Then check the internal flag
+        # Check the internal flag (중앙 집중식 내부 플래그 확인)
         if self._should_move_to_next_room:
-            self.logger.info("[방 이동 결정] 내부 플래그")
+            self.logger.info("[방 이동 결정] 내부 플래그 활성화")
             return True
                 
-        # Check if we're in the middle of a martin bet sequence
-        # ALWAYS get the latest martin step directly (not rely on cached value)
-        current_martin_step = 0
-        if hasattr(self, 'martin_service') and hasattr(self.martin_service, 'current_step'):
-            current_martin_step = self.martin_service.current_step
-            
-        # Only move due to game count if we're not in a martin sequence or just won
-        if current_martin_step <= 0 or getattr(self, 'just_won', False):
-            should_move = self.game_count >= 55
-            if should_move:
-                self.logger.info(f"[방 이동 결정] 게임카운트: {self.game_count}판, 마틴단계: {current_martin_step+1}단계")
-            return should_move
+        # 현재 위젯/마틴 단계 확인 (항상 최신값 직접 확인)
+        current_widget_pos = 0
+        if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
+            current_widget_pos = self.main_window.betting_widget.room_position_counter
         
-        # If we're in the middle of a martin sequence (step > 0), don't move due to game count
+        # 방금 승리했는지 확인
+        just_won = getattr(self, 'just_won', False)
+        
+        # 핵심 로직: 마틴 0단계(위젯 포지션 0)이면서 55게임 이상일 때만 방 이동
+        if (current_widget_pos == 0 or just_won) and self.game_count >= 55:
+            self.logger.info(f"[방 이동 결정] 55게임 이상({self.game_count}판) & 마틴 0단계(위젯 포지션: {current_widget_pos})")
+            return True
+        
+        # 조건을 만족하지 않으면 방 이동 불필요
         return False
 
     @should_move_to_next_room.setter
