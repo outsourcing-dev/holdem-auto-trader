@@ -126,9 +126,8 @@ class TradingManagerBet:
             self.logger.error(f"성공적인 베팅 처리 오류: {e}")
             return False
 
-
-    # utils/trading_manager_bet.py의 process_bet_result 메서드 수정
-    # utils/trading_manager_bet.py - 방 로그 중복 기록 문제 수정
+    # In utils/trading_manager_bet.py - process_bet_result method
+    # This is the key part that needs modification:
 
     def process_bet_result(self, bet_type, latest_result, new_game_count):
         """
@@ -172,6 +171,10 @@ class TradingManagerBet:
                 
                 # 현재 위치에 승리 마커 표시
                 if hasattr(self.tm.main_window, 'betting_widget'):
+                    # Reset prevent_reset flag to ensure markers can be cleared
+                    if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                        self.tm.main_window.betting_widget.prevent_reset = False
+                    
                     # 승리 마커 현재 위치에 표시
                     self.tm.main_window.betting_widget.set_step_marker(current_pos, result_marker)
                     self.logger.info(f"승리 마커(O) 표시: 위치 {current_pos}")
@@ -217,8 +220,10 @@ class TradingManagerBet:
                     self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
                     self.logger.info(f"다음 베팅을 위해 위젯 카운터 증가: {current_pos} → {current_pos + 1}")
                 
-                if hasattr(self.tm.main_window.betting_widget, 'prevent_reset'):
+                # Only set prevent_reset if we're in an active martin sequence
+                if hasattr(self.tm.main_window.betting_widget, 'prevent_reset') and current_pos > 0:
                     self.tm.main_window.betting_widget.prevent_reset = True
+                    self.logger.info("마커 초기화 방지 플래그 설정 (마틴 진행 중)")
                 
                 # 초이스 픽 시스템에 패배 기록
                 self.tm.excel_trading_service.record_betting_result(False)

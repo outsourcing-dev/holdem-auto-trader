@@ -129,6 +129,29 @@ class RoomLogWidget(QWidget):
         print(f"[DEBUG] 새 방문 ID 생성: {visit_id}, 현재 카운터: {self.visit_counter}")
         return visit_id
     
+    def _update_last_log_item(self, result_type):
+        """
+        현재 방의 로그 항목에 결과 업데이트
+        
+        Args:
+            result_type (str): 결과 타입 ("적중", "실패", "무승부")
+        """
+        # 현재 방의 로그 항목 확인
+        if self.current_visit_id and self.current_visit_id in self.room_logs:
+            # 결과 타입에 따라 카운터 증가
+            if result_type == "적중":
+                self.room_logs[self.current_visit_id]['win'] += 1
+            elif result_type == "실패":
+                self.room_logs[self.current_visit_id]['lose'] += 1
+            elif result_type == "무승부":
+                self.room_logs[self.current_visit_id]['tie'] += 1
+                
+            # 시도 횟수 증가
+            self.room_logs[self.current_visit_id]['attempts'] += 1
+            
+            # 테이블 업데이트
+            self.update_table()
+        
     def add_bet_result(self, room_name, is_win, is_tie):
         """
         베팅 결과 추가 - 중복 방지 로직 강화
@@ -274,6 +297,36 @@ class RoomLogWidget(QWidget):
             self._add_room_log_item(room_name)
                
 
+    def _add_room_log_item(self, room_name):
+        """
+        방 로그 항목 추가
+        
+        Args:
+            room_name (str): 방 이름
+        """
+        # 새 방문 ID 생성
+        self.current_visit_id = self.create_new_visit_id(room_name)
+        
+        # 이미 있는 로그 항목인지 확인
+        if self.current_visit_id in self.room_logs:
+            # 이미 있는 경우 재사용
+            return
+        
+        # 새 로그 항목 생성
+        self.room_logs[self.current_visit_id] = {
+            'room_name': room_name,
+            'attempts': 0,
+            'win': 0,
+            'lose': 0,
+            'tie': 0
+        }
+        
+        # 테이블 업데이트
+        self.update_table()
+        
+        # 디버그 로그
+        print(f"[DEBUG] 새 방 로그 항목 추가: {self.current_visit_id}, 방: {room_name}")
+        
     def should_create_new_visit_id(self, base_room_name):
         """
         새 방문 ID 생성 여부 결정 (무승부 시 현재 방에 계속 있어야 함)

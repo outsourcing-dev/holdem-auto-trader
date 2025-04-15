@@ -360,43 +360,6 @@ class BettingWidget(QWidget):
             
 # ui/betting_widget.py의 reset_room_results 메서드 수정
 
-    def reset_room_results(self, keep_history=False, full_reset=False, success=True):
-        """현재 방 결과 초기화
-
-        Args:
-            keep_history (bool): 결과 이력 유지 여부
-            full_reset (bool): 완전 초기화 여부 (모든 데이터 초기화)
-            success (bool): 베팅 성공 여부 (성공 시에만 전체 리셋)
-        """
-        print(f"[INFO] 방 결과 초기화 명시적 호출 - 이전 결과 유지: {keep_history}, 완전 초기화: {full_reset}, 베팅 성공: {success}")
-
-        # full_reset이 True이면 모든 데이터 완전 초기화
-        if full_reset:
-            self.initialize_betting_widget(success=True)  # 완전 초기화
-            return
-
-        # keep_history가 False면 현재 방 결과 초기화
-        if not keep_history:
-            self.current_room_results = []
-            self.success_count = 0
-            self.fail_count = 0
-            self.tie_count = 0
-
-            # 명시적 호출에서는 마커 초기화 포함
-            if not self.prevent_reset:
-                self.reset_step_markers()  # 마커 초기화
-                self.room_position_counter = 0  # 카운터 초기화
-                print("[INFO] 명시적 초기화: 마커 및 위치 카운터 초기화 완료")
-            else:
-                print("[INFO] prevent_reset 플래그로 인해 마커 초기화 건너뜀")
-
-        # 배팅 금액 초기화
-        self.update_bet_amount(0)
-
-        # PICK 값 초기화 (베팅 성공 시만 초기화)
-        if success:
-            self.set_pick("N")
-      
     # PICK 값 설정 함수 수정 (P는 파란색 동그라미 안에 흰색 글씨로 P, B도 동일하게)
     def set_pick(self, pick_value):
         """PICK 값 설정 (B, P 등) - 원 안에 문자 표시"""
@@ -560,17 +523,64 @@ class BettingWidget(QWidget):
                 # 열 너비 설정
                 self.progress_table.setColumnWidth(i, 60)
                            
+    # 1. First, fix the reset_step_markers method in ui/betting_widget.py
     def reset_step_markers(self):
-        if self.prevent_reset:
-            print("[DEBUG] 마커 초기화 방지 플래그로 인해 초기화 건너뜀")
-            return
-    
         """모든 단계 마커 초기화"""
+        # Remove the prevent_reset check entirely to ensure markers are always reset when requested
+        # if self.prevent_reset:
+        #     print("[DEBUG] 마커 초기화 방지 플래그로 인해 초기화 건너뜀")
+        #     return
+        
+        # Always reset markers when requested
         for step, item in self.step_items.items():
             item.setText("")
             item.setBackground(QColor("white"))
             item.setForeground(QColor("black"))
-    
+        
+        # Also reset the position counter
+        self.room_position_counter = 0
+        print("[DEBUG] 마커 초기화 수행 완료 - 위치 카운터도 0으로 초기화")
+
+    # 2. Modify the reset_room_results method to properly handle win conditions
+    def reset_room_results(self, keep_history=False, full_reset=False, success=True):
+        """현재 방 결과 초기화
+
+        Args:
+            keep_history (bool): 결과 이력 유지 여부
+            full_reset (bool): 완전 초기화 여부 (모든 데이터 초기화)
+            success (bool): 베팅 성공 여부 (성공 시에만 전체 리셋)
+        """
+        print(f"[INFO] 방 결과 초기화 명시적 호출 - 이전 결과 유지: {keep_history}, 완전 초기화: {full_reset}, 베팅 성공: {success}")
+
+        # full_reset이 True이면 모든 데이터 완전 초기화
+        if full_reset:
+            self.initialize_betting_widget(success=True)  # 완전 초기화
+            return
+
+        # keep_history가 False면 현재 방 결과 초기화
+        if not keep_history:
+            self.current_room_results = []
+            self.success_count = 0
+            self.fail_count = 0
+            self.tie_count = 0
+
+            # Force marker reset when win/success is True
+            if success:
+                self.prevent_reset = False  # Ensure reset can proceed
+                self.reset_step_markers()  # 마커 초기화
+                print("[INFO] 성공(O) 후 마커 초기화 완료")
+            else:  
+                # Only skip reset if explicitly not a success
+                if self.prevent_reset:
+                    print("[INFO] prevent_reset 플래그로 인해 마커 초기화 건너뜀")
+
+        # 배팅 금액 초기화
+        self.update_bet_amount(0)
+
+        # PICK 값 초기화 (베팅 성공 시만 초기화)
+        if success:
+            self.set_pick("N")
+        
     def get_room_results_summary(self):
         """현재 방의 결과 요약 반환"""
         return {
@@ -726,3 +736,29 @@ class BettingWidget(QWidget):
                 "border-radius: 10px; padding: 2px 6px; margin-right: 5px;"
             )
         
+    # Add this method to the BettingWidget class in ui/betting_widget.py
+    def get_current_marker(self):
+        """
+        현재 위치의 마커 값을 반환합니다.
+        
+        Returns:
+            str: 마커 값 (O, X, T 또는 빈 문자열)
+        """
+        current_pos = self.room_position_counter
+        if current_pos in self.step_items:
+            return self.step_items[current_pos].text()
+        return ""
+
+    def get_marker(self, position):
+        """
+        특정 위치의 마커 값을 반환합니다.
+        
+        Args:
+            position (int): 가져올 마커 위치
+            
+        Returns:
+            str: 마커 값 (O, X, T 또는 빈 문자열)
+        """
+        if position in self.step_items:
+            return self.step_items[position].text()
+        return ""
