@@ -64,17 +64,10 @@ class ExcelTradingService:
         # 현재 열 찾기 및 결과 처리
         return self._process_new_result(latest_result, new_game_count, recent_results)
 
+    # utils/excel_trading_service.py의 _handle_first_run 메서드에서 수정할 부분
     def _handle_first_run(self, filtered_results, recent_results, actual_game_count):
         """
         첫 실행 시 처리 - 예측 엔진 사용
-        
-        Args:
-            filtered_results (list): TIE를 제외한 결과 리스트 (P, B만 포함)
-            recent_results (list): TIE를 포함한 실제 결과 리스트
-            actual_game_count (int): 실제 게임 카운트
-            
-        Returns:
-            tuple: (처리 상태, 게임 카운트, 최근 결과 목록, 다음 픽 값)
         """
         self.logger.info(f"첫 실행 감지: 예측 엔진에 최근 결과 {len(filtered_results)}개 추가 (TIE 제외)")
 
@@ -82,13 +75,16 @@ class ExcelTradingService:
         self.prediction_engine.clear()
         self.prediction_engine.add_multiple_results(filtered_results)
 
+        # 결과 로깅 강화
+        self.logger.info(f"첫 실행 결과: {filtered_results}")
+
         # 다음 PICK 예측
         next_pick = self.prediction_engine.predict_next_pick()
 
-        # processed_rounds 업데이트
-        self._update_processed_rounds(filtered_results, start_count=actual_game_count - len(filtered_results))
+        # processed_rounds 업데이트 (좀 더 명확한 게임 카운트 계산)
+        start_count = max(1, actual_game_count - len(filtered_results))
+        self._update_processed_rounds(filtered_results, start_count=start_count)
 
-        # 열 정보는 더 이상 의미 없으므로 None 반환
         return "PREDICTED", actual_game_count, recent_results, next_pick
 
     def _record_new_result(self, result, column, new_game_count, recent_results):
@@ -139,17 +135,14 @@ class ExcelTradingService:
         
     def _update_processed_rounds(self, results, start_count=None):
         """
-        처리된 라운드 업데이트
-        
-        Args:
-            results (list): 결과 목록
-            start_count (int): 시작 게임 카운트
+        처리된 라운드 업데이트 - 더 정확한 게임 ID 생성
         """
         if hasattr(self.main_window, 'trading_manager'):
-            base_count = start_count or self.main_window.trading_manager.game_count
+            base_count = start_count or 1  # 항상 최소 1부터 시작
             for i, res in enumerate(results):
-                result_id = f"{base_count-len(results)+i+1}_{res}"
+                result_id = f"{base_count+i}_{res}"
                 self.main_window.trading_manager.processed_rounds.add(result_id)
+                self.logger.debug(f"라운드 처리 기록: {result_id}")
     
     def _process_new_result(self, latest_result, new_game_count, recent_results):
         """

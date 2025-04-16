@@ -2,15 +2,14 @@
     "site1": "https://cb-8989.com ",
     "site2": "http://lf-1122.com",
     "site3": "aii1dd.net",
-    "martin_count": 5,
+    "martin_count": 4,
     "martin_amounts": [
         2000,
         4000,
         8000,
-        4000,
-        5000
+        16000
     ],
-    "target_amount": 800000,
+    "target_amount": 500000,
     "double_half_start": 15,
     "double_half_stop": 10
 }
