@@ -39,19 +39,21 @@ class PredictionEngine:
         self.choice_pick_system.add_multiple_results(results)
     
     def predict_next_pick(self) -> str:
-        """
-        다음 픽 예측 (15판 기준 초이스 픽 시스템 사용)
-        캐싱 로직 추가 - 동일한 결과에 대해 여러 번 계산하지 않음
+        """다음 픽 예측 (15판 기준 초이스 픽 시스템 사용)"""
+        # 이전 승리 여부에 따라 캐시 초기화 결정
+        if hasattr(self.choice_pick_system, 'recent_results') and self.choice_pick_system.recent_results:
+            # 최근 결과가 승리인 경우 항상 캐시 초기화
+            if self.choice_pick_system.recent_results[-1] == True:
+                self.logger.info("최근 승리 감지: 픽 캐시 초기화")
+                self.choice_pick_system.cached_pick = None
+                self.choice_pick_system.last_results = []
         
-        Returns:
-            str: 다음 픽 ('P', 'B' 또는 'N')
-        """
         # 데이터가 충분한지 확인 (15판)
         if not self.choice_pick_system.has_sufficient_data():
             self.logger.warning(f"데이터 부족: {len(self.choice_pick_system.results)}/15판, 픽 생성 불가")
             return 'N'
         
-        # 초이스 픽 시스템에서 픽 생성 - 내부적으로 캐싱 로직 사용
+        # 초이스 픽 시스템에서 픽 생성
         pick = self.choice_pick_system.generate_choice_pick()
         
         if pick:
@@ -60,7 +62,7 @@ class PredictionEngine:
             return pick
         else:
             self.logger.warning("초이스 픽 생성 실패 - 데이터 부족 또는 적합한 후보 없음")
-            return 'N'  # 예측 불가능 시 'N' 반환
+            return 'N'
     
     def record_betting_result(self, is_win: bool) -> None:
         """

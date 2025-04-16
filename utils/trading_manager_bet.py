@@ -188,6 +188,16 @@ class TradingManagerBet:
                 
                 self.tm.just_won = True
                 
+                # 추가: wait_first_result 플래그가 있다면 초기화 (방 이동 후 첫 결과 대기 플래그)
+                if hasattr(self.tm, 'wait_first_result'):
+                    self.tm.wait_first_result = False
+                    self.logger.info("wait_first_result 플래그 초기화")
+                
+                # 추가: 마틴 서비스 current_step 초기화 - 위젯 포지션과 동기화
+                if hasattr(self.tm, 'martin_service') and hasattr(self.tm.martin_service, 'current_step'):
+                    self.tm.martin_service.current_step = 0
+                    self.logger.info("마틴 서비스 current_step 초기화")
+                
                 # UI 업데이트 - 위젯 카운터 리셋 및 적중 표시 강화
                 self.tm.main_window.update_betting_status(
                     room_name=self.tm.current_room_name, 

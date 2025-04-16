@@ -651,6 +651,29 @@ class TradingManager:
             QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
             return False
         
+    def check_after_win_status(self):
+        """승리 후 모든 상태가 올바르게 초기화되었는지 확인"""
+        if getattr(self, 'just_won', False):
+            self.logger.info("승리 후 상태 확인 - 모든 상태 초기화 중")
+            
+            # 위젯 초기화
+            if hasattr(self.main_window, 'betting_widget'):
+                self.main_window.betting_widget.room_position_counter = 0
+                self.main_window.betting_widget.reset_step_markers()
+            
+            # 마틴 서비스 초기화
+            if hasattr(self, 'martin_service'):
+                self.martin_service.current_step = 0
+                self.martin_service.consecutive_failures = 0
+            
+            # 첫 결과 대기 플래그 초기화
+            self.wait_first_result = False
+            
+            # 플래그 초기화
+            self.just_won = False
+            
+            self.logger.info("승리 후 상태 초기화 완료")\
+                
     @property
     def should_move_to_next_room(self):
         """

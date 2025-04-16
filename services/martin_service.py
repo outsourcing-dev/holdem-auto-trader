@@ -37,36 +37,25 @@ class MartinBettingService:
         self.current_direction = 'forward'  # 현재 방향 (forward / reverse)
 
     def get_current_bet_amount(self):
-        """
-        현재 마틴 단계에 따른 베팅 금액을 반환합니다.
-        위젯의 position_counter를 기준으로 계산합니다.
-        """
-        # 최신 설정 로드
-        self._refresh_settings()
-        
-        # 위젯 포지션 확인
+        """현재 마틴 단계에 따른 베팅 금액을 반환합니다."""
+        # 위젯 포지션 확인 - 항상 최신 값 사용
         widget_position = 0
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
             widget_position = self.main_window.betting_widget.room_position_counter
         
-        # 호환성을 위해 current_step 동기화
+        # 동기화 강화 - 항상 위젯 포지션으로 마틴 단계 갱신
         self.current_step = widget_position
         
-        # 설정된 마틴 단계 수 확인
+        # 마틴 단계 수 확인 및 적용
         martin_stages = len(self.martin_amounts)
-        
-        # 마틴 단계는 위젯 포지션을 마틴 단계 수로 나눈 나머지로 계산
         effective_martin_step = widget_position % martin_stages
-        
-        # 실제 사용할 마틴 단계 로깅
-        self.logger.info(f"위젯 포지션: {widget_position+1}, 마틴 설정: {martin_stages}단계, 적용 마틴 단계: {effective_martin_step+1}")
-        self.logger.info(f"마틴 금액 배열: {self.martin_amounts}")
         
         # 계산된 단계에 해당하는 금액 반환
         bet_amount = self.martin_amounts[effective_martin_step]
         self.logger.info(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position+1}번, 마틴: {effective_martin_step+1}단계)")
         
         return bet_amount
+
 
     def _refresh_settings(self):
         """최신 마틴 설정 로드"""

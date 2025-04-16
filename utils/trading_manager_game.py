@@ -184,6 +184,19 @@ class TradingManagerGame:
     def process_excel_result(self, result, game_state, previous_game_count):
         """엑셀 처리 결과 활용 - 첫 결과 대기 플래그 확인 추가"""
         try:
+            # 승리 직후 플래그 확인 및 초기화 - 여기에 추가
+            if getattr(self.tm, 'just_won', False):
+                self.logger.info("[승리 후 초기화] just_won 상태 감지, 모든 플래그 초기화")
+                # 마커 리셋
+                if hasattr(self.tm.main_window, 'betting_widget'):
+                    self.tm.main_window.betting_widget.reset_step_markers()
+                    self.tm.main_window.betting_widget.room_position_counter = 0
+                # 첫 결과 대기 플래그도 초기화
+                if hasattr(self.tm, 'wait_first_result'):
+                    self.tm.wait_first_result = False
+                    self.logger.info("wait_first_result 플래그 초기화")
+                self.tm.just_won = False
+            
             last_column, new_game_count, recent_results, next_pick = result
             
             # 실제 게임 카운트 사용
