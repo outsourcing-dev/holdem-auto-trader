@@ -151,18 +151,27 @@ class TradingManagerGame:
 
                 if game_state:
                     actual_game_count = game_state.get('round', 0)
-                    self.tm.game_count = actual_game_count
+                    self.tm.game_count = actual_game_count  # 현재 게임 카운트 즉시 업데이트
 
                     filtered_results = game_state.get('filtered_results', [])
                     self.logger.info(f"방 입장 후 수집된 결과: {len(filtered_results)}개, 필요: 15개")
 
+                    # 여기가 중요: 항상 0을 게임 카운트로 전달하여 처음 실행 로직 강제
                     result = self.tm.excel_trading_service.process_game_results(
                         game_state,
-                        0,
+                        0,  # 항상 0을 전달하여 첫 실행 로직 사용
                         self.tm.current_room_name,
                         log_on_change=True
                     )
-
+                    
+                    # 모든 결과를 엑셀 매니저에 기록 (수정 필요)
+                    if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
+                        # 기존 결과 클리어 후 새로 추가
+                        self.tm.excel_trading_service.prediction_engine.clear()
+                        self.tm.excel_trading_service.prediction_engine.add_multiple_results(filtered_results)
+                        self.logger.info(f"예측 엔진에 {len(filtered_results)}개 결과 추가 완료")
+                    
+                    # 결과가 있으면 PICK 값 업데이트
                     if result[0] is not None and result[3] in ['P', 'B']:
                         self.tm.current_pick = result[3]
                         actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(result[3])
