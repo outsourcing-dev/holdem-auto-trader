@@ -191,19 +191,26 @@ class TradingManagerGame:
     # utils/trading_manager_game.py 수정 부분
 
     def process_excel_result(self, result, game_state, previous_game_count):
-        """엑셀 처리 결과 활용 - 첫 결과 대기 플래그 확인 추가"""
+        """엑셀 처리 결과 활용 - 실패 시 데이터 유지 로직 추가"""
         try:
-            # 승리 직후 플래그 확인 및 초기화 - 여기에 추가
+            # 승리 직후 플래그 확인 및 초기화
             if getattr(self.tm, 'just_won', False):
                 self.logger.info("[승리 후 초기화] just_won 상태 감지, 모든 플래그 초기화")
+                # 초이스 픽 시스템의 should_refresh_data 플래그 활성화
+                if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
+                hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
+                    self.tm.excel_trading_service.prediction_engine.choice_pick_system.should_refresh_data = True
+                    self.tm.excel_trading_service.prediction_engine.choice_pick_system.failure_count = 0
+                    
                 # 마커 리셋
                 if hasattr(self.tm.main_window, 'betting_widget'):
                     self.tm.main_window.betting_widget.reset_step_markers()
                     self.tm.main_window.betting_widget.room_position_counter = 0
+                    
                 # 첫 결과 대기 플래그도 초기화
                 if hasattr(self.tm, 'wait_first_result'):
                     self.tm.wait_first_result = False
-                    self.logger.info("wait_first_result 플래그 초기화")
+                    
                 self.tm.just_won = False
             
             last_column, new_game_count, recent_results, next_pick = result
@@ -405,6 +412,16 @@ class TradingManagerGame:
                 # 베팅 결과 처리 - room_log 업데이트는 process_bet_result에서만 한 번 실행
                 result_status = self.tm.bet_helper.process_bet_result(last_bet['type'], latest_result, new_game_count)
                 
+                # 실패 시 should_refresh_data 플래그 비활성화 (기존 데이터 유지)
+                if result_status == 'lose':
+                    if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
+                    hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
+                        # 3연패 확인
+                        failure_count = getattr(self.tm.excel_trading_service.prediction_engine.choice_pick_system, 'failure_count', 0)
+                        if failure_count < 3:  # 3연패 미만일 때만 기존 데이터 유지
+                            self.tm.excel_trading_service.prediction_engine.choice_pick_system.should_refresh_data = False
+                            self.logger.info(f"실패 {failure_count}회: 기존 데이터 유지 + 결과 추가 모드 활성화")
+
                 # 승리 후 게임 판수 확인
                 actual_game_count = game_state.get('round', 0)
                 if result_status == 'win' and actual_game_count >= 55:

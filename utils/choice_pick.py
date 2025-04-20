@@ -7,6 +7,7 @@ class ChoicePickSystem:
     """
     초이스 픽 시스템 - 15판 기준의 베팅 전략 구현
     """
+    # utils/choice_pick.py의 ChoicePickSystem 클래스 __init__ 수정
     def __init__(self, logger=None):
         """초기화"""
         self.logger = logger or logging.getLogger(__name__)
@@ -50,6 +51,10 @@ class ChoicePickSystem:
         self.stage5_picks: List[str] = []  # 5단계 픽 리스트
         
         self.consecutive_n_count: int = 0  # 연속 N 발생 카운트
+        
+        # 추가: 새로 추가된 속성들
+        self.should_refresh_data: bool = True  # 데이터 리프레시 필요 여부 플래그
+        self.failure_count: int = 0  # 연속 실패 카운트 (3회까지만 추적)
 
         # 로그 메시지 (logger가 없을 경우 대비)
         if self.logger:
@@ -57,7 +62,7 @@ class ChoicePickSystem:
         
         self.last_results: List[str] = []
         self.cached_pick: Optional[str] = None
-        
+
     # utils/choice_pick.py의 ChoicePickSystem 클래스에 추가할 메서드
     def set_martin_amounts(self, amounts):
         """마틴 금액 설정"""
@@ -67,7 +72,7 @@ class ChoicePickSystem:
 
     def add_result(self, result: str) -> None:
         """
-        새 결과 추가 (TIE는 무시)
+        새 결과 추가 (TIE는 무시) - 실패 시 기존 데이터에 추가
         
         Args:
             result: 'P', 'B', 또는 'T' (Player, Banker, Tie)
@@ -75,16 +80,25 @@ class ChoicePickSystem:
         if result not in ['P', 'B']:
             return
             
-        self.results.append(result)
-        if len(self.results) > 15:
-            self.results.pop(0)
+        # 실패 시 기존 데이터 보존 로직 - 데이터를 계속 추가함
+        if not self.should_refresh_data:
+            # 기존 데이터에 새 결과를 계속 추가 (데이터 길이가 증가)
+            self.results.append(result)
+            if self.logger:
+                self.logger.info(f"실패 후 결과 추가: {result} (현재 데이터 개수: {len(self.results)}개)")
+        else:
+            # 전체 데이터 리프레시가 필요한 경우 (성공, N값, 또는 초기화 시)
+            # 데이터를 15개로 유지
+            self.results.append(result)
+            if len(self.results) > 15:
+                self.results = self.results[-15:]  # 최근 15개만 유지
             
         if self.logger:
-            self.logger.info(f"결과 추가: {result} (현재 {len(self.results)}/15판)")
+            self.logger.info(f"결과 추가: {result} (현재 {len(self.results)}개 데이터)")
             self.logger.debug(f"현재 결과 리스트: {self.results}")
         
         self.last_win_count += 1
-
+        
     def add_multiple_results(self, results: List[str]) -> None:
         """
         여러 결과 한번에 추가 (TIE 제외)
@@ -554,7 +568,7 @@ class ChoicePickSystem:
     # record_betting_result 메서드 수정 
     def record_betting_result(self, is_win: bool, reset_after_win: bool = True) -> None:
         """
-        베팅 결과 기록
+        베팅 결과 기록 - 실패 시 데이터 유지 및 추가 로직
         
         Args:
             is_win (bool): 베팅 성공 여부
@@ -567,17 +581,32 @@ class ChoicePickSystem:
             if self.logger:
                 self.logger.info(f"베팅 성공! 시도: {self.betting_attempts}번째")
             
+            # 성공 시 데이터 리프레시 플래그 활성화 - 새로운 15개 데이터 수집으로 전환
+            self.should_refresh_data = True
+            self.failure_count = 0
+            
             if reset_after_win:
                 self.consecutive_failures = 0
                 self.last_win_count = 0
-                
-                # martin_step 변수 제거 - 위젯 포지션으로 마틴 단계 관리
         else:
             if self.logger:
                 self.logger.info(f"베팅 실패. 시도: {self.betting_attempts}번째")
+            
             self.consecutive_failures += 1
-
-
+            self.failure_count += 1
+            
+            # 3연패까지는 데이터 계속 추가, 그 이상은 리프레시
+            if self.failure_count >= 3:
+                self.should_refresh_data = True
+                self.failure_count = 0
+                if self.logger:
+                    self.logger.info("3연패로 인해 데이터 리프레시 플래그 활성화")
+            else:
+                # 실패 시 기존 데이터 유지 + 새 결과 추가
+                self.should_refresh_data = False
+                if self.logger:
+                    self.logger.info(f"실패 {self.failure_count}회: 기존 데이터 유지 + 결과 추가 모드")
+                    
     def get_current_bet_amount(self, widget_position=None) -> int:
         # 최신 설정 로드
         from utils.settings_manager import SettingsManager
