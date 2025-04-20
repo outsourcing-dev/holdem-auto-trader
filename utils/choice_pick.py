@@ -797,10 +797,6 @@ class ChoicePickSystem:
         Returns:
             str: 다음 베팅 픽 ('P', 'B' 또는 'N')
         """
-        # 클래스에 다음 두 변수를 추가 (초기화 부분에)
-        # self.last_results = []
-        # self.cached_pick = None
-        
         # 결과가 변경되지 않았다면 캐시된 값 반환
         if self.results == self.last_results and self.cached_pick is not None:
             if self.logger:
@@ -833,7 +829,8 @@ class ChoicePickSystem:
                 continue  # 비교할 게 너무 적음
 
             start = idx - 1
-            picks_to_compare = picks[:-1]
+            # 수정: 마지막 픽을 제외하지 않고 모두 사용 (전체 픽을 결과와 비교)
+            picks_to_compare = picks
             compare_start = start + 5  # 후보 시작 위치 + 로컬 픽 6번
             compare_end = compare_start + len(picks_to_compare)
 
@@ -847,33 +844,16 @@ class ChoicePickSystem:
             last_pattern = win_loss_pattern[-2:] if len(win_loss_pattern) >= 2 else []
             
             if 'WWW' in ''.join(win_loss_pattern) or 'LLL' in ''.join(win_loss_pattern):
-                # if self.logger:
-                #     self.logger.info(f"  - 3연속 승/패 발견 → 무효 후보")
                 continue
             
-            # if self.logger:
-            #     self.logger.info(
-            #         f"\n후보 {idx}번 패턴 분석:\n"
-            #         f"  - 픽: {picks_to_compare}\n"
-            #         f"  - 결과: {results_to_compare}\n"
-            #         f"  - 승패: {win_loss_pattern}\n"
-            #         f"  - 마지막 2판: {last_pattern}"
-            #     )
-
             # 정배 or 역배 판단
             if last_pattern == ['W', 'L']:
                 score = win_loss_pattern.count('W') - win_loss_pattern.count('L')
                 bet_direction = 'normal'
-                # if self.logger:
-                    # self.logger.info(f"  - 패턴 [W,L] → 정배팅 → 승-패: {win_loss_pattern.count('W')}-{win_loss_pattern.count('L')} → 점수={score}")
             elif last_pattern == ['L', 'W']:
                 score = win_loss_pattern.count('L') - win_loss_pattern.count('W')
                 bet_direction = 'reverse'
-                # if self.logger:
-                    # self.logger.info(f"  - 패턴 [L,W] → 역배팅 → 패-승: {win_loss_pattern.count('L')}-{win_loss_pattern.count('W')} → 점수={score}")
             else:
-                # if self.logger:
-                #     self.logger.info(f"  - 패턴 {last_pattern} → 무효 후보")
                 continue
 
             if self.logger:
@@ -882,12 +862,22 @@ class ChoicePickSystem:
                     f"패턴={last_pattern}, 점수={score}, 방향={bet_direction}"
                 )
 
+            # 수정: 다음 픽은 현재 후보 리스트보다 하나 더 앞선 위치에서 가져옴
+            # 예: 후보 픽이 6~15번까지라면, 다음 픽은 16번이어야 함
+            all_stage_picks = self._generate_all_stage_picks(start_from=start)
+            next_pick_number = start + len(picks) + 6  # +6은 픽 6번부터 시작하므로
+            
+            # 다음 픽 가져오기 (16번 이후)
+            next_pick = 'N'
+            if next_pick_number in all_stage_picks:
+                next_pick = all_stage_picks[next_pick_number]["최종픽"]
+            
             valid_candidates.append({
                 'index': idx,
                 'picks': picks,
                 'score': score,
                 'bet_direction': bet_direction,
-                'next_pick': picks[-1],
+                'next_pick': next_pick,
             })
 
         if not valid_candidates:
@@ -899,7 +889,10 @@ class ChoicePickSystem:
             if self.logger:
                 self.logger.warning(f"연속 N 카운트 증가: {prev_count} → {self.consecutive_n_count}")
                 
-            # 여기 추가: 연속 N 카운트가 3 이상이면 should_change_room 메소드에서 감지될 수 있게 설정
+            # 여기에 추가: N 값 반환 시 새로운 15개 데이터로 리셋하도록 플래그 설정
+            self.should_refresh_data = True
+            
+            # 연속 N 카운트가 3 이상이면 should_change_room 메소드에서 감지될 수 있게 설정
             if self.consecutive_n_count >= 4:
                 self._n_consecutive_detected = True
             else:
