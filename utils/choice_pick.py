@@ -73,19 +73,21 @@ class ChoicePickSystem:
     def add_result(self, result: str) -> None:
         """
         새 결과 추가 (TIE는 무시) - 실패 시 기존 데이터에 계속 추가
-
-        Args:
-            result: 'P', 'B', 또는 'T' (Player, Banker, Tie)
         """
         if result not in ['P', 'B']:
             return
 
-        # ✅ 항상 추가하고, 리프레시 조건 시에만 자른다
+        # ✅ 항상 추가하고
         self.results.append(result)
 
-        # ✅ 성공 등 리프레시 모드일 때만 15개 유지
-        if self.should_refresh_data and len(self.results) > 15:
+        # ✅ failure_count가 0일 때만 리스트를 자름 (실패 모드가 아닐 때만)
+        if self.should_refresh_data and getattr(self, 'failure_count', 0) == 0 and len(self.results) > 15:
             self.results = self.results[-15:]  # 최근 15개만 유지
+            if self.logger:
+                self.logger.info(f"리스트 잘라냄: 15개 유지 (상태: should_refresh_data={self.should_refresh_data}, failure_count={getattr(self, 'failure_count', 0)})")
+        else:
+            if self.logger:
+                self.logger.info(f"결과 추가 후 길이: {len(self.results)}개 (현재 데이터)")
 
         if self.logger:
             self.logger.info(f"결과 추가: {result} (현재 {len(self.results)}개 데이터)")
@@ -95,21 +97,21 @@ class ChoicePickSystem:
 
 
     def add_multiple_results(self, results: List[str]) -> None:
-        """
-        여러 결과 한번에 추가 (TIE 제외)
+        # 디버깅: 원본 전달된 결과 로그
+        self.logger.info(f"[DEBUG] add_multiple_results 호출 전 원본 결과: {results}")
         
-        Args:
-            results: 결과 목록 ['P', 'B', 'T', ...]
-        """
         filtered_results = [r for r in results if r in ['P', 'B']]
-        if len(filtered_results) > 15:
-            filtered_results = filtered_results[-15:]
-            
-        self.results = filtered_results
         
+        # 필터링된 결과 확인
+        self.logger.info(f"[DEBUG] add_multiple_results 필터링된 결과: {filtered_results}")
+
+        self.results = filtered_results  # ✅ 슬라이스 없이 그대로 저장!
+
         if self.logger:
-            self.logger.info(f"다중 결과 추가: 총 {len(self.results)}/15판")
+            self.logger.info(f"다중 결과 추가: 총 {len(self.results)}개 (자르지 않음)")
             self.logger.debug(f"현재 결과 리스트: {self.results}")
+
+
 
     def has_sufficient_data(self) -> bool:
         """15판 데이터가 모두 있는지 확인"""
@@ -247,7 +249,8 @@ class ChoicePickSystem:
                         win_count += 1
                 stage5 = stage4 if win_count >= 2 else self.get_opposite_pick(stage4)
                 if self.logger:
-                    self.logger.info(f"[5단계 계산] pick={global_pick_num}, 이전 4판 승수={win_count}, stage4={stage4}, 결정={stage5}")
+                    # self.logger.info(f"[5단계 계산] pick={global_pick_num}, 이전 4판 승수={win_count}, stage4={stage4}, 결정={stage5}")
+                    pass
             stage5_picks[pos] = stage5
 
             final_pick = next((x for x in [stage5, stage4, stage3, stage2, stage1] if x != 'N'), 'N')
@@ -559,8 +562,8 @@ class ChoicePickSystem:
         if self.logger:
             self.logger.debug(f"승패 차이 계산: pick={pick}, wins={wins}, losses={losses}, diff={diff}")
         return diff
-
-    # record_betting_result 메서드 수정 
+ 
+    # utils/choice_pick.py 파일의 record_betting_result 메소드
     def record_betting_result(self, is_win: bool, reset_after_win: bool = True) -> None:
         """
         베팅 결과 기록 - 실패 시 데이터 유지 및 추가 로직
@@ -569,6 +572,10 @@ class ChoicePickSystem:
             is_win (bool): 베팅 성공 여부
             reset_after_win (bool): 승리 후 초기화 여부
         """
+        # 여기에 디버깅 코드 추가 (함수 시작 부분)
+        self.logger.info(f"[DEBUG] record_betting_result 전: should_refresh_data={getattr(self, 'should_refresh_data', None)}, failure_count={getattr(self, 'failure_count', 0)}")
+        
+        # 기존 코드
         self.betting_attempts += 1
         self.pick_results.append(is_win)
 
@@ -579,7 +586,10 @@ class ChoicePickSystem:
             # 성공 시 데이터 리프레시 플래그 활성화 - 새로운 15개 데이터 수집으로 전환
             self.should_refresh_data = True
             self.failure_count = 0
-            
+            if len(self.results) > 15:
+                self.results = self.results[-15:]
+                if self.logger:
+                    self.logger.info(f"[초기화] 예측 적중으로 최근 15개만 유지: {self.results}")
             if reset_after_win:
                 self.consecutive_failures = 0
                 self.last_win_count = 0
@@ -589,7 +599,8 @@ class ChoicePickSystem:
             
             self.consecutive_failures += 1
             self.failure_count += 1
-            
+            self.should_refresh_data = False  # ✅ 실패 모드 전환 → 누적 유지
+
             # 3연패까지는 데이터 계속 추가, 그 이상은 리프레시
             if self.failure_count >= 3:
                 self.should_refresh_data = True
@@ -600,11 +611,12 @@ class ChoicePickSystem:
                 if self.logger:
                     self.logger.info("3연패로 인해 데이터 리프레시 플래그 활성화")
             else:
-                # 실패 시 기존 데이터 유지 + 새 결과 추가
-                self.should_refresh_data = False
                 if self.logger:
                     self.logger.info(f"실패 {self.failure_count}회: 기존 데이터 유지 + 결과 추가 모드")
-                    
+        
+        # 여기에 디버깅 코드 추가 (함수 끝 부분)
+        self.logger.info(f"[DEBUG] record_betting_result 후: should_refresh_data={getattr(self, 'should_refresh_data', None)}, failure_count={getattr(self, 'failure_count', 0)}")
+            
     def get_current_bet_amount(self, widget_position=None) -> int:
         # 최신 설정 로드
         from utils.settings_manager import SettingsManager

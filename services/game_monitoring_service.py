@@ -15,7 +15,7 @@ class GameMonitoringService:
         self.main_window = main_window
         self.game_detector = GameDetector()
 
-    def get_current_game_state(self, log_always=True):
+    def get_current_game_state(self, log_always=True, desired_pb_count=15):
         """현재 게임 상태를 분석"""
         try:
             if log_always:
@@ -33,7 +33,10 @@ class GameMonitoringService:
             html_content = self.devtools.driver.page_source
             
             # 게임 상태 감지
-            game_state = self.game_detector.detect_game_state(html_content)
+            game_state = self.game_detector.detect_game_state(html_content, desired_pb_count=desired_pb_count)
+            
+            # 여기서 게임 상태를 반환하기 전에 `results` 상태를 확인
+            self.logger.info(f"[DEBUG] 게임 상태에서 받은 결과: {game_state['filtered_results']}")
             
             return game_state
             
@@ -45,8 +48,9 @@ class GameMonitoringService:
                 self.devtools.driver.switch_to.default_content()
             except:
                 pass
-                
+            
             return None
+
 
     def close_current_room(self):
         """현재 열린 방을 종료하고 카지노 로비 창으로 포커싱 전환"""
@@ -60,8 +64,8 @@ class GameMonitoringService:
             
             # 현재 창 개수 확인
             window_handles = self.devtools.driver.window_handles
-            self.logger.info(f"현재 열린 창 개수: {len(window_handles)}")
-            
+            self.logger.info(f"[DEBUG] 현재 열린 창 개수: {len(window_handles)}")
+
             # iframe 내부로 이동하여 종료 버튼 찾기
             try:
                 # 기본 프레임으로 전환
@@ -106,16 +110,8 @@ class GameMonitoringService:
 
         except Exception as e:
             self.logger.error(f"방 종료 시도 중 오류: {e}", exc_info=True)
-            
-            # 오류 발생 시에도 최대한 로비 창으로 복귀 시도
-            try:
-                self.devtools.driver.switch_to.default_content()
-                window_handles = self.devtools.driver.window_handles
-                return self._switch_to_lobby_window(window_handles)
-            except:
-                pass
-                
             return False
+
 
     def _switch_to_lobby_window(self, window_handles):
         """로비 창으로 전환 (메소드 추출)"""

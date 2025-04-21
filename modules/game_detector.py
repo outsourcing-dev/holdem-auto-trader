@@ -2,14 +2,19 @@
 """
 게임 상태 감지 및 결과 추적 모듈
 """
+import logging
+from typing import List
 from bs4 import BeautifulSoup
 import re
+from typing import List 
 
 class GameDetector:
-    def __init__(self):
+    def __init__(self, logger=None):
+        self.logger = logger or logging.getLogger(__name__)
         self.current_round = 0  # 현재 게임 판수
         self.pb_history = []  # P/B 기록 (T 제외)
         self.all_results = []  # P/B/T 모든 결과 기록
+        self.results = []  # 게임 결과 (추가된 부분)
         self.reset()
 
     def reset(self):
@@ -119,8 +124,8 @@ class GameDetector:
             "recent_results": recent_results,
             "game_results": game_results
         }
-        
-    def detect_game_state(self, html_content):
+
+    def detect_game_state(self, html_content, desired_pb_count=15):
         """
         현재 게임 상태를 감지합니다.
         
@@ -151,10 +156,7 @@ class GameDetector:
         # 최근 결과 가져오기
         recent_results = game_info["recent_results"] if game_info["recent_results"] else []
         
-        # TIE를 제외한 결과를 정확히 10개 얻기 위한 처리
-        desired_pb_count = 15  # P와 B를 합쳐 10개 필요
-        
-        # 결과에서 TIE를 제외한 P/B만의 결과 필터링
+        # TIE를 제외한 결과를 정확히 `desired_pb_count`만큼 얻기 위한 처리
         filtered_results = []
         
         # 뒤에서부터(최신 결과부터) 개수 세기 - TIE 완전히 제외
@@ -162,7 +164,7 @@ class GameDetector:
             if result in ['P', 'B']:
                 filtered_results.insert(0, result)  # 최신 결과를 앞에 추가
             
-            # TIE 제외 결과가 10개면 충분
+            # 원하는 개수만큼 충분하면 종료
             if len(filtered_results) >= desired_pb_count:
                 break
         
@@ -170,17 +172,39 @@ class GameDetector:
         latest_coords = None
         if latest_result:
             latest_coords = (latest_result[0], latest_result[1])
-        
+            
+        self.logger.info(
+            f"[DEBUG] detect_game_state - filtered_results: {len(filtered_results)}개 / "
+            f"desired: {desired_pb_count}, recent_results 전체: {len(recent_results)}개"
+        )
+            
         return {
             'round': self.current_round,
             'betting_available': betting_available,
             'latest_result': latest_result_type,
             'latest_game_coords': latest_coords,
             'recent_results': recent_results,             # 모든 결과(TIE 포함)
-            'filtered_results': filtered_results,         # TIE를 제외한 결과 (최대 10개)
+            'filtered_results': filtered_results,         # TIE를 제외한 결과 (최대 desired_pb_count 개수)
             'game_results': game_info.get("game_results", [])  # 게임 번호별 결과
         }
+
+    def add_multiple_results(self, results: List[str], desired_pb_count=15):
+        """
+        여러 결과를 한 번에 기록 (T 제외하고 P/B만 기록)
         
+        Args:
+            results (List[str]): 결과 리스트 (예: ['P', 'B', 'T', ...])
+        """
+        # 결과에서 TIE를 제외한 P/B만의 결과 필터링
+        filtered_results = [result for result in results if result in ['P', 'B']]
+
+        # 원하는 개수만큼만 결과를 자른다.
+        self.results = filtered_results[-desired_pb_count:]  # 가장 최근 `desired_pb_count`개만 저장
+
+        if self.logger:
+            self.logger.info(f"[DEBUG] add_multiple_results - {len(filtered_results)}개 결과 필터링 후, "
+                             f"{len(self.results)}개 결과 저장 완료")
+
     def record_pb(self, result):
         """
         P(플레이어) 또는 B(뱅커)만 기록 (T 제외)
@@ -193,7 +217,7 @@ class GameDetector:
             
         # 모든 결과는 항상 기록
         self.all_results.append(result)
-        
+
     def get_streak(self, result_type='P'):
         """
         특정 결과의 연속 횟수를 확인합니다.

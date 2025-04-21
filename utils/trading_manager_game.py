@@ -79,19 +79,17 @@ class TradingManagerGame:
             new_room_name (str): 새 방 이름
             preserve_martin (bool): 마틴 단계 유지 여부
         """
-        # 중지 버튼 활성화
         self.tm.main_window.stop_button.setEnabled(True)
         self.tm.main_window.update_button_styles()
         from PyQt6.QtWidgets import QApplication
         QApplication.processEvents()
 
         self.tm.just_changed_room = True
-        
-        # ✅ 최초 방 입장 플래그 설정 - 첫 결과를 기다리기 위한 플래그
+
+        # ✅ 최초 방 입장 플래그 설정
         self.tm.wait_first_result = True
         self.logger.info("방 입장 후 첫 결과 대기 모드 활성화")
 
-        # 방 이동 후 로비 잔액 확인
         if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
             try:
                 balance = self.tm.balance_service.get_lobby_balance()
@@ -110,19 +108,16 @@ class TradingManagerGame:
                 self.logger.error(f"방 이동 후 잔액 확인 오류: {e}")
                 self.tm.check_balance_after_room_change = False
 
-        # 현재 위젯 포지션 확인 (로그용)
         current_widget_pos = 0
         if hasattr(self.tm.main_window, 'betting_widget') and hasattr(self.tm.main_window.betting_widget, 'room_position_counter'):
             current_widget_pos = self.tm.main_window.betting_widget.room_position_counter
             self.logger.info(f"[방 이동 성공] 위젯 포지션: {current_widget_pos+1}번")
 
-        # 마틴 유지 시 현재 베팅 금액 다시 설정
         bet_amount = None
         if hasattr(self.tm.excel_trading_service, 'get_current_bet_amount'):
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=current_widget_pos)
             self.logger.info(f"[방 이동 성공] 현재 베팅 금액: {bet_amount:,}원")
 
-        # UI 상태 업데이트
         self.tm.current_room_name = new_room_name
         self.tm.main_window.update_betting_status(
             room_name=self.tm.current_room_name,
@@ -130,63 +125,64 @@ class TradingManagerGame:
             bet_amount=bet_amount
         )
 
-        # 방 로그 위젯 설정 - 수정된 부분: 항상 is_new_visit=True로 설정
         if hasattr(self.tm.main_window, 'room_log_widget'):
-            # 디버그 로그 추가
             self.logger.info(f"[방 이동 성공] 방 로그 위젯 설정: {self.tm.current_room_name}, 새방문=True")
-            
-            # 명시적으로 is_new_visit=True로 설정하여 새 방문으로 처리
             self.tm.main_window.room_log_widget.set_current_room(
                 self.tm.current_room_name,
                 is_new_visit=True
             )
-            
-            # has_changed_room 플래그 명시적으로 설정
             self.tm.main_window.room_log_widget.has_changed_room = True
 
-        # 입장 직후 게임 상태 분석 및 15게임 처리
         try:
             if not getattr(self.tm.balance_service, '_target_amount_reached', False):
                 game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
 
                 if game_state:
                     actual_game_count = game_state.get('round', 0)
-                    self.tm.game_count = actual_game_count  # 현재 게임 카운트 즉시 업데이트
+                    self.tm.game_count = actual_game_count
 
                     filtered_results = game_state.get('filtered_results', [])
                     self.logger.info(f"방 입장 후 수집된 결과: {len(filtered_results)}개, 필요: 15개")
 
-                    # 여기가 중요: 항상 0을 게임 카운트로 전달하여 처음 실행 로직 강제
                     result = self.tm.excel_trading_service.process_game_results(
                         game_state,
-                        0,  # 항상 0을 전달하여 첫 실행 로직 사용
+                        0,
                         self.tm.current_room_name,
                         log_on_change=True
                     )
-                    
-                    # 모든 결과를 엑셀 매니저에 기록 (수정 필요)
+
                     if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
-                        # 기존 결과 클리어 후 새로 추가
                         self.tm.excel_trading_service.prediction_engine.clear()
-                        self.tm.excel_trading_service.prediction_engine.add_multiple_results(filtered_results)
-                        self.logger.info(f"예측 엔진에 {len(filtered_results)}개 결과 추가 완료")
-                    
-                    # 결과가 있으면 PICK 값 업데이트
+
+                        length = len(filtered_results)
+                        pe = self.tm.excel_trading_service.prediction_engine
+
+                        if length >= 17:
+                            pe.add_multiple_results(filtered_results[-17:])
+                            self.logger.info("예측 엔진에 17개 결과 추가 완료")
+                        elif length == 16:
+                            pe.add_multiple_results(filtered_results[-16:])
+                            self.logger.info("예측 엔진에 16개 결과 추가 완료")
+                        elif length >= 15:
+                            pe.add_multiple_results(filtered_results[-15:])
+                            self.logger.info("예측 엔진에 15개 결과 추가 완료")
+                        else:
+                            self.logger.warning(f"예측 엔진에 결과 추가 실패: 부족한 결과 수 ({length}개)")
+
                     if result[0] is not None and result[3] in ['P', 'B']:
                         self.tm.current_pick = result[3]
                         actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(result[3])
-
                         self.tm.main_window.update_betting_status(
                             pick=result[3],
                             bet_amount=bet_amount
                         )
                         self.logger.info(f"첫 분석 결과 PICK: {result[3]} (실제 베팅: {actual_pick})")
-                        # ✅ 하지만 바로 베팅하지는 않음 (wait_first_result 플래그로 첫 결과 대기)
 
         except Exception as e:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
 
         return True
+
 
     # utils/trading_manager_game.py 수정 부분
 
@@ -383,26 +379,19 @@ class TradingManagerGame:
         except Exception as e:
             self.logger.error(f"TIE 결과 처리 오류: {e}")
                 
-# utils/trading_manager_game.py - process_previous_game_result 메서드 수정
-
     def process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 - 중복 로그 방지 수정"""
         try:
             # 적중 마커 리셋 (적중 후 다음 턴)
             if getattr(self.tm, 'just_won', False):
                 self.logger.info("이전 적중 후 UI 완전 초기화")
-                # 마커 초기화
                 self.tm.main_window.betting_widget.reset_step_markers()
-                # 카운터 초기화
                 self.tm.main_window.betting_widget.room_position_counter = 0
-                # PICK 값 초기화
                 self.tm.current_pick = None
-                # 상태 초기화
                 self.tm.just_won = False
-                # UI 업데이트
                 self.tm.main_window.update_betting_status(
                     room_name=self.tm.current_room_name,
-                    pick=None,  # PICK 값도 초기화
+                    pick=None,
                     reset_counter=True
                 )
 
@@ -411,33 +400,41 @@ class TradingManagerGame:
             latest_result = game_state.get('latest_result')
 
             if last_bet and last_bet['type'] in ['P', 'B']:
-                # 베팅 결과 처리 - room_log 업데이트는 process_bet_result에서만 한 번 실행
                 result_status = self.tm.bet_helper.process_bet_result(last_bet['type'], latest_result, new_game_count)
-                
-                # 실패 시 should_refresh_data 플래그 비활성화 (기존 데이터 유지)
+
                 if result_status == 'lose':
-                    if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
-                    hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
-                        # 3연패 확인
-                        failure_count = getattr(self.tm.excel_trading_service.prediction_engine.choice_pick_system, 'failure_count', 0)
-                        if failure_count < 3:  # 3연패 미만일 때만 기존 데이터 유지
-                            self.tm.excel_trading_service.prediction_engine.choice_pick_system.should_refresh_data = False
-                            self.logger.info(f"실패 {failure_count}회: 기존 데이터 유지 + 결과 추가 모드 활성화")
+                    if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
+                        prediction_engine = self.tm.excel_trading_service.prediction_engine
+                        failure_count = getattr(prediction_engine.choice_pick_system, 'failure_count', 0)
 
-                # 승리 후 게임 판수 확인
-                actual_game_count = game_state.get('round', 0)
-                if result_status == 'win' and actual_game_count >= 55:
-                    self.logger.info(f"trading_manager_game : 승리 후 55게임 이상 도달 ({actual_game_count}회차). 방 이동 진행")
-                    self.tm.change_room()
-                    return
-                
-                # 방 이동 확인
-                if self.tm.excel_trading_service.should_change_room():
-                    self.logger.info("베팅 결과 처리 후 방 이동 필요 감지")
-                    self.tm.change_room()
-                    return
+                        if failure_count < 3:
+                            prediction_engine.choice_pick_system.should_refresh_data = False
 
-            # 타이가 아닌 경우에만 베팅 상태 초기화
+                            # 🔥 여기서 최신 결과 다시 파싱
+                            desired_count = 15 + failure_count
+                            html = self.tm.devtools.get_page_source()
+                            game_state = self.tm.game_monitoring_service.game_detector.detect_game_state(
+                                html, desired_pb_count=desired_count
+                            )
+                            filtered_results = game_state.get("filtered_results", [])
+
+                            # ✅ 여기서 15~17개로 정확하게 슬라이스해서 추가
+                            if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
+                                pe = self.tm.excel_trading_service.prediction_engine
+                                length = len(filtered_results)
+                                if length >= 17:
+                                    pe.add_multiple_results(filtered_results[-17:])
+                                    self.logger.info("17개 결과로 예측 엔진 갱신 완료")
+                                elif length == 16:
+                                    pe.add_multiple_results(filtered_results[-16:])
+                                    self.logger.info("16개 결과로 예측 엔진 갱신 완료")
+                                elif length >= 15:
+                                    pe.add_multiple_results(filtered_results[-15:])
+                                    self.logger.info("15개 결과로 예측 엔진 갱신 완료")
+                                else:
+                                    self.logger.warning(f"예측 불가 - 결과 부족: {length}개")
+
+            # 타이가 아닌 경우만 베팅 상태 초기화
             if latest_result != 'T':
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
 
@@ -451,8 +448,6 @@ class TradingManagerGame:
         except Exception as e:
             self.logger.error(f"이전 게임 결과 처리 오류: {e}")
 
-        except Exception as e:
-            self.logger.error(f"이전 게임 결과 처리 오류: {e}")
 
     def exit_current_game_room(self):
         """현재 게임방에서 나가기"""

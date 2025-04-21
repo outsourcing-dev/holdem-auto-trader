@@ -41,9 +41,8 @@ class ExcelTradingService:
         
         # 중복 처리 방지 확인
         if self._is_duplicate_result(latest_result, new_game_count):
-            # 중복 결과인 경우에도 예측은 시도한다
-            next_pick = self.prediction_engine.predict_next_pick()
-            return "DUPLICATE", new_game_count, recent_results, next_pick
+            return "DUPLICATE", new_game_count, recent_results, self.prediction_engine.predict_next_pick()
+
         
         # 첫 실행 여부 확인 - 수정: 첫 실행 판단 로직 개선
         is_first_run = game_count == 0 or game_count < new_game_count - 3
@@ -101,50 +100,42 @@ class ExcelTradingService:
         """
         self.logger.info(f"첫 실행 감지: 예측 엔진에 최근 결과 {len(filtered_results)}개 추가 (TIE 제외)")
 
-        # 예측 엔진 초기화 및 결과 추가
+        # 예측 엔진 초기화만!
         self.prediction_engine.clear()
-        self.prediction_engine.add_multiple_results(filtered_results)
-
-        # 결과 로깅 강화
-        self.logger.info(f"첫 실행 결과: {filtered_results}")
 
         # 다음 PICK 예측
         next_pick = self.prediction_engine.predict_next_pick()
 
-        # processed_rounds 업데이트 (좀 더 명확한 게임 카운트 계산)
+        # processed_rounds 업데이트
         start_count = max(1, actual_game_count - len(filtered_results))
         self._update_processed_rounds(filtered_results, start_count=start_count)
 
         return "PREDICTED", actual_game_count, recent_results, next_pick
 
-    def _record_new_result(self, result, column, new_game_count, recent_results):
-        """
-        새 결과 기록 - 엑셀 대신 예측 엔진 사용
-        
-        Args:
-            result (str): 게임 결과 ('P', 'B', 'T' 중 하나)
-            column (str): 열 정보 (호환성 유지용)
-            new_game_count (int): 새 게임 카운트
-            recent_results (list): 최근 결과 목록
-            
-        Returns:
-            tuple: (열 정보, 게임 카운트, 최근 결과 목록, 다음 픽 값)
-        """
-        self.logger.info(f"새 결과 '{result}' 예측 엔진에 추가")
-        
-        # 예측 엔진에 새 결과 추가
-        self.prediction_engine.add_result(result)
-        
-        # 처리된 결과 추적 - ID 추가
-        if hasattr(self.main_window, 'trading_manager'):
-            result_id = f"{new_game_count}_{result}"
-            self.main_window.trading_manager.processed_rounds.add(result_id)
 
-        # 다음 PICK 값 예측
+    def _record_new_result(self, result, column, new_game_count, recent_results):
+        self.logger.info(f"새 결과 '{result}' 포함 전체 결과 재설정")
+
+        # ✅ 중복 방지: 최신 결과가 recent_results 끝에 있으면 제거
+        if recent_results and recent_results[-1] == result:
+            self.logger.debug("중복 결과 감지 → recent_results에서 마지막 제거")
+            recent_results = recent_results[:-1]
+
+        # ✅ 예측 엔진 초기화 후 전체 filtered_results 다시 설정
+        filtered_results = [r for r in recent_results if r in ['P', 'B']]
+        filtered_results.append(result)  # ✅ 방금 결과는 따로 append
+        self.prediction_engine.clear()
+        self.prediction_engine.add_multiple_results(filtered_results)
+
+        # ✅ 처리된 라운드도 전체 재동기화
+        if hasattr(self.main_window, 'trading_manager'):
+            start_count = new_game_count - len(filtered_results) + 1
+            self._update_processed_rounds(filtered_results, start_count=start_count)
+
         next_pick = self.prediction_engine.predict_next_pick()
-        
-        # 이전 버전과의 호환성을 위해 열 정보 유지
         return column, new_game_count, recent_results, next_pick
+
+
   
     def _is_duplicate_result(self, latest_result, new_game_count):
         """

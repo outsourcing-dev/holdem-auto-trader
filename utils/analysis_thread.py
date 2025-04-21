@@ -66,9 +66,23 @@ class GameAnalysisThread(QThread):
                     self.room_change_needed.emit()
                 return
                     
-            # 게임 상태 가져오기만 스레드에서 수행
-            game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=False)
-            
+            # 실패 횟수에 따라 원하는 개수 설정
+            failure_count = 0
+            if hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
+                failure_count = getattr(
+                    self.tm.excel_trading_service.prediction_engine.choice_pick_system,
+                    'failure_count',
+                    0
+                )
+
+            desired_pb_count = min(17, 15 + failure_count)
+
+            # 게임 상태 분석 (원하는 개수 반영)
+            game_state = self.tm.game_monitoring_service.get_current_game_state(
+                log_always=False,
+                desired_pb_count=desired_pb_count
+            )
+               
             if not game_state:
                 self.logger.error("게임 상태를 가져올 수 없습니다. (스레드)")
                 self.analysis_error.emit("게임 상태를 가져올 수 없습니다.")

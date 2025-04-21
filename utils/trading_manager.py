@@ -692,6 +692,8 @@ class TradingManager:
         
         # Check excel_trading_service first (초이스 픽 시스템의 신호)
         if hasattr(self, 'excel_trading_service'):
+            self.logger.info(f"[DEBUG] 게임 분석 전: should_refresh_data={getattr(self.excel_trading_service.choice_pick_system, 'should_refresh_data', None)}, failure_count={getattr(self.excel_trading_service.choice_pick_system, 'failure_count', 0)}")
+
             should_move = self.excel_trading_service.should_change_room()
             if should_move:
                 # 로그 추가: 방 이동 결정 원인 추적
