@@ -351,6 +351,8 @@ class TradingManagerGame:
     def handle_tie_result(self, latest_result, game_state):
         """무승부(T) 결과 처리"""
         try:
+            self.tm.current_pick = None
+
             # 무승부 시 베팅 시도
             if (latest_result == 'T' and 
                 not self.tm.betting_service.has_bet_current_round and 

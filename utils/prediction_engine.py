@@ -25,9 +25,20 @@ class PredictionEngine:
         Args:
             result (str): 게임 결과 ('P', 'B', 'T' 중 하나)
         """
-        # T는 무시, 초이스 픽 시스템에 추가
+        # T는 무시
         if result in ['P', 'B']:
+            # 👇 실패 플래그를 미리 검사해서 should_refresh_data 상태 유지 여부를 결정
+            if hasattr(self.choice_pick_system, 'should_refresh_data') and self.choice_pick_system.should_refresh_data:
+                self.logger.info("데이터 새로 수집 중 → 결과 누적 허용")
+            else:
+                # 👇 실패 상태라면 누적 유지
+                if hasattr(self.choice_pick_system, 'failure_count') and self.choice_pick_system.failure_count > 0:
+                    self.logger.info(f"{self.choice_pick_system.failure_count}회 연속 실패 중 → 결과 누적 유지")
+                    self.choice_pick_system.should_refresh_data = False
+
+            # 결과 누적
             self.choice_pick_system.add_result(result)
+
                 
     def add_multiple_results(self, results):
         """
@@ -45,31 +56,40 @@ class PredictionEngine:
         self.choice_pick_system.add_multiple_results(results)
     
     def predict_next_pick(self) -> str:
-        """다음 픽 예측 (15판 기준 초이스 픽 시스템 사용)"""
+        """다음 픽 예측 (15~17판까지 지원)"""
+
         # 이전 승리 여부에 따라 캐시 초기화 결정
         if hasattr(self.choice_pick_system, 'recent_results') and self.choice_pick_system.recent_results:
-            # 최근 결과가 승리인 경우 항상 캐시 초기화
             if self.choice_pick_system.recent_results[-1] == True:
                 self.logger.info("최근 승리 감지: 픽 캐시 초기화")
                 self.choice_pick_system.cached_pick = None
                 self.choice_pick_system.last_results = []
-        
-        # 데이터가 충분한지 확인 (15판)
+                self.choice_pick_system.current_pick = None
+
+        # 데이터 충분한지 확인 (최소 15개 필요)
         if not self.choice_pick_system.has_sufficient_data():
             self.logger.warning(f"데이터 부족: {len(self.choice_pick_system.results)}/15판, 픽 생성 불가")
             return 'N'
-        
-        # 초이스 픽 시스템에서 픽 생성
+
+        # PICK 생성
         pick = self.choice_pick_system.generate_choice_pick()
-        
-        if pick:
+
+        if pick and pick in ['P', 'B']:
+            self.current_pick = pick
+            self.cached_pick = pick
+            self.last_results = self.choice_pick_system.results.copy()  # ✅ 정답
+            self.consecutive_n_count = 0
+
             direction = self.choice_pick_system.betting_direction
             self.logger.info(f"초이스 픽 생성 완료: {pick} ({direction} 배팅)")
-            return pick
         else:
+            self.consecutive_n_count += 1
             self.logger.warning("초이스 픽 생성 실패 - 데이터 부족 또는 적합한 후보 없음")
-            return 'N'
-    
+            pick = 'N'
+
+        return pick
+
+
     def record_betting_result(self, is_win: bool) -> None:
         """
         베팅 결과 기록
@@ -119,6 +139,9 @@ class PredictionEngine:
         if hasattr(self.choice_pick_system, 'should_refresh_data'):
             self.choice_pick_system.should_refresh_data = True
             self.choice_pick_system.failure_count = 0
+            self.choice_pick_system.cached_pick = None  # ✅ 추가
+            self.choice_pick_system.last_results = []   # ✅ 추가
+            self.choice_pick_system.current_pick = None # ✅ 추가
             
         # 기존 메서드 호출
         self.choice_pick_system.reset_after_room_change(preserve_martin=preserve_martin)

@@ -14,6 +14,7 @@ class ExcelTradingService:
         # 내부 예측 엔진 사용 (Excel 없이 동작)
         from utils.prediction_engine import PredictionEngine
         self.prediction_engine = PredictionEngine(logger=self.logger)
+        self.prediction_engine.choice_pick_system = self.choice_pick_system  # ← 인스턴스 공유!
 
     # services/excel_trading_service.py 수정
 

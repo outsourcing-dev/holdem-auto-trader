@@ -72,33 +72,28 @@ class ChoicePickSystem:
 
     def add_result(self, result: str) -> None:
         """
-        새 결과 추가 (TIE는 무시) - 실패 시 기존 데이터에 추가
-        
+        새 결과 추가 (TIE는 무시) - 실패 시 기존 데이터에 계속 추가
+
         Args:
             result: 'P', 'B', 또는 'T' (Player, Banker, Tie)
         """
         if result not in ['P', 'B']:
             return
-            
-        # 실패 시 기존 데이터 보존 로직 - 데이터를 계속 추가함
-        if not self.should_refresh_data:
-            # 기존 데이터에 새 결과를 계속 추가 (데이터 길이가 증가)
-            self.results.append(result)
-            if self.logger:
-                self.logger.info(f"실패 후 결과 추가: {result} (현재 데이터 개수: {len(self.results)}개)")
-        else:
-            # 전체 데이터 리프레시가 필요한 경우 (성공, N값, 또는 초기화 시)
-            # 데이터를 15개로 유지
-            self.results.append(result)
-            if len(self.results) > 15:
-                self.results = self.results[-15:]  # 최근 15개만 유지
-            
+
+        # ✅ 항상 추가하고, 리프레시 조건 시에만 자른다
+        self.results.append(result)
+
+        # ✅ 성공 등 리프레시 모드일 때만 15개 유지
+        if self.should_refresh_data and len(self.results) > 15:
+            self.results = self.results[-15:]  # 최근 15개만 유지
+
         if self.logger:
             self.logger.info(f"결과 추가: {result} (현재 {len(self.results)}개 데이터)")
             self.logger.debug(f"현재 결과 리스트: {self.results}")
-        
+
         self.last_win_count += 1
-        
+
+
     def add_multiple_results(self, results: List[str]) -> None:
         """
         여러 결과 한번에 추가 (TIE 제외)
@@ -599,6 +594,9 @@ class ChoicePickSystem:
             if self.failure_count >= 3:
                 self.should_refresh_data = True
                 self.failure_count = 0
+                self.cached_pick = None
+                self.last_results = []
+                self.current_pick = None  # ✅ 여기에 추가
                 if self.logger:
                     self.logger.info("3연패로 인해 데이터 리프레시 플래그 활성화")
             else:
@@ -720,28 +718,32 @@ class ChoicePickSystem:
         self.stage4_picks = []
         self.stage5_picks = []
     
-    def generate_six_pick_candidates(self) -> Dict[int, List[str]]:
+    def generate_six_pick_candidates(self) -> Dict[int, Dict[str, List[str]]]:
         """
         6개의 후보 픽 생성 (시작 위치별)
-        
+
         Returns:
-            Dict[int, List[str]]: 각 후보별 픽 리스트 {1: ['P', 'B', ...], 2: ['B', 'P', ...], ...}
+            Dict[int, Dict[str, List[str]]]: 각 후보별 {
+                1: {"scoring_picks": [...], "next_pick": 'B'},
+                2: {...},
+                ...
+            }
         """
         if self.logger:
             self.logger.info(f"===== 후보 픽 생성 시작 =====")
             self.logger.info(f"입력 데이터 (총 {len(self.results)}개): {self.results}")
-        
+
         if not self.has_sufficient_data():
             if self.logger:
                 self.logger.warning(f"후보 픽 생성 실패: 데이터 부족 (현재 {len(self.results)}/15판)")
             return {}
-        
+
         candidates = {}
 
         for i in range(6):  # 후보 1~6번
             start = i
             results_slice = self.results[start:]
-            
+
             if len(results_slice) < 6:  # 최소 6개 결과 필요
                 if self.logger:
                     self.logger.info(f"후보 {i+1}번: 데이터 부족으로 생성 불가 (필요: 6개, 있음: {len(results_slice)}개)")
@@ -750,179 +752,68 @@ class ChoicePickSystem:
             stage_picks = self._generate_all_stage_picks(start_from=start)
 
             picks = []
-            for local_pick_num in range(6, 16):  # 픽 번호 6~15
+            for local_pick_num in range(6, 18):  # 픽 번호 6~17까지 시도 (예측 실패 대비)
                 global_pick_num = start + local_pick_num
                 if global_pick_num in stage_picks:
                     picks.append(stage_picks[global_pick_num]["최종픽"])
 
-            # ✅ 결과와 비교할 수 있는 만큼만 자르기
-            result_start_idx = start + 5
-            actual_results = self.results[result_start_idx:result_start_idx + len(picks)]
+            if picks:
+                candidate_data = {
+                    "scoring_picks": picks[:-1] if len(picks) > 1 else [],
+                    "next_pick": picks[-1] if len(picks) > 0 else 'N'
+                }
+                candidates[i + 1] = candidate_data
 
-            # ✅ 승패 계산
-            win_loss = ['W' if p == r else 'L' for p, r in zip(picks, actual_results)]
-            last_two = win_loss[-2:] if len(win_loss) >= 2 else []
+                if self.logger:
+                    self.logger.info(f"후보 {i+1}번 픽 생성 결과: {picks}")
 
-            candidates[i + 1] = picks
+        # ===== 후보 간 길이 통일 처리 =====
+        if candidates:
+            max_len = max(len(c["scoring_picks"]) for c in candidates.values())
+            for c in candidates.values():
+                while len(c["scoring_picks"]) < max_len:
+                    c["scoring_picks"].append("N")  # 비교용 패딩
 
-            # if self.logger:
-            #     self.logger.info(f"\n----- 후보 {i+1}번 상세 (시작 위치={start}) -----")
-            #     self.logger.info(f"픽 리스트: {picks}")
-            #     self.logger.info(f"결과 리스트: {actual_results}")
-            #     self.logger.info(f"승패 리스트: {win_loss}")
-            #     self.logger.info(f"마지막 2판 패턴: {last_two}")
-
-            picks = []
-            # 최종 픽 수집 (6번부터 15번까지)
-            for local_pick_num in range(6, 16):  # 로컬 픽 번호 (6~15)
-                global_pick_num = start + local_pick_num  # 글로벌 픽 번호
-                
-                if global_pick_num in stage_picks:
-                    picks.append(stage_picks[global_pick_num]["최종픽"])
-            
-            candidates[i + 1] = picks
-            
-            if self.logger:
-                self.logger.info(f"후보 {i+1}번 픽 생성 결과: {picks}")
-        
         if self.logger:
             self.logger.info(f"===== 총 {len(candidates)}개 후보 생성 완료 =====")
-            
+
         return candidates
 
+
     def generate_choice_pick(self) -> str:
-        """
-        초이스 픽 생성 - 캐싱 개선으로 동일한 결과에 대해서는 픽을 다시 계산하지 않음
-        
-        Returns:
-            str: 다음 베팅 픽 ('P', 'B' 또는 'N')
-        """
-        # 결과가 변경되지 않았다면 캐시된 값 반환
-        if self.results == self.last_results and self.cached_pick is not None:
-            if self.logger:
-                self.logger.debug(f"결과 변경 없음, 캐시된 PICK 사용: {self.cached_pick}")
-                
-            # 중요: 캐시된 픽이 'N'이 아니면 N 카운트 초기화
-            if self.cached_pick != 'N' and hasattr(self, 'consecutive_n_count') and self.consecutive_n_count > 0:
-                prev_count = self.consecutive_n_count
-                self.consecutive_n_count = 0
-                if self.logger:
-                    self.logger.info(f"캐시된 유효한 픽 '{self.cached_pick}' 사용으로 연속 N 카운트 초기화: {prev_count} → 0")
-                    
-            return self.cached_pick
-                    
-        # 결과가 변경된 경우에만 로그 출력
-        if self.logger:
-            self.logger.info(f"현재 저장된 결과 (총 {len(self.results)}개): {self.results}")
-        
-        if not self.has_sufficient_data():
-            if self.logger:
-                self.logger.warning(f"초이스 픽 생성 실패: 데이터 부족 (현재 {len(self.results)}/15판)")
-            # 15게임 부족할 때는 N 카운트를 증가시키지 않음
+        six_pick_candidates = self.generate_six_pick_candidates()
+        if not six_pick_candidates:
             return 'N'
 
-        candidates = self.generate_six_pick_candidates()
+        actual_results = self.results[5:]  # 결과 비교 시작은 6번부터
         valid_candidates = []
 
-        for idx, picks in candidates.items():
-            if len(picks) < 3:
-                continue  # 비교할 게 너무 적음
+        for candidate in six_pick_candidates.values():
+            picks = candidate["scoring_picks"]
+            next_pick = candidate["next_pick"]
 
-            start = idx - 1
-            # 수정: 마지막 픽을 제외하지 않고 모두 사용 (전체 픽을 결과와 비교)
-            picks_to_compare = picks
-            compare_start = start + 5  # 후보 시작 위치 + 로컬 픽 6번
-            compare_end = compare_start + len(picks_to_compare)
-
-            if compare_end > len(self.results):
-                if self.logger:
-                    self.logger.debug(f"후보 {idx}번: 결과 비교 부족 (필요: {compare_end}, 있음: {len(self.results)})")
-                continue  # 결과가 부족하면 제외
-
-            results_to_compare = self.results[compare_start:compare_end]
-            win_loss_pattern = ['W' if p == r else 'L' for p, r in zip(picks_to_compare, results_to_compare)]
-            last_pattern = win_loss_pattern[-2:] if len(win_loss_pattern) >= 2 else []
-            
-            if 'WWW' in ''.join(win_loss_pattern) or 'LLL' in ''.join(win_loss_pattern):
-                continue
-            
-            # 정배 or 역배 판단
-            if last_pattern == ['W', 'L']:
-                score = win_loss_pattern.count('W') - win_loss_pattern.count('L')
-                bet_direction = 'normal'
-            elif last_pattern == ['L', 'W']:
-                score = win_loss_pattern.count('L') - win_loss_pattern.count('W')
-                bet_direction = 'reverse'
-            else:
+            compare_len = min(len(picks), len(actual_results))
+            if compare_len < 3:  # 비교할 데이터가 너무 적으면 제외
                 continue
 
-            if self.logger:
-                self.logger.info(
-                    f"후보 {idx}번: 픽={picks_to_compare[-2:]}, 결과={results_to_compare[-2:]}, "
-                    f"패턴={last_pattern}, 점수={score}, 방향={bet_direction}"
-                )
+            wins = 0
+            for i in range(compare_len):
+                if picks[i] == actual_results[i]:
+                    wins += 1
+            losses = compare_len - wins
 
-            # 수정: 다음 픽은 현재 후보 리스트보다 하나 더 앞선 위치에서 가져옴
-            # 예: 후보 픽이 6~15번까지라면, 다음 픽은 16번이어야 함
-            all_stage_picks = self._generate_all_stage_picks(start_from=start)
-            next_pick_number = start + len(picks) + 6  # +6은 픽 6번부터 시작하므로
-            
-            # 다음 픽 가져오기 (16번 이후)
-            next_pick = 'N'
-            if next_pick_number in all_stage_picks:
-                next_pick = all_stage_picks[next_pick_number]["최종픽"]
-            
-            valid_candidates.append({
-                'index': idx,
-                'picks': picks,
-                'score': score,
-                'bet_direction': bet_direction,
-                'next_pick': next_pick,
-            })
+            score = wins - losses
+            candidate["score"] = score
+
+            # 'WWW', 'LLL' 같은 특정 패턴 제외 등 추가 조건 가능
+            valid_candidates.append(candidate)
 
         if not valid_candidates:
-            if self.logger:
-                self.logger.warning("유효한 후보 없음. 배팅 중단 (N 반환)")
-            # 유효한 후보가 없을 때 N 카운트 증가
-            prev_count = self.consecutive_n_count if hasattr(self, 'consecutive_n_count') else 0
-            self.consecutive_n_count += 1
-            if self.logger:
-                self.logger.warning(f"연속 N 카운트 증가: {prev_count} → {self.consecutive_n_count}")
-                
-            # 여기에 추가: N 값 반환 시 새로운 15개 데이터로 리셋하도록 플래그 설정
-            self.should_refresh_data = True
-            
-            # 연속 N 카운트가 3 이상이면 should_change_room 메소드에서 감지될 수 있게 설정
-            if self.consecutive_n_count >= 4:
-                self._n_consecutive_detected = True
-            else:
-                self._n_consecutive_detected = False
-                
-            # 현재 결과 복사 및 'N' 값 캐싱
-            self.last_results = self.results.copy()
-            self.cached_pick = 'N'
             return 'N'
-        
-        # N 카운트 초기화 (유효한 후보가 있으므로)
-        if hasattr(self, 'consecutive_n_count') and self.consecutive_n_count > 0:
-            prev_count = self.consecutive_n_count
-            self.consecutive_n_count = 0
-            if self.logger:
-                self.logger.info(f"유효한 후보 생성으로 연속 N 카운트 초기화: {prev_count} → 0")
 
-        best = max(valid_candidates, key=lambda x: x['score'])
-        self.selected_candidate_idx = best['index']
-        self.selected_candidate_score = best['score']
-        self.betting_direction = best['bet_direction']
+        best_candidate = max(valid_candidates, key=lambda c: c["score"])
+        return best_candidate["next_pick"]
 
-        if self.logger:
-            self.logger.info(f"🏆 후보 {best['index']}번 선택 | 승점 {best['score']} | 방향: {self.betting_direction}")
-        
-        # 현재 결과 복사하고 결과 캐싱
-        self.last_results = self.results.copy()
-        self.cached_pick = best['next_pick']
-        
-        return best['next_pick']
 
     def get_reverse_bet_pick(self, original_pick):
         """
