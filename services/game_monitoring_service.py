@@ -36,7 +36,7 @@ class GameMonitoringService:
             game_state = self.game_detector.detect_game_state(html_content, desired_pb_count=desired_pb_count)
             
             # 여기서 게임 상태를 반환하기 전에 `results` 상태를 확인
-            self.logger.info(f"[DEBUG] 게임 상태에서 받은 결과: {game_state['filtered_results']}")
+            # self.logger.info(f"[DEBUG] 게임 상태에서 받은 결과: {game_state['filtered_results']}")
             
             return game_state
             

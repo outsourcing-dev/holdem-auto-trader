@@ -197,6 +197,8 @@ class TradingManagerGame:
                 hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
                     self.tm.excel_trading_service.prediction_engine.choice_pick_system.should_refresh_data = True
                     self.tm.excel_trading_service.prediction_engine.choice_pick_system.failure_count = 0
+                    # 로그 추가
+                    self.logger.info("should_refresh_data 플래그 활성화 및 failure_count 초기화")
                     
                 # 마커 리셋
                 if hasattr(self.tm.main_window, 'betting_widget'):
@@ -211,41 +213,12 @@ class TradingManagerGame:
             
             last_column, new_game_count, recent_results, next_pick = result
             
+            # 로그 추가: 결과 정보
+            self.logger.info(f"Excel 결과: new_game_count={new_game_count}, next_pick={next_pick}")
+            self.logger.info(f"최근 결과 길이: {len(recent_results)}")
+            
             # 실제 게임 카운트 사용
             actual_game_count = game_state.get('round', 0)
-            
-            # 현재 마틴 단계 확인 - 항상 최신 값을 가져옴
-            current_martin_step = 0
-            if hasattr(self.tm, 'martin_service') and hasattr(self.tm.martin_service, 'current_step'):
-                # 실시간으로 마틴 단계 다시 확인
-                current_martin_step = self.tm.martin_service.current_step
-                self.logger.info(f"현재 마틴 단계 확인: {current_martin_step+1}단계")
-            
-            # 위젯의 마지막 마커 상태 확인
-            last_marker = None
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                if hasattr(self.tm.main_window.betting_widget, 'get_current_marker'):
-                    last_marker = self.tm.main_window.betting_widget.get_current_marker()
-                elif hasattr(self.tm.main_window.betting_widget, 'markers'):
-                    # markers 배열에서 마지막 유효한 마커 찾기
-                    markers = self.tm.main_window.betting_widget.markers
-                    for i in range(len(markers)-1, -1, -1):
-                        if markers[i] in ["O", "X", "T"]:
-                            last_marker = markers[i]
-                            break
-            
-            self.logger.info(f"현재 위젯 마지막 마커: {last_marker}")
-            
-            # 마지막 마커가 'O'면 성공, 마지막 마커가 'X'면 마틴 진행중
-            is_martin_in_progress = (last_marker == "X")
-            is_last_bet_win = (last_marker == "O")
-            
-            # 게임 카운트 초기화 감지 (갑자기 작은 값으로 변경된 경우)
-            if previous_game_count > 10 and actual_game_count <= 5:
-                self.logger.info(f"게임 카운트 초기화 감지! {previous_game_count} -> {actual_game_count}")
-                # 방 이동
-                self.tm.change_room()
-                return
             
             # 게임 카운트 변화 확인
             if new_game_count > previous_game_count:
@@ -256,60 +229,12 @@ class TradingManagerGame:
                 if game_state.get('latest_result') == 'T':
                     pass
                 
-                # 방 이동 필요 조건 확인 (수정된 로직)
-                should_move = False
-                due_to_consecutive_n = False
-
-                # 1. 초이스 픽 시스템의 방 이동 신호 - 여기서 N 값 3회 이상 확인
-                if self.tm.excel_trading_service.should_change_room():
-                    # N값 감지 확인
-                    consecutive_n = False
-                    if hasattr(self.tm.excel_trading_service, 'choice_pick_system') and \
-                    hasattr(self.tm.excel_trading_service.choice_pick_system, 'consecutive_n_count'):
-                        consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
-                    
-                    if consecutive_n:
-                        # N값 3회 이상인 경우에만 방 이동 허용
-                        self.logger.info(f"N값 3회 이상 연속 감지 - 마틴 유지하며 방 이동")
-                        should_move = True
-                        due_to_consecutive_n = True  # 마틴 유지
-                    elif not is_martin_in_progress:
-                        # 마틴 진행중이 아니면 일반 방 이동 허용
-                        self.logger.info(f"초이스 픽 시스템 방 이동 신호 - 마틴 없거나 성공했으므로 방 이동")
-                        should_move = True
-                        due_to_consecutive_n = False  # 마틴 초기화
-                    else:
-                        # 마틴 중이고 N값 조건도 아니면 방 이동 안함
-                        self.logger.info(f"초이스 픽 방 이동 신호지만 마틴 진행 중(X 마커)이므로 무시")
-                
-                # 2. 55게임 조건 확인 - 수정된 부분
-                elif actual_game_count >= 55:
-                    # 위젯 포지션 확인
-                    widget_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
-
-                    self.logger.info(
-                        f"55게임 체크 - 게임 수: {actual_game_count}, "
-                        f"위젯 포지션: {widget_pos + 1}번"
-                    )
-
-                    if widget_pos != 0:
-                        self.logger.info(f"현재 포지션이 {widget_pos + 1}번이므로 방 유지")
-                        should_move = False
-                    else:
-                        self.logger.info(f"처음 위치 (1번)에서 55게임 도달 → 방 이동")
-                        should_move = True
-                        due_to_consecutive_n = False  # 마틴은 초기화
-
-                
-                # 방 이동 필요 시 실행
-                if should_move:
-                    # 수정: 항상 True가 아닌 상황에 맞게 플래그 전달
-                    self.tm.change_room(due_to_consecutive_n=due_to_consecutive_n)
-                    return
-                
                 # ✅ PICK 값에 따른 베팅 실행 (첫 결과 대기 모드가 아닌 경우에만)
                 if not hasattr(self.tm, 'wait_first_result') or not self.tm.wait_first_result:
                     if not self.tm.betting_service.has_bet_current_round and next_pick in ['P', 'B']:
+                        # 로그 추가: 베팅 실행 직전
+                        self.logger.info(f"베팅 실행 직전: next_pick={next_pick}, actual_game_count={actual_game_count}")
+                        
                         # ✅ 베팅 전에 just_won 상태라면 마커 초기화 먼저!
                         if getattr(self.tm, 'just_won', False):
                             self.logger.info("[베팅 전 초기화] just_won 상태이므로 마커 리셋")
@@ -325,6 +250,9 @@ class TradingManagerGame:
                             self.tm.bet_helper.place_bet(next_pick, actual_game_count)
                         else:
                             self.tm.current_pick = next_pick
+                    else:
+                        # 베팅 조건 불충족 로그
+                        self.logger.info(f"베팅 조건 불충족: has_bet_current_round={self.tm.betting_service.has_bet_current_round}, next_pick={next_pick}")
                 else:
                     # 첫 결과 대기 모드일 경우 로그만 남김
                     self.logger.info(f"첫 결과 대기 모드입니다. 아직 베팅하지 않습니다. (PICK: {next_pick})")
@@ -333,33 +261,31 @@ class TradingManagerGame:
 
                 # 실제 게임 카운트 저장
                 self.tm.game_count = actual_game_count
-                
+                    
             # 베팅 후 결과 확인 중인 경우
             elif self.tm.betting_service.has_bet_current_round:
                 last_bet = self.tm.betting_service.get_last_bet()
                 if last_bet and last_bet['round'] < actual_game_count:
                     # 결과 확인 대기
                     pass
-            
+                
         except Exception as e:
             self.logger.error(f"Excel 결과 처리 오류: {e}")
             
     def handle_tie_result(self, latest_result, game_state):
         """무승부(T) 결과 처리"""
         try:
+            # PICK 값 초기화
             self.tm.current_pick = None
 
-            # 무승부 시 베팅 시도
-            if (latest_result == 'T' and 
-                not self.tm.betting_service.has_bet_current_round and 
-                self.tm.current_pick in ['P', 'B'] and
-                self.tm.game_count > 0):
-                
+            # 무승부 시 상태 초기화 및 새 게임 분석
+            if latest_result == 'T' and self.tm.game_count > 0:
                 # 베팅 상태 초기화
                 self.tm.betting_service.has_bet_current_round = False
                 
-                # 대기 시간
-                time.sleep(1)
+                # 무승부 후 충분한 대기 시간 추가
+                self.logger.info("무승부(T) 감지. 새 라운드 준비를 위해 5초 대기...")
+                time.sleep(5)
                 
                 # 현재 방에 계속 있음을 표시
                 if hasattr(self.tm.main_window, 'room_log_widget'):
@@ -368,17 +294,15 @@ class TradingManagerGame:
                         is_new_visit=False
                     )
 
-                # 베팅 시도
-                bet_success = self.tm.bet_helper.place_bet(self.tm.current_pick, self.tm.game_count)
+                # 게임 상태 다시 분석하여 새 픽 생성
+                self.logger.info("무승부 후 게임 상태 다시 분석")
+                self.tm.analyze_current_game()
                 
-                if bet_success:
-                    self.logger.info(f"TIE 이후 베팅 성공: {self.tm.current_pick}")
-                else:
-                    self.logger.warning(f"TIE 이후 베팅 실패. 다음 시도 예정")
-                    self.tm.main_window.set_remaining_time(0, 0, 1)
+                # 다음 분석 예약 (2초 후)
+                self.tm.main_window.set_remaining_time(0, 0, 2)
         except Exception as e:
             self.logger.error(f"TIE 결과 처리 오류: {e}")
-                
+            
     def process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 - 중복 로그 방지 수정"""
         try:

@@ -54,7 +54,7 @@ class PredictionEngine:
             
         # 초이스 픽 시스템에 결과 추가 (내부에서 P/B만 필터링)
         self.choice_pick_system.add_multiple_results(results)
-    
+        
     def predict_next_pick(self) -> str:
         """다음 픽 예측 (15~17판까지 지원)"""
 
@@ -66,6 +66,10 @@ class PredictionEngine:
                 self.choice_pick_system.last_results = []
                 self.choice_pick_system.current_pick = None
 
+        # 로그 추가: 현재 데이터 상태
+        if hasattr(self.choice_pick_system, 'results'):
+            self.logger.info(f"현재 choice_pick_system에 저장된 데이터: {self.choice_pick_system.results}, 길이: {len(self.choice_pick_system.results)}")
+        
         # 데이터 충분한지 확인 (최소 15개 필요)
         if not self.choice_pick_system.has_sufficient_data():
             self.logger.warning(f"데이터 부족: {len(self.choice_pick_system.results)}/15판, 픽 생성 불가")
@@ -88,7 +92,6 @@ class PredictionEngine:
             pick = 'N'
 
         return pick
-
 
     def record_betting_result(self, is_win: bool) -> None:
         """

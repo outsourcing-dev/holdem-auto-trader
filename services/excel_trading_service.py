@@ -112,7 +112,6 @@ class ExcelTradingService:
 
         return "PREDICTED", actual_game_count, recent_results, next_pick
 
-
     def _record_new_result(self, result, column, new_game_count, recent_results):
         self.logger.info(f"새 결과 '{result}' 포함 전체 결과 재설정")
 
@@ -124,8 +123,13 @@ class ExcelTradingService:
         # ✅ 예측 엔진 초기화 후 전체 filtered_results 다시 설정
         filtered_results = [r for r in recent_results if r in ['P', 'B']]
         filtered_results.append(result)  # ✅ 방금 결과는 따로 append
+        
+        # 여기에 로그 추가
+        self.logger.info(f"새 결과 '{result}' 포함 전체 데이터: {filtered_results}, 길이: {len(filtered_results)}")
+        
         self.prediction_engine.clear()
         self.prediction_engine.add_multiple_results(filtered_results)
+        self.logger.info(f"예측 엔진 초기화 후 재설정: {len(filtered_results)}개 데이터")
 
         # ✅ 처리된 라운드도 전체 재동기화
         if hasattr(self.main_window, 'trading_manager'):
@@ -133,8 +137,10 @@ class ExcelTradingService:
             self._update_processed_rounds(filtered_results, start_count=start_count)
 
         next_pick = self.prediction_engine.predict_next_pick()
+        # 여기에 로그 추가
+        self.logger.info(f"생성된 PICK 값: {next_pick}")
+        
         return column, new_game_count, recent_results, next_pick
-
 
   
     def _is_duplicate_result(self, latest_result, new_game_count):

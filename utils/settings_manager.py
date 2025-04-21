@@ -65,10 +65,10 @@ class SettingsManager:
                 # 설정 업데이트
                 self.settings = settings
                 
-                print(f"[INFO] 설정 파일 '{settings_file}'에서 설정 로드 완료")
-                print(f"[DEBUG] 마틴 설정: 횟수={settings['martin_count']}, 금액={settings['martin_amounts']}")
-                print(f"[DEBUG] 목표 금액: {settings.get('target_amount', 0):,}원")
-                print(f"[DEBUG] Double & Half 설정: 시작={settings.get('double_half_start', 20)}, 중지={settings.get('double_half_stop', 8)}")
+                # print(f"[INFO] 설정 파일 '{settings_file}'에서 설정 로드 완료")
+                # print(f"[DEBUG] 마틴 설정: 횟수={settings['martin_count']}, 금액={settings['martin_amounts']}")
+                # print(f"[DEBUG] 목표 금액: {settings.get('target_amount', 0):,}원")
+                # print(f"[DEBUG] Double & Half 설정: 시작={settings.get('double_half_start', 20)}, 중지={settings.get('double_half_stop', 8)}")
                 
                 return self.settings
         except Exception as e:

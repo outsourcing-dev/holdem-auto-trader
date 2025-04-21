@@ -174,8 +174,8 @@ class GameDetector:
             latest_coords = (latest_result[0], latest_result[1])
             
         self.logger.info(
-            f"[DEBUG] detect_game_state - filtered_results: {len(filtered_results)}개 / "
-            f"desired: {desired_pb_count}, recent_results 전체: {len(recent_results)}개"
+            # f"[DEBUG] detect_game_state - filtered_results: {len(filtered_results)}개 / "
+            # f"desired: {desired_pb_count}, recent_results 전체: {len(recent_results)}개"
         )
             
         return {

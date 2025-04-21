@@ -793,16 +793,27 @@ class ChoicePickSystem:
 
 
     def generate_choice_pick(self) -> str:
+        # 로그 추가: 데이터 상태
+        self.logger.info(f"generate_choice_pick 실행 - 현재 데이터: {self.results}, 길이: {len(self.results)}")
+        
         six_pick_candidates = self.generate_six_pick_candidates()
+        
+        # 로그 추가: 후보 수
+        self.logger.info(f"생성된 픽 후보 수: {len(six_pick_candidates)}")
+        
         if not six_pick_candidates:
+            self.logger.warning("픽 후보가 생성되지 않음")
             return 'N'
 
         actual_results = self.results[5:]  # 결과 비교 시작은 6번부터
         valid_candidates = []
 
-        for candidate in six_pick_candidates.values():
+        for candidate_idx, candidate in six_pick_candidates.items():
             picks = candidate["scoring_picks"]
             next_pick = candidate["next_pick"]
+            
+            # 로그 추가: 각 후보 정보
+            self.logger.debug(f"후보 {candidate_idx}: scoring_picks={picks}, next_pick={next_pick}")
 
             compare_len = min(len(picks), len(actual_results))
             if compare_len < 3:  # 비교할 데이터가 너무 적으면 제외
@@ -816,16 +827,23 @@ class ChoicePickSystem:
 
             score = wins - losses
             candidate["score"] = score
+            
+            # 로그 추가: 점수 계산
+            self.logger.debug(f"후보 {candidate_idx} 점수 계산: {wins}승 {losses}패, 점수={score}")
 
             # 'WWW', 'LLL' 같은 특정 패턴 제외 등 추가 조건 가능
             valid_candidates.append(candidate)
 
         if not valid_candidates:
+            self.logger.warning("유효한 후보가 없음")
             return 'N'
 
         best_candidate = max(valid_candidates, key=lambda c: c["score"])
+        
+        # 로그 추가: 최종 선택
+        self.logger.info(f"최종 선택 후보 점수: {best_candidate['score']}, 픽: {best_candidate['next_pick']}")
+        
         return best_candidate["next_pick"]
-
 
     def get_reverse_bet_pick(self, original_pick):
         """
