@@ -15,6 +15,8 @@ class ExcelTradingService:
         from utils.prediction_engine import PredictionEngine
         self.prediction_engine = PredictionEngine(logger=self.logger)
 
+    # services/excel_trading_service.py 수정
+
     def process_game_results(self, game_state, game_count, current_room_name, log_on_change=False):
         """
         게임 결과를 처리하고 필요한 정보를 반환합니다.
@@ -24,13 +26,13 @@ class ExcelTradingService:
             game_count (int): 현재 게임 카운트
             current_room_name (str): 현재 방 이름
             log_on_change (bool): 변화가 있을 때만 로그 출력 여부
-            
+                
         Returns:
             tuple: (처리 상태, 새 게임 카운트, 최근 결과 목록, 다음 픽 값)
         """
         if not game_state:
             return None, game_count, [], None
-            
+                
         new_game_count = game_state['round']
         latest_result = game_state.get('latest_result')
         recent_results = game_state.get('recent_results', [])
@@ -47,6 +49,10 @@ class ExcelTradingService:
         
         # 첫 실행 시 처리 (방 입장 직후) - 수정: 입장 시 실제 게임 카운트 사용
         if is_first_run and filtered_results:
+            # should_refresh_data 플래그 활성화 - 첫 실행 시 항상 새 데이터 필요
+            if hasattr(self.prediction_engine.choice_pick_system, 'should_refresh_data'):
+                self.prediction_engine.choice_pick_system.should_refresh_data = True
+            
             # 중요 변경: 실제 게임 카운트 전달
             return self._handle_first_run(filtered_results, recent_results, new_game_count)
         
@@ -63,6 +69,29 @@ class ExcelTradingService:
 
         # 현재 열 찾기 및 결과 처리
         return self._process_new_result(latest_result, new_game_count, recent_results)
+        
+    def _process_new_result(self, latest_result, new_game_count, recent_results):
+        """
+        새 게임 결과 처리 - 예측 엔진 사용
+        
+        Args:
+            latest_result (str): 최근 게임 결과
+            new_game_count (int): 새 게임 카운트
+            recent_results (list): 최근 결과 목록
+            
+        Returns:
+            tuple: (열 정보, 게임 카운트, 최근 결과 목록, 다음 픽 값)
+        """
+        # TIE 결과 처리
+        if latest_result == 'T':
+            return self._handle_tie_result("AUTO", new_game_count, recent_results)
+
+        # 새 결과 기록 (P 또는 B인 경우)
+        if latest_result in ['P', 'B']:
+            return self._record_new_result(latest_result, "AUTO", new_game_count, recent_results)
+
+        # 기타 예외적 결과 처리
+        return None, new_game_count, recent_results, None
 
     # utils/excel_trading_service.py의 _handle_first_run 메서드에서 수정할 부분
     def _handle_first_run(self, filtered_results, recent_results, actual_game_count):
@@ -144,29 +173,6 @@ class ExcelTradingService:
                 self.main_window.trading_manager.processed_rounds.add(result_id)
                 self.logger.debug(f"라운드 처리 기록: {result_id}")
     
-    def _process_new_result(self, latest_result, new_game_count, recent_results):
-        """
-        새 게임 결과 처리 - 예측 엔진 사용
-        
-        Args:
-            latest_result (str): 최근 게임 결과
-            new_game_count (int): 새 게임 카운트
-            recent_results (list): 최근 결과 목록
-            
-        Returns:
-            tuple: (열 정보, 게임 카운트, 최근 결과 목록, 다음 픽 값)
-        """
-        # TIE 결과 처리
-        if latest_result == 'T':
-            return self._handle_tie_result("AUTO", new_game_count, recent_results)
-
-        # 새 결과 기록 (P 또는 B인 경우)
-        if latest_result in ['P', 'B']:
-            return self._record_new_result(latest_result, "AUTO", new_game_count, recent_results)
-
-        # 기타 예외적 결과 처리
-        return None, new_game_count, recent_results, None
-
     def _handle_tie_result(self, current_column, new_game_count, recent_results):
         """
         TIE 결과 처리 - 예측 엔진 사용

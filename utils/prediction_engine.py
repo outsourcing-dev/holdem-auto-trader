@@ -17,6 +17,7 @@ class PredictionEngine:
         # 초이스 픽 시스템 초기화
         self.choice_pick_system = ChoicePickSystem(logger)
     
+    # utils/prediction_engine.py 수정
     def add_result(self, result):
         """
         새로운 결과 추가
@@ -30,11 +31,16 @@ class PredictionEngine:
                 
     def add_multiple_results(self, results):
         """
-        여러 게임 결과 한번에 추가
+        여러 게임 결과 한번에 추가 - 초기화 시에만 호출됨
         
         Args:
             results (list): 게임 결과 리스트
         """
+        # should_refresh_data 플래그 활성화 후 결과 추가
+        # 이 메서드는 초기화용이므로 항상 데이터를 새로 설정해야 함
+        if hasattr(self.choice_pick_system, 'should_refresh_data'):
+            self.choice_pick_system.should_refresh_data = True
+            
         # 초이스 픽 시스템에 결과 추가 (내부에서 P/B만 필터링)
         self.choice_pick_system.add_multiple_results(results)
     
@@ -102,6 +108,19 @@ class PredictionEngine:
         self.choice_pick_system.set_martin_amounts(amounts)
     
     def reset_after_room_change(self, preserve_martin: bool = False) -> None:
+        """
+        방 이동 후 상태 초기화
+        성공, 3연패, N값 등으로 방 이동 시에는 should_refresh_data 플래그 활성화
+        
+        Args:
+            preserve_martin (bool): True이면 마틴 단계 유지
+        """
+        # 항상 should_refresh_data 플래그 활성화 - 방 이동 시에는 새로운 데이터 수집 필요
+        if hasattr(self.choice_pick_system, 'should_refresh_data'):
+            self.choice_pick_system.should_refresh_data = True
+            self.choice_pick_system.failure_count = 0
+            
+        # 기존 메서드 호출
         self.choice_pick_system.reset_after_room_change(preserve_martin=preserve_martin)
     
     def clear(self) -> None:
