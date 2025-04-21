@@ -237,6 +237,15 @@ class TradingManagerBet:
                 self.tm.excel_trading_service.record_betting_result(False)
                 self.logger.info("초이스 픽 시스템에 패배 기록")
                 
+
+                # 마틴 서비스에도 동일하게 기록 (동기화를 위해 작성. 수정 시 통일해야함)
+                if hasattr(self.tm.martin_service, 'recent_results'):
+                    self.tm.martin_service.recent_results.append(False)
+                    # 최근 5개만 유지
+                    if len(self.tm.martin_service.recent_results) > 5:
+                        self.tm.martin_service.recent_results = self.tm.martin_service.recent_results[-5:]
+                    self.logger.info(f"마틴 서비스에 패배 기록 (현재: {self.tm.martin_service.recent_results})")
+                    
                 # UI 업데이트 - 방 이름은 유지하고 카운터는 그대로 둠
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
                 
