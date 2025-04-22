@@ -188,6 +188,12 @@ class TradingManagerBet:
                 
                 self.tm.just_won = True
                 
+                # ✅ 마틴 서비스의 recent_results 초기화 추가
+                if hasattr(self.tm.martin_service, 'recent_results'):
+                    self.tm.martin_service.recent_results = []  # 승리 시 패배 기록 초기화
+                    self.tm.martin_service.consecutive_failures = 0  # 연속 실패 카운터 초기화
+                    self.logger.info("✅ 승리로 인해 마틴 서비스의 recent_results와 consecutive_failures 초기화")
+                
                 # 추가: wait_first_result 플래그가 있다면 초기화 (방 이동 후 첫 결과 대기 플래그)
                 if hasattr(self.tm, 'wait_first_result'):
                     self.tm.wait_first_result = False
@@ -236,7 +242,6 @@ class TradingManagerBet:
                 # 초이스 픽 시스템에 패배 기록
                 self.tm.excel_trading_service.record_betting_result(False)
                 self.logger.info("초이스 픽 시스템에 패배 기록")
-                
 
                 # 마틴 서비스에도 동일하게 기록 (동기화를 위해 작성. 수정 시 통일해야함)
                 if hasattr(self.tm.martin_service, 'recent_results'):
@@ -249,13 +254,24 @@ class TradingManagerBet:
                 # UI 업데이트 - 방 이름은 유지하고 카운터는 그대로 둠
                 self.tm.main_window.update_betting_status(room_name=self.tm.current_room_name, reset_counter=False)
                 
-                # 3연패 확인 (여기서 바로 확인)
+                # ✅ 3연패 확인 (여기서 바로 확인) - 수정된 부분
                 if hasattr(self.tm.martin_service, 'recent_results'):
                     recent_results = self.tm.martin_service.recent_results
+                    
+                    # 연속 패배 카운트
+                    consecutive_loses = 0
+                    for result in reversed(recent_results):
+                        if not result:  # 패배인 경우
+                            consecutive_loses += 1
+                        else:  # 승리인 경우
+                            break  # 연속성이 끊김
+                    
                     # 3연패 확인
-                    if len(recent_results) >= 3 and all(not result for result in recent_results[-3:]):
-                        self.logger.info("3연패 감지! 방 이동 플래그 설정")
+                    if consecutive_loses >= 3:
+                        self.logger.info(f"✅ {consecutive_loses}연패 감지! 방 이동 플래그 설정")
                         self.tm.should_move_to_next_room = True
+                    else:
+                        self.logger.info(f"현재 {consecutive_loses}연패 상태 (방 이동 필요 없음)")
 
             # 결과 카운터 증가
             self.tm.result_count += 1

@@ -93,6 +93,10 @@ class MartinBettingService:
         if result_status == "win":
             # 승리 결과 처리
             result = self._handle_win_result(current_result_position)
+            # ✅ 승리 시 연속 패배 카운터 초기화
+            self.consecutive_failures = 0
+            self.recent_results = []  # 중요: 승리 시 패배 기록 초기화
+            self.logger.info("✅ 승리로 consecutive_failures와 recent_results 초기화")
         elif result_status == "tie":
             # 무승부 결과 처리
             result = self._handle_tie_result(current_result_position)
@@ -101,11 +105,20 @@ class MartinBettingService:
             result = self._handle_lose_result(current_result_position)
         
         # 베팅 결과를 리스트에 추가
-        self.recent_results.append(result_status == "win")
+        if result_status == "win":
+            self.recent_results = []  # 승리 시 리스트 비우고 시작
+            self.recent_results.append(True)
+        else:
+            if result_status == "lose":
+                self.recent_results.append(False)
+            # tie는 무시
         
         # 최근 5개만 유지
         if len(self.recent_results) > 5:
             self.recent_results = self.recent_results[-5:]
+        
+        # 연속 패배 확인 - 새로운 로직 추가
+        self._check_consecutive_failures()
         
         # 위젯 포지션 확인 후 로깅
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
@@ -116,6 +129,26 @@ class MartinBettingService:
         
         return result
 
+    # 새로운 메서드 추가
+    def _check_consecutive_failures(self):
+        """연속 패배 확인"""
+        # 최근 결과에서 연속 패배 확인
+        consecutive_count = 0
+        for result in reversed(self.recent_results):
+            if result == False:
+                consecutive_count += 1
+            else:
+                break  # 승리를 만나면 중단
+        
+        # 3연패 이상인 경우 방 이동 필요 플래그 설정
+        if consecutive_count >= 3:
+            self.need_room_change = True
+            self.logger.info(f"✅ {consecutive_count}연패 감지 (recent_results: {self.recent_results}) - 방 이동 플래그 활성화")
+        else:
+            # 3연패가 아닌 경우 플래그 유지 (다른 조건에서 설정된 경우 유지)
+            if not self.need_room_change:
+                self.logger.info(f"현재 {consecutive_count}연패 상태 (방 이동 필요 없음)")
+                
     def _handle_win_result(self, position):
         """
         승리 결과 처리 - 위젯의 카운터는 TradingManagerBet에서 0으로 설정함

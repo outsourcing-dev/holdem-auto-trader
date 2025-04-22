@@ -662,11 +662,21 @@ class ChoicePickSystem:
         Returns:
             bool: 방 이동 필요 여부
         """
-
-        if len(self.pick_results) >= 3 and all(not r for r in self.pick_results[-3:]):
-            if self.logger:
-                self.logger.info("최근 3연패 감지로 방 이동 필요")
-            return True
+        # ✅ 3연패 조건 개선
+        if len(self.pick_results) >= 3:
+            # 최근 3개 결과가 모두 False(패배)인지 확인
+            recent_three = self.pick_results[-3:]
+            # 연속된 패배인지 확인 (연속성 체크 추가)
+            consecutive_failures = 0
+            for result in reversed(self.pick_results):
+                if not result:  # 패배인 경우
+                    consecutive_failures += 1
+                else:  # 승리인 경우
+                    break  # 연속성이 끊김
+            
+            if consecutive_failures >= 3:
+                self.logger.info(f"[마틴] 3연패 감지: 최근 결과 {self.pick_results[-5:]}, 연속 패배 {consecutive_failures}회")
+                return True
         
         # ✅ 4연속 N
         if self.consecutive_n_count >= 4:
