@@ -663,7 +663,6 @@ class ChoicePickSystem:
             bool: 방 이동 필요 여부
         """
 
-        # ✅ 2연패 조건 (pick_results에서 False 2번 연속 확인)
         if len(self.pick_results) >= 3 and all(not r for r in self.pick_results[-3:]):
             if self.logger:
                 self.logger.info("최근 3연패 감지로 방 이동 필요")
