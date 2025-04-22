@@ -539,7 +539,7 @@ class BettingWidget(QWidget):
         
         # Also reset the position counter
         self.room_position_counter = 0
-        print("[DEBUG] 마커 초기화 수행 완료 - 위치 카운터도 0으로 초기화")
+        # print("[DEBUG] 마커 초기화 수행 완료 - 위치 카운터도 0으로 초기화")
 
     # 2. Modify the reset_room_results method to properly handle win conditions
     def reset_room_results(self, keep_history=False, full_reset=False, success=True):

@@ -103,6 +103,9 @@ class ExcelTradingService:
         # 예측 엔진 초기화만!
         self.prediction_engine.clear()
 
+        self.prediction_engine.add_multiple_results(filtered_results)
+
+
         # 다음 PICK 예측
         next_pick = self.prediction_engine.predict_next_pick()
 

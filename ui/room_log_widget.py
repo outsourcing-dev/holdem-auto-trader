@@ -164,7 +164,7 @@ class RoomLogWidget(QWidget):
         self._update_last_log_item(result_type)
         
         # 디버그 로그 추가
-        print(f"[DEBUG] 방 로그 기록: 방={room_name}, 결과={result_type}, 현재 항목 ID={self.current_visit_id}")
+        # print(f"[DEBUG] 방 로그 기록: 방={room_name}, 결과={result_type}, 현재 항목 ID={self.current_visit_id}")
 
     # ui/room_log_widget.py에서 set_current_room 메서드 수정
     def set_current_room(self, room_name, is_new_visit=False):

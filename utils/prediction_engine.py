@@ -131,22 +131,15 @@ class PredictionEngine:
         self.choice_pick_system.set_martin_amounts(amounts)
     
     def reset_after_room_change(self, preserve_martin: bool = False) -> None:
-        """
-        방 이동 후 상태 초기화
-        성공, 3연패, N값 등으로 방 이동 시에는 should_refresh_data 플래그 활성화
-        
-        Args:
-            preserve_martin (bool): True이면 마틴 단계 유지
-        """
-        # 항상 should_refresh_data 플래그 활성화 - 방 이동 시에는 새로운 데이터 수집 필요
+        # 초이스 픽 시스템 속성 초기화
         if hasattr(self.choice_pick_system, 'should_refresh_data'):
             self.choice_pick_system.should_refresh_data = True
             self.choice_pick_system.failure_count = 0
-            self.choice_pick_system.cached_pick = None  # ✅ 추가
-            self.choice_pick_system.last_results = []   # ✅ 추가
-            self.choice_pick_system.current_pick = None # ✅ 추가
-            
-        # 기존 메서드 호출
+            self.choice_pick_system.cached_pick = None
+            self.choice_pick_system.last_results = []
+            self.choice_pick_system.current_pick = None
+                
+        # 초이스 픽 시스템의 reset_after_room_change 호출
         self.choice_pick_system.reset_after_room_change(preserve_martin=preserve_martin)
     
     def clear(self) -> None:

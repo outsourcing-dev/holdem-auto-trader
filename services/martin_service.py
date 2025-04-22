@@ -183,13 +183,18 @@ class MartinBettingService:
         return self.betting_counter
     
     def should_change_room(self):
-        """방 이동이 필요한지 확인합니다."""
-        # 2연패로 인한 방 이동 필요 (3 → 2로 변경)
-        if hasattr(self, 'recent_results') and len(self.recent_results) >= 2:
-            # 최근 2개 결과가 모두 False(패배)인지 확인
-            recent_two = self.recent_results[-2:]
-            if len(recent_two) == 2 and all(not result for result in recent_two):
-                self.logger.info(f"[마틴] 2연패로 인한 방 이동 필요: {recent_two}")
+        """
+        방 이동이 필요한지 확인합니다.
+        Returns:
+            bool: 방 이동 필요 여부
+        """
+
+        # ✅ 3연패 조건 (2연패에서 3연패로 변경)
+        if hasattr(self, 'recent_results') and len(self.recent_results) >= 3:
+            # 최근 3개 결과가 모두 False(패배)인지 확인
+            recent_three = self.recent_results[-3:]
+            if len(recent_three) == 3 and all(not result for result in recent_three):
+                self.logger.info(f"[마틴] 3연패로 인한 방 이동 필요: {recent_three}")
                 return True
         
         # 현재 방에서 이미 배팅했는지 확인
@@ -208,6 +213,12 @@ class MartinBettingService:
         """새 방 입장 시 현재 방 배팅 상태 초기화"""
         self.has_bet_in_current_room = False
         self.need_room_change = False
+        
+        # ✅ 추가: recent_results 초기화
+        if hasattr(self, 'recent_results'):
+            self.recent_results = []
+            self.logger.info("[마틴] 새 방 입장으로 recent_results 초기화")
+        
         self.logger.info("[마틴] 새 방 입장으로 방 배팅 상태 초기화")
 
     def reset(self):

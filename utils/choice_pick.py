@@ -94,8 +94,7 @@ class ChoicePickSystem:
             self.logger.debug(f"현재 결과 리스트: {self.results}")
 
         self.last_win_count += 1
-
-
+        
     def add_multiple_results(self, results: List[str]) -> None:
         # 디버깅: 원본 전달된 결과 로그
         self.logger.info(f"[DEBUG] add_multiple_results 호출 전 원본 결과: {results}")
@@ -105,13 +104,20 @@ class ChoicePickSystem:
         # 필터링된 결과 확인
         self.logger.info(f"[DEBUG] add_multiple_results 필터링된 결과: {filtered_results}")
 
-        self.results = filtered_results  # ✅ 슬라이스 없이 그대로 저장!
+        # 중요: failure_count에 따라 결과 개수 제한
+        failure_count = getattr(self, 'failure_count', 0)
+        max_results = 15 + min(failure_count, 2)  # 최대 17개 (15 + 실패횟수 최대 2)
+        
+        # 결과가 max_results보다 많으면 최근 데이터만 유지
+        if len(filtered_results) > max_results:
+            filtered_results = filtered_results[-max_results:]
+            self.logger.info(f"결과가 너무 많아 최근 {max_results}개만 유지합니다")
+            
+        self.results = filtered_results
 
         if self.logger:
-            self.logger.info(f"다중 결과 추가: 총 {len(self.results)}개 (자르지 않음)")
+            self.logger.info(f"다중 결과 추가: 총 {len(self.results)}개 (최대 {max_results}개 제한)")
             self.logger.debug(f"현재 결과 리스트: {self.results}")
-
-
 
     def has_sufficient_data(self) -> bool:
         """15판 데이터가 모두 있는지 확인"""
@@ -678,7 +684,7 @@ class ChoicePickSystem:
         return False
 
     
-    # utils/choice_pick.py 파일 수정
+    # utils/choice_pick.py 파일의 ChoicePickSystem 클래스에 있는 함수
     def reset_after_room_change(self, preserve_martin: bool = False) -> None:
         """
         방 이동 후 상태 초기화
@@ -703,6 +709,11 @@ class ChoicePickSystem:
             self.pick_results = []
             self.logger.info("방 이동 시 preserve_martin=False → 마틴 상태 초기화")
 
+        # ✅ 추가: recent_results 초기화 (방 이동 후 연속 패배 기록 리셋)
+        if hasattr(self, 'recent_results'):
+            self.recent_results = []
+            self.logger.info("방 이동 후 recent_results 배열 초기화")
+
         # ✅ 공통 초기화 항목
         self.consecutive_n_count = 0
         self.current_pick = None
@@ -712,8 +723,7 @@ class ChoicePickSystem:
                 f"방 이동 후 초기화 완료 - 연속실패({prev_failures}→{self.consecutive_failures}), "
                 f"결과개수({prev_results}), 연속 N({prev_n_count}→{self.consecutive_n_count})"
             )
-
-
+            
     def clear(self) -> None:
         """전체 데이터 초기화"""
         self.results = []
