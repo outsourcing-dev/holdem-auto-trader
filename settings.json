@@ -6,8 +6,8 @@
     "martin_amounts": [
         1000,
         2000,
-        3000,
-        6000
+        4000,
+        8000
     ],
     "target_amount": 500000,
     "double_half_start": 20,

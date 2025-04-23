@@ -240,11 +240,22 @@ class TradingManager:
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
                 return
-                    
+                        
             game_state = result['game_state']
             previous_game_count = result['previous_game_count']
             current_game_count = game_state.get('round', 0)
             new_result = result.get('new_result', False)  # 새 결과 여부 확인
+            
+            # 중요: PICK 값이 'N'이고 consecutive_n_count가 4 이상인지 명확하게 확인
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                n_count = self.excel_trading_service.choice_pick_system.consecutive_n_count
+                self.logger.info(f"[N 카운트 확인] 현재 값: {n_count}")
+                
+                if n_count >= 4:
+                    self.logger.warning(f"[방 이동 트리거] 4회 연속 N 감지 ({n_count}회) - 방 이동 시작")
+                    # 즉시 방 이동 실행 보장
+                    self.change_room()
+                    return
             
             # PICK 값이 'N'이고 consecutive_n_count가 3 이상인지 확인
             if hasattr(self.excel_trading_service, 'choice_pick_system'):

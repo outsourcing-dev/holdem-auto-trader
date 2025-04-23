@@ -50,6 +50,7 @@ class ChoicePickSystem:
         self.stage4_picks: List[str] = []  # 4단계 픽 리스트
         self.stage5_picks: List[str] = []  # 5단계 픽 리스트
         
+        # 중요: consecutive_n_count는 오직 ChoicePickSystem에서만 관리
         self.consecutive_n_count: int = 0  # 연속 N 발생 카운트
         
         # 추가: 새로 추가된 속성들
@@ -59,10 +60,11 @@ class ChoicePickSystem:
         # 로그 메시지 (logger가 없을 경우 대비)
         if self.logger:
             self.logger.info("ChoicePickSystem 인스턴스 생성")
+            self.logger.info("[N 카운트 초기화] 객체 생성 시 초기화: 0")
         
         self.last_results: List[str] = []
         self.cached_pick: Optional[str] = None
-
+        
     # utils/choice_pick.py의 ChoicePickSystem 클래스에 추가할 메서드
     def set_martin_amounts(self, amounts):
         """마틴 금액 설정"""
@@ -662,6 +664,16 @@ class ChoicePickSystem:
         Returns:
             bool: 방 이동 필요 여부
         """
+        # 명확한 로깅 추가
+        if self.logger:
+            self.logger.info(f"[방 이동 조건 체크] 연속 N 카운트: {self.consecutive_n_count}")
+        
+        # ✅ 4연속 N - 명확한 로깅 추가
+        if self.consecutive_n_count >= 4:
+            if self.logger:
+                self.logger.warning(f"[방 이동 필요!!] 4번 연속 유효한 픽 없음(N) 발생 - 현재 N 카운트: {self.consecutive_n_count}")
+            return True
+
         # ✅ 3연패 조건 개선
         if len(self.pick_results) >= 3:
             # 최근 3개 결과가 모두 False(패배)인지 확인
@@ -677,12 +689,6 @@ class ChoicePickSystem:
             if consecutive_failures >= 3:
                 self.logger.info(f"[마틴] 3연패 감지: 최근 결과 {self.pick_results[-5:]}, 연속 패배 {consecutive_failures}회")
                 return True
-        
-        # ✅ 4연속 N
-        if self.consecutive_n_count >= 4:
-            if self.logger:
-                self.logger.info(f"4번 연속 유효한 픽 없음(N) 발생으로 방 이동 필요 (연속 카운트: {self.consecutive_n_count})")
-            return True
 
         # ✅ 55판 이상이고 배팅 안함
         if self.betting_attempts == 0 and self.last_win_count >= 55:
@@ -691,7 +697,7 @@ class ChoicePickSystem:
             return True
 
         return False
-
+    
     
     # utils/choice_pick.py 파일의 ChoicePickSystem 클래스에 있는 함수
     def reset_after_room_change(self, preserve_martin: bool = False) -> None:
@@ -723,8 +729,10 @@ class ChoicePickSystem:
             self.recent_results = []
             self.logger.info("방 이동 후 recent_results 배열 초기화")
 
-        # ✅ 공통 초기화 항목
+        # ✅ 중요: N 카운트 초기화 - 이 부분은 항상 초기화
         self.consecutive_n_count = 0
+        self.logger.info("[N 카운트 초기화] 방 이동으로 인한 초기화")
+        
         self.current_pick = None
 
         if self.logger:
@@ -810,101 +818,84 @@ class ChoicePickSystem:
 
         return candidates
 
-
     def generate_choice_pick(self) -> str:
-        # 로그 추가: 데이터 상태
         self.logger.info(f"generate_choice_pick 실행 - 현재 데이터: {self.results}, 길이: {len(self.results)}")
-        
+
         six_pick_candidates = self.generate_six_pick_candidates()
-        
-        # 로그 추가: 후보 수
-        self.logger.info(f"생성된 픽 후보 수: {len(six_pick_candidates)}")
-        
+
         if not six_pick_candidates:
             self.logger.warning("픽 후보가 생성되지 않음")
             return 'N'
 
-        actual_results = self.results[5:]  # 결과 비교 시작은 6번부터
         valid_candidates = []
 
         for candidate_idx, candidate in six_pick_candidates.items():
             picks = candidate["scoring_picks"]
             next_pick = candidate["next_pick"]
-            
-            # 로그 추가: 각 후보 정보
-            self.logger.debug(f"후보 {candidate_idx}: scoring_picks={picks}, next_pick={next_pick}")
 
+            # ✅ 후보별 비교 시작 인덱스 설정 (1번 후보는 5부터)
+            start_index = 4 + candidate_idx
+            actual_results = self.results[start_index:]
             compare_len = min(len(picks), len(actual_results))
-            if compare_len < 3:  # 비교할 데이터가 너무 적으면 제외
+            picks_to_compare = picks[:compare_len]
+
+            if compare_len < 3:
+                self.logger.debug(f"후보 {candidate_idx} 제외: 비교 데이터 부족 (길이 {compare_len})")
                 continue
 
-            # 승패 기록 생성 (W/L 리스트)
             win_loss_pattern = []
             wins = 0
             for i in range(compare_len):
-                if picks[i] == actual_results[i]:
-                    win_loss_pattern.append('W')  # 승리
+                if picks_to_compare[i] == actual_results[i]:
+                    win_loss_pattern.append('W')
                     wins += 1
                 else:
-                    win_loss_pattern.append('L')  # 패배
-                    
+                    win_loss_pattern.append('L')
+
             losses = compare_len - wins
-            
-            # 패턴 체크를 위한 문자열 변환
             pattern_str = ''.join(win_loss_pattern)
-            
-            # 조건 1: 'WWW'나 'LLL' 패턴이 있으면 제외
+
+            # 제외 조건: WWW 또는 LLL
             if 'WWW' in pattern_str or 'LLL' in pattern_str:
                 self.logger.debug(f"후보 {candidate_idx} 제외: 패턴 {pattern_str}에 WWW 또는 LLL 포함")
                 continue
-                
-            # 조건 2: 마지막 2개의 결과값이 W,L이나 L,W로 끝나는지 확인
-            if len(win_loss_pattern) >= 2:
+
+            # 마지막 2개가 WL 또는 LW여야 함
+            if len(pattern_str) >= 2:
                 last_two = pattern_str[-2:]
-                if last_two != 'WL' and last_two != 'LW':
+                if last_two not in ['WL', 'LW']:
                     self.logger.debug(f"후보 {candidate_idx} 제외: 마지막 2개 패턴이 WL/LW가 아님 (현재: {last_two})")
                     continue
-                    
-                # 배팅 방향 결정 (WL=정배팅, LW=역배팅)
                 betting_direction = 'normal' if last_two == 'WL' else 'reverse'
-                candidate["betting_direction"] = betting_direction
-                
-                # 점수 계산: 정배팅=승-패, 역배팅=패-승
-                if betting_direction == 'normal':
-                    score = wins - losses  # 정배팅: 승-패
-                else:
-                    score = losses - wins  # 역배팅: 패-승
-                    
-                self.logger.debug(f"후보 {candidate_idx} 배팅방향: {betting_direction}, 점수계산: {wins}승 {losses}패, 점수={score}")
             else:
-                # 패턴이 충분히 길지 않은 경우 기본 점수 계산
-                score = wins - losses
                 betting_direction = 'normal'
-                candidate["betting_direction"] = betting_direction
 
-            # 모든 조건 통과하면 유효한 후보로 추가
-            candidate["score"] = score
-            candidate["pattern"] = pattern_str
-            
-            # 로그 추가: 점수 계산
-            self.logger.debug(f"후보 {candidate_idx} 최종: 점수={score}, 패턴={pattern_str}, 방향={betting_direction}")
+            # 점수 계산
+            score = wins - losses if betting_direction == 'normal' else losses - wins
 
+            candidate.update({
+                "score": score,
+                "pattern": pattern_str,
+                "betting_direction": betting_direction
+            })
+
+            self.logger.debug(f"후보 {candidate_idx} 점수: {score}, 패턴: {pattern_str}, 방향: {betting_direction}")
             valid_candidates.append(candidate)
 
         if not valid_candidates:
             self.logger.warning("유효한 후보가 없음")
             return 'N'
 
-        # 점수가 가장 높은 후보 선택
         best_candidate = max(valid_candidates, key=lambda c: c["score"])
-        
-        # 선택된 후보의 베팅 방향 설정
         self.betting_direction = best_candidate["betting_direction"]
-        
-        # 로그 추가: 최종 선택
-        self.logger.info(f"최종 선택 후보 점수: {best_candidate['score']}, 패턴: {best_candidate['pattern']}, 픽: {best_candidate['next_pick']}, 방향: {self.betting_direction}")
-        
+
+        self.logger.info(
+            f"최종 선택: 픽={best_candidate['next_pick']}, 방향={self.betting_direction}, "
+            f"점수={best_candidate['score']}, 패턴={best_candidate['pattern']}"
+        )
+
         return best_candidate["next_pick"]
+
 
     def get_reverse_bet_pick(self, original_pick):
         """

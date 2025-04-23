@@ -13,7 +13,7 @@ class PredictionEngine:
         """예측 엔진 초기화"""
         self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
-        self.consecutive_n_count = 0  # 생성자에서 초기화
+        
 
 
         # 초이스 픽 시스템 초기화
@@ -44,6 +44,9 @@ class PredictionEngine:
                 self.choice_pick_system.cached_pick = None
                 self.choice_pick_system.last_results = []
                 self.choice_pick_system.current_pick = None
+                # N 카운트도 초기화
+                self.choice_pick_system.consecutive_n_count = 0
+                self.logger.info("[N 카운트 초기화] 승리로 인한 초기화")
 
         # 로그 추가: 현재 데이터 상태
         if hasattr(self.choice_pick_system, 'results'):
@@ -52,6 +55,8 @@ class PredictionEngine:
         # 데이터 충분한지 확인 (최소 15개 필요)
         if not self.choice_pick_system.has_sufficient_data():
             self.logger.warning(f"데이터 부족: {len(self.choice_pick_system.results)}/15판, 픽 생성 불가")
+            self.choice_pick_system.consecutive_n_count += 1
+            self.logger.warning(f"[N 카운트 증가] 데이터 부족으로 N 처리, 현재: {self.choice_pick_system.consecutive_n_count}")
             return 'N'
 
         # PICK 생성
@@ -60,18 +65,34 @@ class PredictionEngine:
         if pick and pick in ['P', 'B']:
             self.current_pick = pick
             self.cached_pick = pick
-            self.last_results = self.choice_pick_system.results.copy()  # ✅ 정답
-            self.consecutive_n_count = 0
+            self.last_results = self.choice_pick_system.results.copy()
+            # N 카운트 초기화 (ChoicePickSystem의 값 사용)
+            self.choice_pick_system.consecutive_n_count = 0
+            self.logger.info("[N 카운트 초기화] 유효한 픽(P/B) 생성으로 초기화")
 
             direction = self.choice_pick_system.betting_direction
             self.logger.info(f"초이스 픽 생성 완료: {pick} ({direction} 배팅)")
         else:
-            self.consecutive_n_count += 1
-            self.logger.warning("초이스 픽 생성 실패 - 데이터 부족 또는 적합한 후보 없음")
+            # N 카운트 증가 (ChoicePickSystem의 값 증가)
+            self.choice_pick_system.consecutive_n_count += 1
+            self.logger.warning(f"[N 카운트 증가] 초이스 픽 생성 실패, 현재: {self.choice_pick_system.consecutive_n_count}")
             pick = 'N'
 
         return pick
 
+    def should_change_room(self) -> bool:
+        """
+        방 이동 필요 여부 확인 - 이 메서드를 통해 ChoicePickSystem의 판단을 전달
+        
+        Returns:
+            bool: 방 이동 필요 여부
+        """
+        # ChoicePickSystem의 consecutive_n_count 값 확인 로깅 추가
+        if hasattr(self.choice_pick_system, 'consecutive_n_count'):
+            self.logger.info(f"[N 카운트 확인] should_change_room 호출 시, 현재 값: {self.choice_pick_system.consecutive_n_count}")
+            
+        return self.choice_pick_system.should_change_room()
+    
     def record_betting_result(self, is_win: bool) -> None:
         """
         베팅 결과 기록
@@ -83,15 +104,6 @@ class PredictionEngine:
         
         # 초이스 픽 시스템에 결과 기록
         self.choice_pick_system.record_betting_result(is_win)
-    
-    def should_change_room(self) -> bool:
-        """
-        방 이동 필요 여부 확인
-        
-        Returns:
-            bool: 방 이동 필요 여부
-        """
-        return self.choice_pick_system.should_change_room()
     
     def get_current_bet_amount(self) -> int:
         """

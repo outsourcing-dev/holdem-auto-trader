@@ -185,29 +185,45 @@ class TradingManagerGame:
 
 
     # utils/trading_manager_game.py 수정 부분
-
     def process_excel_result(self, result, game_state, previous_game_count):
         """엑셀 처리 결과 활용 - 실패 시 데이터 유지 로직 추가"""
         try:
             # 승리 직후 플래그 확인 및 초기화
             if getattr(self.tm, 'just_won', False):
                 self.logger.info("[승리 후 초기화] just_won 상태 감지, 모든 플래그 초기화")
-                # 초이스 픽 시스템의 should_refresh_data 플래그 활성화
+
+                # 초이스 픽 시스템 초기화
                 if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
                 hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
-                    self.tm.excel_trading_service.prediction_engine.choice_pick_system.should_refresh_data = True
-                    self.tm.excel_trading_service.prediction_engine.choice_pick_system.failure_count = 0
-                    
-                # 마커 리셋
+                    cps = self.tm.excel_trading_service.prediction_engine.choice_pick_system
+                    cps.consecutive_n_count = 0
+                    cps.should_refresh_data = True
+                    cps.failure_count = 0
+                    self.logger.info("[N 카운트 초기화] 승리 후 초기화")
+
+                # UI 마커 리셋
                 if hasattr(self.tm.main_window, 'betting_widget'):
                     self.tm.main_window.betting_widget.reset_step_markers()
                     self.tm.main_window.betting_widget.room_position_counter = 0
-                    
-                # 첫 결과 대기 플래그도 초기화
+
+                # 마틴 상태 초기화 (★ 추가된 부분)
+                if hasattr(self.tm, 'martin_service'):
+                    self.tm.martin_service.reset_room_bet_status()
+                    self.logger.info("[마틴] 승리 후 recent_results 및 상태 초기화 수행")
+
+                # 첫 결과 대기 플래그 초기화
                 if hasattr(self.tm, 'wait_first_result'):
                     self.tm.wait_first_result = False
-                    
+
                 self.tm.just_won = False
+            
+            # 연속 N 카운트 확인 추가
+            if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                n_count = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count
+                if n_count >= 4:
+                    self.logger.warning(f"[방 이동 트리거] Excel 처리 중 4회 연속 N값 감지 ({n_count}회)")
+                    self.tm.change_room()
+                    return
             
             last_column, new_game_count, recent_results, next_pick = result
             
