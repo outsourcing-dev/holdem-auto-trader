@@ -838,29 +838,71 @@ class ChoicePickSystem:
             if compare_len < 3:  # 비교할 데이터가 너무 적으면 제외
                 continue
 
+            # 승패 기록 생성 (W/L 리스트)
+            win_loss_pattern = []
             wins = 0
             for i in range(compare_len):
                 if picks[i] == actual_results[i]:
+                    win_loss_pattern.append('W')  # 승리
                     wins += 1
+                else:
+                    win_loss_pattern.append('L')  # 패배
+                    
             losses = compare_len - wins
+            
+            # 패턴 체크를 위한 문자열 변환
+            pattern_str = ''.join(win_loss_pattern)
+            
+            # 조건 1: 'WWW'나 'LLL' 패턴이 있으면 제외
+            if 'WWW' in pattern_str or 'LLL' in pattern_str:
+                self.logger.debug(f"후보 {candidate_idx} 제외: 패턴 {pattern_str}에 WWW 또는 LLL 포함")
+                continue
+                
+            # 조건 2: 마지막 2개의 결과값이 W,L이나 L,W로 끝나는지 확인
+            if len(win_loss_pattern) >= 2:
+                last_two = pattern_str[-2:]
+                if last_two != 'WL' and last_two != 'LW':
+                    self.logger.debug(f"후보 {candidate_idx} 제외: 마지막 2개 패턴이 WL/LW가 아님 (현재: {last_two})")
+                    continue
+                    
+                # 배팅 방향 결정 (WL=정배팅, LW=역배팅)
+                betting_direction = 'normal' if last_two == 'WL' else 'reverse'
+                candidate["betting_direction"] = betting_direction
+                
+                # 점수 계산: 정배팅=승-패, 역배팅=패-승
+                if betting_direction == 'normal':
+                    score = wins - losses  # 정배팅: 승-패
+                else:
+                    score = losses - wins  # 역배팅: 패-승
+                    
+                self.logger.debug(f"후보 {candidate_idx} 배팅방향: {betting_direction}, 점수계산: {wins}승 {losses}패, 점수={score}")
+            else:
+                # 패턴이 충분히 길지 않은 경우 기본 점수 계산
+                score = wins - losses
+                betting_direction = 'normal'
+                candidate["betting_direction"] = betting_direction
 
-            score = wins - losses
+            # 모든 조건 통과하면 유효한 후보로 추가
             candidate["score"] = score
+            candidate["pattern"] = pattern_str
             
             # 로그 추가: 점수 계산
-            self.logger.debug(f"후보 {candidate_idx} 점수 계산: {wins}승 {losses}패, 점수={score}")
+            self.logger.debug(f"후보 {candidate_idx} 최종: 점수={score}, 패턴={pattern_str}, 방향={betting_direction}")
 
-            # 'WWW', 'LLL' 같은 특정 패턴 제외 등 추가 조건 가능
             valid_candidates.append(candidate)
 
         if not valid_candidates:
             self.logger.warning("유효한 후보가 없음")
             return 'N'
 
+        # 점수가 가장 높은 후보 선택
         best_candidate = max(valid_candidates, key=lambda c: c["score"])
         
+        # 선택된 후보의 베팅 방향 설정
+        self.betting_direction = best_candidate["betting_direction"]
+        
         # 로그 추가: 최종 선택
-        self.logger.info(f"최종 선택 후보 점수: {best_candidate['score']}, 픽: {best_candidate['next_pick']}")
+        self.logger.info(f"최종 선택 후보 점수: {best_candidate['score']}, 패턴: {best_candidate['pattern']}, 픽: {best_candidate['next_pick']}, 방향: {self.betting_direction}")
         
         return best_candidate["next_pick"]
 

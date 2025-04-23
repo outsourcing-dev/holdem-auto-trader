@@ -13,32 +13,11 @@ class PredictionEngine:
         """예측 엔진 초기화"""
         self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
-        
+        self.consecutive_n_count = 0  # 생성자에서 초기화
+
+
         # 초이스 픽 시스템 초기화
         self.choice_pick_system = ChoicePickSystem(logger)
-    
-    # utils/prediction_engine.py 수정
-    # def add_result(self, result):
-    #     """
-    #     새로운 결과 추가
-        
-    #     Args:
-    #         result (str): 게임 결과 ('P', 'B', 'T' 중 하나)
-    #     """
-    #     # T는 무시
-    #     if result in ['P', 'B']:
-    #         # 이미 실패 모드인지 확인
-    #         is_failure_mode = (hasattr(self.choice_pick_system, 'failure_count') and 
-    #                         self.choice_pick_system.failure_count > 0)
-            
-    #         # 실패 모드일 때 should_refresh_data 강제로 False 설정
-    #         if is_failure_mode:
-    #             self.choice_pick_system.should_refresh_data = False
-    #         self.logger.info(f"{self.choice_pick_system.failure_count}회 연속 실패 중 → 결과 누적 유지 모드 적용")
-            
-    #     # 결과 누적
-    #     self.choice_pick_system.add_result(result)
-
                 
     def add_multiple_results(self, results):
         """
@@ -100,6 +79,8 @@ class PredictionEngine:
         Args:
             is_win (bool): 베팅 성공 여부
         """
+        
+        
         # 초이스 픽 시스템에 결과 기록
         self.choice_pick_system.record_betting_result(is_win)
     
