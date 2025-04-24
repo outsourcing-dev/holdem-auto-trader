@@ -573,7 +573,10 @@ class BettingService:
                 
                 # 타이 결과 시 베팅 상태 초기화
                 self.has_bet_current_round = False
-                self.logger.info(f"타이(T) 결과로 베팅 상태 초기화: 같은 방에서 재베팅 가능")
+                
+                # 타이 직후 플래그 추가
+                self.main_window.trading_manager.had_tie_last_round = True
+                self.logger.info(f"타이(T) 결과로 베팅 상태 초기화 및 타이 직후 플래그 설정")
             else:
                 # 베팅 타입과 게임 결과 비교
                 if bet_type == latest_result:

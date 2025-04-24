@@ -175,6 +175,11 @@ class MartinBettingService:
         self.need_room_change = False
         self.logger.info(f"[마틴] 베팅 무승부: 같은 방에서 동일 단계로 재배팅")
         
+        # 타이 직후 플래그 설정
+        if hasattr(self.main_window, 'trading_manager'):
+            self.main_window.trading_manager.had_tie_last_round = True
+            self.logger.info(f"[마틴] 타이 직후 플래그 설정")
+        
         # 현재 위젯 포지션 반환
         widget_position = 0
         if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
@@ -183,7 +188,7 @@ class MartinBettingService:
             self.current_step = widget_position
             
         return widget_position, self.consecutive_losses, position
-        
+
     def _handle_lose_result(self, position):
         """
         패배 결과 처리 - 위젯 카운터는 TradingManagerBet에서 증가시킴

@@ -54,7 +54,8 @@ class TradingManager:
         self.bet_helper = TradingManagerBet(self)
         self.game_helper = TradingManagerGame(self)
         self._should_move_to_next_room = False
-        
+        self.had_tie_last_round = False  # 타이 직후 플래그
+
     def _init_services(self):
         """서비스 객체들을 초기화"""
         try:

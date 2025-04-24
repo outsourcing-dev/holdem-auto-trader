@@ -140,9 +140,12 @@ class TradingManagerBet:
             str: 결과 상태 ('win', 'lose', 'tie', 'error')
         """
         try:
+            # 타이 직후 플래그 확인
+            had_tie_last_round = getattr(self.tm, 'had_tie_last_round', False)
+            
             # 베팅 타입 로깅
             actual_bet_type = bet_type
-            self.logger.info(f"베팅 결과 확인: 베팅={actual_bet_type}, 결과={latest_result}")
+            self.logger.info(f"베팅 결과 확인: 베팅={actual_bet_type}, 결과={latest_result}, 이전 타이 여부={had_tie_last_round}")
 
             # 결과 상태 판단
             is_tie = (latest_result == 'T')
@@ -155,7 +158,8 @@ class TradingManagerBet:
                 result_status = "tie"
                 self.tm.betting_service.has_bet_current_round = False
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
-                self.logger.info("무승부 (T) 결과 - 베팅 상태 초기화")
+                self.tm.had_tie_last_round = True  # 타이 직후 플래그 설정
+                self.logger.info("무승부 (T) 결과 - 베팅 상태 초기화, 타이 직후 플래그 설정")
 
             elif is_win:
                 # 승리 처리
@@ -185,6 +189,11 @@ class TradingManagerBet:
                 # 초이스 픽 시스템에 승리 기록
                 self.tm.excel_trading_service.record_betting_result(True)
                 self.logger.info("초이스 픽 시스템에 승리 기록")
+                
+                # 타이 직후 플래그 초기화
+                if had_tie_last_round:
+                    self.logger.info("타이 직후 승리: 플래그 초기화")
+                    self.tm.had_tie_last_round = False
                 
                 self.tm.just_won = True
                 
@@ -221,11 +230,13 @@ class TradingManagerBet:
                 result_marker = "X"
                 result_status = "lose"
                 
+                # 위젯 위치 (마틴 단계) 값 가져오기
+                current_pos = 0
+                if hasattr(self.tm.main_window, 'betting_widget'):
+                    current_pos = self.tm.main_window.betting_widget.room_position_counter
+                
                 # 패배 시 현재 위젯 위치에 X 마커 표시 후 카운터 증가
                 if hasattr(self.tm.main_window, 'betting_widget'):
-                    # 현재 위치 확인
-                    current_pos = self.tm.main_window.betting_widget.room_position_counter
-                    
                     # 현재 위치에 X 마커 표시
                     self.tm.main_window.betting_widget.set_step_marker(current_pos, result_marker)
                     self.logger.info(f"실패 마커(X) 표시: 위치 {current_pos}")
@@ -233,6 +244,11 @@ class TradingManagerBet:
                     # 다음 베팅을 위해 카운터 증가
                     self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
                     self.logger.info(f"다음 베팅을 위해 위젯 카운터 증가: {current_pos} → {current_pos + 1}")
+                
+                # 타이 직후 플래그 초기화
+                if had_tie_last_round:
+                    self.logger.info("타이 직후 패배: 플래그 초기화")
+                    self.tm.had_tie_last_round = False
                 
                 # Only set prevent_reset if we're in an active martin sequence
                 if hasattr(self.tm.main_window.betting_widget, 'prevent_reset') and current_pos > 0:
