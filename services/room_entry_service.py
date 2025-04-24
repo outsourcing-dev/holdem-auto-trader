@@ -364,7 +364,29 @@ class RoomEntryService:
                     
                     # 검색 결과가 있는지 확인
                     if search_results and len(search_results) > 0:
-                        search_results[0].click()
+                        # 검색 결과 검증 - 첫 번째 결과의 방 이름 확인
+                        room_name_matches = False
+                        try:
+                            # 방 이름 요소 찾기 (tile-name)
+                            for result in search_results:
+                                tile_name_element = result.find_element(By.CSS_SELECTOR, "[data-role='tile-name']")
+                                tile_name_text = tile_name_element.text.strip()
+                                
+                                # 검색한 방 이름이 타일 이름에 포함되는지 확인 (대소문자 무시)
+                                if search_name.lower() in tile_name_text.lower() or tile_name_text.lower() in search_name.lower():
+                                    self.logger.info(f"방 이름 일치 확인: '{search_name}' → '{tile_name_text}'")
+                                    result.click()
+                                    room_name_matches = True
+                                    break
+                                
+                            if not room_name_matches:
+                                self.logger.warning(f"검색된 방 이름이 요청한 방 이름('{search_name}')과 일치하지 않습니다.")
+                                # 다음 방 시도
+                                return False
+                        except Exception as e:
+                            self.logger.warning(f"방 이름 일치 확인 중 오류: {e}")
+                            # 확인 실패 시 기본 동작으로 첫 번째 결과 클릭
+                            search_results[0].click()
                     else:
                         # JavaScript로 다시 시도
                         js_script = """
@@ -378,21 +400,31 @@ class RoomEntryService:
                             for (var i = 0; i < selectors.length; i++) {
                                 var results = document.querySelectorAll(selectors[i]);
                                 if (results && results.length > 0) {
-                                    results[0].click();
-                                    return true;
+                                    // 방 이름 추출 시도
+                                    var tileNameElement = results[0].querySelector("[data-role='tile-name']");
+                                    var tileName = tileNameElement ? tileNameElement.textContent.trim() : "";
+                                    
+                                    // 방 이름 일치 여부 확인 
+                                    var searchName = arguments[0].toLowerCase();
+                                    var tileNameLower = tileName.toLowerCase();
+                                    
+                                    if (tileNameLower.includes(searchName) || searchName.includes(tileNameLower)) {
+                                        results[0].click();
+                                        return true;
+                                    }
+                                    
+                                    // 이름 불일치 시 false 반환
+                                    return false;
                                 }
                             }
                             return false;
                         """
-                        clicked = self.devtools.driver.execute_script(js_script)
+                        clicked = self.devtools.driver.execute_script(js_script, search_name)
                         
                         if not clicked:
-                            # 검색 결과가 없으면 새로고침 필요 표시
-                            refresh_needed = True
-                            self.logger.warning(f"'{search_name}' 검색 결과가 없습니다. 다른 방법을 시도합니다.")
-                            continue  # 다음 재시도로 넘어감
+                            self.logger.warning(f"'{search_name}' 검색 결과가 없거나 이름이 일치하지 않습니다.")
+                            return False  # 다음 방으로 넘어감
                 except Exception as e:
-                    refresh_needed = True
                     self.logger.warning(f"검색 결과 처리 중 오류: {e}")
                     continue  # 다음 재시도로 넘어감
 
@@ -409,17 +441,14 @@ class RoomEntryService:
                         self.main_window.update_betting_status(room_name=room_name)
                         return True
                     else:
-                        refresh_needed = True
                         self.logger.warning("새 창이 열리지 않았습니다. 다시 시도합니다.")
                         continue  # 다음 재시도로 넘어감
                 except Exception as e:
-                    refresh_needed = True
                     self.logger.warning(f"창 전환 중 오류: {e}")
                     continue  # 다음 재시도로 넘어감
 
             except Exception as e:
                 self.logger.error(f"방 검색 및 입장 중 오류: {e}")
-                refresh_needed = True
                 # 마지막 시도가 아니면 재시도
                 if retry_count < max_retries - 1:
                     time.sleep(2)  # 재시도 전 대기

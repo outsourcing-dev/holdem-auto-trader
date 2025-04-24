@@ -328,6 +328,13 @@ class TradingManagerBet:
                     is_tie=is_tie
                 )
                 self.logger.info(f"방 로그 업데이트 완료: 승리={is_win}, 무승부={is_tie}")
+                
+            # 게임 결과 처리 후 다음 게임을 위한 베팅 상태 초기화
+            # 타이 결과가 아닐 경우에만 초기화 (타이는 이미 위에서 처리)
+            if not is_tie:
+                # 다음 게임을 위한 베팅 상태 초기화
+                self.tm.betting_service.has_bet_current_round = False
+                self.logger.info(f"결과 처리 후 다음 게임을 위한 베팅 상태 초기화 (has_bet_current_round=False)")
 
             # 반환 전 TradingManager에 마틴 단계 최신값 저장
             if hasattr(self.tm.martin_service, 'current_step'):

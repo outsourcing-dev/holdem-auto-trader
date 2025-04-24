@@ -102,6 +102,13 @@ class BettingService:
                     self.main_window.betting_widget.reset_step_markers()
                     self.main_window.betting_widget.room_position_counter = 0
             
+            # 타이 직후 플래그 확인 추가
+            had_tie_last_round = False
+            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'had_tie_last_round'):
+                had_tie_last_round = self.main_window.trading_manager.had_tie_last_round
+                if had_tie_last_round:
+                    self.logger.info("타이 직후 베팅: 같은 위치에 다시 베팅")
+            
             # 5. 베팅 실행
             bet_success = self._execute_betting(bet_type, bet_amount)
             
@@ -114,7 +121,7 @@ class BettingService:
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-            
+        
     def _validate_bet_conditions(self, bet_type, is_trading_active):
         """베팅 전 조건 검증"""
         # 최근 베팅 후 최소 시간 확인

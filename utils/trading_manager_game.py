@@ -384,17 +384,11 @@ class TradingManagerGame:
     def handle_tie_result(self, latest_result, game_state):
         """무승부(T) 결과 처리"""
         try:
-            # PICK 값 초기화
-            self.tm.current_pick = None
-
             # 무승부 시 상태 초기화 및 새 게임 분석
             if latest_result == 'T' and self.tm.game_count > 0:
-                # 베팅 상태 초기화
-                self.tm.betting_service.has_bet_current_round = False
-                
-                # 무승부 후 충분한 대기 시간 추가
-                self.logger.info("무승부(T) 감지. 새 라운드 준비를 위해 5초 대기...")
-                time.sleep(5)
+                # 중요: 베팅 상태 초기화는 process_bet_result에서 중앙 관리
+                # 타이 발생 로그만 남김
+                self.logger.info("무승부(T) 감지. 동일한 픽으로 다음 베팅 준비...")
                 
                 # 현재 방에 계속 있음을 표시
                 if hasattr(self.tm.main_window, 'room_log_widget'):
@@ -411,7 +405,7 @@ class TradingManagerGame:
                 self.tm.main_window.set_remaining_time(0, 0, 2)
         except Exception as e:
             self.logger.error(f"TIE 결과 처리 오류: {e}")
-            
+
     def process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 - 중복 로그 방지 수정"""
         try:
@@ -467,9 +461,10 @@ class TradingManagerGame:
                                 else:
                                     self.logger.warning(f"예측 불가 - 결과 부족: {length}개")
 
-            # 타이가 아닌 경우만 베팅 상태 초기화
+            # 여기가 중요: 타이가 아닌 경우 베팅 상태 초기화 부분을 복원해야 함
             if latest_result != 'T':
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
+                self.logger.info(f"타이가 아닌 결과({latest_result})로 베팅 상태 초기화")
 
             # UI 상태 업데이트
             display_room_name = self.tm.current_room_name.split('\n')[0] if '\n' in self.tm.current_room_name else self.tm.current_room_name
@@ -480,8 +475,7 @@ class TradingManagerGame:
 
         except Exception as e:
             self.logger.error(f"이전 게임 결과 처리 오류: {e}")
-
-
+            
     def exit_current_game_room(self):
         """현재 게임방에서 나가기"""
         try:
