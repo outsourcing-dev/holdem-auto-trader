@@ -781,11 +781,11 @@ class ChoicePickSystem:
     
     def generate_six_pick_candidates(self) -> Dict[int, Dict[str, List[str]]]:
         """
-        6개의 후보 픽 생성 (시작 위치별)
+        6개의 후보 픽 생성 + 점수 계산 포함 (정배팅/역배팅 판별 포함)
 
         Returns:
             Dict[int, Dict[str, List[str]]]: 각 후보별 {
-                1: {"scoring_picks": [...], "next_pick": 'B'},
+                1: {"scoring_picks": [...], "next_pick": 'B', "score": 2, "pattern": "WLWL", "betting_direction": "normal"},
                 2: {...},
                 ...
             }
@@ -835,18 +835,62 @@ class ChoicePickSystem:
                 while len(c["scoring_picks"]) < max_len:
                     c["scoring_picks"].append("N")  # 비교용 패딩
 
+        # ===== 점수 및 방향 계산 추가 =====
+        for idx, candidate in candidates.items():
+            picks = candidate["scoring_picks"]
+            actual_results = self.results[4 + idx:]  # 후보 번호에 따라 비교 시작점 다름
+            compare_len = min(len(picks), len(actual_results))
+            picks_to_compare = picks[:compare_len]
+
+            if compare_len < 3:
+                candidate["score"] = -999
+                candidate["pattern"] = ""
+                candidate["betting_direction"] = "normal"
+                continue
+
+            win_loss_pattern = []
+            wins = 0
+            for i in range(compare_len):
+                if picks_to_compare[i] == actual_results[i]:
+                    win_loss_pattern.append("W")
+                    wins += 1
+                else:
+                    win_loss_pattern.append("L")
+
+            losses = compare_len - wins
+            pattern_str = "".join(win_loss_pattern)
+            last_two = pattern_str[-2:]
+
+            if last_two == "WL":
+                direction = "normal"
+                score = wins - losses
+            elif last_two == "LW":
+                direction = "reverse"
+                score = losses - wins
+            else:
+                direction = "normal"
+                score = -999  # 무효 후보는 제외
+
+            candidate["score"] = score
+            candidate["pattern"] = pattern_str
+            candidate["betting_direction"] = direction
+
         if self.logger:
             self.logger.info(f"===== 총 {len(candidates)}개 후보 생성 완료 =====")
 
         return candidates
+
     
-    def generate_choice_pick(self) -> str:
+    def generate_choice_pick(self):
         self.logger.info(f"generate_choice_pick 실행 - 현재 데이터: {self.results}, 길이: {len(self.results)}")
 
         # 방 입장 후 첫 분석 시 N 카운트 건너뛰기 플래그 확인
         skip_n_count = getattr(self, 'skip_n_count', False)
         if skip_n_count:
             self.logger.info("[N 카운트 건너뛰기] 방 입장 후 첫 분석에서는 N 카운트 증가 안함")
+
+        # N 카운트 증가 플래그
+        should_increment_n_count = False
 
         # 실패하더라도 최대 허용 횟수를 초과하면 새 후보 선택
         exceed_max_failures = self.consecutive_loss_with_candidate >= self.max_loss_with_same_candidate
@@ -857,8 +901,8 @@ class ChoicePickSystem:
             
             if not six_pick_candidates:
                 self.logger.warning("픽 후보가 생성되지 않음")
-                if not skip_n_count:  # N 카운트 건너뛰기가 아닐 때만 증가
-                    self.consecutive_n_count += 1
+                should_increment_n_count = True
+                if not skip_n_count:
                     self.logger.warning(f"[N 카운트 증가] 후보 생성 실패, 현재: {self.consecutive_n_count}")
                 else:
                     self.logger.info("[N 카운트 건너뛰기] 후보 생성 실패했으나 카운트 증가 안함")
@@ -879,8 +923,8 @@ class ChoicePickSystem:
             
             if best_index is None:
                 self.logger.warning("유효한 후보를 찾을 수 없음")
-                if not skip_n_count:  # N 카운트 건너뛰기가 아닐 때만 증가
-                    self.consecutive_n_count += 1
+                should_increment_n_count = True
+                if not skip_n_count:
                     self.logger.warning(f"[N 카운트 증가] 유효한 후보 없음, 현재: {self.consecutive_n_count}")
                 else:
                     self.logger.info("[N 카운트 건너뛰기] 유효한 후보가 없으나 카운트 증가 안함")
@@ -898,11 +942,22 @@ class ChoicePickSystem:
             if pick in ['P', 'B']:
                 self.current_pick = pick
                 self.cached_pick = pick
-                self.consecutive_n_count = 0  # 유효한 픽이면 N 카운트 초기화
+                
+                # N 카운트 증가 판단 및 로깅
+                if should_increment_n_count and not skip_n_count:
+                    self.consecutive_n_count += 1
+                    self.logger.warning(f"[N 카운트 증가] 현재: {self.consecutive_n_count}")
+                elif should_increment_n_count and skip_n_count:
+                    self.logger.info("[N 카운트 건너뛰기] 카운트 증가 안함")
+                
+                # N 카운트 초기화
+                if not should_increment_n_count:
+                    self.consecutive_n_count = 0
+                
                 self.logger.info(f"새 후보({best_index}번) 선택: PICK={pick}, 방향={self.betting_direction}")
                 return pick
             else:
-                if not skip_n_count:  # N 카운트 건너뛰기가 아닐 때만 증가
+                if not skip_n_count:
                     self.consecutive_n_count += 1
                     self.logger.warning(f"[N 카운트 증가] 선택된 후보에서 유효하지 않은 픽, 현재: {self.consecutive_n_count}")
                 else:
@@ -930,10 +985,12 @@ class ChoicePickSystem:
                     # 기존 방향은 유지
                     if pick in ['P', 'B']:
                         self.logger.info(f"동일 후보({candidate_idx}번) 유지, 연속 실패: {self.consecutive_loss_with_candidate}회, PICK={pick}")
+                        # N 카운트 초기화
+                        self.consecutive_n_count = 0
                         return pick
                 
                 # 후보는 있지만 픽을 계산할 수 없는 경우 N 반환
-                if not skip_n_count:  # N 카운트 건너뛰기가 아닐 때만 증가
+                if not skip_n_count:
                     self.consecutive_n_count += 1
                     self.logger.warning(f"[N 카운트 증가] 동일 후보({candidate_idx}번)에서 새 픽 계산 실패, 현재: {self.consecutive_n_count}")
                 else:
@@ -941,7 +998,7 @@ class ChoicePickSystem:
                 return 'N'
             else:
                 # 이상한 상태 - 후보 인덱스는 있지만 후보 정보가 없는 경우
-                if not skip_n_count:  # N 카운트 건너뛰기가 아닐 때만 증가
+                if not skip_n_count:
                     self.consecutive_n_count += 1
                     self.logger.warning(f"[N 카운트 증가] 후보 정보 없음, 현재: {self.consecutive_n_count}")
                 else:
