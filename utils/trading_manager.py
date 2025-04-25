@@ -577,31 +577,31 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"설정 새로고침 중 오류 발생: {e}")
             return False
-
-    def change_room(self, due_to_consecutive_n=False):
-        """
-        현재 방을 나가고 새로운 방으로 이동
         
-        Args:
-            due_to_consecutive_n (bool): N값 3번 이상 연속 발생으로 인한 방 이동 여부
-        """
+    def change_room(self, due_to_consecutive_n=False):
         try:
             # 중지 명령 확인
             if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
                 self.logger.info("중지 명령으로 인해 방 이동을 중단합니다.")
                 return False
-                    
+                        
             # 목표 금액 도달 확인
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달로 인해 방 이동을 중단합니다.")
                 return False
-                    
+                        
             # 자동 매매 활성화 상태 확인
             if not self.is_trading_active:
                 self.logger.info("자동 매매 비활성화 상태로 방 이동 중단")
                 return False
 
             self.logger.info(f"방 이동 준비 중... (N값으로 인한 이동: {due_to_consecutive_n})")
+            
+            # N 카운트 명시적 초기화 - 방 이동 시작 시
+            if hasattr(self.excel_trading_service, 'prediction_engine') and \
+            hasattr(self.excel_trading_service.prediction_engine, 'choice_pick_system'):
+                self.excel_trading_service.prediction_engine.choice_pick_system.consecutive_n_count = 0
+                self.logger.info("[N 카운트 초기화] 방 이동 시작 시 강제 초기화")
             
             # 현재 위젯 포지션을 직접 확인 (마틴 단계의 소스)
             current_widget_pos = 0
@@ -611,12 +611,7 @@ class TradingManager:
             self.logger.info(f"[방 이동] 현재 위젯 포지션: {current_widget_pos+1}번")
             
             # 마틴 유지 결정 기준
-            # 1. 위젯 포지션이 0이 아니면 마틴 유지 (마틴 진행중)
-            # 2. N값 연속 감지로 인한 이동일 경우 마틴 유지
             preserve_martin = (current_widget_pos > 0 or due_to_consecutive_n)
-            
-            # 항상 마틴 상태와 위젯 유지 (더 강력한 설정)
-            # preserve_martin = True
             
             self.logger.info(f"[방 이동] 마틴 유지 결정: {preserve_martin} (위젯 포지션: {current_widget_pos+1}번)")
 
@@ -651,7 +646,7 @@ class TradingManager:
             # 방 이동 직후 플래그 설정
             self.just_changed_room = True
             
-            # preserve_martin 값에 따라 마틴 유지 결정
+            # 성공적인 방 입장 처리 - preserve_martin 전달 
             return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=preserve_martin)
 
         except Exception as e:

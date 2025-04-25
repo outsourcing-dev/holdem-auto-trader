@@ -72,13 +72,6 @@ class TradingManagerGame:
 
     # utils/trading_manager_game.py의 handle_successful_room_entry 메서드 수정
     def handle_successful_room_entry(self, new_room_name, preserve_martin=False):
-        """
-        방 입장 성공 처리 - 첫 입장 시 바로 베팅하지 않고 한 번의 결과 추가 대기
-        
-        Args:
-            new_room_name (str): 새 방 이름
-            preserve_martin (bool): 마틴 단계 유지 여부
-        """
         self.tm.main_window.stop_button.setEnabled(True)
         self.tm.main_window.update_button_styles()
         from PyQt6.QtWidgets import QApplication
@@ -89,6 +82,14 @@ class TradingManagerGame:
         # ✅ 최초 방 입장 플래그 설정
         self.tm.wait_first_result = True
         self.logger.info("방 입장 후 첫 결과 대기 모드 활성화")
+        
+        # N 카운트 건너뛰기 플래그 설정 - 첫 분석에서는 N값이 나와도 카운트 증가하지 않음
+        if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
+        hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
+            cps = self.tm.excel_trading_service.prediction_engine.choice_pick_system
+            cps.consecutive_n_count = 0  # N 카운트 명시적 초기화
+            cps.skip_n_count = True  # 첫 분석에서 N 카운트 건너뛰기 플래그 설정
+            self.logger.info("방 입장 후 N 카운트 초기화 및 첫 분석 건너뛰기 플래그 설정")
 
         if hasattr(self.tm, 'check_balance_after_room_change') and self.tm.check_balance_after_room_change:
             try:
@@ -135,6 +136,7 @@ class TradingManagerGame:
 
         try:
             if not getattr(self.tm.balance_service, '_target_amount_reached', False):
+                # 한 번만 게임 상태 확인 - 중복 호출 방지
                 game_state = self.tm.game_monitoring_service.get_current_game_state(log_always=True)
 
                 if game_state:
@@ -144,42 +146,36 @@ class TradingManagerGame:
                     filtered_results = game_state.get('filtered_results', [])
                     self.logger.info(f"방 입장 후 수집된 결과: {len(filtered_results)}개, 필요: 15개")
 
-                    result = self.tm.excel_trading_service.process_game_results(
+                    # process_game_results 한 번만 호출하고 result는 사용하지 않음
+                    # 내부에서 choice_pick_system에 데이터 설정됨
+                    self.tm.excel_trading_service.process_game_results(
                         game_state,
                         0,
                         self.tm.current_room_name,
                         log_on_change=True
                     )
 
+                    # 자세한 엔진 초기화 로직은 여기로 이동
                     if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
-                        self.tm.excel_trading_service.prediction_engine.clear()
+                        pe = self.tm.excel_trading_service.prediction_engine
+                        pe.clear()
 
                         length = len(filtered_results)
-                        pe = self.tm.excel_trading_service.prediction_engine
-
-                        if length >= 17:
-                            pe.add_multiple_results(filtered_results[-17:])
-                            self.logger.info("예측 엔진에 17개 결과 추가 완료")
-                        elif length == 16:
-                            pe.add_multiple_results(filtered_results[-16:])
-                            self.logger.info("예측 엔진에 16개 결과 추가 완료")
-                        elif length >= 15:
+                        if length >= 15:
+                            # 15개 이상이면 15개만 사용
                             pe.add_multiple_results(filtered_results[-15:])
                             self.logger.info("예측 엔진에 15개 결과 추가 완료")
                         else:
-                            self.logger.warning(f"예측 엔진에 결과 추가 실패: 부족한 결과 수 ({length}개)")
-
-                    if result[0] is not None and result[3] in ['P', 'B']:
-                        self.tm.current_pick = result[3]
-                        actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(result[3])
-                        self.tm.main_window.update_betting_status(
-                            pick=result[3],
-                            bet_amount=bet_amount
-                        )
-                        self.logger.info(f"첫 분석 결과 PICK: {result[3]} (실제 베팅: {actual_pick})")
+                            self.logger.warning(f"예측 엔진에 충분한 결과가 없음: {length}개 (필요: 15개)")
 
         except Exception as e:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
+        
+        # 첫 분석 완료 후 N 카운트 건너뛰기 플래그 해제
+        if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
+        hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
+            self.tm.excel_trading_service.prediction_engine.choice_pick_system.skip_n_count = False
+            self.logger.info("첫 분석 완료 - N 카운트 건너뛰기 플래그 해제")
 
         return True
 
