@@ -250,8 +250,7 @@ class TradingManager:
             # 중요: PICK 값이 'N'이고 consecutive_n_count가 4 이상인지 명확하게 확인
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
                 n_count = self.excel_trading_service.choice_pick_system.consecutive_n_count
-                self.logger.info(f"[N 카운트 확인] 현재 값: {n_count}")
-                
+
                 if n_count >= 4:
                     self.logger.warning(f"[방 이동 트리거] 4회 연속 N 감지 ({n_count}회) - 방 이동 시작")
                     # 즉시 방 이동 실행 보장
@@ -309,13 +308,20 @@ class TradingManager:
                 display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
                 self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
 
-            # 새 결과가 있을 때만 Excel 처리 (초이스 픽 생성)
+            
+            # 새 결과가 있을 때만 Excel 처리
             excel_result = self.excel_trading_service.process_game_results(
                 game_state, 
                 self.game_count, 
                 self.current_room_name
             )
-                
+            
+            pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
+
+            if pick == 'N':
+                self.logger.info("[베팅 스킵] 초이스픽 결과가 'N'이므로 베팅을 건너뜁니다.")
+                return  # 베팅 스킵
+            
             if excel_result[0] is not None:
                 self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
                 

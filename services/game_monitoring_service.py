@@ -55,15 +55,15 @@ class GameMonitoringService:
             """현재 열린 방을 종료하고 카지노 로비 창으로 포커싱 전환"""
             try:
                 # 방 나가기 전 최종 잔액 업데이트 시도
-                try:
-                    balance = self.main_window.trading_manager.balance_service.update_balance_after_bet_result()
-                    self.logger.info(f"방 나가기 전 최종 잔액: {balance:,}원")
-                except Exception as e:
-                    self.logger.warning(f"방 나가기 전 잔액 확인 실패: {e}")
+                # try:
+                #     balance = self.main_window.trading_manager.balance_service.update_balance_after_bet_result()
+                #     self.logger.info(f"방 나가기 전 최종 잔액: {balance:,}원")
+                # except Exception as e:
+                #     self.logger.warning(f"방 나가기 전 잔액 확인 실패: {e}")
                 
                 # 현재 창 개수 확인
                 window_handles = self.devtools.driver.window_handles
-                self.logger.info(f"현재 열린 창 개수: {len(window_handles)}")
+                # self.logger.info(f"현재 열린 창 개수: {len(window_handles)}")
                 
                 # iframe 내부로 이동하여 종료 버튼 찾기
                 try:

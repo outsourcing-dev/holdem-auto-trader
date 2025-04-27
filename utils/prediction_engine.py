@@ -73,9 +73,6 @@ class PredictionEngine:
             direction = self.choice_pick_system.betting_direction
             self.logger.info(f"초이스 픽 생성 완료: {pick} ({direction} 배팅)")
         else:
-            # N 카운트 증가 (ChoicePickSystem의 값 증가)
-            self.choice_pick_system.consecutive_n_count += 1
-            self.logger.warning(f"[N 카운트 증가] 초이스 픽 생성 실패, 현재: {self.choice_pick_system.consecutive_n_count}")
             pick = 'N'
 
         return pick
@@ -87,10 +84,7 @@ class PredictionEngine:
         Returns:
             bool: 방 이동 필요 여부
         """
-        # ChoicePickSystem의 consecutive_n_count 값 확인 로깅 추가
-        if hasattr(self.choice_pick_system, 'consecutive_n_count'):
-            self.logger.info(f"[N 카운트 확인] should_change_room 호출 시, 현재 값: {self.choice_pick_system.consecutive_n_count}")
-            
+
         return self.choice_pick_system.should_change_room()
     
     def record_betting_result(self, is_win: bool) -> None:
