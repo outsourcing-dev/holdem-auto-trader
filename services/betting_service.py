@@ -69,59 +69,48 @@ class BettingService:
             return False
         
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
-        """베팅 타입에 따라 적절한 베팅 영역을 클릭"""
         self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
 
         try:
-            # 1. 베팅 전 유효성 검사
             if not self._validate_bet_conditions(bet_type, is_trading_active):
                 return False
-            
-            self.current_bet_round = game_count
 
-            # 2. 메모리 최적화
+            self.current_bet_round = game_count
             gc.collect()
-            
-            # 3. iframe 전환
+
             if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=5, max_depth=3):
                 self.logger.error("베팅: iframe 전환 실패, 베팅 진행 불가")
                 return False
 
-            # 4. 베팅 가능 상태 확인
             if not self._wait_for_betting_available():
                 return False
-            
-            # ✅ 베팅 직전: 위젯 마커가 'O'이면 마커 리셋
+
             if hasattr(self.main_window, 'betting_widget'):
-                marker = None
-                if hasattr(self.main_window.betting_widget, 'get_current_marker'):
-                    marker = self.main_window.betting_widget.get_current_marker()
-                
+                marker = getattr(self.main_window.betting_widget, 'get_current_marker', lambda: None)()
                 if marker == "O":
-                    self.logger.info("베팅 직전: 위젯 마커 'O' 확인됨 → 마커 초기화")
+                    self.logger.info("베팅 직전: 위젯 마커 'O' 감지 → 마커 초기화")
                     self.main_window.betting_widget.reset_step_markers()
                     self.main_window.betting_widget.room_position_counter = 0
-            
-            # 타이 직후 플래그 확인 추가
-            had_tie_last_round = False
-            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'had_tie_last_round'):
-                had_tie_last_round = self.main_window.trading_manager.had_tie_last_round
-                if had_tie_last_round:
-                    self.logger.info("타이 직후 베팅: 같은 위치에 다시 베팅")
-            
-            # 5. 베팅 실행
+
+            had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
+            if had_tie_last_round:
+                self.logger.info("타이 직후 베팅: 동일 위치 유지")
+
             bet_success = self._execute_betting(bet_type, bet_amount)
-            
-            # 6. 결과 처리
+
             if bet_success:
                 self._handle_successful_bet(bet_type, game_count, current_room_name)
+                self.has_bet_current_round = True  # ✅ 베팅 성공했을 때만 True
                 return True
-            return False
-            
+            else:
+                self.logger.warning("베팅 실패: 상태 초기화 없음")
+                return False
+
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-        
+
+
     def _validate_bet_conditions(self, bet_type, is_trading_active):
         """베팅 전 조건 검증"""
         # 최근 베팅 후 최소 시간 확인

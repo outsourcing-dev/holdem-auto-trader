@@ -13,84 +13,55 @@ class TradingManagerBet:
         self.logger = trading_manager.logger or logging.getLogger(__name__)
         
     def place_bet(self, pick_value, game_count):
-        """
-        베팅을 실행합니다. 위젯의 position_counter 기반으로 마틴 단계 결정.
-        
-        Args:
-            pick_value (str): 베팅할 타입 ('P' 또는 'B')
-            game_count (int): 현재 게임 카운트
-            
-        Returns:
-            bool: 베팅 성공 여부
-        """
         try:
-            # 설정 새로고침
             self.tm.refresh_settings()
 
-            # 현재 잔액 확인
+            if self.tm.wait_first_result:
+                self.logger.info("방 이동 후 첫 결과 분석 대기 중 - 베팅 보류")
+                return False
+
             balance = self.tm.balance_service.get_iframe_balance()
             if balance:
-                # UI 업데이트
                 self.tm.main_window.update_user_data(current_amount=balance)
-                
-                # 마틴 베팅 가능 잔액 확인
                 if not self.tm.helpers.check_martin_balance(balance):
                     self.tm.stop_trading()
                     return False
-                
-                # 목표 금액 도달 확인
                 if self.tm.balance_service.check_target_amount(balance):
-                    self.logger.info("목표 금액 도달로 베팅을 중단합니다.")
+                    self.logger.info("목표 금액 도달로 베팅 중단")
                     return False
 
-            # 원본 픽 값 저장
             original_pick = pick_value
-            
-            # 베팅 방향 적용하여 실제 베팅할 픽 결정
             actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(original_pick)
-            
-            # 위젯 포지션 직접 사용해서 베팅 금액 결정
-            widget_pos = 0
-            if hasattr(self.tm.main_window, 'betting_widget') and hasattr(self.tm.main_window.betting_widget, 'room_position_counter'):
-                widget_pos = self.tm.main_window.betting_widget.room_position_counter
-                
-            # 베팅 금액 가져오기 - 항상 widget_pos 전달
+
+            widget_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
-            
-            # 베팅 금액 UI 표시
+
             self.tm.main_window.betting_widget.update_bet_amount(bet_amount)
             self.tm.main_window.update_betting_status(pick=original_pick, bet_amount=bet_amount)
-            
-            # 중지 버튼 활성화
             self.tm.main_window.stop_button.setEnabled(True)
             self.tm.main_window.update_button_styles()
+
             from PyQt6.QtWidgets import QApplication
             QApplication.processEvents()
-            self.logger.info("베팅 전: 중지 버튼 활성화")
 
-            # 실제 베팅 실행 (방향이 적용된 픽으로 베팅)
             bet_success = self.tm.betting_service.place_bet(
-                actual_pick,  # 방향이 적용된 실제 베팅 픽
+                actual_pick,
                 self.tm.current_room_name,
                 game_count,
                 self.tm.is_trading_active,
                 bet_amount
             )
 
-            # UI에는 원본 PICK 값 저장
             self.tm.current_pick = original_pick
 
             if bet_success:
-                # 베팅 성공 처리
                 self.process_successful_bet(bet_amount)
             else:
-                # 베팅 실패 시 UI 업데이트만
-                self.logger.warning(f"베팅 실패했지만 PICK 값은 유지: {original_pick}")
+                self.logger.warning(f"베팅 실패: {original_pick} (계속 시도)")
                 self.tm.main_window.update_betting_status(pick=original_pick)
                 self.tm.main_window.stop_button.setEnabled(True)
                 self.tm.main_window.update_button_styles()
                 QApplication.processEvents()
-                self.logger.info("베팅 실패: 중지 버튼 다시 활성화")
 
             return bet_success
 
@@ -98,9 +69,9 @@ class TradingManagerBet:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             self.tm.main_window.stop_button.setEnabled(True)
             self.tm.main_window.update_button_styles()
-            self.logger.info("베팅 오류: 중지 버튼 다시 활성화")
             return False
-        
+
+
     def process_successful_bet(self, bet_amount):
         """
         성공적인 베팅 처리
