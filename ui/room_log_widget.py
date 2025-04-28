@@ -114,7 +114,7 @@ class RoomLogWidget(QWidget):
                 # 마지막으로 방문한 방인지 확인 (방문 순서의 마지막 요소)
                 if self.visit_order and self.visit_order[-1] == visit_id:
                     # 같은 방에 계속 있는 경우, 기존 ID 재사용
-                    print(f"[DEBUG] 기존 방문 ID 재사용: {visit_id}, 방: {room_name}")
+                    # #print(f"[DEBUG] 기존 방문 ID 재사용: {visit_id}, 방: {room_name}")
                     return visit_id
         
         # 새 방문이면 카운터 증가
@@ -126,7 +126,7 @@ class RoomLogWidget(QWidget):
         # 방문 순서 리스트에 추가
         self.visit_order.append(visit_id)
         
-        print(f"[DEBUG] 새 방문 ID 생성: {visit_id}, 현재 카운터: {self.visit_counter}")
+        #print(f"[DEBUG] 새 방문 ID 생성: {visit_id}, 현재 카운터: {self.visit_counter}")
         return visit_id
     
     # ui/room_log_widget.py의 add_bet_result 메서드 수정
@@ -146,7 +146,8 @@ class RoomLogWidget(QWidget):
             if hasattr(self, 'logger'):
                 self.logger.debug("1초 이내 중복 호출 무시")
             else:
-                print("[DEBUG] 1초 이내 중복 호출 무시")
+                #print("[DEBUG] 1초 이내 중복 호출 무시")
+                pass
             return
             
         # 결과 시간 기록
@@ -164,7 +165,7 @@ class RoomLogWidget(QWidget):
         self._update_last_log_item(result_type)
         
         # 디버그 로그 추가
-        # print(f"[DEBUG] 방 로그 기록: 방={room_name}, 결과={result_type}, 현재 항목 ID={self.current_visit_id}")
+        # #print(f"[DEBUG] 방 로그 기록: 방={room_name}, 결과={result_type}, 현재 항목 ID={self.current_visit_id}")
 
     # ui/room_log_widget.py에서 set_current_room 메서드 수정
     def set_current_room(self, room_name, is_new_visit=False):
@@ -178,7 +179,7 @@ class RoomLogWidget(QWidget):
         # 방 이동 감지 플래그 확인 - 추가된 부분
         if self.has_changed_room:
             is_new_visit = True
-            print(f"[DEBUG] has_changed_room 플래그로 인해 새 방문으로 처리: {room_name}")
+            #print(f"[DEBUG] has_changed_room 플래그로 인해 새 방문으로 처리: {room_name}")
             self.has_changed_room = False  # 플래그 사용 후 초기화
         
         # 이미 같은 방에 대한 기록이 진행 중이면 has_changed_room 플래그만 업데이트
@@ -307,7 +308,7 @@ class RoomLogWidget(QWidget):
         # 이미 있는 로그 항목인지 확인
         if self.current_visit_id in self.room_logs:
             # 디버그 로그
-            print(f"[DEBUG] 이미 존재하는 방문 ID 재사용: {self.current_visit_id}")
+            #print(f"[DEBUG] 이미 존재하는 방문 ID 재사용: {self.current_visit_id}")
             return
         
         # 새 로그 항목 생성
@@ -323,7 +324,7 @@ class RoomLogWidget(QWidget):
         self.update_table()
         
         # 디버그 로그
-        print(f"[DEBUG] 새 방 로그 항목 추가: {self.current_visit_id}, 방: {room_name}")
+        #print(f"[DEBUG] 새 방 로그 항목 추가: {self.current_visit_id}, 방: {room_name}")
 
     # ui/room_log_widget.py의 _update_last_log_item 메서드 수정
     def _update_last_log_item(self, result_type):
@@ -339,7 +340,7 @@ class RoomLogWidget(QWidget):
             prev_win = self.room_logs[self.current_visit_id]['win']
             prev_lose = self.room_logs[self.current_visit_id]['lose']
             prev_tie = self.room_logs[self.current_visit_id]['tie']
-            print(f"[DEBUG] 로그 업데이트 전: 승={prev_win}, 패={prev_lose}, 무={prev_tie}")
+            #print(f"[DEBUG] 로그 업데이트 전: 승={prev_win}, 패={prev_lose}, 무={prev_tie}")
             
             # 결과 타입에 따라 카운터 증가
             if result_type == "적중":
@@ -369,11 +370,12 @@ class RoomLogWidget(QWidget):
             new_win = self.room_logs[self.current_visit_id]['win']
             new_lose = self.room_logs[self.current_visit_id]['lose']
             new_tie = self.room_logs[self.current_visit_id]['tie']
-            print(f"[DEBUG] 로그 업데이트 후: 승={new_win}, 패={new_lose}, 무={new_tie}")
+            #print(f"[DEBUG] 로그 업데이트 후: 승={new_win}, 패={new_lose}, 무={new_tie}")
         else:
             # 로그 항목이 없는 경우 경고
-            print(f"[WARNING] 결과 기록 실패: 현재 방문 ID가 없거나 로그 항목이 없음 (ID={self.current_visit_id})")
-            
+            #print(f"[WARNING] 결과 기록 실패: 현재 방문 ID가 없거나 로그 항목이 없음 (ID={self.current_visit_id})")
+            pass
+        
     def should_create_new_visit_id(self, base_room_name):
         """
         새 방문 ID 생성 여부 결정 (무승부 시 현재 방에 계속 있어야 함)

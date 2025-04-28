@@ -98,7 +98,7 @@ class GameMonitoringService:
                         if close_button:
                             try:
                                 close_button.click()
-                                self.logger.info("방 종료 버튼 클릭 완료!")
+                                # self.logger.info("방 종료 버튼 클릭 완료!")
                                 time.sleep(2)
                             except Exception as e:
                                 self.logger.warning(f"종료 버튼 클릭 실패: {e}")
@@ -107,7 +107,7 @@ class GameMonitoringService:
                                     self.devtools.driver.execute_script(
                                         f"document.querySelector('{close_button_selectors[0]}').click();"
                                     )
-                                    self.logger.info("JavaScript로 종료 버튼 클릭 완료!")
+                                    # self.logger.info("JavaScript로 종료 버튼 클릭 완료!")
                                     time.sleep(1)
                                 except:
                                     self.logger.warning("모든 종료 버튼 클릭 시도 실패")

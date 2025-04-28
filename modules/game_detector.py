@@ -201,9 +201,9 @@ class GameDetector:
         # 원하는 개수만큼만 결과를 자른다.
         self.results = filtered_results[-desired_pb_count:]  # 가장 최근 `desired_pb_count`개만 저장
 
-        if self.logger:
-            self.logger.info(f"[DEBUG] add_multiple_results - {len(filtered_results)}개 결과 필터링 후, "
-                             f"{len(self.results)}개 결과 저장 완료")
+        # if self.logger:
+        #     self.logger.info(f"[DEBUG] add_multiple_results - {len(filtered_results)}개 결과 필터링 후, "
+        #                      f"{len(self.results)}개 결과 저장 완료")
 
     def record_pb(self, result):
         """

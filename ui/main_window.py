@@ -150,17 +150,17 @@ class MainWindow(QMainWindow):
             # 존재하는 첫 번째 경로 반환
             for path in paths:
                 if os.path.exists(path):
-                    print(f"[DEBUG] frozen 환경, 스타일 경로 발견: {path}")
+                    # print(f"[DEBUG] frozen 환경, 스타일 경로 발견: {path}")
                     return path
                     
             style_path = os.path.join(base_dir, "ui", "style.qss")
-            print(f"[DEBUG] frozen 환경, 기본 스타일 경로: {style_path}")
+            # print(f"[DEBUG] frozen 환경, 기본 스타일 경로: {style_path}")
             return style_path
         else:
             # 현재 파일의 디렉터리 기준 경로
             current_dir = os.path.dirname(os.path.abspath(__file__))
             style_path = os.path.join(current_dir, "style.qss")
-            print(f"[DEBUG] 개발 환경, 스타일 경로: {style_path}")
+            # print(f"[DEBUG] 개발 환경, 스타일 경로: {style_path}")
             return style_path
         
     def setup_ui(self):
@@ -699,8 +699,8 @@ class MainWindow(QMainWindow):
         site1, site2, site3 = self.settings_manager.get_sites()
         
         # 로그 출력
-        print(f"[INFO] 설정 다시 로드 후 사이트 {site_number} 열기 시도")
-        print(f"[DEBUG] 현재 사이트 설정: 사이트1={site1}, 사이트2={site2}, 사이트3={site3}")
+        # print(f"[INFO] 설정 다시 로드 후 사이트 {site_number} 열기 시도")
+        # print(f"[DEBUG] 현재 사이트 설정: 사이트1={site1}, 사이트2={site2}, 사이트3={site3}")
         
         # 사이트 번호에 따라 URL 선택
         site_url = ""

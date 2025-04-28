@@ -93,8 +93,8 @@ class BettingService:
                     self.main_window.betting_widget.room_position_counter = 0
 
             had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
-            if had_tie_last_round:
-                self.logger.info("타이 직후 베팅: 동일 위치 유지")
+            # if had_tie_last_round:
+            #     self.logger.info("타이 직후 베팅: 동일 위치 유지")
 
             bet_success = self._execute_betting(bet_type, bet_amount)
 
@@ -103,7 +103,7 @@ class BettingService:
                 self.has_bet_current_round = True  # ✅ 베팅 성공했을 때만 True
                 return True
             else:
-                self.logger.warning("베팅 실패: 상태 초기화 없음")
+                # self.logger.warning("베팅 실패: 상태 초기화 없음")
                 return False
 
         except Exception as e:
@@ -172,10 +172,10 @@ class BettingService:
                     return True
                 
                 self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempt+1}/{max_attempts}")
-                time.sleep(1)
+                time.sleep(0.5)
             except Exception as e:
                 self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
-                time.sleep(1)
+                time.sleep(0.5)
         
         self.logger.warning("베팅 가능 상태 대기 시간 초과.")
         return False
@@ -208,7 +208,7 @@ class BettingService:
                     
                     # 게임 카운트가 한 단계만 증가했는지 확인 (안전 장치)
                     if new_game_count > current_game_count and new_game_count <= current_game_count + 1:
-                        self.logger.info(f"게임 카운트 업데이트: {current_game_count} → {new_game_count}")
+                        # self.logger.info(f"게임 카운트 업데이트: {current_game_count} → {new_game_count}")
                         
                         # game 속성 대신 game_helper 사용 
                         if hasattr(self.main_window.trading_manager, 'game_helper'):
@@ -425,7 +425,7 @@ class BettingService:
                 except Exception as e:
                     self.logger.warning(f"{chip_value:,}원 칩 일반 클릭 실패 → JS 클릭 시도")
                     self.devtools.driver.execute_script("arguments[0].click();", chip_element)
-                    self.logger.info(f"[JS 클릭] {chip_value:,}원 칩 클릭 완료")
+                    # self.logger.info(f"[JS 클릭] {chip_value:,}원 칩 클릭 완료")
                 # ✅ 대기 시간 단축 (0.5초 → 0.1초)
                 time.sleep(0.1)
             except Exception as e:
@@ -438,11 +438,11 @@ class BettingService:
                     time.sleep(0.1)
                     try:
                         bet_element.click()
-                        self.logger.info(f"{bet_type} 영역 {i+1}/{clicks} 클릭 완료")
+                        # self.logger.info(f"{bet_type} 영역 {i+1}/{clicks} 클릭 완료")
                     except Exception as e:
                         self.logger.warning(f"{bet_type} 영역 일반 클릭 실패 → JS 클릭")
                         self.devtools.driver.execute_script("arguments[0].click();", bet_element)
-                        self.logger.info(f"{bet_type} 영역 JS 클릭 완료 ({i+1}/{clicks})")
+                        # self.logger.info(f"{bet_type} 영역 JS 클릭 완료 ({i+1}/{clicks})")
                     bet_successful = True
                 except Exception as e:
                     self.logger.error(f"베팅 클릭 중 오류 발생: {e}")

@@ -335,7 +335,7 @@ class BettingWidget(QWidget):
             
             # 다음 위치부터 시작 (최소0)
             self.room_position_counter = max(0, max_marked)
-            print(f"[INFO] 카운터 자동 조정: {self.room_position_counter}로 설정")
+            # print(f"[INFO] 카운터 자동 조정: {self.room_position_counter}로 설정")
             
     def update_bet_amount(self, amount):
         """
@@ -427,7 +427,7 @@ class BettingWidget(QWidget):
             
             # 마지막 사용 위치 다음 칸에 배치 (최소 현재 위치 이상)
             display_step = max(display_step, last_used_pos + 1)
-            print(f"[DEBUG] 성공 마커(O) 위치 계산: 마지막 위치({last_used_pos}) + 1 = {display_step}")
+            # print(f"[DEBUG] 성공 마커(O) 위치 계산: 마지막 위치({last_used_pos}) + 1 = {display_step}")
         
         # 단계가 너무 큰 경우 동적으로 열 추가
         if display_step >= self.progress_table.columnCount():
@@ -481,7 +481,8 @@ class BettingWidget(QWidget):
                     item.setForeground(QColor("black"))
             else:
                 # 이미 마커가 있어 설정하지 못한 경우 로그 출력
-                print(f"[DEBUG] 단계 {display_step}에 이미 마커가 있음: '{item.text()}'")
+                # print(f"[DEBUG] 단계 {display_step}에 이미 마커가 있음: '{item.text()}'")
+                pass
         else:
             print(f"[WARNING] 잘못된 단계 번호: {display_step} (step_items 키에 없음)")
             
@@ -595,7 +596,7 @@ class BettingWidget(QWidget):
         호환성을 위한 메서드 - reset_room_results로 대체됨
         """
         if self.prevent_reset:
-            print("[DEBUG] 결과 초기화 방지 플래그로 인해 초기화 건너뜀")
+            # print("[DEBUG] 결과 초기화 방지 플래그로 인해 초기화 건너뜀")
             return
         self.reset_room_results()
         
@@ -631,7 +632,7 @@ class BettingWidget(QWidget):
         베팅 위젯을 초기화합니다.
         테이블 셀과 step_items가 모두 제대로 설정되어 있는지 확인합니다.
         """
-        print("[DEBUG] 베팅 위젯 초기화 시작")
+        # print("[DEBUG] 베팅 위젯 초기화 시작")
         
         if success:
             # 베팅 성공 시 초기화

@@ -81,7 +81,8 @@ class TradingManagerGame:
         self.tm.just_changed_room = True
 
         # ✅ 최초 방 입장 플래그 설정
-        self.tm.wait_first_result = True
+        # self.tm.wait_first_result = True
+        self.tm.wait_first_result = False
         self.logger.info("방 입장 후 첫 결과 대기 모드 활성화")
 
         # ✅ 싱크 강제화
@@ -122,6 +123,17 @@ class TradingManagerGame:
             self.logger.info(f"[방 이동 성공] 현재 베팅 금액: {bet_amount:,}원")
 
         self.tm.current_room_name = new_room_name
+        self.tm.entered_round = self.tm.game_count
+        self.logger.info(f"[방 입장] 입장 직후 게임 수 저장: {self.tm.entered_round}")
+
+        # 🔥 추가
+        if hasattr(self.tm.excel_trading_service, 'prediction_engine') and hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
+            cps = self.tm.excel_trading_service.prediction_engine.choice_pick_system
+            cps._entered_round = self.tm.game_count
+            cps._current_game_round = self.tm.game_count
+            self.logger.info(f"[초이스픽 초기화] entered_round, current_game_round 초기화 완료: {self.tm.game_count}")
+
+
         self.tm.main_window.update_betting_status(
             room_name=self.tm.current_room_name,
             pick=self.tm.current_pick,
@@ -258,7 +270,7 @@ class TradingManagerGame:
                 # 한 사이클에서 이 코드는 한 번만 실행되도록 보장
                 if not hasattr(self, '_processed_game_count') or self._processed_game_count != new_game_count:
                     self._processed_game_count = new_game_count
-                    self.logger.info(f"[NEW RESULT] 새 게임 결과 감지 → 분석 시작 (게임 {previous_game_count} → {new_game_count})")
+                    # self.logger.info(f"[NEW RESULT] 새 게임 결과 감지 → 분석 시작 (게임 {previous_game_count} → {new_game_count})")
                     
                     self.process_previous_game_result(game_state, actual_game_count)
 
@@ -340,29 +352,31 @@ class TradingManagerGame:
             self.logger.error(f"Excel 결과 처리 오류: {e}")
             
     def handle_tie_result(self, latest_result, game_state):
-        """무승부(T) 결과 처리"""
         try:
-            # 무승부 시 상태 초기화 및 새 게임 분석
             if latest_result == 'T' and self.tm.game_count > 0:
-                # 중요: 베팅 상태 초기화는 process_bet_result에서 중앙 관리
-                # 타이 발생 로그만 남김
-                self.logger.info("무승부(T) 감지. 동일한 픽으로 다음 베팅 준비...")
+                self.logger.info("무승부(T) 감지. 기존 PICK 유지 모드 활성화")
                 
-                # 현재 방에 계속 있음을 표시
+                # 무승부 시 pick 재생성 금지: 이전 pick 유지
+                if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                    cps = self.tm.excel_trading_service.choice_pick_system
+                    cps.skip_pick_generation = True  # <- 추가!!
+                    self.logger.info("TIE 발생: 새 pick 생성 금지 설정 완료")
+                
+                # UI만 업데이트 (방 이동 없이)
                 if hasattr(self.tm.main_window, 'room_log_widget'):
                     self.tm.main_window.room_log_widget.set_current_room(
                         self.tm.current_room_name, 
                         is_new_visit=False
                     )
-
-                # 게임 상태 다시 분석하여 새 픽 생성
-                self.logger.info("무승부 후 게임 상태 다시 분석")
-                self.tm.analyze_current_game()
                 
-                # 다음 분석 예약 (2초 후)
+                # 게임 분석 다시 시작 (pick 재생성은 skip_pick_generation이 막아줌)
+                self.logger.info("무승부 후 게임 상태 다시 분석 시작")
+                self.tm.analyze_current_game()
                 self.tm.main_window.set_remaining_time(0, 0, 2)
+                
         except Exception as e:
             self.logger.error(f"TIE 결과 처리 오류: {e}")
+
 
     def process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 - 중복 로그 방지 수정"""
@@ -422,7 +436,7 @@ class TradingManagerGame:
             # 여기가 중요: 타이가 아닌 경우 베팅 상태 초기화 부분을 복원해야 함
             if latest_result != 'T':
                 self.tm.betting_service.reset_betting_state(new_round=new_game_count)
-                self.logger.info(f"타이가 아닌 결과({latest_result})로 베팅 상태 초기화")
+                # self.logger.info(f"타이가 아닌 결과({latest_result})로 베팅 상태 초기화")
 
             # UI 상태 업데이트
             display_room_name = self.tm.current_room_name.split('\n')[0] if '\n' in self.tm.current_room_name else self.tm.current_room_name

@@ -16,7 +16,7 @@ class TradingManagerBet:
         try:
             self.tm.refresh_settings()
 
-            if self.tm.wait_first_result:
+            if getattr(self.tm, 'wait_first_result', False):
                 self.logger.info("방 이동 후 첫 결과 분석 대기 중 - 베팅 보류")
                 return False
 
@@ -31,7 +31,12 @@ class TradingManagerBet:
                     return False
 
             original_pick = pick_value
-            actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(original_pick)
+            # ✅ 타이 직후면 reverse 적용하지 않고, 원래 pick 그대로 사용
+            if getattr(self.tm, 'had_tie_last_round', False):
+                actual_pick = original_pick
+                self.logger.info(f"[타이 이후] Reverse 없이 그대로 베팅: {original_pick}")
+            else:
+                actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(original_pick)
 
             widget_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)

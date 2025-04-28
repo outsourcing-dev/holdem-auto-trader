@@ -344,7 +344,7 @@ class MartinBettingService:
 
         if len(self.diff_history) >= 3:
             a, b, c = self.diff_history[-3:]
-            self.logger.info(f"[DEBUG] 최근 3개 diff: {a}, {b}, {c}")
+            # self.logger.info(f"[DEBUG] 최근 3개 diff: {a}, {b}, {c}")
 
             if b < a and c < b:
                 old = self.current_direction

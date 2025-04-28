@@ -55,6 +55,8 @@ class TradingManager:
         self.game_helper = TradingManagerGame(self)
         self._should_move_to_next_room = False
         self.had_tie_last_round = False  # 타이 직후 플래그
+        self.entered_round = None  # 방에 입장했을 때의 게임 수
+
 
     def _init_services(self):
         """서비스 객체들을 초기화"""
@@ -288,7 +290,7 @@ class TradingManager:
                     return
                     
                 # 새 결과가 없는 경우 여기서 종료 (픽 생성 및 베팅 처리하지 않음)
-                self.logger.debug(f"새 게임 결과 없음: 카운터 {self.no_result_counter}/30")
+                # self.logger.debug(f"새 게임 결과 없음: 카운터 {self.no_result_counter}/30")
                 
                 # 다음 분석 예약 (2초 후)
                 self.main_window.set_remaining_time(0, 0, 2)
@@ -328,6 +330,12 @@ class TradingManager:
             # 게임 카운트와 최신 결과를 조합해 고유 식별자 생성
             game_result_id = f"{current_game_count}_{latest_result}"
             if not hasattr(self, '_last_pick_game_id') or self._last_pick_game_id != game_result_id:
+                if self.entered_round is not None:
+                    if current_game_count <= self.entered_round:
+                        self.logger.info(f"[베팅 대기] 입장 직후 게임({self.entered_round})에서 아직 진행되지 않았습니다. 현재: {current_game_count}")
+                        self.main_window.set_remaining_time(0, 0, 2)
+                        return
+
                 pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
                 self._last_pick_game_id = game_result_id
                 self.logger.info(f"게임 {current_game_count}에 대한 새 픽 생성: {pick}")
