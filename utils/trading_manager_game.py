@@ -188,7 +188,6 @@ class TradingManagerGame:
 
         return True
 
-    # utils/trading_manager_game.py 수정 부분
     def process_excel_result(self, result, game_state, previous_game_count):
         try:
             # 현재 처리 시도에 대한 고유 식별자 추가
@@ -270,7 +269,6 @@ class TradingManagerGame:
                 # 한 사이클에서 이 코드는 한 번만 실행되도록 보장
                 if not hasattr(self, '_processed_game_count') or self._processed_game_count != new_game_count:
                     self._processed_game_count = new_game_count
-                    # self.logger.info(f"[NEW RESULT] 새 게임 결과 감지 → 분석 시작 (게임 {previous_game_count} → {new_game_count})")
                     
                     self.process_previous_game_result(game_state, actual_game_count)
 
@@ -320,6 +318,11 @@ class TradingManagerGame:
                         self.logger.info(f"첫 결과 대기 모드입니다. 아직 베팅하지 않습니다. (PICK: {next_pick})")
                         if previous_game_count > 0:
                             self.tm.current_pick = next_pick
+                        return
+
+                    # 추가 안전 장치: 유효하지 않은 PICK 검증
+                    if next_pick not in ['P', 'B']:
+                        self.logger.warning(f"유효하지 않은 PICK '{next_pick}'로 베팅 시도가 중단되었습니다.")
                         return
 
                     # 베팅 조건

@@ -902,17 +902,19 @@ class ChoicePickSystem:
             self.logger.info("[TIE 후 유지] 기존 PICK 재사용 (새 PICK 생성 안함)")
             self.skip_pick_generation = False  # 다음에는 정상 생성 허용
             return self.current_pick  # 기존 pick 리턴
+        
+        # 방 입장 직후 플래그 확인 추가
         entered_round = getattr(self, '_entered_round', 0)
         current_game_round = getattr(self, '_current_game_round', 0)
+        wait_first_result = current_game_round <= entered_round
 
-        if current_game_round <= entered_round:
-            self.logger.info(f"[대기 모드] 방 입장 직후라 분석 건너뜁니다 (입장라운드={entered_round}, 현재라운드={current_game_round})")
+        if wait_first_result:
+            self.logger.info(f"[대기 모드] 방 입장 직후라 고정 후보 설정하지 않습니다 (입장라운드={entered_round}, 현재라운드={current_game_round})")
             
             if not getattr(self, 'skip_n_count', False):
                 self.skip_n_count = True  # ✅ 대기 중일 때 N카운트 올라가는 걸 방지!
-            
-            return 'N'
-        
+                
+        # 현재 사이클 확인 로직은 유지
         current_game_round = getattr(self, '_current_game_round', 0)
         cycle_id = f"{current_game_round}_{len(self.results)}_{self.consecutive_loss_with_candidate}"
 
@@ -977,18 +979,23 @@ class ChoicePickSystem:
             return 'N'
 
         # --- 여기서 고정된 후보 저장 ---
-        self.fixed_candidate = {
-            'next_pick': best_candidate.get('next_pick', 'N'),
-            'betting_direction': best_candidate.get('betting_direction', 'normal')
-        }
-        self.current_candidate_index = best_index
-        self.consecutive_loss_with_candidate = 0  # 연속 실패 카운트 리셋
+        # 방 입장 직후가 아닐 때만 고정 후보 설정
+        if not wait_first_result:
+            self.fixed_candidate = {
+                'next_pick': best_candidate.get('next_pick', 'N'),
+                'betting_direction': best_candidate.get('betting_direction', 'normal')
+            }
+            self.current_candidate_index = best_index
+            self.consecutive_loss_with_candidate = 0  # 연속 실패 카운트 리셋
+            self.logger.info(f"새 고정 후보({best_index}번) 선택 완료")
+        else:
+            self.logger.info(f"방 입장 직후 모드: 후보({best_index}번) 계산만 하고 고정은 하지 않음")
 
-        pick = self.fixed_candidate['next_pick']
-        self.betting_direction = self.fixed_candidate['betting_direction']
+        pick = best_candidate.get('next_pick', 'N')
+        self.betting_direction = best_candidate.get('betting_direction', 'normal')
 
         if pick in ['P', 'B']:
-            self.logger.info(f"새 고정 후보({best_index}번) 선택: PICK={pick}, 방향={self.betting_direction}")
+            self.logger.info(f"PICK={pick}, 방향={self.betting_direction}")
             self.current_pick = pick
             self.consecutive_n_count = 0
             return pick
@@ -997,8 +1004,7 @@ class ChoicePickSystem:
                 self.consecutive_n_count += 1
             self.logger.warning(f"[후보 생성 실패] 생성된 PICK이 유효하지 않음: {pick}")
             return 'N'
-
-
+        
     def get_reverse_bet_pick(self, original_pick):
         """
         베팅 방향에 따라 실제 베팅할 픽을 결정합니다.

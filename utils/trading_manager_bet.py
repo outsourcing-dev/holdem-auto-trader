@@ -16,6 +16,11 @@ class TradingManagerBet:
         try:
             self.tm.refresh_settings()
 
+            # 안전 장치 추가: 명시적으로 N 값 체크
+            if pick_value == 'N' or pick_value is None:
+                self.logger.warning(f"PICK 값이 '{pick_value}'이므로 베팅을 건너뜁니다.")
+                return False
+
             if getattr(self.tm, 'wait_first_result', False):
                 self.logger.info("방 이동 후 첫 결과 분석 대기 중 - 베팅 보류")
                 return False
@@ -75,8 +80,7 @@ class TradingManagerBet:
             self.tm.main_window.stop_button.setEnabled(True)
             self.tm.main_window.update_button_styles()
             return False
-
-
+        
     def process_successful_bet(self, bet_amount):
         """
         성공적인 베팅 처리
