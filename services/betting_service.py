@@ -93,8 +93,16 @@ class BettingService:
                     self.main_window.betting_widget.room_position_counter = 0
 
             had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
-            # if had_tie_last_round:
-            #     self.logger.info("타이 직후 베팅: 동일 위치 유지")
+            
+            # 타이 직후 베팅 처리 - 이전 베팅 타입 유지
+            if had_tie_last_round:
+                self.logger.info("타이 직후 베팅: 동일 위치 유지")
+                # 이전 베팅 타입이 있으면 사용
+                if self.last_bet_type and self.last_bet_type != bet_type:
+                    self.logger.info(f"타이 직후 베팅 타입 수정: {bet_type} → {self.last_bet_type}")
+                    bet_type = self.last_bet_type
+                # 타이 직후 플래그 초기화
+                self.main_window.trading_manager.had_tie_last_round = False
 
             bet_success = self._execute_betting(bet_type, bet_amount)
 
@@ -103,7 +111,6 @@ class BettingService:
                 self.has_bet_current_round = True  # ✅ 베팅 성공했을 때만 True
                 return True
             else:
-                # self.logger.warning("베팅 실패: 상태 초기화 없음")
                 return False
 
         except Exception as e:

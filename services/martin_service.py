@@ -322,7 +322,7 @@ class MartinBettingService:
         self.original_pick = original_pick
         self.logger.info(f"[PICK 결정] 현재 방향: {self.current_direction}, 원 PICK: {original_pick}")
 
-        if self.current_direction == 'forward':
+        if self.current_direction == 'normal':
             return original_pick
         if original_pick == 'P':
             return 'B'

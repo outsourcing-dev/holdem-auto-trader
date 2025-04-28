@@ -176,24 +176,23 @@ class ExcelTradingService:
     
     def _handle_tie_result(self, current_column, new_game_count, recent_results):
         """
-        TIE 결과 처리 - 예측 엔진 사용
-        
-        Args:
-            current_column (str): 현재 열 정보 (호환성 유지용)
-            new_game_count (int): 새 게임 카운트
-            recent_results (list): 최근 결과 목록
-            
-        Returns:
-            tuple: (열 정보, 게임 카운트, 최근 결과 목록, 다음 픽 값)
+        TIE 결과 처리 - 이전 PICK 값 완전히 유지
         """
-        self.logger.info(f"TIE 결과 감지 - 예측 엔진 기반 PICK 값 사용")
-
-        next_pick = self.prediction_engine.predict_next_pick()
-        if next_pick == 'N':
-            self.logger.warning("예측 엔진에서 PICK 값을 계산할 수 없음 (데이터 부족)")
-
-        return "AUTO", new_game_count, recent_results, next_pick
+        self.logger.info(f"TIE 결과 감지 - 이전 PICK 값 유지")
         
+        # 현재 PICK 값 가져오기 (이전 예측 값 그대로 재사용)
+        current_pick = self.prediction_engine.get_current_pick()
+        
+        # 이전 값이 없는 경우에만 새로 예측 (초기 상태일 경우)
+        if current_pick is None:  # 명시적으로 None인 경우만 새 예측
+            current_pick = self.prediction_engine.predict_next_pick()
+            self.logger.info(f"이전 PICK 값이 없어 새로 예측: {current_pick}")
+        else:
+            # 이전 값이 'N'이든 'P'나 'B'든 그대로 유지
+            self.logger.info(f"타이 후 이전 PICK 값 유지: {current_pick}")
+
+        return "AUTO", new_game_count, recent_results, current_pick
+
     def record_betting_result(self, is_win: bool) -> None:
         """
         베팅 결과 기록

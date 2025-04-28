@@ -84,6 +84,9 @@ class TradingManagerGame:
         # self.tm.wait_first_result = True
         self.tm.wait_first_result = False
         self.logger.info("방 입장 후 첫 결과 대기 모드 활성화")
+        if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+            self.tm.excel_trading_service.choice_pick_system.current_direction = "normal"
+            self.logger.info("[초기화] 새 방 입장 시 direction을 normal로 초기화 완료")
 
         # ✅ 싱크 강제화
         if hasattr(self.tm.main_window, 'betting_widget') and hasattr(self.tm.main_window.betting_widget, 'room_position_counter'):

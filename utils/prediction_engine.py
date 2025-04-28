@@ -132,3 +132,16 @@ class PredictionEngine:
     def clear(self) -> None:
         """모든 데이터 초기화"""
         self.choice_pick_system.clear()
+
+    def get_current_pick(self):
+        """
+        현재 저장된 PICK 값을 반환합니다.
+        
+        Returns:
+            str: 현재 PICK 값(P, B, N) 또는 값이 없으면 None
+        """
+        if hasattr(self, 'current_pick'):
+            return self.current_pick
+        
+        # 직접 저장된 값이 없는 경우 현재 예측 값을 계산하여 반환
+        return self.predict_next_pick()

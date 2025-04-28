@@ -330,15 +330,18 @@ class TradingManager:
             # 게임 카운트와 최신 결과를 조합해 고유 식별자 생성
             game_result_id = f"{current_game_count}_{latest_result}"
             if not hasattr(self, '_last_pick_game_id') or self._last_pick_game_id != game_result_id:
-                if self.entered_round is not None:
-                    if current_game_count <= self.entered_round:
-                        self.logger.info(f"[베팅 대기] 입장 직후 게임({self.entered_round})에서 아직 진행되지 않았습니다. 현재: {current_game_count}")
-                        self.main_window.set_remaining_time(0, 0, 2)
-                        return
-
+                
+                # [여기에 추가!] wait_first_result 검사
+                if hasattr(self, 'wait_first_result') and self.wait_first_result:
+                    self.logger.info("[대기모드] 방 입장 직후라 픽 생성/베팅을 잠시 생략합니다.")
+                    self.main_window.set_remaining_time(0, 0, 2)
+                    return
+                
+                # 정상적으로 pick 생성
                 pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
                 self._last_pick_game_id = game_result_id
                 self.logger.info(f"게임 {current_game_count}에 대한 새 픽 생성: {pick}")
+
             else:
                 # 이미 이 게임 카운트와 결과에 대해 pick을 생성했으면 재사용
                 pick = self.excel_trading_service.choice_pick_system.current_pick
