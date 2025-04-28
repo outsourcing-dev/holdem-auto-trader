@@ -887,7 +887,18 @@ class ChoicePickSystem:
         return candidates
 
     def generate_choice_pick(self):
-        self.logger.info(f"generate_choice_pick 실행 - 현재 데이터: {self.results}, 길이: {len(self.results)}")
+        # 게임 라운드 번호 활용 (외부에서 전달받은 값)
+        current_game_round = getattr(self, '_current_game_round', 0)
+        
+        # 사이클 ID에 게임 라운드 포함
+        cycle_id = f"{current_game_round}_{len(self.results)}_{self.consecutive_loss_with_candidate}"
+        
+        if hasattr(self, '_current_cycle_id') and self._current_cycle_id == cycle_id:
+            self.logger.info(f"동일한 사이클 감지됨 ({cycle_id}) - 이전에 계산된 픽 재사용")
+            return self.current_pick if self.current_pick else 'N'
+            
+        self._current_cycle_id = cycle_id
+        self.logger.info(f"generate_choice_pick 실행 - 현재 데이터: {self.results}, 길이: {len(self.results)}, 게임 라운드: {current_game_round}")
 
         skip_n_count = getattr(self, 'skip_n_count', False)
 
@@ -970,6 +981,7 @@ class ChoicePickSystem:
                     if pick in ['P', 'B']:
                         self.logger.info(f"동일 후보({candidate_idx}번) 유지, 연속 실패: {self.consecutive_loss_with_candidate}회, PICK={pick}")
                         self.consecutive_n_count = 0  # ✅ 초기화
+                        self.current_pick = pick  # 현재 픽 저장
                         return pick
 
                 # 후보는 있는데 새 픽을 못 찾은 경우
@@ -989,9 +1001,7 @@ class ChoicePickSystem:
                 else:
                     self.logger.info("[N 카운트 건너뛰기] 후보 정보 없음 -> 카운트 증가 안함")
                 return 'N'
-
-
-
+            
     def get_reverse_bet_pick(self, original_pick):
         """
         베팅 방향에 따라 실제 베팅할 픽을 결정합니다.

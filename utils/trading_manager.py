@@ -175,7 +175,7 @@ class TradingManager:
     def analyze_current_game(self):
         """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현 - 동기화 문제 수정)"""
         try:
-                    # 중지 플래그 확인 (가장 먼저 확인)
+            # 중지 플래그 확인 (가장 먼저 확인)
             if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
                 self.logger.info("중지 명령으로 인해 게임 분석을 중단합니다.")
                 return
@@ -205,16 +205,15 @@ class TradingManager:
             self._analysis_thread.consecutive_n_detected.connect(self._handle_consecutive_n)
 
             # 스레드 시작
-            # self.logger.info("게임 분석 스레드 시작")
             self._analysis_thread.start()
-            # 중지 버튼 활성화 (스레드 시작 후)
-            # self.main_window.stop_button.setEnabled(True)
+
+            # 중지 버튼 상태 업데이트
             self.main_window.update_button_styles()
-            # self.logger.info("게임 분석 스레드 시작 후 중지 버튼 활성화")
         
         except Exception as e:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
+
 
 
     # 새로운 핸들러 메서드 추가
@@ -234,10 +233,16 @@ class TradingManager:
         # self.change_room()
         self.change_room(due_to_consecutive_n=True)
 
-        
     def _handle_analysis_result(self, result):
         """분석 결과 처리 핸들러 - 첫 결과 대기 로직 추가"""
         try:
+            # 중복 처리 방지 플래그 추가
+            if hasattr(self, '_is_processing_result') and self._is_processing_result:
+                self.logger.info("이미 결과를 처리 중입니다 - 중복 처리 건너뜁니다")
+                return
+                
+            self._is_processing_result = True
+            
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
                 return
@@ -246,6 +251,10 @@ class TradingManager:
             previous_game_count = result['previous_game_count']
             current_game_count = game_state.get('round', 0)
             new_result = result.get('new_result', False)  # 새 결과 여부 확인
+            
+            # choice_pick_system에 현재 게임 라운드 전달
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                self.excel_trading_service.choice_pick_system._current_game_round = current_game_count
             
             # 중요: PICK 값이 'N'이고 consecutive_n_count가 4 이상인지 명확하게 확인
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
@@ -307,7 +316,6 @@ class TradingManager:
             if previous_game_count == 0 and current_game_count > 0:
                 display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
                 self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
-
             
             # 새 결과가 있을 때만 Excel 처리
             excel_result = self.excel_trading_service.process_game_results(
@@ -316,7 +324,17 @@ class TradingManager:
                 self.current_room_name
             )
             
-            pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
+            # 각 사이클에서 generate_choice_pick 한 번만 호출하도록 수정
+            # 게임 카운트와 최신 결과를 조합해 고유 식별자 생성
+            game_result_id = f"{current_game_count}_{latest_result}"
+            if not hasattr(self, '_last_pick_game_id') or self._last_pick_game_id != game_result_id:
+                pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
+                self._last_pick_game_id = game_result_id
+                self.logger.info(f"게임 {current_game_count}에 대한 새 픽 생성: {pick}")
+            else:
+                # 이미 이 게임 카운트와 결과에 대해 pick을 생성했으면 재사용
+                pick = self.excel_trading_service.choice_pick_system.current_pick
+                self.logger.info(f"이미 게임 {game_result_id}에 대한 픽이 생성됨 - 재사용: {pick}")
 
             if pick == 'N':
                 self.logger.info("[베팅 스킵] 초이스픽 결과가 'N'이므로 베팅을 건너뜁니다.")
@@ -340,6 +358,9 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)
         finally:
+            if hasattr(self, '_is_processing_result'):
+                self._is_processing_result = False
+                
             if self.is_trading_active:
                 if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                     self.logger.info("목표 금액 도달 확인됨: 다음 분석을 예약하지 않습니다.")
