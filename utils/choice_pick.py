@@ -593,7 +593,6 @@ class ChoicePickSystem:
 
             # ✅ 성공했으면 고정 후보 삭제
             self.fixed_candidate = None
-
             self.should_refresh_data = True
             self.failure_count = 0
 
@@ -624,7 +623,6 @@ class ChoicePickSystem:
             if self.failure_count >= 3 or self.consecutive_loss_with_candidate >= self.max_loss_with_same_candidate:
                 self.should_refresh_data = True
                 self.failure_count = 0
-
                 self.fixed_candidate = None  # ✨ 여기!
 
                 self.cached_pick = None
@@ -893,104 +891,112 @@ class ChoicePickSystem:
             candidate["betting_direction"] = direction
             
         return candidates
-
+    
     def generate_choice_pick(self):
         """
-        초이스 픽 생성 - 최초 15개 데이터로 후보 6개 생성 후 고정.
-        이후에는 고정된 후보만 따라가고, 승리할 때만 새로 후보 생성.
+        정확히 15개일 때만 새로운 후보를 생성하고 고정합니다.
+        이후 결과가 16, 17개로 늘어나더라도 고정된 후보의 17, 18번째 예상 PICK을 사용합니다.
+        이 함수는 항상 최신 결과를 자동 동기화하며, 실패 시에도 결과를 누적합니다.
         """
+
+        # ✅ 1. 자동 결과 동기화 및 누적
+        if hasattr(self, 'main_window') and hasattr(self.main_window, 'trading_manager'):
+            tm = self.main_window.trading_manager
+            game_state = tm.game_monitoring_service.get_current_game_state()
+
+            if game_state:
+                tm.excel_trading_service.process_game_results(
+                    game_state,
+                    tm.game_count,
+                    tm.current_room_name,
+                    log_on_change=True
+                )
+                new_results = game_state.get("filtered_results", [])
+                if new_results:
+                    self.results += [r for r in new_results if r in ['P', 'B']]
+                    self.results = self.results[-30:]  # 결과는 최대 30개까지만 유지
+                self.logger.info(f"[자동 동기화] 누적된 결과 개수: {len(self.results)}")
+            else:
+                self.logger.warning("⚠️ 최신 게임 상태를 가져오지 못해 PICK 생성을 중단합니다.")
+                return 'N'
+
+        # ✅ 2. TIE 유지 처리
         if getattr(self, 'skip_pick_generation', False):
             self.logger.info("[TIE 후 유지] 기존 PICK 재사용 (새 PICK 생성 안함)")
             self.skip_pick_generation = False
             return self.current_pick
 
+        # ✅ 3. 방 입장 직후 대기 모드
         entered_round = getattr(self, '_entered_round', 0)
         current_game_round = getattr(self, '_current_game_round', 0)
         wait_first_result = current_game_round <= entered_round
-
         if wait_first_result:
-            self.logger.info(f"[대기 모드] 방 입장 직후라 고정 후보 설정하지 않습니다 (입장라운드={entered_round}, 현재라운드={current_game_round})")
+            self.logger.info(f"[대기 모드] 방 입장 직후라 PICK 생성 안함 (입장라운드={entered_round}, 현재라운드={current_game_round})")
             if not getattr(self, 'skip_n_count', False):
                 self.skip_n_count = True
+            return 'N'
 
-        cycle_id = f"{current_game_round}_{len(self.results)}_{self.consecutive_loss_with_candidate}"
-        if hasattr(self, '_current_cycle_id') and self._current_cycle_id == cycle_id:
-            self.logger.info(f"동일한 사이클 감지됨 ({cycle_id}) - 이전에 계산된 픽 재사용")
-            return self.current_pick if self.current_pick else 'N'
-        self._current_cycle_id = cycle_id
-
-        self.logger.info(f"generate_choice_pick 실행 - 현재 데이터: {self.results}, 길이: {len(self.results)}, 게임 라운드: {current_game_round}")
-
-        if hasattr(self, 'fixed_candidate') and self.fixed_candidate:
-            next_pick = self.fixed_candidate.get('next_pick', 'N')
-            betting_direction = self.fixed_candidate.get('betting_direction', 'normal')
-
-            if next_pick in ['P', 'B']:
-                self.current_pick = next_pick
-                self.betting_direction = betting_direction
-                self.consecutive_n_count = 0
-                self.logger.info(f"[고정 후보 사용] PICK={next_pick}, 방향={betting_direction}")
-                return next_pick
-            else:
-                self.logger.warning(f"[고정 후보 에러] next_pick이 유효하지 않음: {next_pick}")
-                if not getattr(self, 'skip_n_count', False):
-                    self.consecutive_n_count += 1
-                return 'N'
-
-        if not self.has_sufficient_data():
+        # ✅ 4. 데이터 부족 시
+        if len(self.results) < 15:
             self.logger.warning("후보 생성 실패: 데이터 부족 (15개 미만)")
             if not getattr(self, 'skip_n_count', False):
                 self.consecutive_n_count += 1
             return 'N'
 
-        six_pick_candidates = self.generate_six_pick_candidates()
-        if not six_pick_candidates:
-            self.logger.warning("후보 생성 실패: 유효한 후보 없음")
-            if not getattr(self, 'skip_n_count', False):
-                self.consecutive_n_count += 1
-            return 'N'
+        # ✅ 5. 정확히 15개일 때만 새 후보 생성
+        if len(self.results) == 15:
+            self.logger.info("🎯 정확히 15개 결과 - 새로운 후보 생성 시작")
+            six_pick_candidates = self.generate_six_pick_candidates()
+            if not six_pick_candidates:
+                self.logger.warning("후보 생성 실패: 유효한 후보 없음")
+                if not getattr(self, 'skip_n_count', False):
+                    self.consecutive_n_count += 1
+                return 'N'
 
-        best_index = None
-        best_score = float('-inf')
-        best_candidate = None
+            # 최고 점수 후보 선택
+            best_index, best_candidate = None, None
+            best_score = float('-inf')
+            for idx, candidate in six_pick_candidates.items():
+                if 'score' in candidate and candidate['score'] > best_score:
+                    best_score = candidate['score']
+                    best_index = idx
+                    best_candidate = candidate
 
-        for idx, candidate in six_pick_candidates.items():
-            if 'score' in candidate and candidate['score'] > best_score:
-                best_score = candidate['score']
-                best_index = idx
-                best_candidate = candidate
+            if not best_candidate:
+                self.logger.warning("유효한 최고 후보를 찾을 수 없음")
+                if not getattr(self, 'skip_n_count', False):
+                    self.consecutive_n_count += 1
+                return 'N'
 
-        if best_index is None or best_candidate is None:
-            self.logger.warning("유효한 후보를 찾을 수 없음")
-            if not getattr(self, 'skip_n_count', False):
-                self.consecutive_n_count += 1
-            return 'N'
-
-        if not wait_first_result:
+            # 후보 고정
             self.fixed_candidate = {
                 'next_pick': best_candidate.get('next_pick', 'N'),
                 'betting_direction': best_candidate.get('betting_direction', 'normal')
             }
             self.current_candidate_index = best_index
             self.consecutive_loss_with_candidate = 0
-            self.logger.info(f"새 고정 후보({best_index}번) 선택 완료")
-        else:
-            self.logger.info(f"방 입장 직후 모드: 후보({best_index}번) 계산만 하고 고정은 하지 않음")
+            self.logger.info(f"✅ 새 고정 후보({best_index}) 생성 및 저장 완료")
 
-        pick = best_candidate.get('next_pick', 'N')
-        self.betting_direction = best_candidate.get('betting_direction', 'normal')
+        # ✅ 6. 고정 후보 사용
+        if self.fixed_candidate:
+            pick = self.fixed_candidate.get('next_pick', 'N')
+            self.betting_direction = self.fixed_candidate.get('betting_direction', 'normal')
+            if pick in ['P', 'B']:
+                self.current_pick = pick
+                self.consecutive_n_count = 0
+                self.logger.info(f"[고정 PICK 사용] PICK={pick}, 방향={self.betting_direction}")
+                return pick
+            else:
+                self.logger.warning(f"[고정 후보 오류] next_pick 유효하지 않음: {pick}")
+                if not getattr(self, 'skip_n_count', False):
+                    self.consecutive_n_count += 1
+                return 'N'
 
-        if pick in ['P', 'B']:
-            self.logger.info(f"PICK={pick}, 방향={self.betting_direction}")
-            self.current_pick = pick
-            self.consecutive_n_count = 0
-            return pick
-        else:
-            if not getattr(self, 'skip_n_count', False):
-                self.consecutive_n_count += 1
-            self.logger.warning(f"[후보 생성 실패] 생성된 PICK이 유효하지 않음: {pick}")
-            return 'N'
-
+        # ✅ 7. fallback
+        self.logger.warning("⚠️ 고정 후보가 없어서 PICK 반환 실패")
+        if not getattr(self, 'skip_n_count', False):
+            self.consecutive_n_count += 1
+        return 'N'
 
     def get_reverse_bet_pick(self, original_pick):
         """
