@@ -807,9 +807,10 @@ class ChoicePickSystem:
             return {}
 
         candidates = {}
+        base_start = max(0, len(self.results) - 15)
 
         for i in range(6):  # 후보 1~6번
-            start = i
+            start = base_start + i
             results_slice = self.results[start:]
 
             if len(results_slice) < 6:  # 최소 6개 결과 필요
