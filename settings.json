@@ -4,14 +4,14 @@
     "site3": "aii1dd.net",
     "martin_count": 6,
     "martin_amounts": [
-        1000,
         2000,
         4000,
         8000,
-        25000,
-        50000
+        16000,
+        50000,
+        150000
     ],
-    "target_amount": 1500000,
+    "target_amount": 5000000,
     "double_half_start": 20,
     "double_half_stop": 8
 }
