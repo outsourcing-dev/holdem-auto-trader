@@ -35,7 +35,7 @@ class RoomEntryService:
         self.last_refresh_time = 0
         self.refresh_interval = 60  # 새로고침 사이의 최소 간격(초)
         self.consecutive_failures = 0
-        
+
     def enter_room(self):
         """
         랜덤 순서로 생성된 방 목록에서 다음 방에 입장합니다.
@@ -46,16 +46,18 @@ class RoomEntryService:
         """
         if hasattr(self.main_window, 'trading_manager'):
             if hasattr(self.main_window.trading_manager, 'stop_all_processes') and self.main_window.trading_manager.stop_all_processes:
+                # self.logger.info("중지 명령이 감지되어 방 입장을 중단합니다.")
                 return None
             
             # 목표 금액 도달 확인도 추가
             if hasattr(self.main_window.trading_manager, 'balance_service') and hasattr(self.main_window.trading_manager.balance_service, '_target_amount_reached') and self.main_window.trading_manager.balance_service._target_amount_reached:
+                # self.logger.info("목표 금액 도달이 감지되어 방 입장을 중단합니다.")
                 return None
-        
+            
         max_attempts = 10  # 최대 방 찾기 시도 횟수 
         attempts = 0
         
-        # iframe 매니저 초기화
+        # iframe 매니저 초기화 (driver 객체가 변경될 수 있으므로 여기서 다시 초기화)
         self.iframe_manager = IframeManager(self.devtools.driver)
         
         # 연속 실패 횟수 초기화
@@ -72,7 +74,6 @@ class RoomEntryService:
                 
                 # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
                 display_name = room_name.split('\n')[0] if '\n' in room_name else room_name
-                expected_room_name = display_name.strip()
                 
                 # 카지노 로비 상태 초기화 시도 (시도 횟수가 증가한 경우에만)
                 if attempts > 0:
@@ -83,14 +84,15 @@ class RoomEntryService:
                         self.devtools.driver.switch_to.window(window_handles[1])
                         time.sleep(1)
                         
-                        # 새로고침 간격 조건 추가
+                        # 새로고침 간격 조건 추가 (마지막 새로고침 후 최소 시간이 지났고, 실패 횟수가 임계값을 넘었을 때만)
                         current_time = time.time()
                         if (current_time - self.last_refresh_time > self.refresh_interval and 
-                            (self.consecutive_failures >= 2 or attempts % 5 == 0)):
+                            (self.consecutive_failures >= 2 or attempts % 5 == 0)):  # 연속 2번 실패했거나 5번째 시도마다
+                            # self.logger.info("카지노 로비 페이지 새로고침")
                             self.devtools.driver.refresh()
                             time.sleep(3)
                             self.last_refresh_time = current_time
-                            self.consecutive_failures = 0
+                            self.consecutive_failures = 0  # 새로고침 후 카운터 리셋
 
                 # 방 검색 및 입장 (원본 방 이름 전체 사용)
                 if not self._search_and_enter_room(room_name):
@@ -105,35 +107,8 @@ class RoomEntryService:
                 # 성공하면 연속 실패 카운터 리셋
                 self.consecutive_failures = 0
                 
-                # 방 입장 후 충분히 대기
-                time.sleep(2)
-                
-                # 방 입장 후 실제 입장한 방 이름 확인
-                actual_room_name = self._verify_entered_room()
-                
-                if actual_room_name:
-                    self.logger.info(f"입장한 방 이름 확인: '{actual_room_name}'")
-                    
-                    # 기대한 방 이름이 실제 방 이름에 포함되는지 확인
-                    # (부분 일치로 확인 - 방 이름 형식이 다를 수 있음)
-                    if expected_room_name.lower() not in actual_room_name.lower():
-                        self.logger.warning(f"잘못된 방에 입장했습니다. 기대: '{expected_room_name}', 실제: '{actual_room_name}'")
-                        
-                        # 방 나가기
-                        if self.main_window.trading_manager.game_monitoring_service.close_current_room():
-                            # 방문 처리하여 다음에 다시 시도하지 않도록 함
-                            self.room_manager.mark_room_visited(room_name)
-                            
-                            # 2번 창(카지노 로비)으로 포커싱
-                            window_handles = self.devtools.driver.window_handles
-                            if len(window_handles) >= 2:
-                                self.devtools.driver.switch_to.window(window_handles[1])
-                            
-                            attempts += 1
-                            continue
-                        else:
-                            self.logger.error("잘못된 방 나가기 실패")
-                            return None
+                # 방 입장 후 게임 수 확인
+                time.sleep(2)  # 방 입장 후 충분히 대기
                 
                 # 게임 상태 확인
                 retry_state_check = 3
@@ -152,9 +127,13 @@ class RoomEntryService:
                 
                 if game_state:
                     game_count = game_state.get('round', 0)
-                    
-                    # 14-57판 입장 기준
-                    if game_count < 16 or game_count > 57:
+                    if hasattr(self.main_window.trading_manager, 'choice_pick_system'):
+                        cps = self.main_window.trading_manager.choice_pick_system
+                        cps._entered_round = game_count
+                        cps._current_game_round = game_count
+                        self.logger.info(f"[방 입장] ChoicePickSystem에 _entered_round={game_count}, _current_game_round={game_count} 설정")
+                    # 👉 최종 업데이트된 조건: 16-57판 입장 기준
+                    if game_count < 16  or game_count > 57:
                         # 방 나가기
                         if self.main_window.trading_manager.game_monitoring_service.close_current_room():
                             # 방문 처리하여 다음에 다시 시도하지 않도록 함
@@ -194,71 +173,6 @@ class RoomEntryService:
                     
         return None  # 모든 시도 실패
 
-    def _verify_entered_room(self):
-        """
-        입장한 방의 실제 이름을 확인합니다.
-        
-        Returns:
-            str: 실제 방 이름 또는 None (확인 실패 시)
-        """
-        try:
-            # 기본 프레임으로 전환
-            self.devtools.driver.switch_to.default_content()
-            
-            # iframe으로 전환
-            if switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2):
-                # 지정된 클래스와 데이터 속성을 가진 방 이름 요소 찾기
-                try:
-                    room_element = self.devtools.driver.find_element(
-                        By.CSS_SELECTOR, 
-                        "span.tableName--ed38c[data-role='table-name']"
-                    )
-                    if room_element:
-                        return room_element.text.strip()
-                except Exception as e1:
-                    self.logger.debug(f"첫 번째 방법으로 방 이름 찾기 실패: {e1}")
-                    
-                    # 대체 방법들 시도
-                    try:
-                        # 다른 선택자로 시도
-                        selectors = [
-                            "span[data-role='table-name']",
-                            "div.table-name",
-                            "div.game-title",
-                            "h1.game-title",
-                            ".room-title",
-                            "[data-role='room-title']"
-                        ]
-                        
-                        for selector in selectors:
-                            try:
-                                elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
-                                if elements and len(elements) > 0:
-                                    return elements[0].text.strip()
-                            except:
-                                continue
-                        
-                        # 마지막 수단: 페이지 제목 사용
-                        title = self.devtools.driver.title
-                        if title and len(title) > 0:
-                            return title.strip()
-                            
-                    except Exception as e2:
-                        self.logger.debug(f"대체 방법으로 방 이름 찾기 실패: {e2}")
-                
-            # 기본 프레임으로 복귀
-            self.devtools.driver.switch_to.default_content()
-            return None
-            
-        except Exception as e:
-            self.logger.warning(f"방 이름 확인 중 오류 발생: {e}")
-            # 기본 프레임으로 복귀
-            try:
-                self.devtools.driver.switch_to.default_content()
-            except:
-                pass
-            return None
-        
     def _search_and_enter_room(self, room_name, max_retries=3):
         """방 검색 및 입장 (재시도 로직 포함)"""
         # 방 재시도마다 매번 새로고침하지 않도록 수정
@@ -364,29 +278,7 @@ class RoomEntryService:
                     
                     # 검색 결과가 있는지 확인
                     if search_results and len(search_results) > 0:
-                        # 검색 결과 검증 - 첫 번째 결과의 방 이름 확인
-                        room_name_matches = False
-                        try:
-                            # 방 이름 요소 찾기 (tile-name)
-                            for result in search_results:
-                                tile_name_element = result.find_element(By.CSS_SELECTOR, "[data-role='tile-name']")
-                                tile_name_text = tile_name_element.text.strip()
-                                
-                                # 검색한 방 이름이 타일 이름에 포함되는지 확인 (대소문자 무시)
-                                if search_name.lower() in tile_name_text.lower() or tile_name_text.lower() in search_name.lower():
-                                    self.logger.info(f"방 이름 일치 확인: '{search_name}' → '{tile_name_text}'")
-                                    result.click()
-                                    room_name_matches = True
-                                    break
-                                
-                            if not room_name_matches:
-                                self.logger.warning(f"검색된 방 이름이 요청한 방 이름('{search_name}')과 일치하지 않습니다.")
-                                # 다음 방 시도
-                                return False
-                        except Exception as e:
-                            self.logger.warning(f"방 이름 일치 확인 중 오류: {e}")
-                            # 확인 실패 시 기본 동작으로 첫 번째 결과 클릭
-                            search_results[0].click()
+                        search_results[0].click()
                     else:
                         # JavaScript로 다시 시도
                         js_script = """
@@ -400,31 +292,21 @@ class RoomEntryService:
                             for (var i = 0; i < selectors.length; i++) {
                                 var results = document.querySelectorAll(selectors[i]);
                                 if (results && results.length > 0) {
-                                    // 방 이름 추출 시도
-                                    var tileNameElement = results[0].querySelector("[data-role='tile-name']");
-                                    var tileName = tileNameElement ? tileNameElement.textContent.trim() : "";
-                                    
-                                    // 방 이름 일치 여부 확인 
-                                    var searchName = arguments[0].toLowerCase();
-                                    var tileNameLower = tileName.toLowerCase();
-                                    
-                                    if (tileNameLower.includes(searchName) || searchName.includes(tileNameLower)) {
-                                        results[0].click();
-                                        return true;
-                                    }
-                                    
-                                    // 이름 불일치 시 false 반환
-                                    return false;
+                                    results[0].click();
+                                    return true;
                                 }
                             }
                             return false;
                         """
-                        clicked = self.devtools.driver.execute_script(js_script, search_name)
+                        clicked = self.devtools.driver.execute_script(js_script)
                         
                         if not clicked:
-                            self.logger.warning(f"'{search_name}' 검색 결과가 없거나 이름이 일치하지 않습니다.")
-                            return False  # 다음 방으로 넘어감
+                            # 검색 결과가 없으면 새로고침 필요 표시
+                            refresh_needed = True
+                            self.logger.warning(f"'{search_name}' 검색 결과가 없습니다. 다른 방법을 시도합니다.")
+                            continue  # 다음 재시도로 넘어감
                 except Exception as e:
+                    refresh_needed = True
                     self.logger.warning(f"검색 결과 처리 중 오류: {e}")
                     continue  # 다음 재시도로 넘어감
 
@@ -441,14 +323,17 @@ class RoomEntryService:
                         self.main_window.update_betting_status(room_name=room_name)
                         return True
                     else:
+                        refresh_needed = True
                         self.logger.warning("새 창이 열리지 않았습니다. 다시 시도합니다.")
                         continue  # 다음 재시도로 넘어감
                 except Exception as e:
+                    refresh_needed = True
                     self.logger.warning(f"창 전환 중 오류: {e}")
                     continue  # 다음 재시도로 넘어감
 
             except Exception as e:
                 self.logger.error(f"방 검색 및 입장 중 오류: {e}")
+                refresh_needed = True
                 # 마지막 시도가 아니면 재시도
                 if retry_count < max_retries - 1:
                     time.sleep(2)  # 재시도 전 대기

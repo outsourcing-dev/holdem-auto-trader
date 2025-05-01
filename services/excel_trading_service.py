@@ -116,3 +116,14 @@ class ExcelTradingService:
         if hasattr(self, 'choice_pick_system'):
             return self.choice_pick_system.should_change_room()
         return False
+    
+    def reset_after_room_change(self, preserve_martin=False):
+        """
+        방 이동 후 초이스 픽 시스템 상태 초기화
+        
+        Args:
+            preserve_martin (bool): 마틴 상태 유지 여부
+        """
+        if hasattr(self, 'choice_pick_system'):
+            self.choice_pick_system.reset_after_room_change(preserve_martin)
+            self.logger.info(f"[방 이동] 초이스 픽 시스템 상태 초기화 (마틴 유지: {preserve_martin})")

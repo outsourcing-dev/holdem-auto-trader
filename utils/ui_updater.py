@@ -29,14 +29,17 @@ class UIUpdater:
             # UI 업데이트 부분 생략 (UI 요소가 없으므로)
             # self.update_remaining_time_display()
         else:
-            # 자동 매매 활성화 상태인지 확인
-            if hasattr(self.main_window, 'trading_manager') and self.main_window.trading_manager.is_trading_active:
-                # 게임 분석 실행
-                self.main_window.trading_manager.analyze_current_game()
-                # 다시 타이머 설정 (2초 간격으로 계속 모니터링)
-                self.set_remaining_time(0, 0, 2)
+            # 자동 매매 활성 상태인 경우만 분석 실행
+            tm = getattr(self.main_window, 'trading_manager', None)
+            if tm and tm.is_trading_active:
+                # ✅ 방 이동 직후 대기 모드인 경우 analyze 생략
+                if getattr(tm, 'wait_first_result', False):
+                    tm.logger.info("[UIUpdater] 대기 모드 활성 중 - 분석 실행을 건너뜁니다.")
+                else:
+                    tm.analyze_current_game()
+                    self.set_remaining_time(0, 0, 2)  # 다음 분석 예약
             else:
-                # 자동 매매가 활성화되지 않은 경우 타이머 정지
+                # 자동 매매가 중단된 경우 타이머 정지
                 self.main_window.timer.stop()
             
     def update_remaining_time_display(self):

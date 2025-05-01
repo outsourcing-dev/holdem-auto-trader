@@ -216,8 +216,6 @@ class TradingManager:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
 
-
-
     # 새로운 핸들러 메서드 추가
     def _handle_consecutive_n(self):
         """N값 3회 연속 감지 처리 핸들러"""
@@ -618,6 +616,10 @@ class TradingManager:
         
     def change_room(self, due_to_consecutive_n=False):
         try:
+            # 🔧 분석 타이머 정지
+            if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                self.main_window.timer.stop()
+                self.logger.info("[타이머 정지] 방 이동 중 분석 타이머 일시 정지")
             # 중지 명령 확인
             if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
                 self.logger.info("중지 명령으로 인해 방 이동을 중단합니다.")
@@ -683,7 +685,16 @@ class TradingManager:
             
             # 방 이동 직후 플래그 설정
             self.just_changed_room = True
-            
+            self.wait_first_result = True
+            self.logger.info("[대기 모드 설정] 방 이동 직후 분석 전에 대기 모드 플래그 설정 완료")
+
+            # ✅ 여기 추가!
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                cps = self.excel_trading_service.choice_pick_system
+                cps._entered_round = self.game_count
+                cps._current_game_round = self.game_count
+                self.logger.info(f"[방 이동 완료] 초이스픽에 입장 라운드 설정: _entered_round={self.game_count}, _current_game_round={self.game_count}")
+
             # 성공적인 방 입장 처리 - preserve_martin 전달 
             return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=preserve_martin)
 

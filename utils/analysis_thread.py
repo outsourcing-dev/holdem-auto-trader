@@ -19,6 +19,7 @@ class GameAnalysisThread(QThread):
     def run(self):
         """스레드의 메인 실행 메서드"""
         try:
+            # 중지 관련 플래그들 먼저 체크
             if hasattr(self.tm, 'stop_all_processes') and self.tm.stop_all_processes:
                 return
 
@@ -31,10 +32,8 @@ class GameAnalysisThread(QThread):
             if self.should_stop:
                 return
 
+            # 방 이동 필요 조건 체크
             if self.tm.should_move_to_next_room:
-                if hasattr(self.tm, 'stop_all_processes') and self.tm.stop_all_processes:
-                    return
-
                 consecutive_n = False
                 if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
                     consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
@@ -45,6 +44,7 @@ class GameAnalysisThread(QThread):
                     self.room_change_needed.emit()
                 return
 
+            # 실패 카운트 고려하여 필터링 개수 결정
             failure_count = 0
             if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
                 failure_count = getattr(
@@ -52,9 +52,9 @@ class GameAnalysisThread(QThread):
                     'failure_count',
                     0
                 )
-
             desired_pb_count = min(17, 15 + failure_count)
 
+            # 게임 상태 분석
             game_state = self.tm.game_monitoring_service.get_current_game_state(
                 log_always=False,
                 desired_pb_count=desired_pb_count
@@ -67,28 +67,37 @@ class GameAnalysisThread(QThread):
 
             current_game_count = game_state.get('round', 0)
 
-            if current_game_count == self.game_count and self.game_count > 0:
-                analysis_result = {
+            # ✅ 방 입장 직후 같은 라운드인 경우 new_result=False로 처리
+            if getattr(self.tm, 'wait_first_result', False) and \
+            current_game_count == getattr(self.tm, 'entered_round', -1):
+                self.logger.info("[GameAnalysisThread] 방 입장 직후 동일 라운드 → new_result=False 처리")
+                self.analysis_complete.emit({
                     'game_state': game_state,
-                    'previous_game_count': self.game_count,
+                    'previous_game_count': self.tm.game_count,
                     'new_result': False
-                }
-                self.analysis_complete.emit(analysis_result)
+                })
                 return
 
-            if hasattr(self.tm, 'stop_all_processes') and self.tm.stop_all_processes:
+            # ✅ 기존 게임 카운트와 동일하면 새 결과 아님
+            if current_game_count == self.tm.game_count and self.tm.game_count > 0:
+                self.analysis_complete.emit({
+                    'game_state': game_state,
+                    'previous_game_count': self.tm.game_count,
+                    'new_result': False
+                })
                 return
 
-            analysis_result = {
+            # ✅ 새 결과가 있는 경우
+            self.analysis_complete.emit({
                 'game_state': game_state,
-                'previous_game_count': self.game_count,
+                'previous_game_count': self.tm.game_count,
                 'new_result': True
-            }
-            self.analysis_complete.emit(analysis_result)
+            })
 
         except Exception as e:
             self.logger.error(f"게임 상태 분석 스레드 오류: {e}", exc_info=True)
             self.analysis_error.emit(f"게임 상태 분석 오류: {str(e)}")
+
 
     def stop(self):
         """스레드 중지 요청"""
