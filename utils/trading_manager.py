@@ -637,8 +637,8 @@ class TradingManager:
             
             # N 카운트 명시적 초기화 - 방 이동 시작 시
             if hasattr(self.excel_trading_service, 'prediction_engine') and \
-            hasattr(self.excel_trading_service.prediction_engine, 'choice_pick_system'):
-                self.excel_trading_service.prediction_engine.choice_pick_system.consecutive_n_count = 0
+            hasattr(self.excel_trading_service, 'choice_pick_system'):
+                self.excel_trading_service.choice_pick_system.consecutive_n_count = 0
                 self.logger.info("[N 카운트 초기화] 방 이동 시작 시 강제 초기화")
             
             # 현재 위젯 포지션을 직접 확인 (마틴 단계의 소스)

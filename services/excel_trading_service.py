@@ -107,3 +107,12 @@ class ExcelTradingService:
 
     def clear(self):
         self.choice_pick_system.clear()
+
+    # services/excel_trading_service.py 파일에 should_change_room 메소드 추가
+    def should_change_room(self) -> bool:
+        """
+        ChoicePickSystem의 방 이동 판단 결과 반환
+        """
+        if hasattr(self, 'choice_pick_system'):
+            return self.choice_pick_system.should_change_room()
+        return False

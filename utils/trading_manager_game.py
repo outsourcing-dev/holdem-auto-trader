@@ -99,8 +99,8 @@ class TradingManagerGame:
             self.logger.info("[싱크] has_bet_current_round 초기화 완료")
 
         # N 카운트 초기화
-        if hasattr(self.tm.excel_trading_service, 'prediction_engine') and hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
-            cps = self.tm.excel_trading_service.prediction_engine.choice_pick_system
+        if  hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+            cps = self.tm.excel_trading_service.choice_pick_system
             cps.consecutive_n_count = 0
             cps.skip_n_count = True
             self.logger.info("방 입장 후 N 카운트 초기화 및 첫 분석 건너뛰기 플래그 설정")
@@ -130,8 +130,8 @@ class TradingManagerGame:
         self.logger.info(f"[방 입장] 입장 직후 게임 수 저장: {self.tm.entered_round}")
 
         # 🔥 추가
-        if hasattr(self.tm.excel_trading_service, 'prediction_engine') and hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
-            cps = self.tm.excel_trading_service.prediction_engine.choice_pick_system
+        if  hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+            cps = self.tm.excel_trading_service.choice_pick_system
             cps._entered_round = self.tm.game_count
             cps._current_game_round = self.tm.game_count
             self.logger.info(f"[초이스픽 초기화] entered_round, current_game_round 초기화 완료: {self.tm.game_count}")
@@ -170,8 +170,8 @@ class TradingManagerGame:
                         log_on_change=True
                     )
 
-                    if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
-                        pe = self.tm.excel_trading_service.prediction_engine
+                    if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                        pe = self.tm.excel_trading_service
                         pe.clear()
 
                         length = len(filtered_results)
@@ -185,8 +185,8 @@ class TradingManagerGame:
             self.logger.error(f"새 방 최근 결과 기록 오류: {e}")
 
         # 첫 분석 완료 후 N 카운트 건너뛰기 플래그 해제
-        if hasattr(self.tm.excel_trading_service, 'prediction_engine') and hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
-            self.tm.excel_trading_service.prediction_engine.choice_pick_system.skip_n_count = False
+        if  hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+            self.tm.excel_trading_service.choice_pick_system.skip_n_count = False
             self.logger.info("첫 분석 완료 - N 카운트 건너뛰기 플래그 해제")
 
         return True
@@ -199,9 +199,9 @@ class TradingManagerGame:
             process_id = f"{actual_game_count}_{latest_result}"
             
             # choice_pick_system에 현재 게임 라운드 전달
-            if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
-            hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
-                cps = self.tm.excel_trading_service.prediction_engine.choice_pick_system
+            if  \
+            hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                cps = self.tm.excel_trading_service.choice_pick_system
                 cps._current_game_round = actual_game_count
             
             # 이미 이 게임 사이클에서 이 정확한 결과를 처리했다면 건너뜀
@@ -215,9 +215,9 @@ class TradingManagerGame:
             if getattr(self.tm, 'just_won', False):
                 self.logger.info("[승리 후 초기화] just_won 상태 감지, 모든 플래그 초기화")
 
-                if hasattr(self.tm.excel_trading_service, 'prediction_engine') and \
-                hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
-                    cps = self.tm.excel_trading_service.prediction_engine.choice_pick_system
+                if  \
+                hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                    cps = self.tm.excel_trading_service.choice_pick_system
                     cps.consecutive_n_count = 0
                     cps.should_refresh_data = True
                     cps.failure_count = 0
@@ -408,12 +408,12 @@ class TradingManagerGame:
                 result_status = self.tm.bet_helper.process_bet_result(last_bet['type'], latest_result, new_game_count)
 
                 if result_status == 'lose':
-                    if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
-                        prediction_engine = self.tm.excel_trading_service.prediction_engine
-                        failure_count = getattr(prediction_engine.choice_pick_system, 'failure_count', 0)
+                    if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                        failure_count = getattr(self.tm.excel_trading_service.choice_pick_system, 'failure_count', 0)
 
                         if failure_count < 3:
-                            prediction_engine.choice_pick_system.should_refresh_data = False
+                            # 여기가 문제: choice_pick_system 변수 정의 필요
+                            self.tm.excel_trading_service.choice_pick_system.should_refresh_data = False
 
                             # 🔥 여기서 최신 결과 다시 파싱
                             desired_count = 15 + failure_count
@@ -424,8 +424,8 @@ class TradingManagerGame:
                             filtered_results = game_state.get("filtered_results", [])
 
                             # ✅ 여기서 15~17개로 정확하게 슬라이스해서 추가
-                            if hasattr(self.tm.excel_trading_service, 'prediction_engine'):
-                                pe = self.tm.excel_trading_service.prediction_engine
+                            if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                                pe = self.tm.excel_trading_service
                                 length = len(filtered_results)
                                 if length >= 17:
                                     pe.add_multiple_results(filtered_results[-17:])

@@ -2,14 +2,11 @@
     "site1": "http://lf-1122.com/",
     "site2": "aii1dd.net",
     "site3": "aii1dd.net",
-    "martin_count": 6,
+    "martin_count": 3,
     "martin_amounts": [
+        1000,
         2000,
-        4000,
-        8000,
-        16000,
-        50000,
-        150000
+        4000
     ],
     "target_amount": 5000000,
     "double_half_start": 20,

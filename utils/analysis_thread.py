@@ -46,9 +46,9 @@ class GameAnalysisThread(QThread):
                 return
 
             failure_count = 0
-            if hasattr(self.tm.excel_trading_service.prediction_engine, 'choice_pick_system'):
+            if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
                 failure_count = getattr(
-                    self.tm.excel_trading_service.prediction_engine.choice_pick_system,
+                    self.tm.excel_trading_service.choice_pick_system,
                     'failure_count',
                     0
                 )
