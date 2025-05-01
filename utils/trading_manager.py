@@ -677,97 +677,17 @@ class TradingManager:
             return False
         
     def change_room(self, due_to_consecutive_n=False):
-        try:
-            # 🔧 분석 타이머 정지
-            if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
-                self.main_window.timer.stop()
-                self.logger.info("[타이머 정지] 방 이동 중 분석 타이머 일시 정지")
-            # 중지 명령 확인
-            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-                self.logger.info("중지 명령으로 인해 방 이동을 중단합니다.")
-                return False
-                        
-            # 목표 금액 도달 확인
-            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-                self.logger.info("목표 금액 도달로 인해 방 이동을 중단합니다.")
-                return False
-                        
-            # 자동 매매 활성화 상태 확인
-            if not self.is_trading_active:
-                self.logger.info("자동 매매 비활성화 상태로 방 이동 중단")
-                return False
-
-            self.logger.info(f"방 이동 준비 중... (N값으로 인한 이동: {due_to_consecutive_n})")
-            
-            # N 카운트 명시적 초기화 - 방 이동 시작 시
-            if hasattr(self.excel_trading_service, 'prediction_engine') and \
-            hasattr(self.excel_trading_service, 'choice_pick_system'):
-                self.excel_trading_service.choice_pick_system.consecutive_n_count = 0
-                self.logger.info("[N 카운트 초기화] 방 이동 시작 시 강제 초기화")
-            
-            # 현재 위젯 포지션을 직접 확인 (마틴 단계의 소스)
-            current_widget_pos = 0
-            if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
-                current_widget_pos = self.main_window.betting_widget.room_position_counter
-                
-            self.logger.info(f"[방 이동] 현재 위젯 포지션: {current_widget_pos+1}번")
-            
-            # 마틴 유지 결정 기준
-            preserve_martin = (current_widget_pos > 0 or due_to_consecutive_n)
-            
-            self.logger.info(f"[방 이동] 마틴 유지 결정: {preserve_martin} (위젯 포지션: {current_widget_pos+1}번)")
-
-            # 방 이동 중에는 중지 버튼 비활성화
-            self.main_window.stop_button.setEnabled(False)
-            self.main_window.update_button_styles()
-            
-            # 방 이동 알림 설정
-            if hasattr(self.main_window, 'room_log_widget'):
-                self.main_window.room_log_widget.has_changed_room = True
-                self.logger.info("방 로그 위젯 has_changed_room 플래그를 True로 설정")
-            
-            # 현재 방 방문 처리
-            if self.current_room_name:
-                self.room_manager.mark_room_visited(self.current_room_name)
-            
-            # 현재 방 닫기
-            room_closed = self.game_monitoring_service.close_current_room()
-            if not room_closed:
-                self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
-            
-            # 상태 초기화 - preserve_martin 값에 따라 마틴 유지 여부 결정
-            self.game_helper.reset_room_state(preserve_martin=preserve_martin)
-            
-            # 새 방 입장
-            new_room_name = self.room_entry_service.enter_room()
-            
-            # 방 입장 실패 시 처리
-            if not new_room_name:
-                return self.game_helper.handle_room_entry_failure()
-            
-            # 방 이동 직후 플래그 설정
-            self.just_changed_room = True
-            self.wait_first_result = True
-            self.logger.info("[대기 모드 설정] 방 이동 직후 분석 전에 대기 모드 플래그 설정 완료")
-
-            # ✅ 여기 추가!
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                cps = self.excel_trading_service.choice_pick_system
-                cps._entered_round = self.game_count
-                cps._current_game_round = self.game_count
-                self.logger.info(f"[방 이동 완료] 초이스픽에 입장 라운드 설정: _entered_round={self.game_count}, _current_game_round={self.game_count}")
-
-            # 성공적인 방 입장 처리 - preserve_martin 전달 
-            return self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=preserve_martin)
-
-        except Exception as e:
-            self.logger.error(f"방 이동 중 오류 발생: {e}", exc_info=True)
-            # 실패 시 중지 버튼 비활성화
-            self.main_window.stop_button.setEnabled(False)
-            self.main_window.update_button_styles()
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(self.main_window, "경고", f"방 이동 실패")
-            return False
+        """
+        다음 방으로 이동 - 통합 함수 사용 버전
+        
+        Args:
+            due_to_consecutive_n (bool): N값 연속 감지로 인한 방 이동 여부 (마틴 유지에 영향)
+        
+        Returns:
+            bool: 성공 여부
+        """
+        # 통합 방 입장 함수 호출 - 첫 방 입장 아님
+        return self._enter_room(is_first_entry=False, due_to_consecutive_n=due_to_consecutive_n)
         
     def check_after_win_status(self):
         """승리 후 모든 상태가 올바르게 초기화되었는지 확인"""
@@ -791,7 +711,153 @@ class TradingManager:
             self.just_won = False
             
             self.logger.info("승리 후 상태 초기화 완료")\
+
+    def _enter_room(self, is_first_entry=False, due_to_consecutive_n=False):
+        """
+        통합된 방 입장 메서드 - 첫 방 입장과 방 이동 모두 사용
+        
+        Args:
+            is_first_entry (bool): 최초 방 입장 여부 (초기 상태 초기화에 사용)
+            due_to_consecutive_n (bool): N값 연속 감지로 인한 방 이동 여부
+            
+        Returns:
+            bool: 성공 여부
+        """
+        try:
+            # 중지 버튼 상태 및 타이머 관리
+            if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                self.main_window.timer.stop()
+                self.logger.info("[타이머 정지] 방 입장/이동 중 분석 타이머 일시 정지")
                 
+            # 초기 진입인 경우 상태 초기화
+            if is_first_entry:
+                self.game_count = 0
+                self.result_count = 0
+                self.current_pick = None
+                self.processed_rounds = set()
+                
+                # 게임 감지기 초기화
+                from modules.game_detector import GameDetector
+                if hasattr(self, 'game_monitoring_service'):
+                    self.game_monitoring_service.game_detector = GameDetector()
+                    if hasattr(self.game_monitoring_service, 'last_detected_count'):
+                        self.game_monitoring_service.last_detected_count = 0
+                        
+                # 방문 순서 초기화
+                self.room_manager.generate_visit_order()
+            
+            # 중지 명령 확인
+            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
+                self.logger.info("중지 명령으로 인해 방 입장/이동을 중단합니다.")
+                return False
+                        
+            # 목표 금액 도달 확인
+            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
+                self.logger.info("목표 금액 도달로 인해 방 입장/이동을 중단합니다.")
+                return False
+                        
+            # 자동 매매 활성화 상태 확인
+            if not self.is_trading_active:
+                self.logger.info("자동 매매 비활성화 상태로 방 입장/이동 중단")
+                return False
+                
+            # N 카운트 명시적 초기화 - 방 입장/이동 시작 시
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                self.excel_trading_service.choice_pick_system.consecutive_n_count = 0
+                self.logger.info("[N 카운트 초기화] 방 입장/이동 시작 시 강제 초기화")
+            
+            # 현재 위젯 포지션을 직접 확인 (마틴 단계의 소스)
+            current_widget_pos = 0
+            if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
+                current_widget_pos = self.main_window.betting_widget.room_position_counter
+                self.logger.info(f"[방 입장/이동] 현재 위젯 포지션: {current_widget_pos+1}번")
+            
+            # 마틴 유지 결정 - 첫 방 입장은 항상 False, 방 이동 시에는 위젯 포지션이나 N값 연속성에 따라 결정
+            preserve_martin = False if is_first_entry else (current_widget_pos > 0 or due_to_consecutive_n)
+            
+            self.logger.info(f"[방 입장/이동] 마틴 유지 결정: {preserve_martin} (위젯 포지션: {current_widget_pos+1}번)")
+
+            # 방 이동 중에는 중지 버튼 상태 관리
+            if not is_first_entry:
+                self.main_window.stop_button.setEnabled(False)
+                self.main_window.update_button_styles()
+            
+            # 방 이동 알림 설정
+            if hasattr(self.main_window, 'room_log_widget'):
+                self.main_window.room_log_widget.has_changed_room = True
+                self.logger.info("방 로그 위젯 has_changed_room 플래그를 True로 설정")
+            
+            # 초기 방 입장이 아닌 경우에만 현재 방 방문 처리 및 닫기
+            if not is_first_entry and self.current_room_name:
+                # 현재 방 방문 처리
+                self.room_manager.mark_room_visited(self.current_room_name)
+                
+                # 현재 방 닫기
+                room_closed = self.game_monitoring_service.close_current_room()
+                if not room_closed:
+                    self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
+            
+            # 상태 초기화 - preserve_martin 값에 따라 마틴 유지 여부 결정
+            if hasattr(self, 'game_helper') and hasattr(self.game_helper, 'reset_room_state'):
+                self.game_helper.reset_room_state(preserve_martin=preserve_martin)
+            
+            # 새 방 입장
+            new_room_name = self.room_entry_service.enter_room()
+            
+            # 방 입장 실패 시 처리
+            if not new_room_name:
+                if hasattr(self, 'game_helper') and hasattr(self.game_helper, 'handle_room_entry_failure'):
+                    return self.game_helper.handle_room_entry_failure()
+                else:
+                    return False
+            
+            # 방 이동 직후 플래그 설정
+            self.just_changed_room = True
+            self.wait_first_result = True
+            self.logger.info("[대기 모드 설정] 방 입장/이동 직후 분석 전에 대기 모드 플래그 설정 완료")
+
+            # 초이스픽 시스템에 입장 라운드 설정
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                cps = self.excel_trading_service.choice_pick_system
+                cps._entered_round = self.game_count
+                cps._current_game_round = self.game_count
+                cps.wait_first_result = True  # 추가: 방 입장 직후 PICK 차단용 플래그
+                self.logger.info(f"[방 입장/이동 완료] 초이스픽에 입장 라운드 설정: _entered_round={self.game_count}, _current_game_round={self.game_count}")
+
+            # 성공적인 방 입장 처리 - preserve_martin 전달 
+            if hasattr(self, 'game_helper') and hasattr(self.game_helper, 'handle_successful_room_entry'):
+                success = self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=preserve_martin)
+                
+                # 첫 방 입장 성공 시 추가 처리
+                if is_first_entry and success:
+                    # 중지 버튼 활성화
+                    self.main_window.stop_button.setEnabled(True)
+                    
+                    # 자동 매매 루프 시작
+                    self.run_auto_trading()
+                    
+                return success
+            else:
+                # game_helper 처리 불가능 시 기본 처리
+                self.current_room_name = new_room_name
+                self.main_window.update_betting_status(room_name=new_room_name)
+                
+                # 성공적인 방 입장/이동 후 자동 매매 계속
+                if is_first_entry:
+                    self.main_window.stop_button.setEnabled(True)
+                    self.run_auto_trading()
+                    
+                return True
+
+        except Exception as e:
+            self.logger.error(f"방 입장/이동 중 오류 발생: {e}", exc_info=True)
+            # 실패 시 중지 버튼 비활성화
+            self.main_window.stop_button.setEnabled(False)
+            self.main_window.update_button_styles()
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self.main_window, "경고", f"방 입장/이동 실패")
+            return False
+
     @property
     def should_move_to_next_room(self):
         """
@@ -850,3 +916,4 @@ class TradingManager:
     def should_move_to_next_room(self, value):
         """Setter for the should_move_to_next_room property."""
         self._should_move_to_next_room = value
+
