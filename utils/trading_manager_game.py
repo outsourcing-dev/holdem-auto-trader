@@ -19,42 +19,60 @@ class TradingManagerGame:
             self.tm.result_count = 0
             self.tm.current_pick = None
             self.tm.processed_rounds = set()
-            
+
             # 게임 감지기 초기화
             from modules.game_detector import GameDetector
             if hasattr(self.tm, 'game_monitoring_service'):
                 self.tm.game_monitoring_service.game_detector = GameDetector()
                 if hasattr(self.tm.game_monitoring_service, 'last_detected_count'):
                     self.tm.game_monitoring_service.last_detected_count = 0
-            
+
             # 방문 순서 초기화
             self.tm.room_manager.generate_visit_order()
-            
+
             # 방 선택 및 입장
             self.tm.current_room_name = self.tm.room_entry_service.enter_room()
-            
+
             # 방 입장 실패 시
             if not self.tm.current_room_name:
                 self.tm.stop_trading()
                 return False
-                
+
+            # ✅ 방 입장 직후 상태 설정
+            game_state = self.tm.game_monitoring_service.get_current_game_state()
+            if game_state:
+                self.tm.entered_round = game_state.get('round', 0)
+                self.tm.game_count = self.tm.entered_round
+                self.tm.logger.info(f"[초기 진입] entered_round: {self.tm.entered_round}")
+
+                # ChoicePickSystem에도 round 값 전달
+                if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                    cps = self.tm.excel_trading_service.choice_pick_system
+                    cps._entered_round = self.tm.entered_round
+                    cps._current_game_round = self.tm.entered_round
+
+            # ✅ 방 입장 직후 대기 모드 활성화
+            self.tm.just_changed_room = True
+            self.tm.wait_first_result = True
+
             # 중지 버튼 활성화
             self.tm.main_window.stop_button.setEnabled(True)
-            
-            # 모니터링 타이머 설정
+
+            # 분석 타이머 설정
             self.tm.main_window.set_remaining_time(0, 0, 2)
 
-            # 게임 정보 초기 분석
+            # 첫 게임 분석
             self.tm.analyze_current_game()
 
             # 자동 매매 루프 시작
             self.tm.run_auto_trading()
-            
             return True
+
         except Exception as e:
             self.logger.error(f"첫 방 입장 오류: {e}")
             self.tm.stop_trading()
             return False
+
 
     def handle_room_entry_failure(self):
         """방 입장 실패 처리"""
@@ -134,8 +152,9 @@ class TradingManagerGame:
             if game_state:
                 actual_game_count = game_state.get('round', 0)
                 self.tm.game_count = actual_game_count
+                # 명시적으로 entered_round 설정 (방 입장 직후 동일 라운드 판단용)
                 self.tm.entered_round = actual_game_count
-                self.logger.info(f"[방 입장] 입장 직후 게임 수 저장: {actual_game_count}")
+                self.logger.info(f"[방 입장] 입장 직후 게임 수 저장: {actual_game_count} (entered_round 설정 완료)")
 
                 # ✅ ChoicePickSystem도 동일하게 반영
                 if cps:

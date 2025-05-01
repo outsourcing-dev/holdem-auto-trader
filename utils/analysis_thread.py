@@ -67,10 +67,15 @@ class GameAnalysisThread(QThread):
 
             current_game_count = game_state.get('round', 0)
 
-            # ✅ 방 입장 직후 같은 라운드인 경우 new_result=False로 처리
-            if getattr(self.tm, 'wait_first_result', False) and \
-            current_game_count == getattr(self.tm, 'entered_round', -1):
-                self.logger.info("[GameAnalysisThread] 방 입장 직후 동일 라운드 → new_result=False 처리")
+            # 게임 라운드가 변하지 않은 경우 (입장 후 첫 분석)
+            entered_round = getattr(self.tm, 'entered_round', -1)
+            if current_game_count == entered_round:
+                self.logger.info(f"[GameAnalysisThread] 방 입장 직후 동일 라운드({current_game_count}={entered_round}) → new_result=False 처리")
+                # consecutive_n_count 증가 방지를 위한 플래그 설정
+                if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                    self.tm.excel_trading_service.choice_pick_system.skip_n_count = True
+                    self.logger.info("[N카운트 증가 방지] 입장 직후 첫 게임은 N카운트 증가하지 않음")
+                
                 self.analysis_complete.emit({
                     'game_state': game_state,
                     'previous_game_count': self.tm.game_count,

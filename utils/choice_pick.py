@@ -71,6 +71,9 @@ class ChoicePickSystem:
         self.max_loss_with_same_candidate = 3  # 동일 후보로 최대 허용 실패 횟수
         self.skip_n_count = False  # 방 입장 시 첫 분석에서 N 카운트 증가 건너뛰기 플래그
         self.fixed_candidate = None
+        self._entered_round = 0
+        self._current_game_round = 0
+        self.wait_first_result = False  # ✅ 방 입장 직후 PICK 차단용 플래그
 
     # utils/choice_pick.py의 ChoicePickSystem 클래스에 추가할 메서드
     def set_martin_amounts(self, amounts):
@@ -879,11 +882,25 @@ class ChoicePickSystem:
         정확히 15개일 때만 새로운 후보를 생성하고 고정합니다.
         이후 결과가 16, 17개로 늘어나더라도 고정된 후보의 17, 18번째 예상 PICK을 사용합니다.
         """
+
+        if self.wait_first_result:
+            self.logger.info("[초이스픽] wait_first_result=True → PICK 생략: N 반환")
+            self.current_pick = "N"
+            self.skip_n_count = True
+            return "N"
+        
         # 정확히 15개인데 이미 고정 후보가 있으면 후보 생성을 막는다
         if len(self.results) == 15 and self.fixed_candidate is not None:
             self.logger.info("🚫 이미 고정 후보가 있는 상태에서 15개로 재호출 → 중복 생성 방지")
             return self.fixed_candidate.get('next_pick', 'N')
 
+        # ✅ 0. 방 입장 직후 동일 라운드 체크 - entered_round와 current_game_round가 같으면 N 반환
+        entered_round = getattr(self, '_entered_round', None)
+        current_round = getattr(self, '_current_game_round', None)
+        if entered_round is not None and current_round is not None and entered_round == current_round:
+            self.logger.info(f"[방어 로직] 입장 라운드({entered_round})와 현재 라운드({current_round})가 동일 → PICK 생성 생략, 'N' 반환")
+            return 'N'
+        
         # ✅ 1. 자동 결과 동기화 및 누적
         if hasattr(self, 'main_window') and hasattr(self.main_window, 'trading_manager'):
             tm = self.main_window.trading_manager

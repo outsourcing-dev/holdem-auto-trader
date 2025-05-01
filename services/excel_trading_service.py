@@ -27,6 +27,7 @@ class ExcelTradingService:
 
         if is_first_run and filtered_results:
             self.choice_pick_system.should_refresh_data = True
+            self.wait_first_result = False  # 첫 번째 실행 후 대기모드 해제
             return self._handle_first_run(filtered_results, recent_results, new_game_count)
 
         has_new_result = new_game_count > game_count and latest_result is not None
@@ -37,6 +38,7 @@ class ExcelTradingService:
 
         self.logger.info(f"새로운 게임 결과 감지: {latest_result}")
         return self._process_new_result(latest_result, new_game_count, recent_results)
+
 
     def _process_new_result(self, latest_result, new_game_count, recent_results):
         if latest_result == 'T':
@@ -51,10 +53,21 @@ class ExcelTradingService:
         self.logger.info(f"첫 실행 감지: 최근 결과 {len(filtered_results)}개 추가")
         self.choice_pick_system.clear()
         self.choice_pick_system.add_multiple_results(filtered_results)
-        next_pick = self.choice_pick_system.generate_choice_pick()
+
+        # ✅ 방 입장 직후라면 PICK을 생성하지 않고 N 반환
+        if self.choice_pick_system.wait_first_result:
+            self.logger.info("[초기화] wait_first_result=True → PICK 생성 생략 (N 반환)")
+            next_pick = "N"
+            self.choice_pick_system.current_pick = "N"
+            self.choice_pick_system.skip_n_count = True
+        else:
+            next_pick = self.choice_pick_system.generate_choice_pick()
+
         start_count = max(1, actual_game_count - len(filtered_results))
         self._update_processed_rounds(filtered_results, start_count=start_count)
+
         return "PREDICTED", actual_game_count, recent_results, next_pick
+
 
     def _record_new_result(self, result, column, new_game_count, recent_results):
         if recent_results and recent_results[-1] == result:
@@ -120,10 +133,14 @@ class ExcelTradingService:
     def reset_after_room_change(self, preserve_martin=False):
         """
         방 이동 후 초이스 픽 시스템 상태 초기화
-        
+
         Args:
             preserve_martin (bool): 마틴 상태 유지 여부
         """
         if hasattr(self, 'choice_pick_system'):
             self.choice_pick_system.reset_after_room_change(preserve_martin)
+
+            # ✅ 여기에서 wait_first_result를 True로 설정해야 함
+            self.choice_pick_system.wait_first_result = True
+
             self.logger.info(f"[방 이동] 초이스 픽 시스템 상태 초기화 (마틴 유지: {preserve_martin})")

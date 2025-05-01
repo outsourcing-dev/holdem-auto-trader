@@ -246,7 +246,14 @@ class TradingManager:
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
                 return
-                        
+            
+            # ✅ 가장 먼저 wait_first_result 확인 - 방 입장 직후 첫 게임 대기 시
+            if getattr(self, 'wait_first_result', False):
+                self.logger.info("방 입장 직후 첫 결과 대기 중 - PICK 생성 및 베팅 로직 생략")
+                # 다음 분석 예약 후 종료
+                self.main_window.set_remaining_time(0, 0, 2)
+                return
+            
             game_state = result['game_state']
             previous_game_count = result['previous_game_count']
             current_game_count = game_state.get('round', 0)
@@ -356,8 +363,10 @@ class TradingManager:
                 
             # ✅ 첫 결과 대기 플래그 확인 (새 결과가 있을 때만 처리)
             if hasattr(self, 'wait_first_result') and self.wait_first_result and new_result:
-                self.logger.info("첫 결과를 받았습니다. 이제 베팅 시작 가능")
+                self.logger.info("첫 결과를 받았습니다 → wait_first_result 해제")
                 self.wait_first_result = False
+                if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                    self.excel_trading_service.choice_pick_system.wait_first_result = False
                 
             if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
                 self.logger.info("방 이동 조건 충족 - change_room 실행")
