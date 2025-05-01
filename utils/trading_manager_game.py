@@ -152,9 +152,9 @@ class TradingManagerGame:
             if game_state:
                 actual_game_count = game_state.get('round', 0)
                 self.tm.game_count = actual_game_count
-                # 명시적으로 entered_round 설정 (방 입장 직후 동일 라운드 판단용)
-                self.tm.entered_round = actual_game_count
-                self.logger.info(f"[방 입장] 입장 직후 게임 수 저장: {actual_game_count} (entered_round 설정 완료)")
+                # 방 입장 시 상태 관리자에 알림
+                self.tm.state_manager.on_room_entry(actual_game_count)
+                self.tm.logger.info(f"[방 입장] 게임 상태 관리자 초기화 완료: 라운드 {actual_game_count}")
 
                 # ✅ ChoicePickSystem도 동일하게 반영
                 if cps:

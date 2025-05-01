@@ -876,12 +876,16 @@ class ChoicePickSystem:
 
         return candidates
 
-
     def generate_choice_pick(self):
         """
         정확히 15개일 때만 새로운 후보를 생성하고 고정합니다.
         이후 결과가 16, 17개로 늘어나더라도 고정된 후보의 17, 18번째 예상 PICK을 사용합니다.
         """
+        # 게임 결과 캐싱 - 같은 게임에 대해 중복 호출 방지
+        current_game_round = getattr(self, '_current_game_round', 0)
+        if hasattr(self, '_last_pick_round') and self._last_pick_round == current_game_round:
+            self.logger.info(f"[중복 방지] 게임 {current_game_round}에 대해 이미 PICK 생성함. 재사용: {self.current_pick}")
+            return self.current_pick
 
         if self.wait_first_result:
             self.logger.info("[초이스픽] wait_first_result=True → PICK 생략: N 반환")
@@ -998,6 +1002,8 @@ class ChoicePickSystem:
             if pick in ['P', 'B']:
                 self.current_pick = pick
                 self.consecutive_n_count = 0
+                # 해당 게임 라운드 기록
+                self._last_pick_round = current_game_round
                 return pick
             else:
                 self.logger.warning(f"[고정 후보 오류] next_pick 유효하지 않음: {pick}")
@@ -1014,7 +1020,6 @@ class ChoicePickSystem:
         else:
             self.consecutive_n_count += 1
         return 'N'
-
 
     def get_reverse_bet_pick(self, original_pick):
         """

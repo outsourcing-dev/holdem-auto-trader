@@ -181,7 +181,7 @@ class TradingManager:
             if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
                 self.logger.info("중지 명령으로 인해 게임 분석을 중단합니다.")
                 return
-                
+
             # 목표 금액 도달 확인도 추가
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달로 인해 게임 분석을 중단합니다.")
@@ -193,20 +193,17 @@ class TradingManager:
                 return
 
             # 이미 실행 중인 분석 스레드가 있는지 확인
-            if hasattr(self, '_analysis_thread') and self._analysis_thread.isRunning():
-                self.logger.info("이전 분석 스레드가 아직 실행 중입니다.")
+            if hasattr(self, '_is_processing_result') and self._is_processing_result:
+                self.logger.info("이전 분석 스레드가 아직 실행 중입니다. 다시 시작하지 않습니다.")
                 return
-                
-            # 분석 스레드 생성
-            self._analysis_thread = GameAnalysisThread(self)
-            
-            # 신호 연결
-            self._analysis_thread.analysis_complete.connect(self._handle_analysis_result)
-            self._analysis_thread.analysis_error.connect(self._handle_analysis_error)
-            self._analysis_thread.room_change_needed.connect(self._handle_room_change)
-            self._analysis_thread.consecutive_n_detected.connect(self._handle_consecutive_n)
 
-            # 스레드 시작
+            # 분석 시작
+            self._is_processing_result = True
+            self.logger.info("게임 분석 시작...")
+
+            # 분석 로직 실행
+            # 분석 스레드가 없으면 스레드를 새로 시작
+            self._analysis_thread = GameAnalysisThread(self)
             self._analysis_thread.start()
 
             # 중지 버튼 상태 업데이트
@@ -215,6 +212,7 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
             self.main_window.set_remaining_time(0, 0, 2)
+
 
     # 새로운 핸들러 메서드 추가
     def _handle_consecutive_n(self):
