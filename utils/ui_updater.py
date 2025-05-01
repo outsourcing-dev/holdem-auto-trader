@@ -1,21 +1,20 @@
+import logging
+
 class UIUpdater:
-    def __init__(self, main_window):
+    def __init__(self, main_window, logger=None):
         self.main_window = main_window
-    
+        # logger를 명시적으로 설정. logger가 제공되지 않으면 기본 로거 사용
+        self.logger = logger or logging.getLogger(__name__)
+
     def set_remaining_time(self, hours, minutes, seconds):
         """남은 시간 설정"""
         self.main_window.remaining_seconds = hours * 3600 + minutes * 60 + seconds
         
-        # UI 업데이트 부분 생략 (UI 요소가 없으므로)
-        # self.update_remaining_time_display()
-        
-        # 타이머가 없으면 생성
         if not hasattr(self.main_window, 'timer'):
             from PyQt6.QtCore import QTimer
             self.main_window.timer = QTimer()
             self.main_window.timer.timeout.connect(self.update_remaining_time)
         
-        # 타이머가 작동 중이 아니면 시작
         if not self.main_window.timer.isActive():
             self.main_window.timer.start(1000)  # 1초마다 업데이트
     
@@ -23,25 +22,41 @@ class UIUpdater:
         """타이머에 의해 호출되는 남은 시간 업데이트"""
         if not hasattr(self.main_window, 'remaining_seconds'):
             self.main_window.remaining_seconds = 0
-            
+
         if self.main_window.remaining_seconds > 0:
             self.main_window.remaining_seconds -= 1
-            # UI 업데이트 부분 생략 (UI 요소가 없으므로)
-            # self.update_remaining_time_display()
         else:
-            # 자동 매매 활성 상태인 경우만 분석 실행
             tm = getattr(self.main_window, 'trading_manager', None)
-            if tm and tm.is_trading_active:
-                # ✅ 방 이동 직후 대기 모드인 경우 analyze 생략
-                if getattr(tm, 'wait_first_result', False):
-                    tm.logger.info("[UIUpdater] 대기 모드 활성 중 - 분석 실행을 건너뜁니다.")
-                else:
-                    tm.analyze_current_game()
-                    self.set_remaining_time(0, 0, 2)  # 다음 분석 예약
-            else:
-                # 자동 매매가 중단된 경우 타이머 정지
-                self.main_window.timer.stop()
+
+            if tm and tm._is_processing_result:
+                # 분석이 이미 진행 중이라면 추가로 실행하지 않음
+                self.logger.info("[UIUpdater] 분석 이미 진행 중 - 다시 호출하지 않음.")
+                return
             
+            if tm and tm.is_trading_active:
+                self.logger.info("[UIUpdater] 분석 시작")
+                tm.analyze_current_game()  # 게임 분석 시작
+
+                # 분석이 끝나면 이 플래그를 False로 설정
+                tm._is_processing_result = False  # 분석 완료 후 플래그를 False로 설정
+
+                # 첫 번째 결과를 받은 경우 대기 모드를 해제
+                if hasattr(tm, 'wait_first_result') and tm.wait_first_result:
+                    self.logger.info("[UIUpdater] 첫 번째 결과를 받음 - 대기 모드 해제")
+                    tm.wait_first_result = False  # 대기 모드 해제
+
+                # 타이머 중지: 분석을 시작하기 전에 타이머를 중지합니다.
+                if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                    self.main_window.timer.stop()
+                    self.logger.info("[UIUpdater] 분석 시작 전 타이머 중지")
+                
+                # 분석 후 2초 뒤 다시 예약
+                self.set_remaining_time(0, 0, 2)  # 다음 분석 예약
+            else:
+                self.logger.info("[UIUpdater] 자동 매매 비활성화 상태로 분석 생략")
+                self.main_window.set_remaining_time(0, 0, 2)  # 자동 매매가 비활성화되었으면 타이머 재설정
+
+
     def update_remaining_time_display(self):
         pass
     

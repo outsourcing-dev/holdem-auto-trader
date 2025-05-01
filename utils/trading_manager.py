@@ -208,10 +208,13 @@ class TradingManager:
 
             # 중지 버튼 상태 업데이트
             self.main_window.update_button_styles()
-        
+            self._is_processing_result = False  # 오류 발생 시에도 플래그 초기화
         except Exception as e:
             self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
+            self._is_processing_result = False  # 오류 발생 시에도 플래그 초기화
             self.main_window.set_remaining_time(0, 0, 2)
+            
+
 
 
     # 새로운 핸들러 메서드 추가
