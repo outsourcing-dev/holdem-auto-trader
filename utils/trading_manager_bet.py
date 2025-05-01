@@ -36,14 +36,26 @@ class TradingManagerBet:
                     return False
 
             original_pick = pick_value
-            actual_pick = original_pick
-
-            # ✅ 타이 직후면 reverse 적용하지 않고, 원래 pick 그대로 사용
-            # if getattr(self.tm, 'had_tie_last_round', False):
-            #     actual_pick = original_pick
-            #     self.logger.info(f"[타이 이후] Reverse 없이 그대로 베팅: {original_pick}")
-            # else:
-            #     actual_pick = self.tm.excel_trading_service.get_reverse_bet_pick(original_pick)
+            
+            # 여기에 역배팅 로직 추가
+            if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                cps = self.tm.excel_trading_service.choice_pick_system
+                betting_direction = getattr(cps, 'betting_direction', 'normal')
+                
+                # 타이 직후면 reverse 적용하지 않고, 원래 pick 그대로 사용
+                if getattr(self.tm, 'had_tie_last_round', False):
+                    actual_pick = original_pick
+                    self.logger.info(f"[타이 이후] Reverse 없이 그대로 베팅: {original_pick}")
+                else:
+                    # 방향에 따라 픽 변경
+                    if betting_direction == 'reverse':
+                        actual_pick = 'P' if original_pick == 'B' else 'B'
+                        self.logger.info(f"[역배팅 적용] 원래 PICK: {original_pick} → 실제 배팅: {actual_pick}")
+                    else:
+                        actual_pick = original_pick
+                        self.logger.info(f"[정배팅 적용] PICK: {original_pick}")
+            else:
+                actual_pick = original_pick
 
             widget_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
@@ -57,7 +69,7 @@ class TradingManagerBet:
             QApplication.processEvents()
 
             bet_success = self.tm.betting_service.place_bet(
-                actual_pick,
+                actual_pick,  # 여기서 변경된 픽 사용
                 self.tm.current_room_name,
                 game_count,
                 self.tm.is_trading_active,

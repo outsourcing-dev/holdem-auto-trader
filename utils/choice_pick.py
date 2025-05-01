@@ -979,15 +979,15 @@ class ChoicePickSystem:
                     self.consecutive_n_count += 1
                 return 'N'
 
-            # # 후보 고정
-            # self.fixed_candidate = {
-            #     'next_pick': best_candidate.get('next_pick', 'N'),
-            #     'betting_direction': best_candidate.get('betting_direction', 'normal')
-            # }
-            # self.current_candidate_index = best_index
-            # self.consecutive_loss_with_candidate = 0
-            # self.logger.info(f"✅ 새 고정 후보({best_index}) 생성 및 저장 완료")
-            # self.logger.info(f"✅ 고정 후보 PICK: {self.fixed_candidate['next_pick']}, 방향: {self.fixed_candidate['betting_direction']}")
+            # 후보 고정
+            self.fixed_candidate = {
+                'next_pick': best_candidate.get('next_pick', 'N'),
+                'betting_direction': best_candidate.get('betting_direction', 'normal')
+            }
+            self.current_candidate_index = best_index
+            self.consecutive_loss_with_candidate = 0
+            self.logger.info(f"✅ 새 고정 후보({best_index}) 생성 및 저장 완료")
+            self.logger.info(f"✅ 고정 후보 PICK: {self.fixed_candidate['next_pick']}, 방향: {self.fixed_candidate['betting_direction']}")
 
         # ✅ 6. 고정 후보 사용
         if self.fixed_candidate:
@@ -1011,14 +1011,11 @@ class ChoicePickSystem:
                     self.consecutive_n_count += 1
                 return 'N'
 
-
-        # ✅ 7. fallback
-        self.logger.warning("⚠️ 고정 후보가 없어서 PICK 반환 실패")
-        if self.skip_n_count:
-            self.logger.info("[N카운트 스킵 적용] 첫 N은 카운트하지 않음 → skip_n_count=False로 해제")
-            self.skip_n_count = False
-        else:
+        # ✅ 7. fallback - 여기서 "고정 후보가 없어서 PICK 반환 실패" 로그가 출력되지 않도록 수정
+        # N 카운트만 증가시키고 바로 'N' 반환
+        if not getattr(self, 'skip_n_count', False) and not getattr(self, 'just_changed_room', False):
             self.consecutive_n_count += 1
+            self.logger.info(f"[N카운트 증가] consecutive_n_count = {self.consecutive_n_count}")
         return 'N'
 
     def get_reverse_bet_pick(self, original_pick):

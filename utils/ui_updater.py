@@ -40,23 +40,22 @@ class UIUpdater:
                 # 분석이 끝나면 이 플래그를 False로 설정
                 tm._is_processing_result = False  # 분석 완료 후 플래그를 False로 설정
 
-                # 첫 번째 결과를 받은 경우 대기 모드를 해제
-                if hasattr(tm, 'wait_first_result') and tm.wait_first_result:
-                    self.logger.info("[UIUpdater] 첫 번째 결과를 받음 - 대기 모드 해제")
-                    tm.wait_first_result = False  # 대기 모드 해제
+                # 아래 코드 주석 처리 (첫 번째 결과를 받은 경우 대기 모드 해제 로직 제거)
+                # if hasattr(tm, 'wait_first_result') and tm.wait_first_result:
+                #     self.logger.info("[UIUpdater] 첫 번째 결과를 받음 - 대기 모드 해제")
+                #     tm.wait_first_result = False  # 대기 모드 해제
 
-                # 타이머 중지: 분석을 시작하기 전에 타이머를 중지합니다.
-                if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
-                    self.main_window.timer.stop()
-                    self.logger.info("[UIUpdater] 분석 시작 전 타이머 중지")
+                # # 타이머 중지: 분석을 시작하기 전에 타이머를 중지합니다.
+                # if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
+                #     self.main_window.timer.stop()
+                #     self.logger.info("[UIUpdater] 분석 시작 전 타이머 중지")
                 
                 # 분석 후 2초 뒤 다시 예약
                 self.set_remaining_time(0, 0, 2)  # 다음 분석 예약
             else:
                 self.logger.info("[UIUpdater] 자동 매매 비활성화 상태로 분석 생략")
                 self.main_window.set_remaining_time(0, 0, 2)  # 자동 매매가 비활성화되었으면 타이머 재설정
-
-
+                
     def update_remaining_time_display(self):
         pass
     

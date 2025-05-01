@@ -178,8 +178,8 @@ class BettingService:
                     self._update_game_state()
                     return True
                 
-                self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempt+1}/{max_attempts}")
-                time.sleep(0.5)
+                # self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempt+1}/{max_attempts}")
+                time.sleep(1)
             except Exception as e:
                 self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
                 time.sleep(0.5)

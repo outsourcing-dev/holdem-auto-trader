@@ -62,7 +62,7 @@ class TradingManagerGame:
             self.tm.main_window.set_remaining_time(0, 0, 2)
 
             # 첫 게임 분석
-            self.tm.analyze_current_game()
+            # self.tm.analyze_current_game()
 
             # 자동 매매 루프 시작
             self.tm.run_auto_trading()
@@ -204,9 +204,20 @@ class TradingManagerGame:
             )
             self.tm.main_window.room_log_widget.has_changed_room = True
 
-        # if hasattr(self, 'run_auto_trading'):
-        #     self.logger.info("[타이머 재시작] 방 이동 완료 후 분석 예약")
-        #     self.run_auto_trading()
+        if hasattr(self, 'run_auto_trading'):
+            self.logger.info("[타이머 재시작] 방 이동 완료 후 분석 예약")
+            self.run_auto_trading()
+
+        # # ✅ 첫 분석 후 skip_n_count 해제를 위한 타이머 설정
+        # from PyQt6.QtCore import QTimer
+        # QTimer.singleShot(10000, self.clear_skip_n_count)
+        # self.logger.info("[타이머 설정] 10초 후 N카운트 건너뛰기 자동 해제 예약")
+        
+        # # ✅ wait_first_result 해제 타이머 설정
+        # QTimer.singleShot(30000, self.auto_clear_wait_flag)
+        # self.logger.info("[타이머 설정] 30초 후 첫 결과 대기 모드 자동 해제 예약")
+        self.logger.info(f"[대기 상태 설정] entered_round={actual_game_count}, wait_first_result=True, skip_n_count=True")
+        self.logger.info("[알림] 실제 새 게임 결과가 감지되면 대기 모드가 자동 해제됩니다.")
         return True
 
 
@@ -414,10 +425,25 @@ class TradingManagerGame:
         except Exception as e:
             self.logger.error(f"TIE 결과 처리 오류: {e}")
 
-
     def process_previous_game_result(self, game_state, new_game_count):
         """이전 게임 결과 처리 - 실패 시 16-17개 결과 적용 수정"""
         try:
+            # ✅ Fix for room entry issue - clear wait_first_result flag if we've seen at least one result
+            if hasattr(self.tm, 'wait_first_result') and self.tm.wait_first_result and new_game_count > 0:
+                self.logger.info(f"[첫 결과 감지] 게임 카운트 {new_game_count} - wait_first_result 플래그 해제")
+                self.tm.wait_first_result = False
+                if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
+                    self.tm.excel_trading_service.choice_pick_system.wait_first_result = False
+                    self.tm.excel_trading_service.choice_pick_system.skip_n_count = False
+                # Force to generate pick on next cycle
+                self.tm.just_changed_room = False
+                
+                # 대기 카운트 초기화
+                if hasattr(self.tm, 'wait_first_result_count'):
+                    self.tm.wait_first_result_count = 0
+                if hasattr(self.tm, 'game_state_check_count'):
+                    self.tm.game_state_check_count = 0
+            
             # ✅ 적중 마커 리셋 (적중 후 다음 턴)
             if getattr(self.tm, 'just_won', False):
                 self.logger.info("이전 적중 후 UI 완전 초기화")

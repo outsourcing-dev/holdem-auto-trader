@@ -35,6 +35,14 @@ class TradingManager:
         self.result_count = 0
         self.current_pick = None
         self.processed_rounds = set()
+        
+        # 추가 상태 관리 변수
+        self.wait_first_result = False
+        self.wait_first_result_count = 0
+        self.game_state_check_count = 0  # 게임 상태 체크 횟수 추가
+        self.same_round_count = 0
+        self.no_result_counter = 0
+        self.entered_round = None
 
         # 여기에 추가: 마틴 상태 추적 변수
         self.last_martin_step = 0  # 마지막으로 기록된 마틴 단계
@@ -44,7 +52,7 @@ class TradingManager:
         
         self.recent_game_results = []  # 최근 게임 결과 (P, B, T 포함)
         self.filtered_game_results = []  # 최근 게임 결과 (P, B만 포함)
-    
+
         # 헬퍼 클래스들 초기화 - 모듈 임포트
         from utils.trading_manager_helpers import TradingManagerHelpers
         from utils.trading_manager_bet import TradingManagerBet
@@ -55,9 +63,7 @@ class TradingManager:
         self.game_helper = TradingManagerGame(self)
         self._should_move_to_next_room = False
         self.had_tie_last_round = False  # 타이 직후 플래그
-        self.entered_round = None  # 방에 입장했을 때의 게임 수
-
-
+        
     def _init_services(self):
         """서비스 객체들을 초기화"""
         try:
@@ -201,9 +207,13 @@ class TradingManager:
             self._is_processing_result = True
             self.logger.info("게임 분석 시작...")
 
-            # 분석 로직 실행
             # 분석 스레드가 없으면 스레드를 새로 시작
             self._analysis_thread = GameAnalysisThread(self)
+            # 시그널 연결
+            self._analysis_thread.analysis_complete.connect(self._handle_analysis_result)
+            self._analysis_thread.analysis_error.connect(self._handle_analysis_error)
+            self._analysis_thread.room_change_needed.connect(self._handle_room_change)
+            self._analysis_thread.consecutive_n_detected.connect(self._handle_consecutive_n)
             self._analysis_thread.start()
 
             # 중지 버튼 상태 업데이트
@@ -214,7 +224,6 @@ class TradingManager:
             self._is_processing_result = False  # 오류 발생 시에도 플래그 초기화
             self.main_window.set_remaining_time(0, 0, 2)
             
-
 
 
     # 새로운 핸들러 메서드 추가
@@ -241,29 +250,78 @@ class TradingManager:
             if hasattr(self, '_is_processing_result') and self._is_processing_result:
                 self.logger.info("이미 결과를 처리 중입니다 - 중복 처리 건너뜁니다")
                 return
-                
+
             self._is_processing_result = True
-            
+
             if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                 self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
                 return
-            
+
+            # 강제 처리 플래그 검사
+            force_process = result.get('force_process', False)
+            if force_process:
+                self.logger.info("[강제 처리] 타임아웃 또는 동일 라운드 반복으로 인한 강제 처리 모드")
+                # wait_first_result 및 관련 플래그 초기화
+                self.wait_first_result = False
+                if hasattr(self, 'wait_first_result_count'):
+                    self.wait_first_result_count = 0
+                if hasattr(self, 'game_state_check_count'):
+                    self.game_state_check_count = 0
+                if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                    cps = self.excel_trading_service.choice_pick_system
+                    cps.wait_first_result = False
+                    cps.skip_n_count = False
+                    self.logger.info("[강제 처리] 첫 결과 대기 모드 및 N카운트 건너뛰기 해제")
+
             # ✅ 가장 먼저 wait_first_result 확인 - 방 입장 직후 첫 게임 대기 시
-            if getattr(self, 'wait_first_result', False):
-                self.logger.info("방 입장 직후 첫 결과 대기 중 - PICK 생성 및 베팅 로직 생략")
-                # 다음 분석 예약 후 종료
-                self.main_window.set_remaining_time(0, 0, 2)
-                return
-            
+            if getattr(self, 'wait_first_result', False) and not force_process:
+                if not hasattr(self, 'wait_first_result_count'):
+                    self.wait_first_result_count = 0
+                else:
+                    self.wait_first_result_count += 1
+
+                # If we've been waiting for too long (15 cycles = ~30 seconds), force progress
+                if self.wait_first_result_count > 15:
+                    self.logger.info("[대기모드 타임아웃] 30초 이상 첫 결과를 못받아 강제로 대기모드 해제")
+                    self.wait_first_result = False
+                    self.wait_first_result_count = 0
+                    if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                        self.excel_trading_service.choice_pick_system.wait_first_result = False
+                        self.excel_trading_service.choice_pick_system.skip_n_count = False
+                    # 강제 처리 플래그 설정
+                    force_process = True
+                # 새 결과가 없고 강제 처리도 아닌 경우
+                elif not result.get('new_result', False) and not force_process:
+                    self.main_window.set_remaining_time(0, 0, 2)
+                    self._is_processing_result = False
+                    return
+
+            # Check if entered_round is too old compared to current_round
+            entered_round = getattr(self, 'entered_round', 0)
             game_state = result['game_state']
-            previous_game_count = result['previous_game_count']
             current_game_count = game_state.get('round', 0)
-            new_result = result.get('new_result', False)  # 새 결과 여부 확인
-            
+
+            # 게임 카운트가 크게 증가한 경우, 첫 결과 대기 모드 해제
+            if current_game_count > entered_round:
+                self.logger.info(f"[실제 결과 증가] 게임 카운트가 증가함 ({entered_round} → {current_game_count}), wait_first_result 해제")
+                self.entered_round = current_game_count
+                self.wait_first_result = False
+                if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                    self.excel_trading_service.choice_pick_system.wait_first_result = False
+                    self.excel_trading_service.choice_pick_system.skip_n_count = False
+                
+                # 여기서 _last_pick_game_id 초기화를 추가
+                if hasattr(self, '_last_pick_game_id'):
+                    del self._last_pick_game_id
+                    self.logger.info("[캐시 초기화] 새 결과 발생으로 이전 PICK 생성 캐시 삭제")
+
+            previous_game_count = result['previous_game_count']
+            new_result = result.get('new_result', False) or force_process  # 강제 처리 플래그도 새 결과로 간주
+
             # choice_pick_system에 현재 게임 라운드 전달
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
                 self.excel_trading_service.choice_pick_system._current_game_round = current_game_count
-            
+
             # 중요: PICK 값이 'N'이고 consecutive_n_count가 4 이상인지 명확하게 확인
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
                 n_count = self.excel_trading_service.choice_pick_system.consecutive_n_count
@@ -271,60 +329,40 @@ class TradingManager:
                 if n_count >= 4:
                     self.logger.warning(f"[방 이동 트리거] 4회 연속 N 감지 ({n_count}회) - 방 이동 시작")
                     # 즉시 방 이동 실행 보장
+                    self._is_processing_result = False
                     self.change_room()
                     return
-            
-            # PICK 값이 'N'이고 consecutive_n_count가 3 이상인지 확인
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                if self.excel_trading_service.choice_pick_system.consecutive_n_count >= 4:
-                    self.logger.warning(f"4회 연속 N 감지 - N값으로 인한 방 이동 시작")
-                    self.change_room()
-                    return
-            
+
             # 새 결과가 없을 경우 (게임 카운트가 같을 경우)
             if not new_result:
                 # no_result_counter 증가
                 if not hasattr(self, 'no_result_counter'):
                     self.no_result_counter = 0
                 self.no_result_counter += 1
-                
+
                 # 30회 이상 동일한 게임 수가 지속되면 방 이동
                 if self.no_result_counter >= 30:
                     self.logger.warning(f"[⚠️ 결과 없음 누적] 30회 이상 동일한 게임 수 → 방 이동")
                     self.no_result_counter = 0
+                    self._is_processing_result = False
                     self.change_room()
                     return
-                    
+
                 # 새 결과가 없는 경우 여기서 종료 (픽 생성 및 베팅 처리하지 않음)
-                # self.logger.debug(f"새 게임 결과 없음: 카운터 {self.no_result_counter}/30")
-                
-                # 다음 분석 예약 (2초 후)
+                self._is_processing_result = False
                 self.main_window.set_remaining_time(0, 0, 2)
                 return
 
-            # ✅ 방 이동 직후 게임 수 역행 체크 생략
-            if hasattr(self, 'just_changed_room') and self.just_changed_room:
-                self.logger.info("방 이동 직후이므로 게임 수 역행 체크를 생략합니다.")
-                # 이 부분 추가: 새 게임 카운트로 설정
-                self.game_count = current_game_count
-                self.just_changed_room = False  # 플래그 초기화
-            else:
-                # ✅ 게임 수 역행 감지
-                if current_game_count < previous_game_count and previous_game_count >= 10 and current_game_count < 5:
-                    self.logger.warning(f"[❗게임 수 역행 감지] 이전: {previous_game_count} → 현재: {current_game_count} → 방 이동 시도")
-                    self.change_room()
-                    return
-
             # 새 게임 결과가 있으면 no_result_counter 초기화
             self.no_result_counter = 0
-            
+
             # 결과 로깅
             latest_result = game_state.get('latest_result')
-            
+
             if previous_game_count == 0 and current_game_count > 0:
                 display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
                 self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
-            
+
             # 새 결과가 있을 때만 Excel 처리
             excel_result = self.excel_trading_service.process_game_results(
                 game_state, 
@@ -332,17 +370,27 @@ class TradingManager:
                 self.current_room_name
             )
             
+            # N 카운트 건너뛰기 자동 해제 (결과가 처리된 후)
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                cps = self.excel_trading_service.choice_pick_system
+                if getattr(cps, 'skip_n_count', False):
+                    # 최소 한 번의 결과가 처리된 후 skip_n_count 해제
+                    if new_result:
+                        cps.skip_n_count = False
+                        self.logger.info("[자동 해제] 새 결과 처리 후 N카운트 건너뛰기 해제")
+
             # 각 사이클에서 generate_choice_pick 한 번만 호출하도록 수정
             # 게임 카운트와 최신 결과를 조합해 고유 식별자 생성
             game_result_id = f"{current_game_count}_{latest_result}"
             if not hasattr(self, '_last_pick_game_id') or self._last_pick_game_id != game_result_id:
-                
+
                 # [여기에 추가!] wait_first_result 검사
-                if hasattr(self, 'wait_first_result') and self.wait_first_result:
+                if hasattr(self, 'wait_first_result') and self.wait_first_result and not force_process:
                     self.logger.info("[대기모드] 방 입장 직후라 픽 생성/베팅을 잠시 생략합니다.")
+                    self._is_processing_result = False
                     self.main_window.set_remaining_time(0, 0, 2)
                     return
-                
+
                 # 정상적으로 pick 생성
                 pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
                 self._last_pick_game_id = game_result_id
@@ -355,22 +403,26 @@ class TradingManager:
 
             if pick == 'N':
                 self.logger.info("[베팅 스킵] 초이스픽 결과가 'N'이므로 베팅을 건너뜁니다.")
+                self._is_processing_result = False
                 return  # 베팅 스킵
-            
+
             if excel_result[0] is not None:
                 self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
-                
+
             self.game_helper.handle_tie_result(latest_result, game_state)
-                
+
             # ✅ 첫 결과 대기 플래그 확인 (새 결과가 있을 때만 처리)
             if hasattr(self, 'wait_first_result') and self.wait_first_result and new_result:
                 self.logger.info("첫 결과를 받았습니다 → wait_first_result 해제")
                 self.wait_first_result = False
                 if hasattr(self.excel_trading_service, 'choice_pick_system'):
                     self.excel_trading_service.choice_pick_system.wait_first_result = False
-                
+                    self.excel_trading_service.choice_pick_system.skip_n_count = False
+                    self.logger.info("[자동 해제] 첫 결과 처리 후 N카운트 건너뛰기 해제")
+
             if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
                 self.logger.info("방 이동 조건 충족 - change_room 실행")
+                self._is_processing_result = False
                 self.change_room()
                 return
 
@@ -379,12 +431,12 @@ class TradingManager:
         finally:
             if hasattr(self, '_is_processing_result'):
                 self._is_processing_result = False
-                
+
             if self.is_trading_active:
                 if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
                     self.logger.info("목표 금액 도달 확인됨: 다음 분석을 예약하지 않습니다.")
                     return
-                        
+
                 self.main_window.set_remaining_time(0, 0, 2)
             else:
                 self.logger.info("자동 매매 비활성화됨: 다음 분석을 예약하지 않습니다.")
