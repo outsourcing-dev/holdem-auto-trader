@@ -171,7 +171,7 @@ class TradingManagerGame:
                     )
 
                     if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
-                        pe = self.tm.excel_trading_service
+                        pe = self.tm.excel_trading_service.choice_pick_system
                         pe.clear()
 
                         length = len(filtered_results)
@@ -425,7 +425,7 @@ class TradingManagerGame:
 
                             # ✅ 여기서 15~17개로 정확하게 슬라이스해서 추가
                             if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
-                                pe = self.tm.excel_trading_service
+                                pe = self.tm.excel_trading_service.choice_pick_system
                                 length = len(filtered_results)
                                 if length >= 17:
                                     pe.add_multiple_results(filtered_results[-17:])
