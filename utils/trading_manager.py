@@ -42,7 +42,7 @@ class TradingManager:
         self.game_state_check_count = 0  # 게임 상태 체크 횟수 추가
         self.same_round_count = 0
         self.no_result_counter = 0
-        self.entered_round = None
+        self.entered_round = -1
 
         # 여기에 추가: 마틴 상태 추적 변수
         self.last_martin_step = 0  # 마지막으로 기록된 마틴 단계

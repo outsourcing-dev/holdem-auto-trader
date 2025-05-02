@@ -99,9 +99,16 @@ class TradingManagerGame:
             if game_state:
                 actual_game_count = game_state.get('round', 0)
                 self.tm.game_count = actual_game_count
+                self.tm.entered_round = actual_game_count
+                self.tm.logger.info(f"[방 입장] entered_round={actual_game_count} 설정")
+
                 # 방 입장 시 상태 관리자에 알림
-                self.tm.state_manager.on_room_entry(actual_game_count)
-                self.tm.logger.info(f"[방 입장] 게임 상태 관리자 초기화 완료: 라운드 {actual_game_count}")
+                if hasattr(self.tm, 'state_manager'):
+                    try:
+                        self.tm.state_manager.on_room_entry(actual_game_count)
+                        self.tm.logger.info("[방 입장] 게임 상태 관리자 초기화 완료")
+                    except Exception as e:
+                        self.tm.logger.warning(f"state_manager 처리 중 오류: {e}")
 
                 # ✅ ChoicePickSystem도 동일하게 반영
                 if cps:
