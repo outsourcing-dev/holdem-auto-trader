@@ -263,6 +263,9 @@ class TradingManagerBet:
 
                 # 마틴 서비스에도 동일하게 기록 (동기화를 위해 작성. 수정 시 통일해야함)
                 if hasattr(self.tm.martin_service, 'recent_results'):
+                    self.tm.excel_trading_service.choice_pick_system.should_refresh_data = True
+                    self.logger.info("📌 실패 직후 → should_refresh_data=True 설정 (다음 예측 시 반영)")
+
                     self.tm.martin_service.recent_results.append(False)
                     # 최근 5개만 유지
                     if len(self.tm.martin_service.recent_results) > 5:
