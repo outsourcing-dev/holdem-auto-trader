@@ -574,6 +574,7 @@ class ChoicePickSystem:
             self.fixed_candidate = None
             self.should_refresh_data = True
             self.failure_count = 0
+            self._last_pick_round = None
 
             if len(self.results) > 15:
                 self.results = self.results[-15:]
