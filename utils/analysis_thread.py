@@ -36,7 +36,7 @@ class GameAnalysisThread(QThread):
             if self.tm.should_move_to_next_room:
                 consecutive_n = False
                 if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
-                    consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 3
+                    consecutive_n = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count >= 8
 
                 if consecutive_n:
                     self.consecutive_n_detected.emit()

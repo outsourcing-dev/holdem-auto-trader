@@ -659,8 +659,8 @@ class ChoicePickSystem:
         if self.logger:
             self.logger.info(f"[방 이동 조건 체크] 연속 N 카운트: {self.consecutive_n_count}")
         
-        # ✅ 4연속 N - 명확한 로깅 추가
-        if self.consecutive_n_count >= 4:
+        # ✅ 4연속 N - 명확한 로깅 추가 (뭐가 중복호출되서 1번 픽 생성시 2개씩 ..)
+        if self.consecutive_n_count >= 8:
             if self.logger:
                 self.logger.warning(f"[방 이동 필요!!] 4번 연속 유효한 픽 없음(N) 발생 - 현재 N 카운트: {self.consecutive_n_count}")
             return True

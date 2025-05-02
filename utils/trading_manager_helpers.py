@@ -4,6 +4,14 @@ import logging
 from PyQt6.QtWidgets import QMessageBox
 from utils.settings_manager import SettingsManager
 
+# utils/trading_manager_helpers.py (클래스 밖, 전역 함수로 정의!)
+def get_widget_position(main_window) -> int:
+    """room_position_counter를 안전하게 가져오는 함수"""
+    try:
+        return getattr(main_window.betting_widget, 'room_position_counter', 0)
+    except Exception:
+        return 0
+
 class TradingManagerHelpers:
     """TradingManager의 헬퍼 기능 모음 클래스"""
     
@@ -174,3 +182,4 @@ class TradingManagerHelpers:
         except Exception as e:
             self.logger.error(f"브라우저 설정 오류: {e}")
             return False
+        

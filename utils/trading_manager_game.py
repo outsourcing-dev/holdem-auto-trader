@@ -220,7 +220,7 @@ class TradingManagerGame:
             # N 4회 연속 감지 시 방 이동
             if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
                 n_count = self.tm.excel_trading_service.choice_pick_system.consecutive_n_count
-                if n_count >= 4:
+                if n_count >= 8:
                     self.logger.warning(f"[방 이동 트리거] Excel 처리 중 4회 연속 N값 감지 ({n_count}회)")
                     self.tm.change_room()
                     return
@@ -281,7 +281,7 @@ class TradingManagerGame:
                     due_to_consecutive_n = False
 
                     if self.tm.excel_trading_service.should_change_room():
-                        consecutive_n = getattr(self.tm.excel_trading_service.choice_pick_system, 'consecutive_n_count', 0) >= 3
+                        consecutive_n = getattr(self.tm.excel_trading_service.choice_pick_system, 'consecutive_n_count', 0) >= 8
                         if consecutive_n:
                             self.logger.info(f"N값 3회 이상 연속 감지 - 마틴 유지하며 방 이동")
                             should_move = True

@@ -6,6 +6,9 @@ from ui.main_window import MainWindow
 import urllib3
 import logging
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,

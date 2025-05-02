@@ -8,6 +8,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.iframe_utils import switch_to_iframe_with_retry, find_element_in_iframes
+from utils.trading_manager_helpers import get_widget_position
 
 class BettingService:
     def __init__(self, devtools, main_window, logger=None):
@@ -386,8 +387,8 @@ class BettingService:
             self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
             return False
 
-        if bet_amount is None:
-            bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
+        # if bet_amount is None:
+        #     bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
 
         # 베팅 전 레이블 확인 - 단순히 로그 목적으로만 사용
         initial_label = self._check_betting_label()
@@ -521,15 +522,13 @@ class BettingService:
         
         # 마틴 단계 확인 및 동기화 - 오류 수정
         martin_step = 0
-        if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
-            martin_step = self.main_window.betting_widget.room_position_counter
-            
-            # 호환성을 위해 martin_service에 current_step 동기화
-            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'martin_service'):
-                self.main_window.trading_manager.martin_service.current_step = martin_step
-                
-            # 로그 추가
-            self.logger.info(f"베팅 위젯 위치 카운터를 마틴 단계와 동기화: 포지션={martin_step+1}")
+        martin_step = get_widget_position(self.main_window)
+
+        # 마틴 서비스 동기화
+        if hasattr(self.main_window, 'trading_manager'):
+            self.main_window.trading_manager.martin_service.current_step = martin_step
+
+        self.logger.info(f"베팅 위젯 위치 카운터를 마틴 단계와 동기화: 포지션={martin_step+1}")
         
         # UI 업데이트
         self.main_window.update_betting_status(

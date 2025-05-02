@@ -110,7 +110,7 @@ class ExcelTradingService:
         return current_column, new_game_count, recent_results, current_pick
 
     def get_current_bet_amount(self, widget_position=0):
-        return self.choice_pick_system.get_current_bet_amount()
+        return self.choice_pick_system.get_current_bet_amount(widget_position=widget_position)
 
     def set_martin_amounts(self, amounts):
         self.choice_pick_system.set_martin_amounts(amounts)

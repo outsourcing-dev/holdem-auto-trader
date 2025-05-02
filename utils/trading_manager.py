@@ -13,6 +13,7 @@ from utils.settings_manager import SettingsManager
 from utils.trading_manager_helpers import TradingManagerHelpers
 from utils.analysis_thread import GameAnalysisThread
 from PyQt6.QtWidgets import QApplication  # 추가된 import
+from utils.trading_manager_helpers import get_widget_position
 
 class TradingManager:
     # utils/trading_manager.py의 __init__ 메서드 수정 부분
@@ -326,7 +327,7 @@ class TradingManager:
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
                 n_count = self.excel_trading_service.choice_pick_system.consecutive_n_count
 
-                if n_count >= 4:
+                if n_count >= 8:
                     self.logger.warning(f"[방 이동 트리거] 4회 연속 N 감지 ({n_count}회) - 방 이동 시작")
                     # 즉시 방 이동 실행 보장
                     self._is_processing_result = False
@@ -405,7 +406,7 @@ class TradingManager:
                 self.logger.info("[베팅 스킵] 초이스픽 결과가 'N'이므로 베팅을 건너뜁니다.")
                 self._is_processing_result = False
                 return  # 베팅 스킵
-
+        
             if excel_result[0] is not None:
                 self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
 
@@ -768,9 +769,8 @@ class TradingManager:
             
             # 현재 위젯 포지션을 직접 확인 (마틴 단계의 소스)
             current_widget_pos = 0
-            if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
-                current_widget_pos = self.main_window.betting_widget.room_position_counter
-                self.logger.info(f"[방 입장/이동] 현재 위젯 포지션: {current_widget_pos+1}번")
+            current_widget_pos = get_widget_position(self.main_window)
+            self.logger.info(f"[방 입장/이동] 현재 위젯 포지션: {current_widget_pos+1}번")
             
             # 마틴 유지 결정 - 첫 방 입장은 항상 False, 방 이동 시에는 위젯 포지션이나 N값 연속성에 따라 결정
             preserve_martin = False if is_first_entry else (current_widget_pos > 0 or due_to_consecutive_n)
@@ -883,7 +883,7 @@ class TradingManager:
                 # 로그 추가: 방 이동 결정 원인 추적
                 if hasattr(self.excel_trading_service, 'choice_pick_system'):
                     cs = self.excel_trading_service.choice_pick_system
-                    consecutive_n = hasattr(cs, 'consecutive_n_count') and cs.consecutive_n_count >= 3
+                    consecutive_n = hasattr(cs, 'consecutive_n_count') and cs.consecutive_n_count >= 8
                     consecutive_failures = hasattr(cs, 'consecutive_failures') and cs.consecutive_failures >= 2
                     high_game_count = hasattr(cs, 'last_win_count') and cs.last_win_count >= 55
                     
@@ -898,8 +898,8 @@ class TradingManager:
                 
         # 현재 위젯/마틴 단계 확인 (항상 최신값 직접 확인)
         current_widget_pos = 0
-        if hasattr(self.main_window, 'betting_widget') and hasattr(self.main_window.betting_widget, 'room_position_counter'):
-            current_widget_pos = self.main_window.betting_widget.room_position_counter
+        current_widget_pos = get_widget_position(self.main_window)
+
         
         # 방금 승리했는지 확인
         just_won = getattr(self, 'just_won', False)

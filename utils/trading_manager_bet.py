@@ -58,7 +58,10 @@ class TradingManagerBet:
                 actual_pick = original_pick
 
             widget_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
+            self.logger.info(f"[DEBUG] 위젯 포지션: {widget_pos}")
+
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
+            self.logger.info(f"[DEBUG] 계산된 베팅 금액: {bet_amount}")
 
             self.tm.main_window.betting_widget.update_bet_amount(bet_amount)
             self.tm.main_window.update_betting_status(pick=original_pick, bet_amount=bet_amount)
@@ -238,6 +241,11 @@ class TradingManagerBet:
                     # 다음 베팅을 위해 카운터 증가
                     self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
                     self.logger.info(f"다음 베팅을 위해 위젯 카운터 증가: {current_pos} → {current_pos + 1}")
+                    
+                # ✨✨ 여기에 마틴 서비스의 current_step도 동기화하는 코드 추가 ✨✨
+                if hasattr(self.tm.martin_service, 'current_step'):
+                    self.tm.martin_service.current_step = current_pos + 1
+                    self.logger.info(f"마틴 단계도 동기화: {current_pos} → {current_pos + 1}")
                 
                 # 타이 직후 플래그 초기화
                 if had_tie_last_round:
