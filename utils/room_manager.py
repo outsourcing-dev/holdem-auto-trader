@@ -1,19 +1,14 @@
-# utils/room_manager.py
+# utils/room_manager.py (완전히 수정된 버전)
 
-import json
-import os
-from PyQt6.QtWidgets import (QTableWidgetItem, QCheckBox, QMessageBox,
-                           QProgressBar, QHeaderView, QWidget, QHBoxLayout)
-from PyQt6.QtCore import Qt
-import time
-import re
-import random
-
-# RoomLoaderThread 클래스 import
-from utils.room_loader import RoomLoaderThread
 import json
 import os
 import sys
+import time
+import re
+import random
+from PyQt6.QtWidgets import (QTableWidgetItem, QCheckBox, QMessageBox,
+                           QProgressBar, QHeaderView, QWidget, QHBoxLayout)
+from PyQt6.QtCore import Qt
 
 # 기존 상수 정의를 함수로 대체
 def get_room_data_file_path():
@@ -88,7 +83,6 @@ def deduplicate_rooms(room_list):
     return list(unique_rooms.values())
 
 
-
 class RoomManager:
     def __init__(self, main_window):
         self.main_window = main_window
@@ -100,15 +94,13 @@ class RoomManager:
         # 로딩 메시지 박스 참조 (자동 닫기용)
         self.loading_msgbox = None
         
-        # 로딩 스레드
-        self.room_loader_thread = None
         self.visited_rooms = set()  # 이미 방문한 방들의 집합
 
     def generate_visit_order(self):
         """체크된 방들의 방문 순서를 랜덤하게 생성합니다."""
         # 중지 플래그 확인 추가
         if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'stop_all_processes') and self.main_window.trading_manager.stop_all_processes:
-            self.logger.info("중지 명령이 감지되어 방문 순서 생성을 취소합니다.")
+            print("[INFO] 중지 명령이 감지되어 방문 순서 생성을 취소합니다.")
             return False
             
         checked_rooms = self.get_checked_rooms()
@@ -123,7 +115,7 @@ class RoomManager:
         
         # 모든 방을 방문했으면 방문 기록 초기화
         if not unvisited_rooms:
-            #print("[INFO] 모든 방을 방문했습니다. 방문 기록을 초기화합니다.")
+            print("[INFO] 모든 방을 방문했습니다. 방문 기록을 초기화합니다.")
             self.visited_rooms.clear()
             unvisited_rooms = room_names
         
@@ -131,14 +123,14 @@ class RoomManager:
         random.shuffle(unvisited_rooms)
         
         self.room_visit_queue = unvisited_rooms
-        #print(f"[INFO] 새로운 방문 순서 생성: {self.room_visit_queue}")
+        print(f"[INFO] 새로운 방문 순서 생성: {self.room_visit_queue}")
         return True
 
     def mark_room_visited(self, room_name):
         """방을 방문한 것으로 표시"""
         if room_name:
             self.visited_rooms.add(room_name)
-            #print(f"[INFO] '{room_name}'을 방문 완료 목록에 추가. 방문한 방 수: {len(self.visited_rooms)}")
+            print(f"[INFO] '{room_name}'을 방문 완료 목록에 추가. 방문한 방 수: {len(self.visited_rooms)}")
                  
     def get_next_room_to_visit(self):
         """
@@ -152,12 +144,12 @@ class RoomManager:
         # 중지 플래그 확인 (가장 먼저 확인)
         if hasattr(self.main_window, 'trading_manager'):
             if hasattr(self.main_window.trading_manager, 'stop_all_processes') and self.main_window.trading_manager.stop_all_processes:
-                self.logger.info("중지 명령이 감지되어 다음 방 가져오기를 중단합니다.")
+                print("[INFO] 중지 명령이 감지되어 다음 방 가져오기를 중단합니다.")
                 return None
             
             # 목표 금액 도달 확인도 추가
             if hasattr(self.main_window.trading_manager, 'balance_service') and hasattr(self.main_window.trading_manager.balance_service, '_target_amount_reached') and self.main_window.trading_manager.balance_service._target_amount_reached:
-                self.logger.info("목표 금액 도달이 감지되어 다음 방 가져오기를 중단합니다.")
+                print("[INFO] 목표 금액 도달이 감지되어 다음 방 가져오기를 중단합니다.")
                 return None
         
         # 큐가 비어있으면 새로 생성
@@ -169,7 +161,7 @@ class RoomManager:
         # 큐에서 첫 번째 방 이름 가져오기
         if self.room_visit_queue:
             room_name = self.room_visit_queue.pop(0)
-            #print(f"[INFO] 다음 방문 방: {room_name} (남은 방: {len(self.room_visit_queue)}개)")
+            print(f"[INFO] 다음 방문 방: {room_name} (남은 방: {len(self.room_visit_queue)}개)")
             return room_name
         
         return None
@@ -185,11 +177,10 @@ class RoomManager:
         # 혹시 이 방이 아직 큐에 있다면 제거
         if room_name in self.room_visit_queue:
             self.room_visit_queue.remove(room_name)
-            # 로깅 방식 변경
-            #print(f"[INFO] '{room_name}'을 방문 큐에서 제거 (남은 방: {len(self.room_visit_queue)}개)")
+            print(f"[INFO] '{room_name}'을 방문 큐에서 제거 (남은 방: {len(self.room_visit_queue)}개)")
 
     def show_loading_msgbox(self, message):
-        """로딩 메시지 박스 표시 (멀티 스레딩 작업이 완료될 때까지 유지)"""
+        """로딩 메시지 박스 표시"""
         self.loading_msgbox = QMessageBox(self.main_window)
         self.loading_msgbox.setWindowTitle("알림")
         self.loading_msgbox.setText(message)
@@ -205,24 +196,6 @@ class RoomManager:
         # 논블로킹 모드로 표시
         self.loading_msgbox.show()
 
-    def extract_room_base_name(room_name):
-        """
-        방 이름에서 기본 이름만 추출 (가격과 마지막 숫자 제외)
-        
-        Args:
-            room_name (str): 전체 방 이름 (예: "스피드 바카라 Z\n₩1,000\n27")
-        
-        Returns:
-            str: 기본 방 이름 (예: "스피드 바카라 Z")
-        """
-        # 줄바꿈으로 분리
-        parts = room_name.split('\n')
-        
-        # 첫 번째 부분만 사용 (방 이름)
-        base_name = parts[0].strip() if parts else room_name.strip()
-        
-        return base_name
-
     def merge_room_data(self, new_room_names, reset_existing=False):
         """
         새로 가져온 방 목록과 기존 저장된 방 목록을 병합합니다.
@@ -236,7 +209,7 @@ class RoomManager:
             # 새 방 목록으로 완전히 교체 (중복 제거 적용)
             if new_room_names:
                 self.rooms_data = deduplicate_rooms(new_room_names)
-                #print(f"[INFO] 방 목록을 모두 초기화하고 새로운 {len(self.rooms_data)}개 방으로 교체했습니다. (모두 선택됨)")
+                print(f"[INFO] 방 목록을 모두 초기화하고 새로운 {len(self.rooms_data)}개 방으로 교체했습니다.")
             else:
                 self.rooms_data = []
         else:
@@ -273,17 +246,17 @@ class RoomManager:
             room_data_file = get_room_data_file_path()
             with open(room_data_file, "w", encoding="utf-8") as f:
                 json.dump(self.rooms_data, f, ensure_ascii=False, indent=4)
-            #print(f"[INFO] 방 설정 저장 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에 저장")
+            print(f"[INFO] 방 설정 저장 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에 저장")
             return True
         except Exception as e:
-            #print(f"[ERROR] 방 설정 저장 중 오류 발생: {e}")
+            print(f"[ERROR] 방 설정 저장 중 오류 발생: {e}")
             return False
     
     def load_room_settings(self):
         """저장된 방 설정을 JSON 파일에서 불러오기 (중복 제거 적용)"""
         room_data_file = get_room_data_file_path()
         if not os.path.exists(room_data_file):
-            #print(f"[INFO] 저장된 방 설정 파일 '{room_data_file}'이 없습니다.")
+            print(f"[INFO] 저장된 방 설정 파일 '{room_data_file}'이 없습니다.")
             return
             
         try:
@@ -293,131 +266,92 @@ class RoomManager:
                 # 중복 제거 처리
                 self.rooms_data = deduplicate_rooms(loaded_data)
                 
-            #print(f"[INFO] 방 설정 불러오기 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에서 로드")
+            print(f"[INFO] 방 설정 불러오기 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에서 로드")
         except Exception as e:
-            #print(f"[ERROR] 방 설정 불러오기 중 오류 발생: {e}")
+            print(f"[ERROR] 방 설정 불러오기 중 오류 발생: {e}")
             self.rooms_data = []
             
     def show_room_list_dialog(self):
         """
-        방 목록 불러오기 다이얼로그 표시
-        - 기존 방 불러오기 또는 새로운 방 불러오기 선택 가능
+        방 목록 불러오기 다이얼로그 표시 (단순화됨)
+        - 서버 기반 시스템에서는 기존 저장된 방 목록만 불러오기
         """
-        # 1. 기존 저장된 방 목록을 불러올지 묻기
-        reply = QMessageBox.question(
-            self.main_window,
-            "방 목록 불러오기",
-            "기존 저장된 방 목록을 불러오시겠습니까?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes
-        )
+        # 기존 저장된 방 목록 불러오기
+        print("[INFO] 저장된 방 목록 불러오기")
+        self.load_room_settings()
         
-        if reply == QMessageBox.StandardButton.Yes:
-            # 저장된 JSON 파일에서 불러오기
-            #print("[INFO] 저장된 방 목록 불러오기 선택")
-            self.load_room_settings()
+        if self.rooms_data:
             self.load_rooms_into_table(self.rooms_data)
-            return
-        
-        # 2. 새로운 방 목록을 불러올지 묻기
-        reply = QMessageBox.question(
-            self.main_window,
-            "방 목록 불러오기",
-            "현재 사이트의 '스피드' 방을 모두 불러와서 저장하시겠습니까?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
+            print(f"[INFO] {len(self.rooms_data)}개의 방 목록을 불러왔습니다.")
+        else:
+            # 방 목록이 없는 경우 수동으로 방 목록을 가져오도록 안내
+            reply = QMessageBox.question(
+                self.main_window,
+                "방 목록 없음",
+                "저장된 방 목록이 없습니다.\n현재 브라우저에서 방 목록을 가져오시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                self.load_rooms_from_browser()
+
+    def load_rooms_from_browser(self):
+        """브라우저에서 방 목록을 직접 가져오기 (간단 버전)"""
+        try:
             # 카지노 창으로 전환
             if not self.main_window.switch_to_casino_window():
                 QMessageBox.warning(self.main_window, "오류", "에볼루션 창을 찾을 수 없습니다.")
                 return
-                
-            # 2.5초 후 자동으로 닫히는 로딩 메시지 표시
-            # self.show_loading_msgbox("스피드 방 목록을 불러옵니다. 잠시만 기다려주세요.")
             
-            # 스피드 방 목록 로딩 스레드 생성 및 시작
-            self.start_room_loader_thread()
-                
-            # 카지노 로비 창으로 포커싱 확실히 유지
-            self.main_window.switch_to_casino_window()
-    
-    # RoomManager 클래스의 update_loading_progress 함수 수정
-    def update_loading_progress(self, message, count):
-        """방 로딩 진행 상황 업데이트 (로그만 남기고 UI에는 표시 안 함)"""
-        # 로그에만 기록
-        #print(f"[INFO] 방 목록 불러오는 중: {message} (발견 방: {count}개)")
-
-    # RoomManager 클래스의 on_room_loading_finished 함수 수정
-
-    def on_room_loading_finished(self, rooms_data):
-        """방 로딩 완료 시 호출되는 콜백"""
-        if self.loading_msgbox:  
-            self.loading_msgbox.accept()  # 로딩 메시지 박스 닫기
-            self.loading_msgbox = None  # 변수 초기화
-
-        # 로딩 결과가 있는 경우
-        if rooms_data:
-            self.merge_room_data(rooms_data, reset_existing=True)
-            self.load_rooms_into_table(self.rooms_data)
+            # 로딩 메시지 표시
+            self.show_loading_msgbox("방 목록을 불러오는 중...")
             
-            save_result = self.save_room_settings()
+            # 간단한 방 목록 가져오기
+            rooms_data = self.get_all_rooms()
             
-            if save_result:
-                #print(f"[INFO] 총 {len(self.rooms_data)}개의 스피드 방 목록을 불러와 저장했습니다.")
+            # 로딩 메시지 닫기
+            if self.loading_msgbox:
+                self.loading_msgbox.accept()
+                self.loading_msgbox = None
+            
+            if rooms_data:
+                self.merge_room_data(rooms_data, reset_existing=True)
+                self.load_rooms_into_table(self.rooms_data)
                 
-                # 성공 메시지
-                QMessageBox.information(
-                    self.main_window,
-                    "방 목록 저장 완료",
-                    f"총 {len(self.rooms_data)}개의 방 목록을 불러와 저장했습니다."
-                )
+                if self.save_room_settings():
+                    QMessageBox.information(
+                        self.main_window,
+                        "방 목록 저장 완료",
+                        f"총 {len(self.rooms_data)}개의 방 목록을 불러와 저장했습니다."
+                    )
+                else:
+                    QMessageBox.warning(self.main_window, "저장 실패", "방 목록을 저장하는 데 실패했습니다.")
             else:
-                #print("[ERROR] 방 목록 저장 실패")
-                QMessageBox.warning(self.main_window, "저장 실패", "방 목록을 저장하는 데 실패했습니다.")
-        else:
-            #print("[ERROR] 방 목록을 불러오지 못했습니다.")
-            QMessageBox.warning(self.main_window, "오류", "방 목록을 불러오는 데 실패했습니다.")
-
-
-    # RoomManager 클래스의 start_room_loader_thread 함수 수정
-
-    def start_room_loader_thread(self):
-        """방 목록 로딩 스레드 시작"""
-        if self.room_loader_thread and self.room_loader_thread.isRunning():
-            self.room_loader_thread.stop()
-            self.room_loader_thread.wait()
-
-        self.room_loader_thread = RoomLoaderThread(self.devtools, "speed")
-        
-        # 시그널 연결
-        self.room_loader_thread.progress_signal.connect(self.update_loading_progress)
-        self.room_loader_thread.finished_signal.connect(self.on_room_loading_finished)
-
-        # 로딩 메시지 박스 표시 (이제 스레드가 끝날 때까지 유지됨)
-        self.show_loading_msgbox("스피드 방 목록을 불러옵니다. 잠시만 기다려주세요.")
-
-        self.room_loader_thread.start()
-        #print("[INFO] 방 목록 로딩 스레드 시작됨")
+                QMessageBox.warning(self.main_window, "오류", "방 목록을 불러오는 데 실패했습니다.")
+                
+        except Exception as e:
+            print(f"[ERROR] 브라우저에서 방 목록 가져오기 실패: {e}")
+            if self.loading_msgbox:
+                self.loading_msgbox.accept()
+                self.loading_msgbox = None
+            QMessageBox.warning(self.main_window, "오류", f"방 목록을 가져오는 중 오류가 발생했습니다: {str(e)}")
         
     def get_all_rooms(self):
-        """iframe 내에서 방 정보 가져오기 (기존 기능, 수정 없음)"""
-        # #print("[DEBUG] get_all_rooms() 메서드 시작")
-
+        """iframe 내에서 방 정보 가져오기"""
         try:
             # iframe으로 전환
             iframe = self.devtools.driver.find_element("css selector", "iframe")
             self.devtools.driver.switch_to.frame(iframe)
 
-            #print("[INFO] iframe 내부 콘텐츠 로드 대기...")
+            print("[INFO] iframe 내부 콘텐츠 로드 대기...")
             time.sleep(1)
 
             all_rooms = set()
 
             # 특정 클래스(tile--5d2e6) 방 이름 요소 찾기
             name_elements = self.devtools.driver.find_elements("css selector", ".tile--5d2e6")
-            #print(f"[INFO] 현재 보이는 방 개수: {len(name_elements)}")
+            print(f"[INFO] 현재 보이는 방 개수: {len(name_elements)}")
 
             for idx, element in enumerate(name_elements):
                 try:
@@ -427,9 +361,6 @@ class RoomManager:
 
                     if lines:
                         room_name = clean_text(lines[0])  # 첫 번째 줄(방 이름)만 추출 후 클리닝
-
-                        # #print(f"[DEBUG] room[{idx}] 원본 데이터: {repr(full_text)}")  
-                        # #print(f"[DEBUG] room[{idx}] 첫 줄 (클린): {repr(room_name)}")  
 
                         if room_name:
                             all_rooms.add(room_name)
@@ -445,11 +376,11 @@ class RoomManager:
             # 기존 방 설정과 새로 가져온 방 목록을 병합
             self.merge_room_data(list(all_rooms))
 
-            #print(f"[INFO] 최종적으로 찾은 방 개수: {len(self.rooms_data)}")
+            print(f"[INFO] 최종적으로 찾은 방 개수: {len(self.rooms_data)}")
             return self.rooms_data
 
         except Exception as e:
-            #print(f"[ERROR] get_all_rooms 실행 중 오류 발생: {e}")
+            print(f"[ERROR] get_all_rooms 실행 중 오류 발생: {e}")
             # iframe에서 나오기 시도
             try:
                 self.devtools.driver.switch_to.default_content()
@@ -459,30 +390,28 @@ class RoomManager:
             
     def load_rooms_into_table(self, rooms_data=None):
         """방 목록을 테이블에 업데이트"""
-        #print("[DEBUG] load_rooms_into_table() 실행됨")
-        #print(f"[DEBUG] 매개변수 rooms_data 타입: {type(rooms_data)}, 값: {rooms_data}")
+        print("[DEBUG] load_rooms_into_table() 실행됨")
 
         # 1. rooms_data가 None이면 저장된 데이터 사용
         if rooms_data is None:
-            #print("[DEBUG] rooms_data가 None, 저장된 데이터 사용")
+            print("[DEBUG] rooms_data가 None, 저장된 데이터 사용")
             rooms_data = self.rooms_data
-            #print(f"[DEBUG] 저장된 self.rooms_data 타입: {type(self.rooms_data)}, 길이: {len(self.rooms_data)}")
         
         # 2. 데이터가 비어있는지 확인 (빈 리스트면 get_all_rooms 호출)
         if isinstance(rooms_data, list) and len(rooms_data) == 0:
-            #print("[DEBUG] rooms_data가 빈 리스트, get_all_rooms() 호출")
+            print("[DEBUG] rooms_data가 빈 리스트, get_all_rooms() 호출")
             QMessageBox.information(self.main_window, "알림", "방 목록을 불러옵니다.")
             try:
                 rooms_data = self.get_all_rooms()
-                #print(f"[DEBUG] get_all_rooms() 결과 타입: {type(rooms_data)}, 개수: {len(rooms_data) if rooms_data else 0}")
+                print(f"[DEBUG] get_all_rooms() 결과 개수: {len(rooms_data) if rooms_data else 0}")
             except Exception as e:
-                #print(f"[ERROR] get_all_rooms() 호출 중 예외 발생: {e}")
+                print(f"[ERROR] get_all_rooms() 호출 중 예외 발생: {e}")
                 import traceback
                 traceback.print_exc()
 
         # 3. 최종 데이터 확인
         if not rooms_data or (isinstance(rooms_data, list) and len(rooms_data) == 0):
-            #print("[DEBUG] 최종 rooms_data가 비어있음")
+            print("[DEBUG] 최종 rooms_data가 비어있음")
             QMessageBox.warning(self.main_window, "알림", "방 목록을 불러올 수 없습니다.")
             return
 
@@ -555,7 +484,7 @@ class RoomManager:
             room_table.setItem(row, 1, name_item)
         
         # 방 목록이 성공적으로 로드되면 버튼 활성화
-        #print("[DEBUG] 방 목록 로드 완료, 시작 버튼만 활성화")
+        print("[DEBUG] 방 목록 로드 완료, 시작 버튼만 활성화")
         self.main_window.start_button.setEnabled(True)
         self.main_window.stop_button.setEnabled(False)  # 중지 버튼은 비활성화 상태 유지
 
@@ -567,34 +496,7 @@ class RoomManager:
         """체크박스 상태가 변경되었을 때 호출"""
         if 0 <= row < len(self.rooms_data):
             self.rooms_data[row]["checked"] = bool(state)
-            #print(f"[DEBUG] 방 '{self.rooms_data[row]['name']}' 체크 상태 변경: {bool(state)}")
-    
-    def save_room_settings(self):
-        """방 설정을 JSON 파일로 저장"""
-        try:
-            room_data_file = get_room_data_file_path()
-            with open(room_data_file, "w", encoding="utf-8") as f:
-                json.dump(self.rooms_data, f, ensure_ascii=False, indent=4)
-            #print(f"[INFO] 방 설정 저장 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에 저장")
-            return True
-        except Exception as e:
-            #print(f"[ERROR] 방 설정 저장 중 오류 발생: {e}")
-            return False
-    
-    def load_room_settings(self):
-        """저장된 방 설정을 JSON 파일에서 불러오기"""
-        room_data_file = get_room_data_file_path()
-        if not os.path.exists(room_data_file):
-            #print(f"[INFO] 저장된 방 설정 파일 '{room_data_file}'이 없습니다.")
-            return
-            
-        try:
-            with open(room_data_file, "r", encoding="utf-8") as f:
-                self.rooms_data = json.load(f)
-            #print(f"[INFO] 방 설정 불러오기 완료: {len(self.rooms_data)}개 방을 '{room_data_file}'에서 로드")
-        except Exception as e:
-            #print(f"[ERROR] 방 설정 불러오기 중 오류 발생: {e}")
-            self.rooms_data = []
+            print(f"[DEBUG] 방 '{self.rooms_data[row]['name']}' 체크 상태 변경: {bool(state)}")
             
     def get_checked_rooms(self):
         """체크된 방 목록을 반환합니다."""
@@ -604,7 +506,7 @@ class RoomManager:
             if room_data.get("checked", False):
                 checked_rooms.append(room_data)
         
-        #print(f"[INFO] 체크된 방 {len(checked_rooms)}개 반환")
+        print(f"[INFO] 체크된 방 {len(checked_rooms)}개 반환")
         return checked_rooms
     
     def reset_visit_queue(self):
@@ -617,7 +519,7 @@ class RoomManager:
         
         # 체크된 방이 없으면 False 반환
         if not checked_rooms:
-            #print("[INFO] 체크된 방이 없습니다.")
+            print("[INFO] 체크된 방이 없습니다.")
             return False
         
         # 방 이름만 추출
@@ -628,6 +530,6 @@ class RoomManager:
         
         # 방문 큐 설정
         self.room_visit_queue = room_names
-        #print(f"[INFO] 방문 큐 리셋 완료: {len(self.room_visit_queue)}개 방")
+        print(f"[INFO] 방문 큐 리셋 완료: {len(self.room_visit_queue)}개 방")
         
         return len(self.room_visit_queue) > 0

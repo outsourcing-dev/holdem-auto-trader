@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout,
                              QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox, QGridLayout)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
-from utils.room_loader import extract_room_base_name
+
 
 class RoomLogWidget(QWidget):
     def __init__(self):

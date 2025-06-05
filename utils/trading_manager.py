@@ -1,8 +1,8 @@
-# utils/trading_manager.py
+# utils/trading_manager.py (완전한 버전 - 짤린 부분 복구)
 import time
 import logging
 import os
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QMessageBox, QApplication
 from services.room_entry_service import RoomEntryService
 from services.excel_trading_service import ExcelTradingService
 from services.betting_service import BettingService
@@ -10,13 +10,10 @@ from services.game_monitoring_service import GameMonitoringService
 from services.balance_service import BalanceService
 from services.martin_service import MartinBettingService
 from utils.settings_manager import SettingsManager
-from utils.trading_manager_helpers import TradingManagerHelpers
-from utils.analysis_thread import GameAnalysisThread
-from PyQt6.QtWidgets import QApplication  # 추가된 import
-from utils.trading_manager_helpers import get_widget_position
+from utils.trading_manager_helpers import TradingManagerHelpers, get_widget_position
+from utils.server_client import BaccaratServerClient
 
 class TradingManager:
-    # utils/trading_manager.py의 __init__ 메서드 수정 부분
     def __init__(self, main_window, logger=None):
         """TradingManager 초기화"""
         # 로거 설정
@@ -29,6 +26,10 @@ class TradingManager:
         self.room_manager = main_window.room_manager
         self.settings_manager = SettingsManager()
         
+        # 서버 클라이언트 추가
+        self.server_client = BaccaratServerClient(logger=self.logger)
+        self.user_id = f"user_{int(time.time())}"  # 임시 사용자 ID
+        
         # 상태 관리 속성
         self.is_trading_active = False
         self.current_room_name = ""
@@ -37,13 +38,19 @@ class TradingManager:
         self.current_pick = None
         self.processed_rounds = set()
         
+        # 서버 모니터링 상태
+        self.server_monitoring_active = False
+        self.last_server_check = 0
+        self.server_check_interval = 10  # 10초마다 서버 체크
+        
         # 추가 상태 관리 변수
         self.wait_first_result = False
         self.wait_first_result_count = 0
-        self.game_state_check_count = 0  # 게임 상태 체크 횟수 추가
+        self.game_state_check_count = 0
         self.same_round_count = 0
         self.no_result_counter = 0
         self.entered_round = -1
+        self.stop_all_processes = False  # 명시적으로 추가
 
         # 여기에 추가: 마틴 상태 추적 변수
         self.last_martin_step = 0  # 마지막으로 기록된 마틴 단계
@@ -64,6 +71,7 @@ class TradingManager:
         self.game_helper = TradingManagerGame(self)
         self._should_move_to_next_room = False
         self.had_tie_last_round = False  # 타이 직후 플래그
+        self.just_won = False  # 승리 플래그 추가
         
     def _init_services(self):
         """서비스 객체들을 초기화"""
@@ -102,15 +110,17 @@ class TradingManager:
                 main_window=self.main_window,
                 logger=self.logger
             )
+            
+            self.logger.info("모든 서비스 초기화 완료")
+            
         except Exception as e:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
 
     def start_trading(self):
-        """자동 매매 시작"""
+        """자동 매매 시작 - 서버 기반으로 수정"""
         try:
-            # 브라우저 드라이버 확인 - 메시지 표시 없이 조용히 종료
+            # 브라우저 드라이버 확인
             if not self.devtools.driver:
-                # 메시지 대화상자 없이 그냥 종료
                 print("[INFO] 브라우저가 실행되지 않았습니다. 자동 매매를 시작하지 않습니다.")
                 return
                 
@@ -136,10 +146,8 @@ class TradingManager:
             # 설정 초기화
             self.helpers.init_trading_settings()
             
-            # 창 개수 확인 - 목표 금액 달성 후 2번 창이 닫혔을 수 있으므로 다시 확인
+            # 창 개수 확인
             window_handles = self.devtools.driver.window_handles
-            
-            # 1번 창만 있는 경우 (카지노 창이 닫힌 경우) 카지노 재접속 필요 알림
             if len(window_handles) < 2:
                 QMessageBox.information(
                     self.main_window, 
@@ -152,25 +160,56 @@ class TradingManager:
             if not self.helpers.setup_browser_and_check_balance():
                 return
 
+            # 서버 상태 확인
+            if not self.server_client.get_server_status():
+                QMessageBox.warning(
+                    self.main_window,
+                    "서버 연결 실패",
+                    "바카라 분석 서버에 연결할 수 없습니다.\n서버가 실행 중인지 확인해주세요."
+                )
+                return
+
+            # 웹소켓 URL 추출 및 서버 전송 (임시로 더미 URL 사용)
+            # TODO: 실제 웹소켓 URL 추출 로직 구현 필요
+            dummy_ws_url = "wss://skylinestart.evo-games.com/public/lobby/socket/v2/test?EVOSESSIONID=test&instance=test&client_version=test"
+            
+            if not self.server_client.send_websocket_config(dummy_ws_url, self.user_id):
+                QMessageBox.warning(
+                    self.main_window,
+                    "서버 설정 실패",
+                    "서버에 웹소켓 설정을 전송하지 못했습니다."
+                )
+                return
+
+            # 서버에서 모니터링 시작
+            if not self.server_client.start_monitoring(self.user_id):
+                QMessageBox.warning(
+                    self.main_window,
+                    "모니터링 시작 실패",
+                    "서버에서 모니터링을 시작하지 못했습니다."
+                )
+                return
+
+            self.server_monitoring_active = True
+
             # 자동 매매 활성화
             self.is_trading_active = True
-            self.logger.info("자동 매매 시작!")
+            self.logger.info("자동 매매 시작! (서버 기반)")
             
-            # UI 업데이트 - 시작 버튼 비활성화, 중지 버튼은 여전히 비활성화 (방 입장 전까지)
+            # UI 업데이트
             self.main_window.start_button.setEnabled(False)
             self.main_window.stop_button.setEnabled(False)
-            # 스타일 강제 업데이트 추가
             self.main_window.update_button_styles()
-            QApplication.processEvents()  # 이벤트 처리 강제
+            QApplication.processEvents()
             
             # 목표 금액 체크
-            balance = self.main_window.current_amount
-            if self.balance_service.check_target_amount(balance):
+            balance = getattr(self.main_window, 'current_amount', 0)
+            if balance and self.balance_service.check_target_amount(balance):
                 self.logger.info("목표 금액에 이미 도달")
                 return
             
-            # 방문 순서 초기화 및 첫 방 입장
-            self.game_helper.enter_first_room()
+            # 서버 기반 방 입장 시작
+            self.start_server_based_room_search()
             
         except Exception as e:
             self.logger.error(f"자동 매매 시작 오류: {e}", exc_info=True)
@@ -179,293 +218,257 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
-            
-    # 2. 클래스 내에 새로운 analyze_current_game 메서드 추가 (기존 메서드 대체)
-    def analyze_current_game(self):
-        """현재 게임 상태를 분석하여 게임 수와 결과를 확인 (멀티스레드 구현 - 동기화 문제 수정)"""
+
+    def start_server_based_room_search(self):
+        """서버 기반 방 검색 및 입장"""
         try:
-            # 중지 플래그 확인 (가장 먼저 확인)
-            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-                self.logger.info("중지 명령으로 인해 게임 분석을 중단합니다.")
+            self.logger.info("서버에서 연패 조건에 맞는 방 검색 중...")
+            
+            # 연패 조건 설정 (기본값: 3연패)
+            streak_count = 3
+            
+            # 서버에서 연패 방 검색
+            streak_rooms = self.server_client.find_streak_rooms(self.user_id, streak_count)
+            
+            if not streak_rooms:
+                self.logger.info("조건에 맞는 방이 없습니다. 5초 후 다시 검색합니다.")
+                # 5초 후 다시 검색
+                self.main_window.set_remaining_time(0, 0, 5)
                 return
-
-            # 목표 금액 도달 확인도 추가
-            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-                self.logger.info("목표 금액 도달로 인해 게임 분석을 중단합니다.")
-                return
-
-            # 활성화 상태가 아니면 분석 시작하지 않음
-            if not self.is_trading_active:
-                self.logger.info("자동 매매가 비활성화되어 게임 분석을 시작하지 않습니다.")
-                return
-
-            # 이미 실행 중인 분석 스레드가 있는지 확인
-            if hasattr(self, '_is_processing_result') and self._is_processing_result:
-                self.logger.info("이전 분석 스레드가 아직 실행 중입니다. 다시 시작하지 않습니다.")
-                return
-
-            # 분석 시작
-            self._is_processing_result = True
-            self.logger.info("게임 분석 시작...")
-
-            # 분석 스레드가 없으면 스레드를 새로 시작
-            self._analysis_thread = GameAnalysisThread(self)
-            # 시그널 연결
-            self._analysis_thread.analysis_complete.connect(self._handle_analysis_result)
-            self._analysis_thread.analysis_error.connect(self._handle_analysis_error)
-            self._analysis_thread.room_change_needed.connect(self._handle_room_change)
-            self._analysis_thread.consecutive_n_detected.connect(self._handle_consecutive_n)
-            self._analysis_thread.start()
-
-            # 중지 버튼 상태 업데이트
-            self.main_window.update_button_styles()
-            self._is_processing_result = False  # 오류 발생 시에도 플래그 초기화
+            
+            # 첫 번째 추천 방으로 입장
+            target_room = streak_rooms[0]
+            room_name = target_room.get("room_name", "")
+            
+            self.logger.info(f"추천 방 발견: {room_name} (연패: {target_room.get('streak_failures', 0)}회)")
+            
+            # 방 입장 시도
+            if self.enter_recommended_room(room_name):
+                # 입장 성공 시 베팅 모니터링 시작
+                self.start_betting_monitoring()
+            else:
+                # 입장 실패 시 다른 방 시도 또는 재검색
+                self.logger.warning(f"방 입장 실패: {room_name}")
+                self.start_server_based_room_search()  # 재시도
+                
         except Exception as e:
-            self.logger.error(f"게임 분석 스레드 시작 오류: {e}", exc_info=True)
-            self._is_processing_result = False  # 오류 발생 시에도 플래그 초기화
+            self.logger.error(f"서버 기반 방 검색 오류: {e}", exc_info=True)
+            # 5초 후 재시도
+            self.main_window.set_remaining_time(0, 0, 5)
+
+    def enter_recommended_room(self, room_name: str) -> bool:
+        """추천받은 방으로 입장"""
+        try:
+            self.logger.info(f"추천 방 '{room_name}'으로 입장 시도")
+            
+            # 방 입장 서비스 사용
+            success = self.room_entry_service.enter_specific_room(room_name)
+            
+            if success:
+                self.current_room_name = room_name
+                self.game_count = 0
+                self.result_count = 0
+                self.wait_first_result = True  # 첫 결과 대기 설정
+                
+                # UI 업데이트
+                self.main_window.update_betting_status(room_name=room_name)
+                self.main_window.stop_button.setEnabled(True)
+                self.main_window.update_button_styles()
+                
+                # 방 로그 업데이트
+                if hasattr(self.main_window, 'room_log_widget'):
+                    self.main_window.room_log_widget.set_current_room(room_name, is_new_visit=True)
+                
+                self.logger.info(f"방 입장 성공: {room_name}")
+                return True
+            else:
+                self.logger.warning(f"방 입장 실패: {room_name}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"방 입장 중 오류: {e}", exc_info=True)
+            return False
+
+    def start_betting_monitoring(self):
+        """베팅 모니터링 시작"""
+        try:
+            self.logger.info("베팅 모니터링 시작")
+            
+            # 현재 게임 상태 확인 및 베팅 준비
+            self.check_betting_conditions()
+            
+            # 주기적 체크 시작 (2초마다)
             self.main_window.set_remaining_time(0, 0, 2)
             
-
-
-    # 새로운 핸들러 메서드 추가
-    def _handle_consecutive_n(self):
-        """N값 3회 연속 감지 처리 핸들러"""
-        # 중지 플래그 확인
-        if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-            self.logger.info("중지 명령으로 인해 N값 3회 감지 처리를 무시합니다.")
-            return
-            
-        # 자동 매매 활성화 상태 확인
-        if not self.is_trading_active:
-            self.logger.info("자동 매매가 비활성화되어 N값 3회 감지 처리를 무시합니다.")
-            return
-        
-        self.logger.info("N값 3회 연속 감지 - 마틴 유지하며 방 이동")
-        # self.change_room()
-        self.change_room(due_to_consecutive_n=True)
-
-    def _handle_analysis_result(self, result):
-        """분석 결과 처리 핸들러 - 첫 결과 대기 로직 추가"""
-        try:
-            # 중복 처리 방지 플래그 추가
-            if hasattr(self, '_is_processing_result') and self._is_processing_result:
-                self.logger.info("이미 결과를 처리 중입니다 - 중복 처리 건너뜁니다")
-                return
-
-            self._is_processing_result = True
-
-            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-                self.logger.info("목표 금액 도달이 감지되어 분석 결과를 처리하지 않습니다.")
-                return
-
-            # 강제 처리 플래그 검사
-            force_process = result.get('force_process', False)
-            if force_process:
-                self.logger.info("[강제 처리] 타임아웃 또는 동일 라운드 반복으로 인한 강제 처리 모드")
-                # wait_first_result 및 관련 플래그 초기화
-                self.wait_first_result = False
-                if hasattr(self, 'wait_first_result_count'):
-                    self.wait_first_result_count = 0
-                if hasattr(self, 'game_state_check_count'):
-                    self.game_state_check_count = 0
-                if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                    cps = self.excel_trading_service.choice_pick_system
-                    cps.wait_first_result = False
-                    cps.skip_n_count = False
-                    self.logger.info("[강제 처리] 첫 결과 대기 모드 및 N카운트 건너뛰기 해제")
-
-            # ✅ 가장 먼저 wait_first_result 확인 - 방 입장 직후 첫 게임 대기 시
-            if getattr(self, 'wait_first_result', False) and not force_process:
-                if not hasattr(self, 'wait_first_result_count'):
-                    self.wait_first_result_count = 0
-                else:
-                    self.wait_first_result_count += 1
-
-                # If we've been waiting for too long (15 cycles = ~30 seconds), force progress
-                if self.wait_first_result_count > 15:
-                    self.logger.info("[대기모드 타임아웃] 30초 이상 첫 결과를 못받아 강제로 대기모드 해제")
-                    self.wait_first_result = False
-                    self.wait_first_result_count = 0
-                    if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                        self.excel_trading_service.choice_pick_system.wait_first_result = False
-                        self.excel_trading_service.choice_pick_system.skip_n_count = False
-                    # 강제 처리 플래그 설정
-                    force_process = True
-                # 새 결과가 없고 강제 처리도 아닌 경우
-                elif not result.get('new_result', False) and not force_process:
-                    self.main_window.set_remaining_time(0, 0, 2)
-                    self._is_processing_result = False
-                    return
-
-            # Check if entered_round is too old compared to current_round
-            entered_round = getattr(self, 'entered_round', 0)
-            game_state = result['game_state']
-            current_game_count = game_state.get('round', 0)
-
-            # 게임 카운트가 크게 증가한 경우, 첫 결과 대기 모드 해제
-            if current_game_count > entered_round:
-                self.logger.info(f"[실제 결과 증가] 게임 카운트가 증가함 ({entered_round} → {current_game_count}), wait_first_result 해제")
-                self.entered_round = current_game_count
-                self.wait_first_result = False
-                if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                    self.excel_trading_service.choice_pick_system.wait_first_result = False
-                    self.excel_trading_service.choice_pick_system.skip_n_count = False
-                
-                # 여기서 _last_pick_game_id 초기화를 추가
-                if hasattr(self, '_last_pick_game_id'):
-                    del self._last_pick_game_id
-                    self.logger.info("[캐시 초기화] 새 결과 발생으로 이전 PICK 생성 캐시 삭제")
-
-            previous_game_count = result['previous_game_count']
-            new_result = result.get('new_result', False) or force_process  # 강제 처리 플래그도 새 결과로 간주
-
-            # choice_pick_system에 현재 게임 라운드 전달
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                self.excel_trading_service.choice_pick_system._current_game_round = current_game_count
-
-            # 중요: PICK 값이 'N'이고 consecutive_n_count가 4 이상인지 명확하게 확인
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                n_count = self.excel_trading_service.choice_pick_system.consecutive_n_count
-
-                if n_count >= 8:
-                    self.logger.warning(f"[방 이동 트리거] 4회 연속 N 감지 ({n_count}회) - 방 이동 시작")
-                    # 즉시 방 이동 실행 보장
-                    self._is_processing_result = False
-                    self.change_room()
-                    return
-
-            # 새 결과가 없을 경우 (게임 카운트가 같을 경우)
-            if not new_result:
-                # no_result_counter 증가
-                if not hasattr(self, 'no_result_counter'):
-                    self.no_result_counter = 0
-                self.no_result_counter += 1
-
-                # 30회 이상 동일한 게임 수가 지속되면 방 이동
-                if self.no_result_counter >= 30:
-                    self.logger.warning(f"[⚠️ 결과 없음 누적] 30회 이상 동일한 게임 수 → 방 이동")
-                    self.no_result_counter = 0
-                    self._is_processing_result = False
-                    self.change_room()
-                    return
-
-                # 새 결과가 없는 경우 여기서 종료 (픽 생성 및 베팅 처리하지 않음)
-                self._is_processing_result = False
-                self.main_window.set_remaining_time(0, 0, 2)
-                return
-
-            # 새 게임 결과가 있으면 no_result_counter 초기화
-            self.no_result_counter = 0
-
-            # 결과 로깅
-            latest_result = game_state.get('latest_result')
-
-            if previous_game_count == 0 and current_game_count > 0:
-                display_room_name = self.current_room_name.split('\n')[0] if '\n' in self.current_room_name else self.current_room_name
-                self.logger.info(f"방 '{display_room_name}'의 현재 게임 수: {current_game_count}")
-
-            # 새 결과가 있을 때만 Excel 처리
-            excel_result = self.excel_trading_service.process_game_results(
-                game_state, 
-                self.game_count, 
-                self.current_room_name
-            )
-            
-            # N 카운트 건너뛰기 자동 해제 (결과가 처리된 후)
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                cps = self.excel_trading_service.choice_pick_system
-                if getattr(cps, 'skip_n_count', False):
-                    # 최소 한 번의 결과가 처리된 후 skip_n_count 해제
-                    if new_result:
-                        cps.skip_n_count = False
-                        self.logger.info("[자동 해제] 새 결과 처리 후 N카운트 건너뛰기 해제")
-
-            # 각 사이클에서 generate_choice_pick 한 번만 호출하도록 수정
-            # 게임 카운트와 최신 결과를 조합해 고유 식별자 생성
-            game_result_id = f"{current_game_count}_{latest_result}"
-            if not hasattr(self, '_last_pick_game_id') or self._last_pick_game_id != game_result_id:
-
-                # [여기에 추가!] wait_first_result 검사
-                if hasattr(self, 'wait_first_result') and self.wait_first_result and not force_process:
-                    self.logger.info("[대기모드] 방 입장 직후라 픽 생성/베팅을 잠시 생략합니다.")
-                    self._is_processing_result = False
-                    self.main_window.set_remaining_time(0, 0, 2)
-                    return
-
-                # 정상적으로 pick 생성
-                pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
-                self._last_pick_game_id = game_result_id
-                self.logger.info(f"게임 {current_game_count}에 대한 새 픽 생성: {pick}")
-
-            else:
-                # 이미 이 게임 카운트와 결과에 대해 pick을 생성했으면 재사용
-                pick = self.excel_trading_service.choice_pick_system.current_pick
-                self.logger.info(f"이미 게임 {game_result_id}에 대한 픽이 생성됨 - 재사용: {pick}")
-
-            if pick == 'N':
-                self.logger.info("[베팅 스킵] 초이스픽 결과가 'N'이므로 베팅을 건너뜁니다.")
-                self._is_processing_result = False
-                return  # 베팅 스킵
-        
-            if excel_result[0] is not None:
-                self.game_helper.process_excel_result(excel_result, game_state, previous_game_count)
-
-            self.game_helper.handle_tie_result(latest_result, game_state)
-
-            # ✅ 첫 결과 대기 플래그 확인 (새 결과가 있을 때만 처리)
-            if hasattr(self, 'wait_first_result') and self.wait_first_result and new_result:
-                self.logger.info("첫 결과를 받았습니다 → wait_first_result 해제")
-                self.wait_first_result = False
-                if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                    self.excel_trading_service.choice_pick_system.wait_first_result = False
-                    self.excel_trading_service.choice_pick_system.skip_n_count = False
-                    self.logger.info("[자동 해제] 첫 결과 처리 후 N카운트 건너뛰기 해제")
-
-            if self.should_move_to_next_room and not self.betting_service.has_bet_current_round:
-                self.logger.info("방 이동 조건 충족 - change_room 실행")
-                self._is_processing_result = False
-                self.change_room()
-                return
-
         except Exception as e:
-            self.logger.error(f"분석 결과 처리 오류: {e}", exc_info=True)
-        finally:
-            if hasattr(self, '_is_processing_result'):
-                self._is_processing_result = False
+            self.logger.error(f"베팅 모니터링 시작 오류: {e}", exc_info=True)
 
-            if self.is_trading_active:
-                if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-                    self.logger.info("목표 금액 도달 확인됨: 다음 분석을 예약하지 않습니다.")
-                    return
+    def check_betting_conditions(self):
+        """베팅 조건 확인 및 베팅 실행"""
+        try:
+            # 중지 플래그 확인
+            if getattr(self, 'stop_all_processes', False):
+                return
 
-                self.main_window.set_remaining_time(0, 0, 2)
-            else:
-                self.logger.info("자동 매매 비활성화됨: 다음 분석을 예약하지 않습니다.")
+            # 목표 금액 도달 확인
+            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
+                return
+
+            # 서버에서 현재 모니터링 데이터 확인
+            current_time = time.time()
+            if current_time - self.last_server_check > self.server_check_interval:
+                monitoring_data = self.server_client.get_monitoring_data(self.user_id)
+                self.last_server_check = current_time
                 
-    def _handle_analysis_error(self, error_msg):
-        """분석 오류 처리 핸들러"""
-        self.logger.error(f"분석 스레드 오류: {error_msg}")
-        self.main_window.set_remaining_time(0, 0, 2)  # 다음 시도 스케줄링
+                if monitoring_data:
+                    self.process_server_monitoring_data(monitoring_data)
 
-    def _handle_room_change(self):
-        """방 이동 요청 처리 핸들러 - 중지 상태 확인 추가"""
-        # 중요: 중지 명령이 내려진 경우 방 이동 처리하지 않음
-        if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-            self.logger.info("중지 명령이 활성화되어 방 이동 요청을 무시합니다.")
-            return
+            # 베팅 가능 상태 확인
+            game_state = self.game_monitoring_service.get_current_game_state(log_always=False)
             
-        # 자동 매매가 비활성화된 경우에도 방 이동 처리하지 않음
-        if not self.is_trading_active:
-            self.logger.info("자동 매매가 비활성화되어 방 이동 요청을 무시합니다.")
-            return
+            if game_state and game_state.get('betting_available', False):
+                # 베팅 로직 실행
+                self.execute_betting_if_needed(game_state)
             
-        self.logger.info("스레드에서 방 이동 요청 수신")
-        
-        # 항상 마틴 유지하도록 변경
-        self.change_room()
-        
+            # 다음 체크 예약
+            if self.is_trading_active:
+                self.main_window.set_remaining_time(0, 0, 2)
+                
+        except Exception as e:
+            self.logger.error(f"베팅 조건 확인 오류: {e}", exc_info=True)
+            if self.is_trading_active:
+                self.main_window.set_remaining_time(0, 0, 2)
+
+    def process_server_monitoring_data(self, monitoring_data):
+        """서버 모니터링 데이터 처리"""
+        try:
+            # 서버에서 받은 연패 데이터 확인
+            streak_data = monitoring_data.get('streak_data', {})
+            player_streak_rooms = streak_data.get('player_streak_rooms', [])
+            
+            # 현재 방이 여전히 조건에 맞는지 확인
+            current_room_still_valid = False
+            for room in player_streak_rooms:
+                if room.get('room_name') == self.current_room_name:
+                    current_room_still_valid = True
+                    break
+            
+            # 현재 방이 조건에 맞지 않으면 새로운 방 검색
+            if not current_room_still_valid and player_streak_rooms:
+                self.logger.info("현재 방이 더 이상 조건에 맞지 않습니다. 새로운 방으로 이동합니다.")
+                self.change_to_new_recommended_room(player_streak_rooms[0])
+                
+        except Exception as e:
+            self.logger.error(f"서버 모니터링 데이터 처리 오류: {e}")
+
+    def change_to_new_recommended_room(self, new_room_data):
+        """새로 추천받은 방으로 이동"""
+        try:
+            new_room_name = new_room_data.get('room_name', '')
+            
+            if new_room_name and new_room_name != self.current_room_name:
+                self.logger.info(f"새로운 추천 방으로 이동: {new_room_name}")
+                
+                # 현재 방 나가기
+                self.game_monitoring_service.close_current_room()
+                
+                # 새 방 입장
+                if self.enter_recommended_room(new_room_name):
+                    self.logger.info(f"방 이동 완료: {self.current_room_name} → {new_room_name}")
+                else:
+                    self.logger.warning("새 방 입장 실패, 방 검색 재시작")
+                    self.start_server_based_room_search()
+                    
+        except Exception as e:
+            self.logger.error(f"방 이동 오류: {e}", exc_info=True)
+
+    def execute_betting_if_needed(self, game_state):
+        """필요시 베팅 실행"""
+        try:
+            # 이미 베팅했다면 결과 대기
+            if self.betting_service.has_bet_current_round:
+                latest_result = game_state.get('latest_result')
+                if latest_result and latest_result in ['P', 'B', 'T']:
+                    # 베팅 결과 처리
+                    last_bet = self.betting_service.get_last_bet()
+                    if last_bet:
+                        result_status = self.bet_helper.process_bet_result(
+                            last_bet['type'], 
+                            latest_result, 
+                            game_state.get('round', 0)
+                        )
+                        self.logger.info(f"베팅 결과: {result_status}")
+                        
+                        # 결과에 따른 후속 처리
+                        if result_status == 'win':
+                            # 승리 시 새로운 방 검색
+                            self.start_server_based_room_search()
+                        elif result_status == 'lose':
+                            # 패배 시 계속 진행 (마틴 베팅)
+                            pass
+                return
+            
+            # 첫 결과 대기 중이면 베팅하지 않음
+            if self.wait_first_result:
+                self.logger.debug("첫 결과 대기 중 - 베팅 보류")
+                return
+            
+            # 새로운 베팅 필요한 경우
+            if game_state.get('betting_available', False):
+                # 베팅 픽 결정 (ExcelTradingService 활용)
+                pick = self._determine_bet_pick(game_state)
+                
+                if pick in ['P', 'B']:
+                    current_widget_pos = get_widget_position(self.main_window)
+                    bet_amount = self.excel_trading_service.get_current_bet_amount(widget_position=current_widget_pos)
+                    
+                    # 베팅 실행
+                    bet_success = self.betting_service.place_bet(
+                        pick,
+                        self.current_room_name,
+                        game_state.get('round', 0),
+                        self.is_trading_active,
+                        bet_amount
+                    )
+                    
+                    if bet_success:
+                        self.logger.info(f"베팅 성공: {pick}, 금액: {bet_amount:,}원")
+                        self.main_window.update_betting_status(pick=pick, bet_amount=bet_amount)
+                
+        except Exception as e:
+            self.logger.error(f"베팅 실행 오류: {e}", exc_info=True)
+
+    def _determine_bet_pick(self, game_state):
+        """베팅 픽 결정"""
+        try:
+            # ExcelTradingService의 choice_pick_system 사용
+            if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
+                if pick in ['P', 'B']:
+                    return pick
+            
+            # 폴백: 간단한 패턴 기반 픽
+            recent_results = game_state.get('filtered_results', [])
+            if recent_results:
+                last_result = recent_results[-1]
+                return 'B' if last_result == 'P' else 'P'  # 반대 패턴
+            
+            return 'P'  # 기본값
+            
+        except Exception as e:
+            self.logger.error(f"베팅 픽 결정 오류: {e}")
+            return 'P'
+
+    # 이전 복잡한 분석 메서드들은 주석 처리하거나 단순화
+    def analyze_current_game(self):
+        """현재 게임 상태 분석 - 단순화됨"""
+        # 서버 기반 시스템에서는 이 메서드가 필요하지 않음
+        # 대신 check_betting_conditions()를 사용
+        if self.is_trading_active:
+            self.check_betting_conditions()
+
     def run_auto_trading(self):
-        """자동 매매 루프"""
+        """자동 매매 루프 - 단순화됨"""
         try:
             if not self.is_trading_active:
                 self.logger.info("자동 매매가 비활성화되어 있습니다.")
@@ -473,8 +476,8 @@ class TradingManager:
                 
             self.logger.info("자동 매매 진행 중...")
             
-            # 초기 게임 분석
-            self.analyze_current_game()
+            # 베팅 조건 확인
+            self.check_betting_conditions()
             
             # 게임 모니터링 루프 설정
             monitoring_interval = 2  # 2초마다 체크
@@ -491,8 +494,7 @@ class TradingManager:
             )
  
     def stop_trading(self):
-        """자동 매매 중지 - 스레드 안전하게 종료"""
-        from PyQt6.QtWidgets import QApplication
+        """자동 매매 중지 - 서버 모니터링도 중지"""
         try:
             if not self.is_trading_active:
                 self.logger.info("자동 매매가 이미 중지된 상태입니다.")
@@ -500,13 +502,18 @@ class TradingManager:
                 
             self.logger.info("자동 매매 중지 중...")
             
-            # 중요: 먼저 중지 플래그 설정 - 모든 진행 중인 작업이 이를 확인해야 함
+            # 서버 모니터링 중지
+            if self.server_monitoring_active:
+                self.server_client.stop_monitoring(self.user_id)
+                self.server_monitoring_active = False
+                self.logger.info("서버 모니터링 중지 완료")
+            
+            # 중지 플래그 설정
             self.stop_all_processes = True
             
             # 실행 중인 모든 타이머 이벤트 취소
             if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
                 self.main_window.timer.stop()
-                # QApplication의 이벤트 큐 처리 강제
                 QApplication.processEvents()
                 self.logger.info("타이머 중지 및 이벤트 큐 처리 완료")
             
@@ -515,34 +522,6 @@ class TradingManager:
             
             # 그 다음 trading_active 플래그 비활성화
             self.is_trading_active = False
-            
-            # 방 이동 플래그 초기화
-            # self.should_move_to_next_room = False
-            
-            # 타이머 중지 - 분석 스레드 예약 중단
-            if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
-                self.main_window.timer.stop()
-                self.logger.info("타이머 중지 완료")
-            
-            # 진행 중인 분석 스레드 중지
-            if hasattr(self, '_analysis_thread') and hasattr(self._analysis_thread, 'isRunning'):
-                if self._analysis_thread.isRunning():
-                    try:
-                        self.logger.info("진행 중인 분석 스레드 강제 종료")
-                        self._analysis_thread.terminate()  # 강제 종료
-                        self._analysis_thread.wait(1000)  # 최대 1초 대기
-                    except Exception as e:
-                        self.logger.warning(f"분석 스레드 종료 중 오류: {e}")
-                        
-            # 진행 중인 방 입장 스레드 중지
-            if hasattr(self.room_entry_service, 'entry_thread') and self.room_entry_service.entry_thread:
-                if self.room_entry_service.entry_thread.isRunning():
-                    self.logger.info("진행 중인 방 입장 스레드 강제 종료")
-                    try:
-                        self.room_entry_service.entry_thread.terminate()  # 강제 종료
-                        self.room_entry_service.entry_thread.wait(1000)  # 최대 1초 대기
-                    except Exception as e:
-                        self.logger.warning(f"방 입장 스레드 종료 중 오류: {e}")
             
             # 베팅 상태 초기화
             if hasattr(self, 'betting_service'):
@@ -579,7 +558,8 @@ class TradingManager:
             
             # 현재 게임방에서 나가기 시도
             self.logger.info("현재 방에서 나가기만 수행")
-            self.game_helper.exit_current_game_room()
+            if hasattr(self, 'game_helper'):
+                self.game_helper.exit_current_game_room()
 
             # 목표 금액에 도달했는지 확인하여 메시지 표시 결정
             target_reached = hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached
@@ -593,6 +573,7 @@ class TradingManager:
             
             # 강제 중지 시도
             self.is_trading_active = False
+            self.server_monitoring_active = False
             if hasattr(self.main_window, 'timer'):
                 self.main_window.timer.stop()
                 
@@ -612,7 +593,6 @@ class TradingManager:
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다."
             )        
             
-    # utils/trading_manager.py에 설정 업데이트 메서드 추가
     def update_settings(self):
         """설정이 변경된 경우 호출될 설정 업데이트 메서드"""
         try:
@@ -645,8 +625,6 @@ class TradingManager:
             self.logger.error(f"설정 업데이트 중 오류 발생: {e}")
             return False
         
-    # utils/trading_manager.py - 주요 수정 내용
-
     def refresh_settings(self):
         """설정을 파일에서 새로 로드하여 적용합니다."""
         try:
@@ -676,19 +654,15 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"설정 새로고침 중 오류 발생: {e}")
             return False
-        
+
+    # 기존 메서드들 (서버 기반으로 단순화하거나 유지)
     def change_room(self, due_to_consecutive_n=False):
         """
-        다음 방으로 이동 - 통합 함수 사용 버전
-        
-        Args:
-            due_to_consecutive_n (bool): N값 연속 감지로 인한 방 이동 여부 (마틴 유지에 영향)
-        
-        Returns:
-            bool: 성공 여부
+        다음 방으로 이동 - 서버 기반으로 단순화
         """
-        # 통합 방 입장 함수 호출 - 첫 방 입장 아님
-        return self._enter_room(is_first_entry=False, due_to_consecutive_n=due_to_consecutive_n)
+        # 서버 기반 시스템에서는 서버가 추천하는 방으로 이동
+        self.logger.info("방 이동 요청 - 서버에서 새로운 방 검색")
+        self.start_server_based_room_search()
         
     def check_after_win_status(self):
         """승리 후 모든 상태가 올바르게 초기화되었는지 확인"""
@@ -711,209 +685,255 @@ class TradingManager:
             # 플래그 초기화
             self.just_won = False
             
-            self.logger.info("승리 후 상태 초기화 완료")\
-
-    def _enter_room(self, is_first_entry=False, due_to_consecutive_n=False):
-        """
-        통합된 방 입장 메서드 - 첫 방 입장과 방 이동 모두 사용
-        
-        Args:
-            is_first_entry (bool): 최초 방 입장 여부 (초기 상태 초기화에 사용)
-            due_to_consecutive_n (bool): N값 연속 감지로 인한 방 이동 여부
-            
-        Returns:
-            bool: 성공 여부
-        """
-        try:
-            # 중지 버튼 상태 및 타이머 관리
-            if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
-                self.main_window.timer.stop()
-                self.logger.info("[타이머 정지] 방 입장/이동 중 분석 타이머 일시 정지")
-                
-            # 초기 진입인 경우 상태 초기화
-            if is_first_entry:
-                self.game_count = 0
-                self.result_count = 0
-                self.current_pick = None
-                self.processed_rounds = set()
-                
-                # 게임 감지기 초기화
-                from modules.game_detector import GameDetector
-                if hasattr(self, 'game_monitoring_service'):
-                    self.game_monitoring_service.game_detector = GameDetector()
-                    if hasattr(self.game_monitoring_service, 'last_detected_count'):
-                        self.game_monitoring_service.last_detected_count = 0
-                        
-                # 방문 순서 초기화
-                self.room_manager.generate_visit_order()
-            
-            # 중지 명령 확인
-            if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-                self.logger.info("중지 명령으로 인해 방 입장/이동을 중단합니다.")
-                return False
-                        
-            # 목표 금액 도달 확인
-            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-                self.logger.info("목표 금액 도달로 인해 방 입장/이동을 중단합니다.")
-                return False
-                        
-            # 자동 매매 활성화 상태 확인
-            if not self.is_trading_active:
-                self.logger.info("자동 매매 비활성화 상태로 방 입장/이동 중단")
-                return False
-                
-            # N 카운트 명시적 초기화 - 방 입장/이동 시작 시
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                self.excel_trading_service.choice_pick_system.consecutive_n_count = 0
-                self.logger.info("[N 카운트 초기화] 방 입장/이동 시작 시 강제 초기화")
-            
-            # 현재 위젯 포지션을 직접 확인 (마틴 단계의 소스)
-            current_widget_pos = 0
-            current_widget_pos = get_widget_position(self.main_window)
-            self.logger.info(f"[방 입장/이동] 현재 위젯 포지션: {current_widget_pos+1}번")
-            
-            # 마틴 유지 결정 - 첫 방 입장은 항상 False, 방 이동 시에는 위젯 포지션이나 N값 연속성에 따라 결정
-            preserve_martin = False if is_first_entry else (current_widget_pos > 0 or due_to_consecutive_n)
-            
-            self.logger.info(f"[방 입장/이동] 마틴 유지 결정: {preserve_martin} (위젯 포지션: {current_widget_pos+1}번)")
-
-            # 방 이동 중에는 중지 버튼 상태 관리
-            if not is_first_entry:
-                self.main_window.stop_button.setEnabled(False)
-                self.main_window.update_button_styles()
-            
-            # 방 이동 알림 설정
-            if hasattr(self.main_window, 'room_log_widget'):
-                self.main_window.room_log_widget.has_changed_room = True
-                self.logger.info("방 로그 위젯 has_changed_room 플래그를 True로 설정")
-            
-            # 초기 방 입장이 아닌 경우에만 현재 방 방문 처리 및 닫기
-            if not is_first_entry and self.current_room_name:
-                # 현재 방 방문 처리
-                self.room_manager.mark_room_visited(self.current_room_name)
-                
-                # 현재 방 닫기
-                room_closed = self.game_monitoring_service.close_current_room()
-                if not room_closed:
-                    self.logger.warning("현재 방을 닫는데 실패했습니다. 계속 진행합니다.")
-            
-            # 상태 초기화 - preserve_martin 값에 따라 마틴 유지 여부 결정
-            if hasattr(self, 'game_helper') and hasattr(self.game_helper, 'reset_room_state'):
-                self.game_helper.reset_room_state(preserve_martin=preserve_martin)
-            
-            # 새 방 입장
-            new_room_name = self.room_entry_service.enter_room()
-            
-            # 방 입장 실패 시 처리
-            if not new_room_name:
-                if hasattr(self, 'game_helper') and hasattr(self.game_helper, 'handle_room_entry_failure'):
-                    return self.game_helper.handle_room_entry_failure()
-                else:
-                    return False
-            
-            # 방 이동 직후 플래그 설정
-            self.just_changed_room = True
-            self.wait_first_result = True
-            self.logger.info("[대기 모드 설정] 방 입장/이동 직후 분석 전에 대기 모드 플래그 설정 완료")
-
-            # 초이스픽 시스템에 입장 라운드 설정
-            if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                cps = self.excel_trading_service.choice_pick_system
-                cps._entered_round = self.game_count
-                cps._current_game_round = self.game_count
-                cps.wait_first_result = True  # 추가: 방 입장 직후 PICK 차단용 플래그
-                self.logger.info(f"[방 입장/이동 완료] 초이스픽에 입장 라운드 설정: _entered_round={self.game_count}, _current_game_round={self.game_count}")
-
-            # 성공적인 방 입장 처리 - preserve_martin 전달 
-            if hasattr(self, 'game_helper') and hasattr(self.game_helper, 'handle_successful_room_entry'):
-                success = self.game_helper.handle_successful_room_entry(new_room_name, preserve_martin=preserve_martin)
-                
-                # 첫 방 입장 성공 시 추가 처리
-                if is_first_entry and success:
-                    # 중지 버튼 활성화
-                    self.main_window.stop_button.setEnabled(True)
-                    
-                    # 자동 매매 루프 시작
-                    self.run_auto_trading()
-                    
-                return success
-            else:
-                # game_helper 처리 불가능 시 기본 처리
-                self.current_room_name = new_room_name
-                self.main_window.update_betting_status(room_name=new_room_name)
-                
-                # 성공적인 방 입장/이동 후 자동 매매 계속
-                if is_first_entry:
-                    self.main_window.stop_button.setEnabled(True)
-                    self.run_auto_trading()
-                    
-                return True
-
-        except Exception as e:
-            self.logger.error(f"방 입장/이동 중 오류 발생: {e}", exc_info=True)
-            # 실패 시 중지 버튼 비활성화
-            self.main_window.stop_button.setEnabled(False)
-            self.main_window.update_button_styles()
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(self.main_window, "경고", f"방 입장/이동 실패")
-            return False
+            self.logger.info("승리 후 상태 초기화 완료")
 
     @property
     def should_move_to_next_room(self):
         """
         Property to check if we should move to the next room.
-        Uses the excel_trading_service or falls back to game count and martin stage check.
+        서버 기반 시스템에서는 서버가 판단하므로 단순화
         """
         # 중지 명령 확인
-        if hasattr(self, 'stop_all_processes') and self.stop_all_processes:
-            self.logger.info("중지 명령으로 인해 방 이동이 필요하지 않습니다.")
+        if getattr(self, 'stop_all_processes', False):
             return False
             
         # 목표 금액 도달 확인
         if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-            self.logger.info("목표 금액 도달로 인해 방 이동이 필요하지 않습니다.")
             return False
         
-        # Check excel_trading_service first (초이스 픽 시스템의 신호)
-        if hasattr(self, 'excel_trading_service'):
-            # self.logger.info(f"[DEBUG] 게임 분석 전: should_refresh_data={getattr(self.excel_trading_service.choice_pick_system, 'should_refresh_data', None)}, failure_count={getattr(self.excel_trading_service.choice_pick_system, 'failure_count', 0)}")
-
-            should_move = self.excel_trading_service.should_change_room()
-            if should_move:
-                # 로그 추가: 방 이동 결정 원인 추적
-                if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                    cs = self.excel_trading_service.choice_pick_system
-                    consecutive_n = hasattr(cs, 'consecutive_n_count') and cs.consecutive_n_count >= 8
-                    consecutive_failures = hasattr(cs, 'consecutive_failures') and cs.consecutive_failures >= 2
-                    high_game_count = hasattr(cs, 'last_win_count') and cs.last_win_count >= 55
-                    
-                    self.logger.info(f"[방 이동 결정] ExcelService: 연속N={consecutive_n}, 연속실패={consecutive_failures}, 55게임이상={high_game_count}")
-                
-                return True
-                
-        # Check the internal flag (중앙 집중식 내부 플래그 확인)
-        if self._should_move_to_next_room:
-            self.logger.info("[방 이동 결정] 내부 플래그 활성화")
-            return True
-                
-        # 현재 위젯/마틴 단계 확인 (항상 최신값 직접 확인)
-        current_widget_pos = 0
-        current_widget_pos = get_widget_position(self.main_window)
-
-        
-        # 방금 승리했는지 확인
-        just_won = getattr(self, 'just_won', False)
-        
-        # 핵심 로직: 마틴 0단계(위젯 포지션 0)이면서 55게임 이상일 때만 방 이동
-        if (current_widget_pos == 0 or just_won) and self.game_count >= 55:
-            self.logger.info(f"[방 이동 결정] 55게임 이상({self.game_count}판) & 마틴 0단계(위젯 포지션: {current_widget_pos})")
-            return True
-        
-        # 조건을 만족하지 않으면 방 이동 불필요
-        return False
+        # 서버 기반 시스템에서는 대부분의 방 이동 결정을 서버에서 처리
+        # 클라이언트에서는 기본적인 조건만 확인
+        return self._should_move_to_next_room
 
     @should_move_to_next_room.setter
     def should_move_to_next_room(self, value):
         """Setter for the should_move_to_next_room property."""
         self._should_move_to_next_room = value
 
+    # 추가 유틸리티 메서드들
+    def get_current_status(self):
+        """현재 트레이딩 상태 반환"""
+        return {
+            'is_active': self.is_trading_active,
+            'server_monitoring': self.server_monitoring_active,
+            'current_room': self.current_room_name,
+            'game_count': self.game_count,
+            'result_count': self.result_count,
+            'has_bet': getattr(self.betting_service, 'has_bet_current_round', False) if hasattr(self, 'betting_service') else False,
+            'wait_first_result': self.wait_first_result,
+            'stop_flag': getattr(self, 'stop_all_processes', False)
+        }
+
+    def emergency_stop(self):
+        """비상 정지 - 모든 프로세스 즉시 중단"""
+        try:
+            self.logger.warning("🚨 비상 정지 실행")
+            
+            # 즉시 플래그 설정
+            self.stop_all_processes = True
+            self.is_trading_active = False
+            self.server_monitoring_active = False
+            
+            # 서버 연결 강제 해제
+            try:
+                if hasattr(self, 'server_client'):
+                    self.server_client.force_disconnect()
+            except:
+                pass
+            
+            # 타이머 강제 중지
+            try:
+                if hasattr(self.main_window, 'timer'):
+                    self.main_window.timer.stop()
+                    QApplication.processEvents()
+            except:
+                pass
+            
+            # UI 상태 강제 복원
+            try:
+                self.main_window.start_button.setEnabled(True)
+                self.main_window.stop_button.setEnabled(False)
+                self.main_window.update_button_styles()
+            except:
+                pass
+            
+            self.logger.info("비상 정지 완료")
+            
+        except Exception as e:
+            self.logger.error(f"비상 정지 중 오류: {e}")
+
+    def get_debug_info(self):
+        """디버그 정보 반환"""
+        try:
+            debug_info = {
+                'trading_manager': {
+                    'is_active': self.is_trading_active,
+                    'server_monitoring': self.server_monitoring_active,
+                    'current_room': self.current_room_name,
+                    'user_id': self.user_id,
+                    'game_count': self.game_count,
+                    'stop_flag': getattr(self, 'stop_all_processes', False),
+                    'wait_first_result': self.wait_first_result
+                },
+                'services': {},
+                'last_error': None
+            }
+            
+            # 서비스 상태 정보 수집
+            services = ['betting_service', 'game_monitoring_service', 'balance_service', 'server_client']
+            for service_name in services:
+                if hasattr(self, service_name):
+                    service = getattr(self, service_name)
+                    debug_info['services'][service_name] = {
+                        'exists': True,
+                        'type': type(service).__name__
+                    }
+                else:
+                    debug_info['services'][service_name] = {'exists': False}
+            
+            return debug_info
+            
+        except Exception as e:
+            return {'error': str(e)}
+
+    def validate_state(self):
+        """상태 유효성 검증"""
+        try:
+            issues = []
+            
+            # 필수 서비스 존재 확인
+            required_services = ['betting_service', 'game_monitoring_service', 'balance_service', 'server_client']
+            for service in required_services:
+                if not hasattr(self, service):
+                    issues.append(f"필수 서비스 누락: {service}")
+            
+            # 서버 연결 상태 확인
+            if hasattr(self, 'server_client'):
+                try:
+                    if not self.server_client.get_server_status():
+                        issues.append("서버 연결 상태 불량")
+                except:
+                    issues.append("서버 상태 확인 불가")
+            
+            # UI 상태 확인
+            if not hasattr(self.main_window, 'start_button'):
+                issues.append("UI 버튼 누락")
+            
+            # 트레이딩 상태와 플래그 일관성 확인
+            if self.is_trading_active and getattr(self, 'stop_all_processes', False):
+                issues.append("트레이딩 상태 불일치: 활성화되어 있지만 중지 플래그 설정됨")
+            
+            return {
+                'valid': len(issues) == 0,
+                'issues': issues,
+                'timestamp': time.time()
+            }
+            
+        except Exception as e:
+            return {
+                'valid': False,
+                'issues': [f"상태 검증 오류: {str(e)}"],
+                'timestamp': time.time()
+            }
+
+    def reset_all_states(self):
+        """모든 상태 완전 초기화"""
+        try:
+            self.logger.info("모든 상태 완전 초기화 시작")
+            
+            # 플래그 초기화
+            self.is_trading_active = False
+            self.server_monitoring_active = False
+            self.stop_all_processes = False
+            self.wait_first_result = False
+            self.just_won = False
+            self.had_tie_last_round = False
+            
+            # 카운터 초기화
+            self.game_count = 0
+            self.result_count = 0
+            self.wait_first_result_count = 0
+            self.game_state_check_count = 0
+            self.same_round_count = 0
+            self.no_result_counter = 0
+            self.entered_round = -1
+            self.last_martin_step = 0
+            
+            # 데이터 구조 초기화
+            self.current_room_name = ""
+            self.current_pick = None
+            self.processed_rounds = set()
+            self.recent_game_results = []
+            self.filtered_game_results = []
+            
+            # 서버 모니터링 초기화
+            self.last_server_check = 0
+            
+            # 서비스별 초기화
+            if hasattr(self, 'betting_service'):
+                self.betting_service.reset_betting_state()
+            
+            if hasattr(self, 'martin_service'):
+                self.martin_service.reset()
+            
+            self.logger.info("모든 상태 완전 초기화 완료")
+            
+        except Exception as e:
+            self.logger.error(f"상태 초기화 중 오류: {e}")
+
+    def is_healthy(self):
+        """시스템 건강 상태 확인"""
+        try:
+            health_check = {
+                'overall': True,
+                'checks': {}
+            }
+            
+            # 필수 서비스 확인
+            services = ['betting_service', 'game_monitoring_service', 'balance_service']
+            for service_name in services:
+                if hasattr(self, service_name):
+                    health_check['checks'][service_name] = True
+                else:
+                    health_check['checks'][service_name] = False
+                    health_check['overall'] = False
+            
+            # 브라우저 상태 확인
+            if hasattr(self, 'devtools') and self.devtools and hasattr(self.devtools, 'driver'):
+                health_check['checks']['browser'] = bool(self.devtools.driver)
+            else:
+                health_check['checks']['browser'] = False
+                health_check['overall'] = False
+            
+            # 서버 연결 상태 확인
+            if hasattr(self, 'server_client'):
+                try:
+                    health_check['checks']['server'] = bool(self.server_client.get_server_status())
+                except:
+                    health_check['checks']['server'] = False
+            else:
+                health_check['checks']['server'] = False
+            
+            return health_check
+            
+        except Exception as e:
+            return {
+                'overall': False,
+                'checks': {},
+                'error': str(e)
+            }
+
+    def __del__(self):
+        """소멸자 - 리소스 정리"""
+        try:
+            if hasattr(self, 'server_monitoring_active') and self.server_monitoring_active:
+                if hasattr(self, 'server_client'):
+                    self.server_client.stop_monitoring(getattr(self, 'user_id', ''))
+            
+            # 타이머 정리
+            if hasattr(self, 'main_window') and hasattr(self.main_window, 'timer'):
+                if self.main_window.timer.isActive():
+                    self.main_window.timer.stop()
+                    
+        except:
+            pass  # 소멸자에서는 예외를 조용히 처리
