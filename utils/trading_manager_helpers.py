@@ -42,6 +42,8 @@ class TradingManagerHelpers:
             self.logger.error(f"마틴 잔고 확인 오류: {e}")
             return False
     
+    # utils/trading_manager_helpers.py의 validate_trading_prerequisites 메서드 수정
+
     def validate_trading_prerequisites(self):
         """자동 매매 시작 전 사전 검증 - 서버 기반으로 단순화"""
         try:
@@ -62,12 +64,22 @@ class TradingManagerHelpers:
                 else:
                     self.logger.info("서버 연결 상태 확인 완료")
             
-            # 웹소켓 URL 확인 (서버 기반에서는 이것만 필요)
-            if not hasattr(self.tm.main_window, 'websocket_url') or not self.tm.main_window.websocket_url:
+            # ✅ 웹소켓 URL 검증 제거 (자동 추출하므로 불필요)
+            # 기존 코드:
+            # if not hasattr(self.tm.main_window, 'websocket_url') or not self.tm.main_window.websocket_url:
+            #     QMessageBox.warning(
+            #         self.tm.main_window, 
+            #         "설정 필요", 
+            #         "웹소켓 URL을 먼저 설정해주세요."
+            #     )
+            #     return False
+            
+            # ✅ 브라우저 상태만 확인
+            if not hasattr(self.tm, 'devtools') or not self.tm.devtools.driver:
                 QMessageBox.warning(
                     self.tm.main_window, 
-                    "설정 필요", 
-                    "웹소켓 URL을 먼저 설정해주세요."
+                    "브라우저 오류", 
+                    "브라우저가 실행되지 않았습니다.\n먼저 브라우저를 시작해주세요."
                 )
                 return False
             

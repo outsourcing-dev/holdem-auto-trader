@@ -1,4 +1,4 @@
-# utils/trading_manager.py (완전한 버전 - 짤린 부분 복구)
+# utils/trading_manager.py (웹소켓 URL 추출 기능 통합 완료)
 import time
 import logging
 import os
@@ -117,7 +117,7 @@ class TradingManager:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
 
     def start_trading(self):
-        """자동 매매 시작 - 서버 기반으로 수정"""
+        """자동 매매 시작 - 서버 기반으로 수정 (웹소켓 URL 추출 통합)"""
         try:
             # 브라우저 드라이버 확인
             if not self.devtools.driver:
@@ -146,18 +146,19 @@ class TradingManager:
             # 설정 초기화
             self.helpers.init_trading_settings()
             
-            # 창 개수 확인
-            window_handles = self.devtools.driver.window_handles
-            if len(window_handles) < 2:
-                QMessageBox.information(
-                    self.main_window, 
-                    "카지노 접속 필요", 
-                    "카지노 창이 닫혀있습니다. 사이트 버튼을 눌러 카지노에 다시 접속해주세요."
-                )
+            # ✅ 핵심: 에볼루션 로비 확인 및 전환
+            if not self._ensure_evolution_lobby_ready():
                 return
             
-            # 브라우저 및 카지노 로비 확인
-            if not self.helpers.setup_browser_and_check_balance():
+            # ✅ 에볼루션 로비에서 웹소켓 URL 추출
+            websocket_url = self._extract_websocket_from_evolution_lobby()
+            if not websocket_url:
+                QMessageBox.warning(
+                    self.main_window,
+                    "웹소켓 연결 실패",
+                    "에볼루션 로비에서 웹소켓 연결 정보를 찾을 수 없습니다.\n" +
+                    "페이지를 새로고침하거나 다시 접속해주세요."
+                )
                 return
 
             # 서버 상태 확인
@@ -169,11 +170,8 @@ class TradingManager:
                 )
                 return
 
-            # 웹소켓 URL 추출 및 서버 전송 (임시로 더미 URL 사용)
-            # TODO: 실제 웹소켓 URL 추출 로직 구현 필요
-            dummy_ws_url = "wss://skylinestart.evo-games.com/public/lobby/socket/v2/test?EVOSESSIONID=test&instance=test&client_version=test"
-            
-            if not self.server_client.send_websocket_config(dummy_ws_url, self.user_id):
+            # ✅ 추출된 웹소켓 URL로 서버 설정
+            if not self.server_client.send_websocket_config(websocket_url, self.user_id):
                 QMessageBox.warning(
                     self.main_window,
                     "서버 설정 실패",
@@ -219,6 +217,76 @@ class TradingManager:
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
 
+    def _ensure_evolution_lobby_ready(self):
+        """에볼루션 로비 준비 상태 확인 및 전환"""
+        try:
+            # 창 개수 확인
+            window_handles = self.devtools.driver.window_handles
+            if len(window_handles) < 2:
+                QMessageBox.information(
+                    self.main_window, 
+                    "에볼루션 접속 필요", 
+                    "에볼루션 카지노에 먼저 접속해주세요.\n사이트 버튼을 눌러 에볼루션에 접속 후 다시 시도해주세요."
+                )
+                return False
+            
+            # 에볼루션 로비 창으로 전환 (보통 2번째 창)
+            self.devtools.driver.switch_to.window(window_handles[1])
+            self.logger.info("에볼루션 로비 창으로 전환 완료")
+            
+            # 에볼루션 페이지인지 확인
+            try:
+                current_url = self.devtools.driver.current_url
+                if "evolution" not in current_url.lower() and "evo-games" not in current_url.lower():
+                    QMessageBox.warning(
+                        self.main_window,
+                        "에볼루션 페이지 확인 필요",
+                        "현재 페이지가 에볼루션 카지노가 아닙니다.\n" +
+                        "사이트 버튼으로 에볼루션에 접속해주세요."
+                    )
+                    return False
+            except Exception as e:
+                self.logger.warning(f"URL 확인 중 오류: {e}")
+            
+            # 잔액 확인 (로비 상태 검증)
+            if not self.helpers.setup_browser_and_check_balance():
+                return False
+                
+            self.logger.info("에볼루션 로비 준비 완료")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"에볼루션 로비 준비 중 오류: {e}")
+            return False
+
+    def _extract_websocket_from_evolution_lobby(self):
+        """에볼루션 로비에서 웹소켓 URL 추출"""
+        try:
+            self.logger.info("에볼루션 로비에서 웹소켓 URL 추출 시작")
+            
+            # WebSocketParser 초기화
+            from services.websocket_parser import WebSocketParser
+            ws_parser = WebSocketParser(self.devtools)
+            
+            # 로비에서 웹소켓 URL 파싱
+            websocket_url = ws_parser.parse_websocket_url_from_lobby(timeout=30)
+            
+            if websocket_url:
+                # URL 유효성 검증
+                if ws_parser.validate_websocket_url(websocket_url):
+                    self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url}")
+                    return websocket_url
+                else:
+                    self.logger.warning("추출된 웹소켓 URL이 유효하지 않습니다.")
+                    return None
+            else:
+                self.logger.warning("웹소켓 URL 추출 실패 - 로비 페이지를 새로고침해보세요.")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"웹소켓 URL 추출 중 오류: {e}")
+            return None
+
     def start_server_based_room_search(self):
         """서버 기반 방 검색 및 입장"""
         try:
@@ -228,11 +296,17 @@ class TradingManager:
             streak_count = 3
             
             # 서버에서 연패 방 검색
-            streak_rooms = self.server_client.find_streak_rooms(self.user_id, streak_count)
+            response = self.server_client.find_streak_rooms(self.user_id, streak_count)
             
-            if not streak_rooms:
+            if not response or response.get('status') != 'success':
                 self.logger.info("조건에 맞는 방이 없습니다. 5초 후 다시 검색합니다.")
                 # 5초 후 다시 검색
+                self.main_window.set_remaining_time(0, 0, 5)
+                return
+            
+            streak_rooms = response.get('streak_rooms', [])
+            if not streak_rooms:
+                self.logger.info("추천할 방이 없습니다. 5초 후 다시 검색합니다.")
                 self.main_window.set_remaining_time(0, 0, 5)
                 return
             
