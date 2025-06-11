@@ -114,301 +114,6 @@ class TradingManager:
             self.logger.info("모든 서비스 초기화 완료")
             
         except Exception as e:
-            self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
-
-    def start_trading(self):
-        """자동 매매 시작 - 서버 기반으로 수정 (웹소켓 URL 추출 통합)"""
-        try:
-            # 브라우저 드라이버 확인
-            if not self.devtools.driver:
-                print("[INFO] 브라우저가 실행되지 않았습니다. 자동 매매를 시작하지 않습니다.")
-                return
-                
-            # 시작 전 설정 새로고침
-            self.refresh_settings()
-            
-            # 목표 금액 도달 플래그 초기화
-            if hasattr(self.balance_service, '_target_amount_reached'):
-                del self.balance_service._target_amount_reached
-                self.logger.info("목표 금액 도달 플래그 초기화")
-            
-            # stop_all_processes 플래그 초기화
-            self.stop_all_processes = False
-            
-            # 사전 검증
-            if not self.helpers.validate_trading_prerequisites():
-                return
-
-            # 사용자 확인 및 라이센스 검증
-            if not self.helpers.verify_license():
-                return
-                    
-            # 설정 초기화
-            self.helpers.init_trading_settings()
-            
-            # ✅ 핵심: 에볼루션 로비 확인 및 전환
-            if not self._ensure_evolution_lobby_ready():
-                return
-            
-            # ✅ 에볼루션 로비에서 웹소켓 URL 추출
-            websocket_url = self._extract_websocket_from_evolution_lobby()
-            if not websocket_url:
-                QMessageBox.warning(
-                    self.main_window,
-                    "웹소켓 연결 실패",
-                    "에볼루션 로비에서 웹소켓 연결 정보를 찾을 수 없습니다.\n" +
-                    "페이지를 새로고침하거나 다시 접속해주세요."
-                )
-                return
-
-            # 서버 상태 확인
-            if not self.server_client.get_server_status():
-                QMessageBox.warning(
-                    self.main_window,
-                    "서버 연결 실패",
-                    "바카라 분석 서버에 연결할 수 없습니다.\n서버가 실행 중인지 확인해주세요."
-                )
-                return
-
-            # ✅ 추출된 웹소켓 URL로 서버 설정
-            if not self.server_client.send_websocket_config(websocket_url, self.user_id):
-                QMessageBox.warning(
-                    self.main_window,
-                    "서버 설정 실패",
-                    "서버에 웹소켓 설정을 전송하지 못했습니다."
-                )
-                return
-
-            # 서버에서 모니터링 시작
-            if not self.server_client.start_monitoring(self.user_id):
-                QMessageBox.warning(
-                    self.main_window,
-                    "모니터링 시작 실패",
-                    "서버에서 모니터링을 시작하지 못했습니다."
-                )
-                return
-
-            self.server_monitoring_active = True
-
-            # 자동 매매 활성화
-            self.is_trading_active = True
-            self.logger.info("자동 매매 시작! (서버 기반)")
-            
-            # UI 업데이트
-            self.main_window.start_button.setEnabled(False)
-            self.main_window.stop_button.setEnabled(False)
-            self.main_window.update_button_styles()
-            QApplication.processEvents()
-            
-            # 목표 금액 체크
-            balance = getattr(self.main_window, 'current_amount', 0)
-            if balance and self.balance_service.check_target_amount(balance):
-                self.logger.info("목표 금액에 이미 도달")
-                return
-            
-            # 서버 기반 방 입장 시작
-            self.start_server_based_room_search()
-            
-        except Exception as e:
-            self.logger.error(f"자동 매매 시작 오류: {e}", exc_info=True)
-            QMessageBox.critical(
-                self.main_window, 
-                "자동 매매 오류", 
-                f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
-            )
-
-    def _ensure_evolution_lobby_ready(self):
-        """에볼루션 로비 준비 상태 확인 및 전환"""
-        try:
-            # 창 개수 확인
-            window_handles = self.devtools.driver.window_handles
-            if len(window_handles) < 2:
-                QMessageBox.information(
-                    self.main_window, 
-                    "에볼루션 접속 필요", 
-                    "에볼루션 카지노에 먼저 접속해주세요.\n사이트 버튼을 눌러 에볼루션에 접속 후 다시 시도해주세요."
-                )
-                return False
-            
-            # 에볼루션 로비 창으로 전환 (보통 2번째 창)
-            self.devtools.driver.switch_to.window(window_handles[1])
-            self.logger.info("에볼루션 로비 창으로 전환 완료")
-            
-            # 에볼루션 페이지인지 확인
-            try:
-                current_url = self.devtools.driver.current_url
-                if "evolution" not in current_url.lower() and "evo-games" not in current_url.lower():
-                    QMessageBox.warning(
-                        self.main_window,
-                        "에볼루션 페이지 확인 필요",
-                        "현재 페이지가 에볼루션 카지노가 아닙니다.\n" +
-                        "사이트 버튼으로 에볼루션에 접속해주세요."
-                    )
-                    return False
-            except Exception as e:
-                self.logger.warning(f"URL 확인 중 오류: {e}")
-            
-            # 잔액 확인 (로비 상태 검증)
-            if not self.helpers.setup_browser_and_check_balance():
-                return False
-                
-            self.logger.info("에볼루션 로비 준비 완료")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"에볼루션 로비 준비 중 오류: {e}")
-            return False
-
-    def _extract_websocket_from_evolution_lobby(self):
-        """에볼루션 로비에서 웹소켓 URL 추출"""
-        try:
-            self.logger.info("에볼루션 로비에서 웹소켓 URL 추출 시작")
-            
-            # WebSocketParser 초기화
-            from services.websocket_parser import WebSocketParser
-            ws_parser = WebSocketParser(self.devtools)
-            
-            # 로비에서 웹소켓 URL 파싱
-            websocket_url = ws_parser.parse_websocket_url_from_lobby(timeout=30)
-            
-            if websocket_url:
-                # URL 유효성 검증
-                if ws_parser.validate_websocket_url(websocket_url):
-                    self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url}")
-                    return websocket_url
-                else:
-                    self.logger.warning("추출된 웹소켓 URL이 유효하지 않습니다.")
-                    return None
-            else:
-                self.logger.warning("웹소켓 URL 추출 실패 - 로비 페이지를 새로고침해보세요.")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"웹소켓 URL 추출 중 오류: {e}")
-            return None
-
-    def start_server_based_room_search(self):
-        """서버 기반 방 검색 및 입장"""
-        try:
-            self.logger.info("서버에서 연패 조건에 맞는 방 검색 중...")
-            
-            # 연패 조건 설정 (기본값: 3연패)
-            streak_count = 3
-            
-            # 서버에서 연패 방 검색
-            response = self.server_client.find_streak_rooms(self.user_id, streak_count)
-            
-            if not response or response.get('status') != 'success':
-                self.logger.info("조건에 맞는 방이 없습니다. 5초 후 다시 검색합니다.")
-                # 5초 후 다시 검색
-                self.main_window.set_remaining_time(0, 0, 5)
-                return
-            
-            streak_rooms = response.get('streak_rooms', [])
-            if not streak_rooms:
-                self.logger.info("추천할 방이 없습니다. 5초 후 다시 검색합니다.")
-                self.main_window.set_remaining_time(0, 0, 5)
-                return
-            
-            # 첫 번째 추천 방으로 입장
-            target_room = streak_rooms[0]
-            room_name = target_room.get("room_name", "")
-            
-            self.logger.info(f"추천 방 발견: {room_name} (연패: {target_room.get('streak_failures', 0)}회)")
-            
-            # 방 입장 시도
-            if self.enter_recommended_room(room_name):
-                # 입장 성공 시 베팅 모니터링 시작
-                self.start_betting_monitoring()
-            else:
-                # 입장 실패 시 다른 방 시도 또는 재검색
-                self.logger.warning(f"방 입장 실패: {room_name}")
-                self.start_server_based_room_search()  # 재시도
-                
-        except Exception as e:
-            self.logger.error(f"서버 기반 방 검색 오류: {e}", exc_info=True)
-            # 5초 후 재시도
-            self.main_window.set_remaining_time(0, 0, 5)
-
-    def enter_recommended_room(self, room_name: str) -> bool:
-        """추천받은 방으로 입장"""
-        try:
-            self.logger.info(f"추천 방 '{room_name}'으로 입장 시도")
-            
-            # 방 입장 서비스 사용
-            success = self.room_entry_service.enter_specific_room(room_name)
-            
-            if success:
-                self.current_room_name = room_name
-                self.game_count = 0
-                self.result_count = 0
-                self.wait_first_result = True  # 첫 결과 대기 설정
-                
-                # UI 업데이트
-                self.main_window.update_betting_status(room_name=room_name)
-                self.main_window.stop_button.setEnabled(True)
-                self.main_window.update_button_styles()
-                
-                # 방 로그 업데이트
-                if hasattr(self.main_window, 'room_log_widget'):
-                    self.main_window.room_log_widget.set_current_room(room_name, is_new_visit=True)
-                
-                self.logger.info(f"방 입장 성공: {room_name}")
-                return True
-            else:
-                self.logger.warning(f"방 입장 실패: {room_name}")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"방 입장 중 오류: {e}", exc_info=True)
-            return False
-
-    def start_betting_monitoring(self):
-        """베팅 모니터링 시작"""
-        try:
-            self.logger.info("베팅 모니터링 시작")
-            
-            # 현재 게임 상태 확인 및 베팅 준비
-            self.check_betting_conditions()
-            
-            # 주기적 체크 시작 (2초마다)
-            self.main_window.set_remaining_time(0, 0, 2)
-            
-        except Exception as e:
-            self.logger.error(f"베팅 모니터링 시작 오류: {e}", exc_info=True)
-
-    def check_betting_conditions(self):
-        """베팅 조건 확인 및 베팅 실행"""
-        try:
-            # 중지 플래그 확인
-            if getattr(self, 'stop_all_processes', False):
-                return
-
-            # 목표 금액 도달 확인
-            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
-                return
-
-            # 서버에서 현재 모니터링 데이터 확인
-            current_time = time.time()
-            if current_time - self.last_server_check > self.server_check_interval:
-                monitoring_data = self.server_client.get_monitoring_data(self.user_id)
-                self.last_server_check = current_time
-                
-                if monitoring_data:
-                    self.process_server_monitoring_data(monitoring_data)
-
-            # 베팅 가능 상태 확인
-            game_state = self.game_monitoring_service.get_current_game_state(log_always=False)
-            
-            if game_state and game_state.get('betting_available', False):
-                # 베팅 로직 실행
-                self.execute_betting_if_needed(game_state)
-            
-            # 다음 체크 예약
-            if self.is_trading_active:
-                self.main_window.set_remaining_time(0, 0, 2)
-                
-        except Exception as e:
             self.logger.error(f"베팅 조건 확인 오류: {e}", exc_info=True)
             if self.is_trading_active:
                 self.main_window.set_remaining_time(0, 0, 2)
@@ -1011,3 +716,527 @@ class TradingManager:
                     
         except:
             pass  # 소멸자에서는 예외를 조용히 처리
+            self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
+
+    def start_trading(self):
+        """자동 매매 시작 - 서버 기반으로 수정 (웹소켓 URL 추출 통합)"""
+        try:
+            # 브라우저 드라이버 확인
+            if not self.devtools.driver:
+                print("[INFO] 브라우저가 실행되지 않았습니다. 자동 매매를 시작하지 않습니다.")
+                return
+                
+            # 시작 전 설정 새로고침
+            self.refresh_settings()
+            
+            # 목표 금액 도달 플래그 초기화
+            if hasattr(self.balance_service, '_target_amount_reached'):
+                del self.balance_service._target_amount_reached
+                self.logger.info("목표 금액 도달 플래그 초기화")
+            
+            # stop_all_processes 플래그 초기화
+            self.stop_all_processes = False
+            
+            # 사전 검증
+            if not self.helpers.validate_trading_prerequisites():
+                return
+
+            # 사용자 확인 및 라이센스 검증
+            if not self.helpers.verify_license():
+                return
+                    
+            # 설정 초기화
+            self.helpers.init_trading_settings()
+            
+            # ✅ 핵심: 에볼루션 로비 확인 및 전환
+            if not self._ensure_evolution_lobby_ready():
+                return
+            
+            # ✅ 에볼루션 로비에서 웹소켓 URL 추출
+            websocket_url = self._extract_websocket_from_evolution_lobby()
+            if not websocket_url:
+                QMessageBox.warning(
+                    self.main_window,
+                    "웹소켓 연결 실패",
+                    "에볼루션 로비에서 웹소켓 연결 정보를 찾을 수 없습니다.\n" +
+                    "페이지를 새로고침하거나 다시 접속해주세요."
+                )
+                return
+
+            # 서버 상태 확인
+            if not self.server_client.get_server_status():
+                QMessageBox.warning(
+                    self.main_window,
+                    "서버 연결 실패",
+                    "바카라 분석 서버에 연결할 수 없습니다.\n서버가 실행 중인지 확인해주세요."
+                )
+                return
+
+            # ✅ 추출된 웹소켓 URL로 서버 설정
+            if not self.server_client.send_websocket_config(websocket_url, self.user_id):
+                QMessageBox.warning(
+                    self.main_window,
+                    "서버 설정 실패",
+                    "서버에 웹소켓 설정을 전송하지 못했습니다."
+                )
+                return
+
+            # 서버에서 모니터링 시작
+            if not self.server_client.start_monitoring(self.user_id):
+                QMessageBox.warning(
+                    self.main_window,
+                    "모니터링 시작 실패",
+                    "서버에서 모니터링을 시작하지 못했습니다."
+                )
+                return
+
+            self.server_monitoring_active = True
+
+            # 자동 매매 활성화
+            self.is_trading_active = True
+            self.logger.info("자동 매매 시작! (서버 기반)")
+            
+            # UI 업데이트
+            self.main_window.start_button.setEnabled(False)
+            self.main_window.stop_button.setEnabled(False)
+            self.main_window.update_button_styles()
+            QApplication.processEvents()
+            
+            # 목표 금액 체크
+            balance = getattr(self.main_window, 'current_amount', 0)
+            if balance and self.balance_service.check_target_amount(balance):
+                self.logger.info("목표 금액에 이미 도달")
+                return
+            
+            # 서버 기반 방 입장 시작
+            self.start_server_based_room_search()
+            
+        except Exception as e:
+            self.logger.error(f"자동 매매 시작 오류: {e}", exc_info=True)
+            QMessageBox.critical(
+                self.main_window, 
+                "자동 매매 오류", 
+                f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
+            )
+
+    def debug_current_page(self):
+        """현재 페이지 상태 디버깅"""
+        try:
+            print("=== 현재 페이지 디버깅 ===")
+            
+            # 기본 정보
+            current_url = self.devtools.driver.current_url
+            print(f"현재 URL: {current_url}")
+            
+            try:
+                title = self.devtools.driver.title
+                print(f"페이지 타이틀: {title}")
+            except:
+                print("페이지 타이틀: 확인 불가")
+            
+            # 페이지 로딩 상태
+            try:
+                ready_state = self.devtools.driver.execute_script("return document.readyState")
+                print(f"페이지 로딩 상태: {ready_state}")
+            except:
+                print("페이지 로딩 상태: 확인 불가")
+            
+            # 페이지 소스에서 에볼루션 키워드 확인
+            try:
+                page_source = self.devtools.driver.page_source.lower()
+                evolution_count = page_source.count('evolution')
+                evologo_count = page_source.count('evologo')
+                evo_count = page_source.count('evo')
+                
+                print(f"페이지에 'evolution' 횟수: {evolution_count}")
+                print(f"페이지에 'evologo' 횟수: {evologo_count}")
+                print(f"페이지에 'evo' 횟수: {evo_count}")
+            except Exception as e:
+                print(f"페이지 소스 확인 오류: {e}")
+            
+            # img 태그 개수 확인
+            try:
+                imgs = self.devtools.driver.find_elements("css selector", "img")
+                print(f"이미지 태그 총 개수: {len(imgs)}")
+                
+                # 처음 5개 이미지의 src 확인
+                for i, img in enumerate(imgs[:5]):
+                    try:
+                        src = img.get_attribute("src") or ""
+                        alt = img.get_attribute("alt") or ""
+                        print(f"이미지 {i+1}: src='{src[:100]}...', alt='{alt}'")
+                        
+                        # 에볼루션 관련 키워드 체크
+                        if any(keyword in src.lower() for keyword in ['evologo', 'evolution', 'evo']):
+                            print(f"  ★ 에볼루션 관련 이미지 발견!")
+                    except Exception as e:
+                        print(f"이미지 {i+1} 처리 오류: {e}")
+            except Exception as e:
+                print(f"이미지 태그 확인 오류: {e}")
+            
+            # iframe 개수 확인
+            try:
+                iframes = self.devtools.driver.find_elements("css selector", "iframe")
+                print(f"iframe 개수: {len(iframes)}")
+                
+                for i, iframe in enumerate(iframes[:3]):
+                    try:
+                        src = iframe.get_attribute("src") or ""
+                        print(f"iframe {i+1}: src='{src[:100]}...'")
+                    except:
+                        print(f"iframe {i+1}: src 확인 불가")
+            except Exception as e:
+                print(f"iframe 확인 오류: {e}")
+                
+            print("=== 디버깅 완료 ===\n")
+            
+        except Exception as e:
+            print(f"디버깅 전체 오류: {e}")
+
+    def _ensure_evolution_lobby_ready(self):
+        """에볼루션 로비 준비 상태 확인 및 전환 - 디버깅 추가"""
+        try:
+            # 창 개수 확인
+            window_handles = self.devtools.driver.window_handles
+            print(f"전체 창 개수: {len(window_handles)}")
+            
+            if len(window_handles) < 2:
+                QMessageBox.information(
+                    self.main_window, 
+                    "에볼루션 접속 필요", 
+                    "에볼루션 카지노에 먼저 접속해주세요.\n사이트 버튼을 눌러 에볼루션에 접속 후 다시 시도해주세요."
+                )
+                return False
+            
+            # 에볼루션 로비 창으로 전환 (보통 2번째 창)
+            print(f"2번째 창으로 전환: {window_handles[1]}")
+            self.devtools.driver.switch_to.window(window_handles[1])
+            self.logger.info("에볼루션 로비 창으로 전환 완료")
+            
+            # 🔍 전환 직후 상태 확인
+            print("\n>>> 창 전환 직후 상태:")
+            self.debug_current_page()
+            
+            # 페이지 로딩 대기
+            print("페이지 로딩을 위해 3초 대기 중...")
+            time.sleep(3)
+            
+            # 🔍 3초 후 상태 재확인
+            print("\n>>> 3초 대기 후 상태:")
+            self.debug_current_page()
+            
+            # 에볼루션 페이지인지 로고로 확인
+            try:
+                evolution_found = False
+                
+                # 1. URL 기반 확인 (가장 확실한 방법)
+                current_url = self.devtools.driver.current_url
+                if any(keyword in current_url.lower() for keyword in ['evolution', 'evo']):
+                    self.logger.info(f"URL에서 에볼루션 확인: {current_url}")
+                    evolution_found = True
+                
+                # 2. 페이지 소스에서 키워드 확인
+                if not evolution_found:
+                    try:
+                        page_source = self.devtools.driver.page_source.lower()
+                        if ('evolution' in page_source or 
+                            'evologo' in page_source):
+                            self.logger.info("페이지 소스에서 에볼루션 키워드 확인")
+                            evolution_found = True
+                    except:
+                        pass
+                
+                # 3. 에볼루션 로고 확인 (기존 방식)
+                if not evolution_found:
+                    logo_selectors = [
+                        "img[src*='evologo']",
+                        "img[alt='casino-logo']", 
+                        "button[data-role='casino-logo-button']",
+                        "div.Logo--bbd01 img",
+                        "img[src*='/frontend/evo/']",
+                        "img[src*='evolution']",
+                        "img[src*='evo']",
+                        "*[class*='evolution']",
+                        "*[class*='evologo']"
+                    ]
+                    
+                    print("\n>>> 로고 검색 시작:")
+                    for selector in logo_selectors:
+                        try:
+                            elements = self.devtools.driver.find_elements("css selector", selector)
+                            print(f"선택자 '{selector}': {len(elements)}개 발견")
+                            
+                            if elements:
+                                for element in elements:
+                                    try:
+                                        src = element.get_attribute("src") or ""
+                                        alt = element.get_attribute("alt") or ""
+                                        class_name = element.get_attribute("class") or ""
+                                        
+                                        print(f"  요소: src='{src[:50]}...', alt='{alt}', class='{class_name[:30]}...'")
+                                        
+                                        if ("evologo" in src.lower() or 
+                                            alt.lower() == "casino-logo" or
+                                            "/frontend/evo/" in src or
+                                            "evolution" in src.lower() or
+                                            "evolution" in class_name.lower()):
+                                            print(f"  ★★★ 에볼루션 로고 발견! ★★★")
+                                            evolution_found = True
+                                            break
+                                    except:
+                                        continue
+                                if evolution_found:
+                                    break
+                        except Exception as e:
+                            print(f"선택자 '{selector}' 오류: {e}")
+                            continue
+                
+                # 4. iframe 내부에서도 확인
+                if not evolution_found:
+                    print("\n>>> iframe 내부 검색:")
+                    try:
+                        iframes = self.devtools.driver.find_elements("css selector", "iframe")
+                        
+                        for i, iframe in enumerate(iframes[:2]):  # 최대 2개만 확인
+                            try:
+                                print(f"iframe {i+1} 확인 중...")
+                                self.devtools.driver.switch_to.frame(iframe)
+                                
+                                # iframe 내부에서 빠른 체크
+                                try:
+                                    iframe_source = self.devtools.driver.page_source.lower()
+                                    if any(keyword in iframe_source for keyword in ['evolution', 'evologo']):
+                                        print(f"  iframe {i+1}에서 에볼루션 키워드 발견!")
+                                        evolution_found = True
+                                except:
+                                    pass
+                                
+                                # 기본 컨텐츠로 복귀
+                                self.devtools.driver.switch_to.default_content()
+                                
+                                if evolution_found:
+                                    break
+                                    
+                            except:
+                                try:
+                                    self.devtools.driver.switch_to.default_content()
+                                except:
+                                    pass
+                                continue
+                                
+                    except Exception as e:
+                        self.logger.warning(f"iframe 확인 중 오류: {e}")
+                        try:
+                            self.devtools.driver.switch_to.default_content()
+                        except:
+                            pass
+                
+                # 5. 최종 판단
+                print(f"\n>>> 최종 결과: evolution_found = {evolution_found}")
+                
+                # 에볼루션 페이지가 아닌 경우 사용자에게 확인
+                if not evolution_found:
+                    reply = QMessageBox.question(
+                        self.main_window,
+                        "에볼루션 페이지 확인",
+                        "자동으로 에볼루션 페이지를 확인하지 못했습니다.\n\n" +
+                        "현재 페이지가 에볼루션 카지노가 맞습니까?\n\n" +
+                        f"현재 URL: {current_url[:100]}...",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes
+                    )
+                    
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.logger.info("사용자가 에볼루션 페이지임을 확인")
+                        evolution_found = True
+                    else:
+                        QMessageBox.information(
+                            self.main_window,
+                            "에볼루션 접속 필요",
+                            "사이트 버튼을 눌러 에볼루션에 접속해주세요."
+                        )
+                        return False
+                
+                if not evolution_found:
+                    return False
+                    
+            except Exception as e:
+                self.logger.warning(f"에볼루션 페이지 확인 중 오류: {e}")
+                
+                # 오류 발생시에도 사용자에게 확인 요청
+                reply = QMessageBox.question(
+                    self.main_window,
+                    "페이지 확인 오류",
+                    "페이지 확인 중 오류가 발생했습니다.\n\n" +
+                    "현재 페이지가 에볼루션 카지노가 맞습니까?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                
+                if reply != QMessageBox.StandardButton.Yes:
+                    return False
+            
+            # 잔액 확인 (로비 상태 검증)
+            if not self.helpers.setup_browser_and_check_balance():
+                return False
+                
+            self.logger.info("에볼루션 로비 준비 완료")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"에볼루션 로비 준비 중 오류: {e}")
+            return False
+        
+    def _extract_websocket_from_evolution_lobby(self):
+        """에볼루션 로비에서 웹소켓 URL 추출"""
+        try:
+            self.logger.info("에볼루션 로비에서 웹소켓 URL 추출 시작")
+            
+            # WebSocketParser 초기화
+            from services.websocket_parser import WebSocketParser
+            ws_parser = WebSocketParser(self.devtools)
+            
+            # 로비에서 웹소켓 URL 파싱
+            websocket_url = ws_parser.parse_websocket_url_from_lobby(timeout=30)
+            
+            if websocket_url:
+                # URL 유효성 검증
+                if ws_parser.validate_websocket_url(websocket_url):
+                    self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url}")
+                    return websocket_url
+                else:
+                    self.logger.warning("추출된 웹소켓 URL이 유효하지 않습니다.")
+                    return None
+            else:
+                self.logger.warning("웹소켓 URL 추출 실패 - 로비 페이지를 새로고침해보세요.")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"웹소켓 URL 추출 중 오류: {e}")
+            return None
+
+    def start_server_based_room_search(self):
+        """서버 기반 방 검색 및 입장"""
+        try:
+            self.logger.info("서버에서 연패 조건에 맞는 방 검색 중...")
+            
+            # 연패 조건 설정 (기본값: 3연패)
+            streak_count = 3
+            
+            # 서버에서 연패 방 검색
+            response = self.server_client.find_streak_rooms(self.user_id, streak_count)
+            
+            if not response or response.get('status') != 'success':
+                self.logger.info("조건에 맞는 방이 없습니다. 5초 후 다시 검색합니다.")
+                # 5초 후 다시 검색
+                self.main_window.set_remaining_time(0, 0, 5)
+                return
+            
+            streak_rooms = response.get('streak_rooms', [])
+            if not streak_rooms:
+                self.logger.info("추천할 방이 없습니다. 5초 후 다시 검색합니다.")
+                self.main_window.set_remaining_time(0, 0, 5)
+                return
+            
+            # 첫 번째 추천 방으로 입장
+            target_room = streak_rooms[0]
+            room_name = target_room.get("room_name", "")
+            
+            self.logger.info(f"추천 방 발견: {room_name} (연패: {target_room.get('streak_failures', 0)}회)")
+            
+            # 방 입장 시도
+            if self.enter_recommended_room(room_name):
+                # 입장 성공 시 베팅 모니터링 시작
+                self.start_betting_monitoring()
+            else:
+                # 입장 실패 시 다른 방 시도 또는 재검색
+                self.logger.warning(f"방 입장 실패: {room_name}")
+                self.start_server_based_room_search()  # 재시도
+                
+        except Exception as e:
+            self.logger.error(f"서버 기반 방 검색 오류: {e}", exc_info=True)
+            # 5초 후 재시도
+            self.main_window.set_remaining_time(0, 0, 5)
+
+    def enter_recommended_room(self, room_name: str) -> bool:
+        """추천받은 방으로 입장"""
+        try:
+            self.logger.info(f"추천 방 '{room_name}'으로 입장 시도")
+            
+            # 방 입장 서비스 사용
+            success = self.room_entry_service.enter_specific_room(room_name)
+            
+            if success:
+                self.current_room_name = room_name
+                self.game_count = 0
+                self.result_count = 0
+                self.wait_first_result = True  # 첫 결과 대기 설정
+                
+                # UI 업데이트
+                self.main_window.update_betting_status(room_name=room_name)
+                self.main_window.stop_button.setEnabled(True)
+                self.main_window.update_button_styles()
+                
+                # 방 로그 업데이트
+                if hasattr(self.main_window, 'room_log_widget'):
+                    self.main_window.room_log_widget.set_current_room(room_name, is_new_visit=True)
+                
+                self.logger.info(f"방 입장 성공: {room_name}")
+                return True
+            else:
+                self.logger.warning(f"방 입장 실패: {room_name}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"방 입장 중 오류: {e}", exc_info=True)
+            return False
+
+    def start_betting_monitoring(self):
+        """베팅 모니터링 시작"""
+        try:
+            self.logger.info("베팅 모니터링 시작")
+            
+            # 현재 게임 상태 확인 및 베팅 준비
+            self.check_betting_conditions()
+            
+            # 주기적 체크 시작 (2초마다)
+            self.main_window.set_remaining_time(0, 0, 2)
+            
+        except Exception as e:
+            self.logger.error(f"베팅 모니터링 시작 오류: {e}", exc_info=True)
+
+    def check_betting_conditions(self):
+        """베팅 조건 확인 및 베팅 실행"""
+        try:
+            # 중지 플래그 확인
+            if getattr(self, 'stop_all_processes', False):
+                return
+
+            # 목표 금액 도달 확인
+            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
+                return
+
+            # 서버에서 현재 모니터링 데이터 확인
+            current_time = time.time()
+            if current_time - self.last_server_check > self.server_check_interval:
+                monitoring_data = self.server_client.get_monitoring_data(self.user_id)
+                self.last_server_check = current_time
+                
+                if monitoring_data:
+                    self.process_server_monitoring_data(monitoring_data)
+
+            # 베팅 가능 상태 확인
+            game_state = self.game_monitoring_service.get_current_game_state(log_always=False)
+            
+            if game_state and game_state.get('betting_available', False):
+                # 베팅 로직 실행
+                self.execute_betting_if_needed(game_state)
+            
+            # 다음 체크 예약
+            if self.is_trading_active:
+                self.main_window.set_remaining_time(0, 0, 2)
+                
+        except Exception as e:
+            self.logger.error(f"베팅 조건 확인 오류: {e}", exc_info=True)
+            if self.is_trading_active:
+                self.main_window.set_remaining_time(0, 0, 2)
