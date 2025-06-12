@@ -1,4 +1,5 @@
 # utils/trading_manager.py (웹소켓 URL 추출 기능 통합 완료)
+from cmath import e
 import time
 import logging
 import os
