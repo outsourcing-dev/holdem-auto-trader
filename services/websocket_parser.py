@@ -2,7 +2,7 @@
 import json
 import time
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -16,6 +16,7 @@ class WebSocketParser:
         self.driver = devtools.driver
         self.logger = logging.getLogger(__name__)
         self.websocket_url = None
+        self.network_events = []
         
     def parse_websocket_url_from_lobby(self, timeout=30) -> Optional[str]:
         """
@@ -30,8 +31,8 @@ class WebSocketParser:
         try:
             self.logger.info("웹소켓 URL 자동 파싱 시작")
             
-            # 1. 네트워크 로그 활성화
-            self._enable_network_logging()
+            # 1. 네트워크 이벤트 리스너 설정
+            self._setup_network_listeners()
             
             # 2. 로비 페이지 새로고침하여 네트워크 트래픽 캡처
             self.logger.info("로비 페이지 새로고침하여 네트워크 트래픽 캡처")
@@ -39,7 +40,7 @@ class WebSocketParser:
             time.sleep(3)
             
             # 3. 웹소켓 연결 감지 시도
-            websocket_url = self._detect_websocket_from_logs(timeout)
+            websocket_url = self._detect_websocket_from_cdp(timeout)
             
             if websocket_url:
                 self.websocket_url = websocket_url
@@ -53,19 +54,23 @@ class WebSocketParser:
             self.logger.error(f"웹소켓 URL 파싱 중 오류: {e}")
             return None
     
-    def _enable_network_logging(self):
-        """네트워크 로깅 활성화"""
+    def _setup_network_listeners(self):
+        """Chrome DevTools Protocol을 사용하여 네트워크 이벤트 리스너 설정"""
         try:
-            # Chrome DevTools Protocol을 사용하여 네트워크 도메인 활성화
+            # 네트워크 도메인 활성화
             self.driver.execute_cdp_cmd('Network.enable', {})
             self.driver.execute_cdp_cmd('Runtime.enable', {})
-            self.logger.info("네트워크 로깅 활성화 완료")
+            
+            # 네트워크 이벤트 리스너 설정
+            self.driver.execute_cdp_cmd('Network.setRequestInterception', {'patterns': [{'urlPattern': '*'}]})
+            
+            self.logger.info("네트워크 이벤트 리스너 설정 완료")
         except Exception as e:
-            self.logger.warning(f"네트워크 로깅 활성화 실패: {e}")
+            self.logger.warning(f"네트워크 이벤트 리스너 설정 실패: {e}")
     
-    def _detect_websocket_from_logs(self, timeout=30) -> Optional[str]:
+    def _detect_websocket_from_cdp(self, timeout=30) -> Optional[str]:
         """
-        네트워크 로그에서 웹소켓 URL 감지
+        Chrome DevTools Protocol을 사용하여 웹소켓 URL 감지
         
         Args:
             timeout (int): 타임아웃 시간
@@ -77,47 +82,91 @@ class WebSocketParser:
         
         while time.time() - start_time < timeout:
             try:
-                # 네트워크 로그 가져오기
-                logs = self.driver.get_log('performance')
+                # CDP 명령으로 네트워크 이벤트 가져오기
+                events = self._get_network_events()
                 
-                for log_entry in logs:
-                    try:
-                        message = json.loads(log_entry['message'])
-                        method = message.get('message', {}).get('method', '')
-                        
-                        # 웹소켓 연결 요청 감지
-                        if method == 'Network.webSocketCreated':
-                            params = message.get('message', {}).get('params', {})
-                            url = params.get('url', '')
-                            
-                            # 에볼루션 웹소켓 URL 패턴 확인
-                            if self._is_evolution_websocket(url):
-                                self.logger.info(f"웹소켓 연결 감지: {url}")
-                                return url
-                                
-                        # 추가: WebSocket 핸드셰이크 감지
-                        elif method == 'Network.requestWillBeSent':
-                            params = message.get('message', {}).get('params', {})
-                            request = params.get('request', {})
-                            url = request.get('url', '')
-                            headers = request.get('headers', {})
-                            
-                            # WebSocket 업그레이드 요청 확인
-                            if (headers.get('Upgrade') == 'websocket' and 
-                                self._is_evolution_websocket(url)):
-                                self.logger.info(f"웹소켓 핸드셰이크 감지: {url}")
-                                return url
-                                
-                    except (json.JSONDecodeError, KeyError) as e:
-                        continue
+                for event in events:
+                    websocket_url = self._extract_websocket_url_from_event(event)
+                    if websocket_url:
+                        return websocket_url
                 
                 time.sleep(0.5)  # 짧은 대기
                 
             except Exception as e:
-                self.logger.warning(f"로그 분석 중 오류: {e}")
+                self.logger.warning(f"CDP 이벤트 분석 중 오류: {e}")
                 time.sleep(1)
         
         return None
+    
+    def _get_network_events(self) -> List[Dict[str, Any]]:
+        """CDP를 통해 네트워크 이벤트 가져오기"""
+        try:
+            # Performance 로그 대신 CDP 명령 사용
+            result = self.driver.execute_cdp_cmd('Network.getResponseBody', {})
+            return [result] if result else []
+        except:
+            # 대안: JavaScript로 네트워크 요청 모니터링
+            return self._get_network_events_via_javascript()
+    
+    def _get_network_events_via_javascript(self) -> List[Dict[str, Any]]:
+        """JavaScript를 통해 네트워크 이벤트 모니터링"""
+        try:
+            js_code = """
+            // 네트워크 요청을 모니터링하는 JavaScript
+            if (!window.networkMonitor) {
+                window.networkMonitor = {
+                    requests: [],
+                    originalFetch: window.fetch,
+                    originalWebSocket: window.WebSocket
+                };
+                
+                // Fetch API 모니터링
+                window.fetch = function(...args) {
+                    const url = args[0];
+                    window.networkMonitor.requests.push({
+                        type: 'fetch',
+                        url: url,
+                        timestamp: Date.now()
+                    });
+                    return window.networkMonitor.originalFetch.apply(this, args);
+                };
+                
+                // WebSocket 생성 모니터링
+                window.WebSocket = function(url, protocols) {
+                    window.networkMonitor.requests.push({
+                        type: 'websocket',
+                        url: url,
+                        timestamp: Date.now()
+                    });
+                    return new window.networkMonitor.originalWebSocket(url, protocols);
+                };
+                
+                // 기존 WebSocket 프로토타입 유지
+                window.WebSocket.prototype = window.networkMonitor.originalWebSocket.prototype;
+            }
+            
+            return window.networkMonitor.requests;
+            """
+            
+            result = self.driver.execute_script(js_code)
+            return result if result else []
+            
+        except Exception as e:
+            self.logger.warning(f"JavaScript 네트워크 모니터링 실패: {e}")
+            return []
+    
+    def _extract_websocket_url_from_event(self, event: Dict[str, Any]) -> Optional[str]:
+        """이벤트에서 웹소켓 URL 추출"""
+        try:
+            if event.get('type') == 'websocket':
+                url = event.get('url', '')
+                if self._is_evolution_websocket(url):
+                    self.logger.info(f"웹소켓 연결 감지: {url}")
+                    return url
+            return None
+        except Exception as e:
+            self.logger.warning(f"이벤트 분석 중 오류: {e}")
+            return None
     
     def _is_evolution_websocket(self, url: str) -> bool:
         """
@@ -178,6 +227,11 @@ class WebSocketParser:
             if websocket_url:
                 return websocket_url
             
+            # 방법 4: 브라우저 네트워크 탭 분석
+            websocket_url = self._analyze_browser_network_tab()
+            if websocket_url:
+                return websocket_url
+            
             return None
             
         except Exception as e:
@@ -191,6 +245,7 @@ class WebSocketParser:
             js_code = """
             // WebSocket 연결 정보를 찾는 JavaScript
             var websockets = [];
+            var foundUrls = [];
             
             // 전역 객체에서 WebSocket 인스턴스 검색
             function findWebSockets(obj, visited = new Set()) {
@@ -208,6 +263,7 @@ class WebSocketParser:
                                 readyState: value.readyState,
                                 protocol: value.protocol
                             });
+                            foundUrls.push(value.url);
                         } else if (typeof value === 'object' && value !== null) {
                             findWebSockets(value, visited);
                         }
@@ -220,15 +276,26 @@ class WebSocketParser:
             // window 객체에서 WebSocket 검색
             findWebSockets(window);
             
+            // 추가: 프레임 내부도 검색
+            try {
+                for (let i = 0; i < window.frames.length; i++) {
+                    findWebSockets(window.frames[i]);
+                }
+            } catch (e) {
+                // 프레임 접근 실패 무시
+            }
+            
             // 결과 반환
-            return websockets.length > 0 ? websockets[0].url : null;
+            return foundUrls.length > 0 ? foundUrls : null;
             """
             
             result = self.driver.execute_script(js_code)
-            if result and self._is_evolution_websocket(result):
-                self.logger.info(f"JavaScript로 웹소켓 URL 발견: {result}")
-                return result
-                
+            if result:
+                for url in result:
+                    if self._is_evolution_websocket(url):
+                        self.logger.info(f"JavaScript로 웹소켓 URL 발견: {url}")
+                        return url
+                        
         except Exception as e:
             self.logger.warning(f"JavaScript 웹소켓 검색 실패: {e}")
         
@@ -243,9 +310,11 @@ class WebSocketParser:
             
             # 웹소켓 URL 패턴들
             websocket_patterns = [
-                r'wss?://[^\s\'"]+',  # 기본 웹소켓 URL 패턴
-                r'"(wss?://[^"]+)"',  # 따옴표로 둘러싸인 패턴
-                r"'(wss?://[^']+)'",  # 작은따옴표로 둘러싸인 패턴
+                r'wss?://[^\s\'">\]]+',  # 기본 웹소켓 URL 패턴
+                r'"(wss?://[^"]+)"',     # 따옴표로 둘러싸인 패턴
+                r"'(wss?://[^']+)'",     # 작은따옴표로 둘러싸인 패턴
+                r'url:\s*["\']?(wss?://[^"\'>\s]+)["\']?',  # url: 패턴
+                r'websocket["\']?\s*:\s*["\']?(wss?://[^"\'>\s]+)["\']?',  # websocket: 패턴
             ]
             
             for pattern in websocket_patterns:
@@ -268,20 +337,55 @@ class WebSocketParser:
         try:
             # Local Storage 검색
             local_storage = self.driver.execute_script("return window.localStorage;")
-            for key, value in local_storage.items():
-                if isinstance(value, str) and self._is_evolution_websocket(value):
-                    self.logger.info(f"Local Storage에서 웹소켓 URL 발견: {value}")
-                    return value
+            if local_storage:
+                for key, value in local_storage.items():
+                    if isinstance(value, str) and self._is_evolution_websocket(value):
+                        self.logger.info(f"Local Storage에서 웹소켓 URL 발견: {value}")
+                        return value
             
             # Session Storage 검색
             session_storage = self.driver.execute_script("return window.sessionStorage;")
-            for key, value in session_storage.items():
-                if isinstance(value, str) and self._is_evolution_websocket(value):
-                    self.logger.info(f"Session Storage에서 웹소켓 URL 발견: {value}")
-                    return value
-                    
+            if session_storage:
+                for key, value in session_storage.items():
+                    if isinstance(value, str) and self._is_evolution_websocket(value):
+                        self.logger.info(f"Session Storage에서 웹소켓 URL 발견: {value}")
+                        return value
+                        
         except Exception as e:
             self.logger.warning(f"Storage 검색 실패: {e}")
+        
+        return None
+    
+    def _analyze_browser_network_tab(self) -> Optional[str]:
+        """브라우저 네트워크 탭 분석을 통한 웹소켓 URL 찾기"""
+        try:
+            # CDP를 사용하여 네트워크 요청 분석
+            result = self.driver.execute_cdp_cmd('Network.getResponseBody', {})
+            
+            # 리소스 타입이 WebSocket인 것 찾기
+            js_code = """
+            // Performance API를 사용하여 네트워크 요청 분석
+            var entries = performance.getEntriesByType('resource');
+            var websocketUrls = [];
+            
+            entries.forEach(function(entry) {
+                if (entry.name && (entry.name.startsWith('ws://') || entry.name.startsWith('wss://'))) {
+                    websocketUrls.push(entry.name);
+                }
+            });
+            
+            return websocketUrls;
+            """
+            
+            urls = self.driver.execute_script(js_code)
+            if urls:
+                for url in urls:
+                    if self._is_evolution_websocket(url):
+                        self.logger.info(f"브라우저 네트워크 탭에서 웹소켓 URL 발견: {url}")
+                        return url
+            
+        except Exception as e:
+            self.logger.warning(f"브라우저 네트워크 탭 분석 실패: {e}")
         
         return None
     
@@ -299,15 +403,15 @@ class WebSocketParser:
         try:
             self.logger.info(f"방 '{room_name}' 입장하여 웹소켓 URL 파싱 시도")
             
-            # 1. 네트워크 로깅 활성화
-            self._enable_network_logging()
+            # 1. 네트워크 이벤트 리스너 설정
+            self._setup_network_listeners()
             
             # 2. 방 입장 시도
             if not self._enter_game_room(room_name):
                 return None
             
             # 3. 방 입장 후 웹소켓 연결 감지
-            websocket_url = self._detect_websocket_from_logs(timeout)
+            websocket_url = self._detect_websocket_from_cdp(timeout)
             
             if websocket_url:
                 self.logger.info(f"방 전용 웹소켓 URL 파싱 성공: {websocket_url}")
