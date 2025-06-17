@@ -1,22 +1,23 @@
-# services/websocket_parser.py
+# services/websocket_parser.py - 실용적 접근 방식
 import json
 import time
 import logging
+import re
 from typing import Optional, Dict, Any, List
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import UnexpectedAlertPresentException
 
 
 class WebSocketParser:
-    """에볼루션 로비에서 웹소켓 URL을 자동으로 파싱하는 서비스"""
+    """에볼루션 로비에서 웹소켓 URL을 자동으로 파싱하는 서비스 - 실용적 접근"""
     
     def __init__(self, devtools):
         self.devtools = devtools
         self.driver = devtools.driver
         self.logger = logging.getLogger(__name__)
         self.websocket_url = None
-        self.network_events = []
         
     def parse_websocket_url_from_lobby(self, timeout=30) -> Optional[str]:
         """
@@ -31,458 +32,593 @@ class WebSocketParser:
         try:
             self.logger.info("웹소켓 URL 자동 파싱 시작")
             
-            # 1. 네트워크 이벤트 리스너 설정
-            self._setup_network_listeners()
-            
-            # 2. 로비 페이지 새로고침하여 네트워크 트래픽 캡처
-            self.logger.info("로비 페이지 새로고침하여 네트워크 트래픽 캡처")
-            self.driver.refresh()
-            time.sleep(3)
-            
-            # 3. 웹소켓 연결 감지 시도
-            websocket_url = self._detect_websocket_from_cdp(timeout)
-            
+            # 1. 가장 확실한 방법: 개발자 도구 콘솔에서 직접 실행
+            websocket_url = self._extract_with_console_injection()
             if websocket_url:
-                self.websocket_url = websocket_url
-                self.logger.info(f"웹소켓 URL 파싱 성공: {websocket_url}")
                 return websocket_url
-            else:
-                self.logger.warning("웹소켓 URL을 찾을 수 없습니다. 대안 방법 시도")
-                return self._try_alternative_methods()
+            
+            # 2. WebSocket 생성 감지를 위한 고급 JavaScript 주입
+            websocket_url = self._advanced_javascript_monitoring(timeout)
+            if websocket_url:
+                return websocket_url
+            
+            # 3. 네트워크 계층에서 직접 감지
+            websocket_url = self._network_layer_detection()
+            if websocket_url:
+                return websocket_url
+            
+            # 4. 페이지의 모든 script 태그에서 검색
+            websocket_url = self._search_in_script_tags()
+            if websocket_url:
+                return websocket_url
+            
+            # 5. 에볼루션 특화 패턴으로 전체 DOM 검색
+            websocket_url = self._evolution_specific_search()
+            if websocket_url:
+                return websocket_url
+            
+            self.logger.warning("모든 방법으로 웹소켓 URL을 찾을 수 없습니다.")
+            return None
                 
         except Exception as e:
             self.logger.error(f"웹소켓 URL 파싱 중 오류: {e}")
             return None
     
-    def _setup_network_listeners(self):
-        """Chrome DevTools Protocol을 사용하여 네트워크 이벤트 리스너 설정"""
+    def _extract_with_console_injection(self) -> Optional[str]:
+        """콘솔에 WebSocket 감지 스크립트 주입"""
         try:
-            # 네트워크 도메인 활성화
-            self.driver.execute_cdp_cmd('Network.enable', {})
-            self.driver.execute_cdp_cmd('Runtime.enable', {})
+            self.logger.info("콘솔 스크립트 주입으로 웹소켓 URL 검색 중...")
             
-            # 네트워크 이벤트 리스너 설정
-            self.driver.execute_cdp_cmd('Network.setRequestInterception', {'patterns': [{'urlPattern': '*'}]})
-            
-            self.logger.info("네트워크 이벤트 리스너 설정 완료")
-        except Exception as e:
-            self.logger.warning(f"네트워크 이벤트 리스너 설정 실패: {e}")
-    
-    def _detect_websocket_from_cdp(self, timeout=30) -> Optional[str]:
-        """
-        Chrome DevTools Protocol을 사용하여 웹소켓 URL 감지
-        
-        Args:
-            timeout (int): 타임아웃 시간
-            
-        Returns:
-            Optional[str]: 감지된 웹소켓 URL
-        """
-        start_time = time.time()
-        
-        while time.time() - start_time < timeout:
-            try:
-                # CDP 명령으로 네트워크 이벤트 가져오기
-                events = self._get_network_events()
+            # 매우 강력한 WebSocket 감지 스크립트
+            detection_script = """
+            (function() {
+                // 기존 WebSocket 연결들 검색
+                function findExistingConnections() {
+                    var foundUrls = [];
+                    
+                    // Performance API에서 WebSocket 검색
+                    try {
+                        var entries = performance.getEntriesByType('resource');
+                        for (var i = 0; i < entries.length; i++) {
+                            var entry = entries[i];
+                            if (entry.name && (entry.name.indexOf('ws://') === 0 || entry.name.indexOf('wss://') === 0)) {
+                                if (entry.name.indexOf('evo-games.com') !== -1 || 
+                                    entry.name.indexOf('skylinestart') !== -1 ||
+                                    entry.name.indexOf('EVOSESSIONID') !== -1) {
+                                    foundUrls.push(entry.name);
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                    
+                    return foundUrls;
+                }
                 
-                for event in events:
-                    websocket_url = self._extract_websocket_url_from_event(event)
-                    if websocket_url:
-                        return websocket_url
+                // 현재 활성화된 WebSocket 인스턴스 검색
+                function findActiveWebSockets() {
+                    var foundUrls = [];
+                    
+                    // window 객체에서 WebSocket 인스턴스 검색
+                    function searchObject(obj, visited) {
+                        if (visited.has(obj) || !obj || typeof obj !== 'object') return;
+                        visited.add(obj);
+                        
+                        try {
+                            for (var key in obj) {
+                                if (key && obj[key]) {
+                                    if (obj[key] instanceof WebSocket) {
+                                        var url = obj[key].url;
+                                        if (url && (url.indexOf('evo-games.com') !== -1 || 
+                                                   url.indexOf('skylinestart') !== -1 ||
+                                                   url.indexOf('EVOSESSIONID') !== -1)) {
+                                            foundUrls.push(url);
+                                        }
+                                    } else if (typeof obj[key] === 'object') {
+                                        searchObject(obj[key], visited);
+                                    }
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                    
+                    searchObject(window, new Set());
+                    return foundUrls;
+                }
                 
-                time.sleep(0.5)  # 짧은 대기
+                // 모든 iframe에서도 검색
+                function searchInFrames() {
+                    var foundUrls = [];
+                    
+                    try {
+                        for (var i = 0; i < window.frames.length; i++) {
+                            try {
+                                var frame = window.frames[i];
+                                if (frame && frame.WebSocket) {
+                                    // iframe 내부의 WebSocket 인스턴스 검색
+                                    var frameEntries = frame.performance ? frame.performance.getEntriesByType('resource') : [];
+                                    for (var j = 0; j < frameEntries.length; j++) {
+                                        var entry = frameEntries[j];
+                                        if (entry.name && (entry.name.indexOf('ws://') === 0 || entry.name.indexOf('wss://') === 0)) {
+                                            if (entry.name.indexOf('evo-games.com') !== -1 || 
+                                                entry.name.indexOf('skylinestart') !== -1 ||
+                                                entry.name.indexOf('EVOSESSIONID') !== -1) {
+                                                foundUrls.push(entry.name);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+                    } catch (e) {}
+                    
+                    return foundUrls;
+                }
                 
-            except Exception as e:
-                self.logger.warning(f"CDP 이벤트 분석 중 오류: {e}")
-                time.sleep(1)
-        
-        return None
-    
-    def _get_network_events(self) -> List[Dict[str, Any]]:
-        """CDP를 통해 네트워크 이벤트 가져오기"""
-        try:
-            # Performance 로그 대신 CDP 명령 사용
-            result = self.driver.execute_cdp_cmd('Network.getResponseBody', {})
-            return [result] if result else []
-        except:
-            # 대안: JavaScript로 네트워크 요청 모니터링
-            return self._get_network_events_via_javascript()
-    
-    def _get_network_events_via_javascript(self) -> List[Dict[str, Any]]:
-        """JavaScript를 통해 네트워크 이벤트 모니터링"""
-        try:
-            js_code = """
-            // 네트워크 요청을 모니터링하는 JavaScript
-            if (!window.networkMonitor) {
-                window.networkMonitor = {
-                    requests: [],
-                    originalFetch: window.fetch,
-                    originalWebSocket: window.WebSocket
-                };
+                // 모든 방법으로 검색
+                var allUrls = [];
+                allUrls = allUrls.concat(findExistingConnections());
+                allUrls = allUrls.concat(findActiveWebSockets());
+                allUrls = allUrls.concat(searchInFrames());
                 
-                // Fetch API 모니터링
-                window.fetch = function(...args) {
-                    const url = args[0];
-                    window.networkMonitor.requests.push({
-                        type: 'fetch',
-                        url: url,
-                        timestamp: Date.now()
-                    });
-                    return window.networkMonitor.originalFetch.apply(this, args);
-                };
+                // 중복 제거
+                var uniqueUrls = [];
+                for (var i = 0; i < allUrls.length; i++) {
+                    if (uniqueUrls.indexOf(allUrls[i]) === -1) {
+                        uniqueUrls.push(allUrls[i]);
+                    }
+                }
                 
-                // WebSocket 생성 모니터링
-                window.WebSocket = function(url, protocols) {
-                    window.networkMonitor.requests.push({
-                        type: 'websocket',
-                        url: url,
-                        timestamp: Date.now()
-                    });
-                    return new window.networkMonitor.originalWebSocket(url, protocols);
-                };
-                
-                // 기존 WebSocket 프로토타입 유지
-                window.WebSocket.prototype = window.networkMonitor.originalWebSocket.prototype;
-            }
-            
-            return window.networkMonitor.requests;
+                return uniqueUrls;
+            })();
             """
             
-            result = self.driver.execute_script(js_code)
-            return result if result else []
+            # 스크립트 실행
+            found_urls = self.driver.execute_script(detection_script)
+            
+            if found_urls and isinstance(found_urls, list):
+                for url in found_urls:
+                    if self._is_evolution_websocket(url):
+                        self.logger.info(f"콘솔 스크립트로 웹소켓 URL 발견: {url}")
+                        return url
+            
+            return None
             
         except Exception as e:
-            self.logger.warning(f"JavaScript 네트워크 모니터링 실패: {e}")
-            return []
+            self.logger.warning(f"콘솔 스크립트 주입 실패: {e}")
+            return None
     
-    def _extract_websocket_url_from_event(self, event: Dict[str, Any]) -> Optional[str]:
-        """이벤트에서 웹소켓 URL 추출"""
+    def _advanced_javascript_monitoring(self, timeout=30) -> Optional[str]:
+        """고급 JavaScript 모니터링"""
         try:
-            if event.get('type') == 'websocket':
-                url = event.get('url', '')
-                if self._is_evolution_websocket(url):
-                    self.logger.info(f"웹소켓 연결 감지: {url}")
+            self.logger.info("고급 JavaScript 모니터링 시작")
+            
+            # WebSocket 생성자를 완전히 대체하는 스크립트
+            monitoring_script = """
+            if (!window._websocketMonitor) {
+                window._websocketMonitor = {
+                    capturedUrls: [],
+                    originalWebSocket: window.WebSocket,
+                    
+                    install: function() {
+                        var self = this;
+                        
+                        // WebSocket 생성자 완전 대체
+                        window.WebSocket = function(url, protocols) {
+                            console.log('WebSocket 생성 감지:', url);
+                            
+                            // URL 저장
+                            self.capturedUrls.push(url);
+                            
+                            // 원본 WebSocket 생성
+                            var ws = new self.originalWebSocket(url, protocols);
+                            
+                            // 이벤트 리스너 추가하여 연결 상태 모니터링
+                            ws.addEventListener('open', function() {
+                                console.log('WebSocket 연결 열림:', url);
+                            });
+                            
+                            ws.addEventListener('close', function() {
+                                console.log('WebSocket 연결 닫힘:', url);
+                            });
+                            
+                            return ws;
+                        };
+                        
+                        // 원본 프로토타입과 상수들 복사
+                        window.WebSocket.prototype = self.originalWebSocket.prototype;
+                        window.WebSocket.CONNECTING = self.originalWebSocket.CONNECTING;
+                        window.WebSocket.OPEN = self.originalWebSocket.OPEN;
+                        window.WebSocket.CLOSING = self.originalWebSocket.CLOSING;
+                        window.WebSocket.CLOSED = self.originalWebSocket.CLOSED;
+                    },
+                    
+                    getUrls: function() {
+                        return this.capturedUrls;
+                    },
+                    
+                    reset: function() {
+                        this.capturedUrls = [];
+                    }
+                };
+                
+                window._websocketMonitor.install();
+            }
+            
+            window._websocketMonitor.reset();
+            return true;
+            """
+            
+            # 모니터링 스크립트 설치
+            self.driver.execute_script(monitoring_script)
+            
+            # 페이지 새로고침하여 WebSocket 연결 유도
+            self.logger.info("페이지 새로고침하여 WebSocket 연결 유도")
+            self.driver.refresh()
+            time.sleep(3)
+            
+            # 일정 시간 동안 모니터링
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                try:
+                    # 감지된 URL 확인
+                    detected_urls = self.driver.execute_script("return window._websocketMonitor ? window._websocketMonitor.getUrls() : [];")
+                    
+                    if detected_urls:
+                        for url in detected_urls:
+                            if self._is_evolution_websocket(url):
+                                self.logger.info(f"고급 JavaScript 모니터링으로 웹소켓 URL 발견: {url}")
+                                return url
+                    
+                    time.sleep(2)
+                    
+                except Exception as e:
+                    self.logger.warning(f"모니터링 중 오류: {e}")
+                    time.sleep(2)
+            
+            return None
+            
+        except Exception as e:
+            self.logger.warning(f"고급 JavaScript 모니터링 실패: {e}")
+            return None
+    
+    def _network_layer_detection(self) -> Optional[str]:
+        """네트워크 계층에서 직접 감지"""
+        try:
+            self.logger.info("네트워크 계층 감지 시작")
+            
+            # Chrome DevTools Protocol 사용 (다른 접근법)
+            network_script = """
+            // 모든 가능한 네트워크 정보 수집
+            var networkInfo = {
+                performance: [],
+                navigation: [],
+                timing: []
+            };
+            
+            try {
+                // Performance entries
+                var perfEntries = performance.getEntriesByType('resource');
+                for (var i = 0; i < perfEntries.length; i++) {
+                    var entry = perfEntries[i];
+                    if (entry.name && entry.name.length > 0) {
+                        networkInfo.performance.push(entry.name);
+                    }
+                }
+                
+                // Navigation entries
+                var navEntries = performance.getEntriesByType('navigation');
+                for (var i = 0; i < navEntries.length; i++) {
+                    var entry = navEntries[i];
+                    if (entry.name && entry.name.length > 0) {
+                        networkInfo.navigation.push(entry.name);
+                    }
+                }
+                
+                // Timing entries (experimental)
+                try {
+                    var timingEntries = performance.getEntriesByType('measure');
+                    for (var i = 0; i < timingEntries.length; i++) {
+                        var entry = timingEntries[i];
+                        if (entry.name && entry.name.length > 0) {
+                            networkInfo.timing.push(entry.name);
+                        }
+                    }
+                } catch (e) {}
+                
+            } catch (e) {
+                console.error('Network info collection error:', e);
+            }
+            
+            return networkInfo;
+            """
+            
+            network_info = self.driver.execute_script(network_script)
+            
+            # 모든 네트워크 정보에서 WebSocket URL 검색
+            all_urls = []
+            if isinstance(network_info, dict):
+                for category, urls in network_info.items():
+                    if isinstance(urls, list):
+                        all_urls.extend(urls)
+            
+            for url in all_urls:
+                if isinstance(url, str) and self._is_evolution_websocket(url):
+                    self.logger.info(f"네트워크 계층에서 웹소켓 URL 발견: {url}")
                     return url
-            return None
-        except Exception as e:
-            self.logger.warning(f"이벤트 분석 중 오류: {e}")
-            return None
-    
-    def _is_evolution_websocket(self, url: str) -> bool:
-        """
-        에볼루션 웹소켓 URL인지 확인
-        
-        Args:
-            url (str): 확인할 URL
-            
-        Returns:
-            bool: 에볼루션 웹소켓 여부
-        """
-        # 에볼루션 웹소켓 URL 패턴들
-        evolution_patterns = [
-            'ws://',
-            'wss://',
-            'evolution',
-            'game-server',
-            'socket'
-        ]
-        
-        url_lower = url.lower()
-        
-        # 웹소켓 프로토콜 확인
-        if not (url_lower.startswith('ws://') or url_lower.startswith('wss://')):
-            return False
-        
-        # 에볼루션 관련 키워드 확인
-        for pattern in evolution_patterns[2:]:  # ws:// wss:// 제외
-            if pattern in url_lower:
-                return True
-        
-        # 포트나 경로 패턴으로도 확인
-        if any(port in url for port in [':8080', ':3000', ':9090', ':8443']):
-            return True
-            
-        return False
-    
-    def _try_alternative_methods(self) -> Optional[str]:
-        """
-        대안 방법으로 웹소켓 URL 찾기
-        
-        Returns:
-            Optional[str]: 찾은 웹소켓 URL
-        """
-        try:
-            # 방법 1: JavaScript로 WebSocket 객체 검색
-            websocket_url = self._search_websocket_via_javascript()
-            if websocket_url:
-                return websocket_url
-            
-            # 방법 2: 페이지 소스에서 웹소켓 URL 패턴 검색
-            websocket_url = self._search_websocket_in_page_source()
-            if websocket_url:
-                return websocket_url
-            
-            # 방법 3: Local Storage나 Session Storage 확인
-            websocket_url = self._search_websocket_in_storage()
-            if websocket_url:
-                return websocket_url
-            
-            # 방법 4: 브라우저 네트워크 탭 분석
-            websocket_url = self._analyze_browser_network_tab()
-            if websocket_url:
-                return websocket_url
             
             return None
             
         except Exception as e:
-            self.logger.error(f"대안 방법 시도 중 오류: {e}")
+            self.logger.warning(f"네트워크 계층 감지 실패: {e}")
             return None
     
-    def _search_websocket_via_javascript(self) -> Optional[str]:
-        """JavaScript를 통해 활성화된 WebSocket 연결 검색"""
+    def _search_in_script_tags(self) -> Optional[str]:
+        """모든 script 태그에서 WebSocket URL 검색"""
         try:
-            # JavaScript 코드로 WebSocket 연결 정보 찾기
-            js_code = """
-            // WebSocket 연결 정보를 찾는 JavaScript
-            var websockets = [];
+            self.logger.info("Script 태그에서 웹소켓 URL 검색 중...")
+            
+            # 모든 script 태그의 내용 가져오기
+            script_contents = self.driver.execute_script("""
+                var scripts = document.getElementsByTagName('script');
+                var contents = [];
+                
+                for (var i = 0; i < scripts.length; i++) {
+                    var script = scripts[i];
+                    if (script.innerHTML && script.innerHTML.length > 0) {
+                        contents.push(script.innerHTML);
+                    }
+                    if (script.src && script.src.length > 0) {
+                        contents.push(script.src);
+                    }
+                }
+                
+                return contents;
+            """)
+            
+            if script_contents:
+                for content in script_contents:
+                    if isinstance(content, str):
+                        websocket_url = self._extract_websocket_from_text(content)
+                        if websocket_url:
+                            self.logger.info(f"Script 태그에서 웹소켓 URL 발견: {websocket_url}")
+                            return websocket_url
+            
+            return None
+            
+        except Exception as e:
+            self.logger.warning(f"Script 태그 검색 실패: {e}")
+            return None
+    
+    def _evolution_specific_search(self) -> Optional[str]:
+        """에볼루션 특화 패턴으로 전체 DOM 검색"""
+        try:
+            self.logger.info("에볼루션 특화 검색 시작")
+            
+            # 에볼루션 게임에서 사용하는 특정 패턴 검색
+            evolution_search_script = """
             var foundUrls = [];
             
-            // 전역 객체에서 WebSocket 인스턴스 검색
-            function findWebSockets(obj, visited = new Set()) {
-                if (visited.has(obj) || obj === null || typeof obj !== 'object') {
-                    return;
-                }
-                visited.add(obj);
+            // 1. 모든 data 속성에서 검색
+            var allElements = document.querySelectorAll('*');
+            for (var i = 0; i < allElements.length; i++) {
+                var element = allElements[i];
+                var attributes = element.attributes;
                 
-                for (let key in obj) {
-                    try {
-                        let value = obj[key];
-                        if (value instanceof WebSocket) {
-                            websockets.push({
-                                url: value.url,
-                                readyState: value.readyState,
-                                protocol: value.protocol
-                            });
-                            foundUrls.push(value.url);
-                        } else if (typeof value === 'object' && value !== null) {
-                            findWebSockets(value, visited);
+                for (var j = 0; j < attributes.length; j++) {
+                    var attr = attributes[j];
+                    if (attr.value && (attr.value.indexOf('wss://') === 0 || attr.value.indexOf('ws://') === 0)) {
+                        if (attr.value.indexOf('evo-games.com') !== -1 || 
+                            attr.value.indexOf('skylinestart') !== -1 ||
+                            attr.value.indexOf('EVOSESSIONID') !== -1) {
+                            foundUrls.push(attr.value);
                         }
-                    } catch (e) {
-                        // 접근 불가능한 프로퍼티 무시
                     }
                 }
             }
             
-            // window 객체에서 WebSocket 검색
-            findWebSockets(window);
-            
-            // 추가: 프레임 내부도 검색
-            try {
-                for (let i = 0; i < window.frames.length; i++) {
-                    findWebSockets(window.frames[i]);
-                }
-            } catch (e) {
-                // 프레임 접근 실패 무시
+            // 2. window 객체의 모든 프로퍼티에서 검색
+            function searchWindowProperties(obj, depth) {
+                if (depth > 3 || !obj || typeof obj !== 'object') return;
+                
+                try {
+                    for (var key in obj) {
+                        if (typeof obj[key] === 'string') {
+                            if ((obj[key].indexOf('wss://') === 0 || obj[key].indexOf('ws://') === 0) &&
+                                (obj[key].indexOf('evo-games.com') !== -1 || 
+                                 obj[key].indexOf('skylinestart') !== -1 ||
+                                 obj[key].indexOf('EVOSESSIONID') !== -1)) {
+                                foundUrls.push(obj[key]);
+                            }
+                        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                            searchWindowProperties(obj[key], depth + 1);
+                        }
+                    }
+                } catch (e) {}
             }
             
-            // 결과 반환
-            return foundUrls.length > 0 ? foundUrls : null;
-            """
+            searchWindowProperties(window, 0);
             
-            result = self.driver.execute_script(js_code)
-            if result:
-                for url in result:
-                    if self._is_evolution_websocket(url):
-                        self.logger.info(f"JavaScript로 웹소켓 URL 발견: {url}")
-                        return url
-                        
-        except Exception as e:
-            self.logger.warning(f"JavaScript 웹소켓 검색 실패: {e}")
-        
-        return None
-    
-    def _search_websocket_in_page_source(self) -> Optional[str]:
-        """페이지 소스에서 웹소켓 URL 패턴 검색"""
-        try:
-            import re
+            // 3. 모든 iframe에서도 검색
+            var iframes = document.querySelectorAll('iframe');
+            for (var i = 0; i < iframes.length; i++) {
+                try {
+                    var iframeDoc = iframes[i].contentDocument || iframes[i].contentWindow.document;
+                    if (iframeDoc) {
+                        var iframeElements = iframeDoc.querySelectorAll('*');
+                        for (var j = 0; j < iframeElements.length; j++) {
+                            var element = iframeElements[j];
+                            var attributes = element.attributes;
+                            
+                            for (var k = 0; k < attributes.length; k++) {
+                                var attr = attributes[k];
+                                if (attr.value && (attr.value.indexOf('wss://') === 0 || attr.value.indexOf('ws://') === 0)) {
+                                    if (attr.value.indexOf('evo-games.com') !== -1 || 
+                                        attr.value.indexOf('skylinestart') !== -1 ||
+                                        attr.value.indexOf('EVOSESSIONID') !== -1) {
+                                        foundUrls.push(attr.value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
             
-            page_source = self.driver.page_source
-            
-            # 웹소켓 URL 패턴들
-            websocket_patterns = [
-                r'wss?://[^\s\'">\]]+',  # 기본 웹소켓 URL 패턴
-                r'"(wss?://[^"]+)"',     # 따옴표로 둘러싸인 패턴
-                r"'(wss?://[^']+)'",     # 작은따옴표로 둘러싸인 패턴
-                r'url:\s*["\']?(wss?://[^"\'>\s]+)["\']?',  # url: 패턴
-                r'websocket["\']?\s*:\s*["\']?(wss?://[^"\'>\s]+)["\']?',  # websocket: 패턴
-            ]
-            
-            for pattern in websocket_patterns:
-                matches = re.findall(pattern, page_source, re.IGNORECASE)
-                for match in matches:
-                    # 튜플인 경우 첫 번째 요소 사용
-                    url = match[0] if isinstance(match, tuple) else match
-                    
-                    if self._is_evolution_websocket(url):
-                        self.logger.info(f"페이지 소스에서 웹소켓 URL 발견: {url}")
-                        return url
-                        
-        except Exception as e:
-            self.logger.warning(f"페이지 소스 검색 실패: {e}")
-        
-        return None
-    
-    def _search_websocket_in_storage(self) -> Optional[str]:
-        """Local Storage나 Session Storage에서 웹소켓 URL 검색"""
-        try:
-            # Local Storage 검색
-            local_storage = self.driver.execute_script("return window.localStorage;")
-            if local_storage:
-                for key, value in local_storage.items():
-                    if isinstance(value, str) and self._is_evolution_websocket(value):
-                        self.logger.info(f"Local Storage에서 웹소켓 URL 발견: {value}")
-                        return value
-            
-            # Session Storage 검색
-            session_storage = self.driver.execute_script("return window.sessionStorage;")
-            if session_storage:
-                for key, value in session_storage.items():
-                    if isinstance(value, str) and self._is_evolution_websocket(value):
-                        self.logger.info(f"Session Storage에서 웹소켓 URL 발견: {value}")
-                        return value
-                        
-        except Exception as e:
-            self.logger.warning(f"Storage 검색 실패: {e}")
-        
-        return None
-    
-    def _analyze_browser_network_tab(self) -> Optional[str]:
-        """브라우저 네트워크 탭 분석을 통한 웹소켓 URL 찾기"""
-        try:
-            # CDP를 사용하여 네트워크 요청 분석
-            result = self.driver.execute_cdp_cmd('Network.getResponseBody', {})
-            
-            # 리소스 타입이 WebSocket인 것 찾기
-            js_code = """
-            // Performance API를 사용하여 네트워크 요청 분석
-            var entries = performance.getEntriesByType('resource');
-            var websocketUrls = [];
-            
-            entries.forEach(function(entry) {
-                if (entry.name && (entry.name.startsWith('ws://') || entry.name.startsWith('wss://'))) {
-                    websocketUrls.push(entry.name);
+            // 중복 제거
+            var uniqueUrls = [];
+            for (var i = 0; i < foundUrls.length; i++) {
+                if (uniqueUrls.indexOf(foundUrls[i]) === -1) {
+                    uniqueUrls.push(foundUrls[i]);
                 }
-            });
+            }
             
-            return websocketUrls;
+            return uniqueUrls;
             """
             
-            urls = self.driver.execute_script(js_code)
-            if urls:
-                for url in urls:
+            found_urls = self.driver.execute_script(evolution_search_script)
+            
+            if found_urls and isinstance(found_urls, list):
+                for url in found_urls:
                     if self._is_evolution_websocket(url):
-                        self.logger.info(f"브라우저 네트워크 탭에서 웹소켓 URL 발견: {url}")
+                        self.logger.info(f"에볼루션 특화 검색으로 웹소켓 URL 발견: {url}")
                         return url
             
+            return None
+            
         except Exception as e:
-            self.logger.warning(f"브라우저 네트워크 탭 분석 실패: {e}")
-        
-        return None
-    
-    def get_websocket_url_with_game_room(self, room_name: str, timeout=30) -> Optional[str]:
-        """
-        특정 게임 방에 입장하여 웹소켓 URL을 가져옵니다.
-        
-        Args:
-            room_name (str): 입장할 방 이름
-            timeout (int): 타임아웃 시간
-            
-        Returns:
-            Optional[str]: 방 전용 웹소켓 URL
-        """
-        try:
-            self.logger.info(f"방 '{room_name}' 입장하여 웹소켓 URL 파싱 시도")
-            
-            # 1. 네트워크 이벤트 리스너 설정
-            self._setup_network_listeners()
-            
-            # 2. 방 입장 시도
-            if not self._enter_game_room(room_name):
-                return None
-            
-            # 3. 방 입장 후 웹소켓 연결 감지
-            websocket_url = self._detect_websocket_from_cdp(timeout)
-            
-            if websocket_url:
-                self.logger.info(f"방 전용 웹소켓 URL 파싱 성공: {websocket_url}")
-                return websocket_url
-            else:
-                self.logger.warning("방 전용 웹소켓 URL을 찾을 수 없습니다.")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"방 전용 웹소켓 URL 파싱 중 오류: {e}")
+            self.logger.warning(f"에볼루션 특화 검색 실패: {e}")
             return None
     
-    def _enter_game_room(self, room_name: str) -> bool:
-        """게임 방에 입장"""
+    def _extract_websocket_from_text(self, text: str) -> Optional[str]:
+        """텍스트에서 웹소켓 URL 추출"""
         try:
-            # iframe으로 전환
-            iframe = self.driver.find_element(By.CSS_SELECTOR, "iframe")
-            self.driver.switch_to.frame(iframe)
+            # 더 정확한 에볼루션 웹소켓 URL 패턴
+            patterns = [
+                r'wss://[^\s"\'<>]+\.evo-games\.com[^\s"\'<>]*EVOSESSIONID[^\s"\'<>]*',
+                r'wss://skylinestart[^\s"\'<>]*EVOSESSIONID[^\s"\'<>]*',
+                r'wss://[^\s"\'<>]*skylinestart[^\s"\'<>]*',
+                r'wss://[^\s"\'<>]+/public/lobby/socket[^\s"\'<>]*'
+            ]
             
-            # 방 찾기 및 클릭
-            room_elements = self.driver.find_elements(By.CSS_SELECTOR, ".tile--5d2e6")
+            for pattern in patterns:
+                matches = re.findall(pattern, text, re.IGNORECASE)
+                for match in matches:
+                    if self._is_evolution_websocket(match):
+                        return match
             
-            for element in room_elements:
-                if room_name in element.text:
-                    element.click()
-                    self.logger.info(f"방 '{room_name}' 클릭 완료")
-                    time.sleep(3)  # 방 로딩 대기
-                    return True
-            
-            self.logger.warning(f"방 '{room_name}'을 찾을 수 없습니다.")
-            return False
+            return None
             
         except Exception as e:
-            self.logger.error(f"방 입장 중 오류: {e}")
+            self.logger.warning(f"텍스트에서 웹소켓 URL 추출 실패: {e}")
+            return None
+    
+    def _is_evolution_websocket(self, url: str) -> bool:
+        """에볼루션 웹소켓 URL인지 확인 - 더 엄격한 검증"""
+        try:
+            if not url or not isinstance(url, str):
+                return False
+            
+            url_lower = url.lower()
+            
+            # 웹소켓 프로토콜 확인
+            if not (url_lower.startswith('ws://') or url_lower.startswith('wss://')):
+                return False
+            
+            # 필수 패턴들
+            required_patterns = [
+                ('evo-games.com', 'skylinestart'),  # 도메인 패턴 중 하나
+                'evosessionid'  # 세션 ID 필수
+            ]
+            
+            # 첫 번째 그룹: 도메인 패턴 중 하나는 반드시 있어야 함
+            domain_found = any(pattern in url_lower for pattern in required_patterns[0])
+            
+            # 두 번째: 세션 ID 필수
+            session_found = required_patterns[1] in url_lower
+            
+            # 추가 검증: URL 길이와 파라미터
+            has_params = '?' in url and '&' in url
+            sufficient_length = len(url) > 80
+            
+            return domain_found and session_found and has_params and sufficient_length
+            
+        except Exception as e:
+            self.logger.warning(f"웹소켓 URL 검증 중 오류: {e}")
             return False
-        finally:
-            # iframe에서 나오기
-            try:
-                self.driver.switch_to.default_content()
-            except:
-                pass
     
     def validate_websocket_url(self, url: str) -> bool:
-        """
-        웹소켓 URL 유효성 검증
-        
-        Args:
-            url (str): 검증할 웹소켓 URL
-            
-        Returns:
-            bool: 유효한지 여부
-        """
+        """웹소켓 URL 유효성 검증"""
+        return self._is_evolution_websocket(url)
+    
+    def get_websocket_url_with_manual_help(self) -> Optional[str]:
+        """수동 도움 없이 추가 시도"""
         try:
-            if not url:
-                return False
+            self.logger.info("추가 검색 방법 시도")
             
-            # 기본 웹소켓 URL 형식 확인
-            if not (url.startswith('ws://') or url.startswith('wss://')):
-                return False
+            # 마지막 시도: 매우 광범위한 검색
+            final_attempt_script = """
+            var allPossibleUrls = [];
             
-            # 에볼루션 관련 패턴 확인
-            if not self._is_evolution_websocket(url):
-                return False
+            // 1. 전역 객체의 모든 문자열 검색
+            function deepSearch(obj, visited, depth) {
+                if (depth > 5 || !obj || visited.has(obj)) return;
+                visited.add(obj);
+                
+                try {
+                    if (typeof obj === 'string') {
+                        if (obj.indexOf('wss://') === 0 || obj.indexOf('ws://') === 0) {
+                            allPossibleUrls.push(obj);
+                        }
+                    } else if (typeof obj === 'object' && obj !== null) {
+                        Object.keys(obj).forEach(function(key) {
+                            try {
+                                deepSearch(obj[key], visited, depth + 1);
+                            } catch (e) {}
+                        });
+                    }
+                } catch (e) {}
+            }
             
-            self.logger.info(f"웹소켓 URL 유효성 검증 성공: {url}")
-            return True
+            deepSearch(window, new Set(), 0);
+            
+            // 2. 모든 전역 변수 검색
+            Object.keys(window).forEach(function(key) {
+                try {
+                    var value = window[key];
+                    if (typeof value === 'string' && (value.indexOf('wss://') === 0 || value.indexOf('ws://') === 0)) {
+                        allPossibleUrls.push(value);
+                    }
+                } catch (e) {}
+            });
+            
+            // 3. 모든 이벤트 리스너에서 검색
+            try {
+                var allElements = document.querySelectorAll('*');
+                for (var i = 0; i < allElements.length; i++) {
+                    var element = allElements[i];
+                    if (element.onclick && element.onclick.toString) {
+                        var funcStr = element.onclick.toString();
+                        var wsMatches = funcStr.match(/wss?:\/\/[^\s"']+/g);
+                        if (wsMatches) {
+                            allPossibleUrls = allPossibleUrls.concat(wsMatches);
+                        }
+                    }
+                }
+            } catch (e) {}
+            
+            return allPossibleUrls;
+            """
+            
+            found_urls = self.driver.execute_script(final_attempt_script)
+            
+            if found_urls:
+                for url in found_urls:
+                    if self._is_evolution_websocket(url):
+                        self.logger.info(f"최종 시도로 웹소켓 URL 발견: {url}")
+                        return url
+            
+            return None
             
         except Exception as e:
-            self.logger.error(f"웹소켓 URL 검증 중 오류: {e}")
-            return False
-    
-    def get_current_websocket_url(self) -> Optional[str]:
-        """현재 저장된 웹소켓 URL 반환"""
-        return self.websocket_url
+            self.logger.error(f"최종 시도 실패: {e}")
+            return None

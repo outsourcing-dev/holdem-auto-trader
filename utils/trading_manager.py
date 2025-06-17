@@ -720,7 +720,7 @@ class TradingManager:
             self.logger.error(f"서비스 초기화 중 오류 발생: {e}", exc_info=True)
 
     def start_trading(self):
-        """자동 매매 시작 - 서버 기반으로 수정 (웹소켓 URL 추출 통합)"""
+        """자동 매매 시작 - 웹소켓 URL 추출 개선 및 로컬 모드 지원"""
         try:
             # 브라우저 드라이버 확인
             if not self.devtools.driver:
@@ -755,47 +755,78 @@ class TradingManager:
             
             # ✅ 에볼루션 로비에서 웹소켓 URL 추출
             websocket_url = self._extract_websocket_from_evolution_lobby()
-            if not websocket_url:
+            
+            # 웹소켓 URL 결과에 따른 처리
+            if websocket_url == "LOCAL_MODE":
+                # 로컬 모드로 진행
+                self.logger.info("🏠 로컬 모드로 자동 매매 시작")
+                self.local_mode_only = True
+                self.server_monitoring_active = False
+                
+                # 로컬 모드 알림
+                QMessageBox.information(
+                    self.main_window,
+                    "로컬 모드 시작",
+                    "서버 연결 없이 로컬 분석 모드로 진행합니다.\n\n" +
+                    "⚠️ 제한사항:\n" +
+                    "• 연패 방 자동 검색 불가\n" +
+                    "• 기본적인 패턴 분석만 가능\n" +
+                    "• 수동으로 방을 선택해야 합니다"
+                )
+                
+            elif websocket_url:
+                # 서버 기반 모드로 진행
+                self.logger.info("🌐 서버 기반 모드로 자동 매매 시작")
+                self.local_mode_only = False
+                
+                # 서버 상태 확인
+                if not self.server_client.get_server_status():
+                    QMessageBox.warning(
+                        self.main_window,
+                        "서버 연결 실패",
+                        "바카라 분석 서버에 연결할 수 없습니다.\n" +
+                        "로컬 모드로 전환하거나 서버 상태를 확인해주세요."
+                    )
+                    # 로컬 모드로 자동 전환
+                    self.local_mode_only = True
+                    self.server_monitoring_active = False
+                else:
+                    # ✅ 서버 설정 및 모니터링 시작
+                    if not self.server_client.send_websocket_config(websocket_url, self.user_id):
+                        QMessageBox.warning(
+                            self.main_window,
+                            "서버 설정 실패",
+                            "서버에 웹소켓 설정을 전송하지 못했습니다.\n로컬 모드로 전환합니다."
+                        )
+                        self.local_mode_only = True
+                        self.server_monitoring_active = False
+                    elif not self.server_client.start_monitoring(self.user_id):
+                        QMessageBox.warning(
+                            self.main_window,
+                            "모니터링 시작 실패",
+                            "서버에서 모니터링을 시작하지 못했습니다.\n로컬 모드로 전환합니다."
+                        )
+                        self.local_mode_only = True
+                        self.server_monitoring_active = False
+                    else:
+                        self.server_monitoring_active = True
+                        self.logger.info("✅ 서버 모니터링 활성화 완료")
+            else:
+                # 웹소켓 URL 추출 완전 실패
                 QMessageBox.warning(
                     self.main_window,
-                    "웹소켓 연결 실패",
-                    "에볼루션 로비에서 웹소켓 연결 정보를 찾을 수 없습니다.\n" +
-                    "페이지를 새로고침하거나 다시 접속해주세요."
+                    "시작 실패",
+                    "웹소켓 URL을 추출할 수 없어 자동 매매를 시작할 수 없습니다.\n\n" +
+                    "다음을 확인해주세요:\n" +
+                    "• 에볼루션 카지노에 정상 접속되어 있는지\n" +
+                    "• 네트워크 연결 상태\n" +
+                    "• 브라우저 설정"
                 )
                 return
-
-            # 서버 상태 확인
-            if not self.server_client.get_server_status():
-                QMessageBox.warning(
-                    self.main_window,
-                    "서버 연결 실패",
-                    "바카라 분석 서버에 연결할 수 없습니다.\n서버가 실행 중인지 확인해주세요."
-                )
-                return
-
-            # ✅ 추출된 웹소켓 URL로 서버 설정
-            if not self.server_client.send_websocket_config(websocket_url, self.user_id):
-                QMessageBox.warning(
-                    self.main_window,
-                    "서버 설정 실패",
-                    "서버에 웹소켓 설정을 전송하지 못했습니다."
-                )
-                return
-
-            # 서버에서 모니터링 시작
-            if not self.server_client.start_monitoring(self.user_id):
-                QMessageBox.warning(
-                    self.main_window,
-                    "모니터링 시작 실패",
-                    "서버에서 모니터링을 시작하지 못했습니다."
-                )
-                return
-
-            self.server_monitoring_active = True
 
             # 자동 매매 활성화
             self.is_trading_active = True
-            self.logger.info("자동 매매 시작! (서버 기반)")
+            self.logger.info(f"🚀 자동 매매 시작! (모드: {'로컬' if self.local_mode_only else '서버'})")
             
             # UI 업데이트
             self.main_window.start_button.setEnabled(False)
@@ -809,8 +840,11 @@ class TradingManager:
                 self.logger.info("목표 금액에 이미 도달")
                 return
             
-            # 서버 기반 방 입장 시작
-            self.start_server_based_room_search()
+            # 모드에 따른 방 입장 시작
+            if self.local_mode_only:
+                self.start_local_mode_trading()
+            else:
+                self.start_server_based_room_search()
             
         except Exception as e:
             self.logger.error(f"자동 매매 시작 오류: {e}", exc_info=True)
@@ -820,6 +854,202 @@ class TradingManager:
                 f"자동 매매를 시작할 수 없습니다.\n오류: {str(e)}"
             )
 
+    def start_local_mode_trading(self):
+        """로컬 모드 자동 매매 시작"""
+        try:
+            self.logger.info("🏠 로컬 모드 자동 매매 시작")
+            
+            # 로컬 모드에서는 기존 방 목록에서 방 선택
+            if not hasattr(self, 'room_manager') or not self.room_manager:
+                QMessageBox.warning(
+                    self.main_window,
+                    "방 목록 필요",
+                    "로컬 모드에서는 미리 저장된 방 목록이 필요합니다.\n" +
+                    "방 목록 불러오기를 먼저 실행해주세요."
+                )
+                self.stop_trading()
+                return
+            
+            # 기존 방 목록에서 방 선택
+            room_name = self.room_manager.get_next_room_to_visit()
+            
+            if not room_name:
+                QMessageBox.warning(
+                    self.main_window,
+                    "방 없음",
+                    "선택할 수 있는 방이 없습니다.\n" +
+                    "방 목록을 다시 불러와주세요."
+                )
+                self.stop_trading()
+                return
+            
+            # 선택된 방으로 입장
+            if self.enter_recommended_room(room_name):
+                # 로컬 모드 베팅 모니터링 시작
+                self.start_local_betting_monitoring()
+            else:
+                self.logger.warning(f"로컬 모드 방 입장 실패: {room_name}")
+                self.start_local_mode_trading()  # 다른 방으로 재시도
+                
+        except Exception as e:
+            self.logger.error(f"로컬 모드 시작 오류: {e}", exc_info=True)
+            self.stop_trading()
+
+    def start_local_betting_monitoring(self):
+        """로컬 모드 베팅 모니터링"""
+        try:
+            self.logger.info("🏠 로컬 모드 베팅 모니터링 시작")
+            
+            # 로컬 모드에서는 기본적인 게임 상태만 확인
+            self.check_local_betting_conditions()
+            
+            # 주기적 체크 시작 (3초마다 - 서버 모드보다 느림)
+            self.main_window.set_remaining_time(0, 0, 3)
+            
+        except Exception as e:
+            self.logger.error(f"로컬 모드 베팅 모니터링 오류: {e}", exc_info=True)
+
+    def check_local_betting_conditions(self):
+        """로컬 모드 베팅 조건 확인"""
+        try:
+            # 중지 플래그 확인
+            if getattr(self, 'stop_all_processes', False):
+                return
+
+            # 목표 금액 도달 확인
+            if hasattr(self.balance_service, '_target_amount_reached') and self.balance_service._target_amount_reached:
+                return
+
+            # 기본적인 게임 상태 확인
+            game_state = self.game_monitoring_service.get_current_game_state(log_always=False)
+            
+            if game_state and game_state.get('betting_available', False):
+                # 로컬 모드 베팅 로직 실행 (단순화됨)
+                self.execute_local_betting(game_state)
+            
+            # 다음 체크 예약 (로컬 모드는 3초 간격)
+            if self.is_trading_active:
+                self.main_window.set_remaining_time(0, 0, 3)
+                
+        except Exception as e:
+            self.logger.error(f"로컬 모드 베팅 조건 확인 오류: {e}", exc_info=True)
+            if self.is_trading_active:
+                self.main_window.set_remaining_time(0, 0, 3)
+
+    def execute_local_betting(self, game_state):
+        """로컬 모드 베팅 실행 (단순화된 로직)"""
+        try:
+            # 이미 베팅했다면 결과 대기
+            if self.betting_service.has_bet_current_round:
+                latest_result = game_state.get('latest_result')
+                if latest_result and latest_result in ['P', 'B', 'T']:
+                    # 베팅 결과 처리
+                    last_bet = self.betting_service.get_last_bet()
+                    if last_bet:
+                        result_status = self.bet_helper.process_bet_result(
+                            last_bet['type'], 
+                            latest_result, 
+                            game_state.get('round', 0)
+                        )
+                        self.logger.info(f"로컬 모드 베팅 결과: {result_status}")
+                        
+                        # 결과에 따른 후속 처리
+                        if result_status == 'win':
+                            # 승리 시 다음 방으로 이동
+                            self.change_to_next_local_room()
+                        elif result_status == 'lose':
+                            # 패배 시 계속 진행 또는 방 이동 검토
+                            if self._should_change_room_local():
+                                self.change_to_next_local_room()
+                return
+            
+            # 첫 결과 대기 중이면 베팅하지 않음
+            if self.wait_first_result:
+                self.logger.debug("로컬 모드: 첫 결과 대기 중")
+                return
+            
+            # 새로운 베팅 필요한 경우
+            if game_state.get('betting_available', False):
+                # 단순한 패턴 기반 픽 생성
+                pick = self._generate_local_pick(game_state)
+                
+                if pick in ['P', 'B']:
+                    current_widget_pos = get_widget_position(self.main_window)
+                    bet_amount = self.excel_trading_service.get_current_bet_amount(widget_position=current_widget_pos)
+                    
+                    # 베팅 실행
+                    bet_success = self.betting_service.place_bet(
+                        pick,
+                        self.current_room_name,
+                        game_state.get('round', 0),
+                        self.is_trading_active,
+                        bet_amount
+                    )
+                    
+                    if bet_success:
+                        self.logger.info(f"로컬 모드 베팅 성공: {pick}, 금액: {bet_amount:,}원")
+                        self.main_window.update_betting_status(pick=pick, bet_amount=bet_amount)
+            
+        except Exception as e:
+            self.logger.error(f"로컬 모드 베팅 실행 오류: {e}", exc_info=True)
+
+    def _generate_local_pick(self, game_state):
+        """로컬 모드용 간단한 픽 생성"""
+        try:
+            # 최근 결과 기반 간단한 패턴
+            recent_results = game_state.get('filtered_results', [])
+            if recent_results and len(recent_results) >= 3:
+                last_three = recent_results[-3:]
+                
+                # 간단한 역패턴 로직
+                if last_three.count('P') > last_three.count('B'):
+                    return 'B'  # P가 많으면 B 선택
+                else:
+                    return 'P'  # B가 많거나 같으면 P 선택
+            
+            # 결과가 부족하면 기본값
+            return 'P'
+            
+        except Exception as e:
+            self.logger.error(f"로컬 픽 생성 오류: {e}")
+            return 'P'
+
+    def _should_change_room_local(self):
+        """로컬 모드 방 이동 조건 확인"""
+        try:
+            # 마틴 서비스의 연패 확인
+            if hasattr(self, 'martin_service'):
+                return self.martin_service.should_change_room()
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"로컬 모드 방 이동 조건 확인 오류: {e}")
+            return False
+
+    def change_to_next_local_room(self):
+        """로컬 모드 다음 방으로 이동"""
+        try:
+            self.logger.info("로컬 모드: 다음 방으로 이동")
+            
+            # 현재 방 나가기
+            self.game_monitoring_service.close_current_room()
+            
+            # 다음 방 선택
+            next_room = self.room_manager.get_next_room_to_visit()
+            
+            if next_room:
+                if self.enter_recommended_room(next_room):
+                    self.start_local_betting_monitoring()
+                else:
+                    self.change_to_next_local_room()  # 재시도
+            else:
+                self.logger.warning("로컬 모드: 더 이상 방이 없어 자동 매매 중지")
+                self.stop_trading()
+                
+        except Exception as e:
+            self.logger.error(f"로컬 모드 방 이동 오류: {e}", exc_info=True)
+            
     def debug_current_page(self):
         """현재 페이지 상태 디버깅"""
         try:
@@ -1089,33 +1319,108 @@ class TradingManager:
             return False
         
     def _extract_websocket_from_evolution_lobby(self):
-        """에볼루션 로비에서 웹소켓 URL 추출"""
+        """에볼루션 로비에서 웹소켓 URL 추출 - 실용적 접근"""
         try:
-            self.logger.info("에볼루션 로비에서 웹소켓 URL 추출 시작")
+            self.logger.info("웹소켓 URL 추출 시작")
             
             # WebSocketParser 초기화
             from services.websocket_parser import WebSocketParser
             ws_parser = WebSocketParser(self.devtools)
             
-            # 로비에서 웹소켓 URL 파싱
-            websocket_url = ws_parser.parse_websocket_url_from_lobby(timeout=30)
+            # 1차 시도: 향상된 파싱
+            websocket_url = ws_parser.parse_websocket_url_from_lobby(timeout=20)
             
-            if websocket_url:
-                # URL 유효성 검증
-                if ws_parser.validate_websocket_url(websocket_url):
-                    self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url}")
-                    return websocket_url
-                else:
-                    self.logger.warning("추출된 웹소켓 URL이 유효하지 않습니다.")
-                    return None
-            else:
-                self.logger.warning("웹소켓 URL 추출 실패 - 로비 페이지를 새로고침해보세요.")
-                return None
+            if websocket_url and ws_parser.validate_websocket_url(websocket_url):
+                self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url}")
+                return websocket_url
+            
+            # 2차 시도: 수동 입력 방식 (Alert 없이)
+            self.logger.info("자동 추출 실패, 수동 입력 모드 실행...")
+            
+            from PyQt6.QtWidgets import QInputDialog, QMessageBox
+            
+            # 사용자에게 수동 입력 안내
+            reply = QMessageBox.question(
+                self.main_window,
+                "웹소켓 URL 수동 입력",
+                "웹소켓 URL을 자동으로 찾을 수 없습니다.\n\n" +
+                "다음 단계로 웹소켓 URL을 찾아 입력해주세요:\n\n" +
+                "1. F12 키를 눌러 개발자 도구를 엽니다\n" +
+                "2. Network 탭을 클릭합니다\n" +
+                "3. WS (WebSocket) 필터를 클릭합니다\n" +
+                "4. 현재 페이지를 새로고침(F5)합니다\n" +
+                "5. 나타나는 웹소켓 연결을 클릭하고 URL을 복사합니다\n\n" +
+                "웹소켓 URL을 직접 입력하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                # 샘플 URL을 미리 제공하여 사용자 편의성 증대
+                sample_url = "wss://skylinestart.evo-games.com/public/lobby/socket/v2/..."
                 
+                manual_url, ok = QInputDialog.getText(
+                    self.main_window,
+                    "웹소켓 URL 입력",
+                    "웹소켓 URL을 붙여넣기해주세요:\n\n" +
+                    "예시 형태:\n" +
+                    "wss://skylinestart.evo-games.com/public/lobby/socket/v2/[세션ID]?...\n\n" +
+                    "※ URL이 매우 길고 복잡합니다. 전체를 정확히 복사해주세요.",
+                    text=""
+                )
+                
+                if ok and manual_url.strip():
+                    manual_url = manual_url.strip()
+                    
+                    # 기본적인 형식 검증
+                    if manual_url.startswith(('ws://', 'wss://')) and len(manual_url) > 50:
+                        # 에볼루션 특화 검증은 느슨하게 적용
+                        if any(keyword in manual_url.lower() for keyword in ['evo-games.com', 'skylinestart', 'evosessionid']):
+                            self.logger.info(f"✅ 수동 입력 웹소켓 URL 검증 성공: {manual_url}")
+                            return manual_url
+                        else:
+                            # 에볼루션 키워드가 없어도 WebSocket URL이면 일단 허용
+                            QMessageBox.information(
+                                self.main_window,
+                                "URL 확인",
+                                "입력한 URL이 에볼루션 웹소켓과 다를 수 있지만\n시도해보겠습니다."
+                            )
+                            self.logger.info(f"⚠️ 일반 웹소켓 URL로 시도: {manual_url}")
+                            return manual_url
+                    else:
+                        QMessageBox.warning(
+                            self.main_window,
+                            "잘못된 URL 형식",
+                            "올바른 웹소켓 URL 형식이 아닙니다.\n\n" +
+                            "• ws:// 또는 wss://로 시작해야 합니다\n" +
+                            "• URL이 충분히 길어야 합니다"
+                        )
+            
+            # 3차 시도: 서버 없이 진행 옵션
+            reply = QMessageBox.question(
+                self.main_window,
+                "서버 없이 진행",
+                "웹소켓 URL 없이 진행하면 서버 기반 연패 분석을 사용할 수 없습니다.\n\n" +
+                "기본 로컬 분석 모드로 진행하시겠습니까?\n" +
+                "(권장하지 않음)",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                self.logger.warning("⚠️ 웹소켓 URL 없이 로컬 모드로 진행")
+                # 로컬 모드 플래그 설정
+                self.local_mode_only = True
+                return "LOCAL_MODE"  # 특별한 값으로 로컬 모드 표시
+            
+            # 모든 시도 실패
+            self.logger.error("❌ 웹소켓 URL 추출 완전 실패")
+            return None
+            
         except Exception as e:
             self.logger.error(f"웹소켓 URL 추출 중 오류: {e}")
             return None
-
+        
     def start_server_based_room_search(self):
         """서버 기반 방 검색 및 입장"""
         try:
