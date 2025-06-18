@@ -10,7 +10,11 @@ from urllib.parse import urlparse, parse_qs
 class BaccaratServerClient:
     """바카라 서버와 통신하는 클라이언트 클래스"""
     
-    def __init__(self, server_url="http://localhost:8080", logger=None):
+    def __init__(self, server_url=None, logger=None):
+        # 클라우드타입 서버 URL로 변경
+        if server_url is None:
+            server_url = "https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app"  # 클라우드타입 서버 주소
+        
         self.server_url = server_url
         self.logger = logger or logging.getLogger(__name__)
         self.ws_url = f"ws://{server_url.replace('http://', '').replace('https://', '')}"
@@ -19,6 +23,23 @@ class BaccaratServerClient:
         self.is_monitoring_active = False
         self.last_config_sent = None
         
+        # 초기화 시 서버 연결 테스트
+        self._test_connection()
+        
+    def _test_connection(self):
+        """서버 연결 테스트"""
+        try:
+            response = requests.get(f"{self.server_url}/api/status", timeout=5)
+            if response.status_code == 200:
+                self.logger.info(f"✅ 서버 연결 성공: {self.server_url}")
+            else:
+                self.logger.warning(f"⚠️ 서버 응답 이상: {response.status_code}")
+        except requests.exceptions.ConnectionError:
+            self.logger.error(f"❌ 서버 연결 실패: {self.server_url}")
+            self.logger.error("서버가 실행되지 않았거나 주소가 잘못되었습니다.")
+        except Exception as e:
+            self.logger.error(f"❌ 서버 연결 테스트 오류: {e}")
+    
     def extract_websocket_config(self, ws_url: str) -> Optional[Dict[str, str]]:
         """웹소켓 URL에서 설정 정보 추출"""
         try:
