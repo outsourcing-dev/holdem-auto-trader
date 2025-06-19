@@ -109,37 +109,39 @@ class DevToolsController:
         return False
 
     def _create_simple_chrome_options(self):
-        """단순한 Performance Logging 설정 (undetected_chromedriver 호환)"""
+        """Performance Logging 강제 활성화"""
         try:
             options = uc.ChromeOptions()
             options.headless = False
             options.add_argument("--disable-blink-features=AutomationControlled")
             
-            # 기본 로깅 설정
+            # Performance 로그 강제 활성화
             options.add_argument("--enable-logging")
             options.add_argument("--log-level=0")
             options.add_argument("--enable-network-service-logging")
             
-            # 간단한 logging preferences만 설정 (undetected_chromedriver에서 지원하는 방식)
-            try:
-                # 최신 방식
-                options.add_argument("--enable-chrome-logs")
-                
-                # 실험적 옵션 최소화
-                options.add_experimental_option("useAutomationExtension", False)
-                options.add_experimental_option("excludeSwitches", ["enable-automation"])
-                
-                print("[INFO] 단순한 Performance Logging 설정 완료")
-                
-            except Exception as exp_error:
-                print(f"[WARNING] 실험적 옵션 설정 실패: {exp_error}")
+            # 실험적 옵션 추가
+            options.add_experimental_option('perfLoggingPrefs', {
+                'enableNetwork': True,
+                'enablePage': True,
+                'enableTimeline': True
+            })
             
+            options.add_experimental_option('loggingPrefs', {
+                'performance': 'ALL',
+                'browser': 'ALL'
+            })
+            
+            options.add_experimental_option("useAutomationExtension", False)
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            
+            print("[INFO] Performance Logging 강제 활성화 설정 완료")
             return options
             
         except Exception as e:
-            print(f"[ERROR] 단순한 Chrome 옵션 생성 오류: {e}")
+            print(f"[ERROR] Performance 옵션 설정 오류: {e}")
             return self._create_minimal_chrome_options()
-
+        
     def _create_minimal_chrome_options(self):
         """최소한의 Chrome 옵션 (안전한 설정)"""
         try:

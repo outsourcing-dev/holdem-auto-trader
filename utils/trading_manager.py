@@ -13,23 +13,21 @@ from services.martin_service import MartinBettingService
 from utils.settings_manager import SettingsManager
 from utils.trading_manager_helpers import TradingManagerHelpers, get_widget_position
 from utils.server_client import BaccaratServerClient
+from services.websocket_parser import WebSocketParser
+from utils.devtools import DevToolsController
 
 class TradingManager:
     def __init__(self, main_window, logger=None):
-        """TradingManager 초기화"""
-        # 로거 설정
         self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
-        # 기본 속성 초기화
         self.main_window = main_window
-        self.devtools = main_window.devtools
+        self.devtools = DevToolsController(logger=self.logger)  # ✅ 새로운 DevToolsController 사용
         self.room_manager = main_window.room_manager
         self.settings_manager = SettingsManager()
-        
-        # 서버 클라이언트 추가
+
         self.server_client = BaccaratServerClient(logger=self.logger)
-        self.user_id = f"user_{int(time.time())}"  # 임시 사용자 ID
+        self.user_id = f"user_{int(time.time())}"
         
         # 상태 관리 속성
         self.is_trading_active = False
@@ -783,42 +781,47 @@ class TradingManager:
             return False
 
     def _extract_websocket_without_performance_logging(self):
-        """Performance Logging 없이 웹소켓 URL 추출"""
+        """새 DevTools + WebSocketParser로 웹소켓 URL 추출"""
         try:
-            self.logger.info("🚀 Performance Logging 없는 웹소켓 URL 추출 시작")
-            
-            # WebSocketParser 초기화
-            from services.websocket_parser import WebSocketParser
+            self.logger.info("🚀 새로운 방식의 웹소켓 URL 추출 시작")
+
             ws_parser = WebSocketParser(self.devtools, self.logger)
-            
-            # 사용자에게 안내
-            self._show_websocket_extraction_progress()
-            
-            # 웹소켓 URL 추출 시도 (60초 타임아웃)
-            websocket_url = ws_parser.parse_websocket_url_from_lobby(timeout=60)
-            
-            # 추출 결과 처리
+
+            QMessageBox.information(
+                self.main_window,
+                "웹소켓 URL 추출 중",
+                "자동으로 웹소켓 URL을 추출 중입니다. 잠시만 기다려주세요."
+            )
+
+            websocket_url = ws_parser.get_best_websocket_url()
+
             if websocket_url:
                 self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url[:100]}...")
-                
-                # 성공 메시지
                 QMessageBox.information(
                     self.main_window,
-                    "웹소켓 URL 추출 성공",
-                    "웹소켓 URL을 성공적으로 추출했습니다!\n자동 매매를 시작합니다."
+                    "성공",
+                    "웹소켓 URL을 성공적으로 추출했습니다."
                 )
-                
                 return websocket_url
-            else:
-                self.logger.error("❌ 웹소켓 URL 추출 완전 실패")
-                
-                # 최후의 수단: 사용자 입력 요청
-                return self._request_manual_websocket_url()
-                
-        except Exception as e:
-            self.logger.error(f"웹소켓 URL 추출 중 치명적 오류: {e}", exc_info=True)
-            return None
 
+            else:
+                self.logger.error("❌ 웹소켓 URL 추출 실패")
+                QMessageBox.critical(
+                    self.main_window,
+                    "실패",
+                    "웹소켓 URL을 추출할 수 없습니다."
+                )
+                return None
+
+        except Exception as e:
+            self.logger.error(f"웹소켓 URL 추출 오류: {e}", exc_info=True)
+            QMessageBox.critical(
+                self.main_window,
+                "오류",
+                f"웹소켓 URL 추출 중 오류가 발생했습니다: {e}"
+            )
+            return None
+            
     def _show_websocket_extraction_progress(self):
         """웹소켓 추출 진행 상황 안내"""
         try:
