@@ -99,7 +99,7 @@ class DevToolsController:
         return False
 
     def _create_chrome137_compatible_options(self):
-        """Chrome 137 완전 호환 옵션"""
+        """Chrome 137 완전 호환 옵션 - 디버깅 포트 추가"""
         try:
             options = uc.ChromeOptions()
             options.headless = False
@@ -109,7 +109,10 @@ class DevToolsController:
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-gpu")
             
-            print("[INFO] Chrome 137 완전 호환 옵션 설정")
+            # ✅ 디버깅 포트 추가 (Playwright 연결용)
+            options.add_argument("--remote-debugging-port=9222")
+            
+            print("[INFO] Chrome 137 완전 호환 옵션 설정 (디버깅 포트 포함)")
             return options
             
         except Exception as e:
@@ -117,18 +120,23 @@ class DevToolsController:
             return self._create_ultra_minimal_options()
 
     def _create_ultra_minimal_options(self):
-        """초최소 Chrome 옵션 (최후의 수단)"""
+        """초최소 Chrome 옵션 (최후의 수단) - 디버깅 포트 추가"""
         try:
             options = uc.ChromeOptions()
             options.headless = False
-            # 아무 옵션도 추가하지 않음 (가장 안전)
             
-            print("[INFO] 초최소 Chrome 옵션 설정")
+            # ✅ 디버깅 포트는 반드시 추가
+            options.add_argument("--remote-debugging-port=9222")
+            
+            print("[INFO] 초최소 Chrome 옵션 설정 (디버깅 포트 포함)")
             return options
             
         except Exception as e:
             print(f"[ERROR] 초최소 Chrome 옵션 생성 실패: {e}")
-            return uc.ChromeOptions()
+            # 최후의 수단에도 디버깅 포트 추가
+            options = uc.ChromeOptions()
+            options.add_argument("--remote-debugging-port=9222")
+            return options
 
     def _create_stable_chrome_options(self):
         """안정적인 Chrome 옵션 (성공률 높음) - Chrome 137 호환"""
@@ -143,11 +151,14 @@ class DevToolsController:
             options.add_argument("--disable-gpu")
             options.add_argument("--disable-extensions")
             
+            # ✅ 디버깅 포트 추가
+            options.add_argument("--remote-debugging-port=9222")
+            
             # ✅ 실험적 옵션 완전 제거 (Chrome 137 호환성 문제 해결)
             # options.add_experimental_option("useAutomationExtension", False)
             # options.add_experimental_option("excludeSwitches", ["enable-automation"])
             
-            print("[INFO] Chrome 137 호환 안정적인 옵션 설정 완료")
+            print("[INFO] Chrome 137 호환 안정적인 옵션 설정 완료 (디버깅 포트 포함)")
             return options
             
         except Exception as e:
@@ -161,7 +172,10 @@ class DevToolsController:
             options.headless = False
             options.add_argument("--disable-blink-features=AutomationControlled")
             
-            print("[INFO] 최소한의 Chrome 옵션 설정 완료")
+            # ✅ 디버깅 포트 추가
+            options.add_argument("--remote-debugging-port=9222")
+            
+            print("[INFO] 최소한의 Chrome 옵션 설정 완료 (디버깅 포트 포함)")
             return options
             
         except Exception as e:
@@ -174,13 +188,18 @@ class DevToolsController:
             options = uc.ChromeOptions()
             options.headless = False
             
-            print("[INFO] 기본 Chrome 옵션 설정 완료")
+            # ✅ 디버깅 포트 추가
+            options.add_argument("--remote-debugging-port=9222")
+            
+            print("[INFO] 기본 Chrome 옵션 설정 완료 (디버깅 포트 포함)")
             return options
             
         except Exception as e:
             print(f"[ERROR] 기본 Chrome 옵션 생성 실패: {e}")
             # 최후의 수단
-            return uc.ChromeOptions()
+            options = uc.ChromeOptions()
+            options.add_argument("--remote-debugging-port=9222")
+            return options
 
     def _post_browser_setup(self):
         """브라우저 시작 후 추가 설정 - Chrome 137 최적화 버전"""

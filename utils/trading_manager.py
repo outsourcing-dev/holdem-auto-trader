@@ -17,12 +17,21 @@ from services.websocket_parser import WebSocketParser
 from utils.devtools import DevToolsController
 
 class TradingManager:
+
     def __init__(self, main_window, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
         self.main_window = main_window
-        self.devtools = DevToolsController(logger=self.logger)  # ✅ 새로운 DevToolsController 사용
+        
+        # ✅ 수정: main_window의 devtools를 사용하거나, 없으면 새로 생성
+        if hasattr(main_window, 'devtools') and main_window.devtools:
+            self.devtools = main_window.devtools  # 기존 브라우저 인스턴스 재사용
+            self.logger.info("✅ 메인 윈도우의 기존 DevTools 인스턴스 사용")
+        else:
+            self.devtools = DevToolsController(logger=self.logger)  # 새로 생성
+            self.logger.info("⚠️ 새로운 DevTools 인스턴스 생성")
+        
         self.room_manager = main_window.room_manager
         self.settings_manager = SettingsManager()
 
@@ -118,13 +127,57 @@ class TradingManager:
                 self.main_window.set_remaining_time(0, 0, 2)
 
     def start_trading(self):
-        """자동 매매 시작 - Performance Logging 없는 웹소켓 추출"""
+        """자동 매매 시작 - 브라우저 상태 디버깅 버전"""
         try:
-            # 브라우저 드라이버 확인
-            if not self.devtools.driver and not self.server_monitoring_active:
-                print("[INFO] 브라우저가 실행되지 않았고 서버 모니터링도 비활성 상태입니다. 자동 매매를 시작하지 않습니다.")
+            # ✅ 상세한 브라우저 상태 디버깅
+            self.logger.info("=== 브라우저 상태 디버깅 시작 ===")
+            
+            # DevTools 객체 확인
+            self.logger.info(f"DevTools 객체 존재: {self.devtools is not None}")
+            
+            # 드라이버 객체 확인
+            self.logger.info(f"Driver 객체 존재: {self.devtools.driver is not None if self.devtools else False}")
+            
+            if self.devtools and self.devtools.driver:
+                try:
+                    # 실제 브라우저 응답 테스트
+                    current_url = self.devtools.driver.current_url
+                    window_handles = self.devtools.driver.window_handles
+                    
+                    self.logger.info(f"현재 URL: {current_url}")
+                    self.logger.info(f"창 개수: {len(window_handles)}")
+                    self.logger.info(f"창 핸들들: {window_handles}")
+                    
+                    browser_available = True
+                    self.logger.info("✅ 브라우저가 정상적으로 응답함")
+                    
+                except Exception as e:
+                    self.logger.error(f"❌ 브라우저 응답 테스트 실패: {e}")
+                    browser_available = False
+            else:
+                browser_available = False
+                self.logger.error("❌ DevTools 또는 Driver 객체가 없음")
+            
+            # 서버 모니터링 상태 확인
+            self.logger.info(f"서버 모니터링 활성: {self.server_monitoring_active}")
+            
+            self.logger.info("=== 브라우저 상태 디버깅 종료 ===")
+            
+            # 기존 조건 확인
+            if not browser_available and not self.server_monitoring_active:
+                self.logger.warning("브라우저가 실행되지 않았고 서버 모니터링도 비활성 상태입니다.")
+                QMessageBox.warning(
+                    self.main_window,
+                    "브라우저 필요",
+                    "자동 매매를 시작하려면:\n" +
+                    "1. 먼저 '사이트' 버튼을 눌러 에볼루션에 접속하거나\n" +
+                    "2. 서버 모니터링을 활성화해주세요."
+                )
                 return
-                
+            
+            # 여기서부터는 기존 코드 계속...
+            self.logger.info("브라우저 상태 확인 통과, 자동 매매 진행")
+            
             # 시작 전 설정 새로고침
             self.refresh_settings()
             
@@ -225,7 +278,7 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매 중 심각한 오류가 발생했습니다.\n자동 매매가 중지됩니다.\n오류: {str(e)}"
             )
- 
+            
     def stop_trading(self):
         """자동 매매 중지 - 서버 모니터링도 중지"""
         try:
@@ -780,49 +833,31 @@ class TradingManager:
             self.logger.error(f"에볼루션 로비 준비 중 오류: {e}")
             return False
 
-    # utils/trading_manager.py의 _extract_websocket_without_performance_logging 메서드 수정
     def _extract_websocket_without_performance_logging(self):
-        """Playwright 기반 웹소켓 URL 추출"""
+        """최적화된 웹소켓 URL 추출"""
         try:
-            self.logger.info("🚀 Playwright 기반 웹소켓 URL 추출 시작")
+            self.logger.info("⚡ 최적화된 웹소켓 URL 추출 시작")
 
             from services.websocket_parser import WebSocketParser
             ws_parser = WebSocketParser(self.devtools, self.logger)
 
-            QMessageBox.information(
-                self.main_window,
-                "웹소켓 URL 추출 중",
-                "Playwright를 이용해 웹소켓 URL을 추출 중입니다.\n잠시만 기다려주세요."
-            )
-
+            # 백그라운드에서 빠르게 추출
             websocket_url = ws_parser.get_best_websocket_url()
 
             if websocket_url:
-                self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url[:100]}...")
-                QMessageBox.information(
-                    self.main_window,
-                    "성공",
-                    "웹소켓 URL을 성공적으로 추출했습니다."
-                )
+                # 성공 - 로그에만 기록
+                self.logger.info(f"✅ 웹소켓 URL 추출 성공")
+                self.logger.info(f"📡 URL: {websocket_url}")
                 return websocket_url
             else:
+                # 실패
                 self.logger.error("❌ 웹소켓 URL 추출 실패")
-                QMessageBox.critical(
-                    self.main_window,
-                    "실패",
-                    "웹소켓 URL을 추출할 수 없습니다."
-                )
                 return None
 
         except Exception as e:
             self.logger.error(f"웹소켓 URL 추출 오류: {e}", exc_info=True)
-            QMessageBox.critical(
-                self.main_window,
-                "오류",
-                f"웹소켓 URL 추출 중 오류가 발생했습니다: {e}"
-            )
             return None
-        
+            
     def _show_websocket_extraction_progress(self):
         """웹소켓 추출 진행 상황 안내"""
         try:
