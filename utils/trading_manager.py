@@ -121,8 +121,8 @@ class TradingManager:
         """자동 매매 시작 - Performance Logging 없는 웹소켓 추출"""
         try:
             # 브라우저 드라이버 확인
-            if not self.devtools.driver:
-                print("[INFO] 브라우저가 실행되지 않았습니다. 자동 매매를 시작하지 않습니다.")
+            if not self.devtools.driver and not self.server_monitoring_active:
+                print("[INFO] 브라우저가 실행되지 않았고 서버 모니터링도 비활성 상태입니다. 자동 매매를 시작하지 않습니다.")
                 return
                 
             # 시작 전 설정 새로고침
@@ -781,31 +781,32 @@ class TradingManager:
             return False
 
     def _extract_websocket_without_performance_logging(self):
-        """새 DevTools + WebSocketParser로 웹소켓 URL 추출"""
+        """새 Playwright WebSocketParser로 웹소켓 URL 추출"""
         try:
-            self.logger.info("🚀 새로운 방식의 웹소켓 URL 추출 시작")
+            self.logger.info("🚀 Playwright 기반 웹소켓 URL 추출 시작")
 
             ws_parser = WebSocketParser(self.devtools, self.logger)
 
             QMessageBox.information(
                 self.main_window,
                 "웹소켓 URL 추출 중",
-                "자동으로 웹소켓 URL을 추출 중입니다. 잠시만 기다려주세요."
+                "Playwright로 웹소켓 URL을 추출 중입니다. 잠시만 기다려주세요."
             )
 
-            websocket_url = ws_parser.get_best_websocket_url()
+            websocket_urls = ws_parser.auto_detect_websocket_urls()
 
-            if websocket_url:
-                self.logger.info(f"✅ 웹소켓 URL 추출 성공: {websocket_url[:100]}...")
+            if websocket_urls:
+                best_url = websocket_urls[0]
+                self.logger.info(f"✅ Playwright로 추출 성공: {best_url}")
                 QMessageBox.information(
                     self.main_window,
                     "성공",
                     "웹소켓 URL을 성공적으로 추출했습니다."
                 )
-                return websocket_url
+                return best_url
 
             else:
-                self.logger.error("❌ 웹소켓 URL 추출 실패")
+                self.logger.error("❌ Playwright 웹소켓 추출 실패")
                 QMessageBox.critical(
                     self.main_window,
                     "실패",
@@ -814,14 +815,15 @@ class TradingManager:
                 return None
 
         except Exception as e:
-            self.logger.error(f"웹소켓 URL 추출 오류: {e}", exc_info=True)
+            self.logger.error(f"Playwright 웹소켓 URL 추출 오류: {e}", exc_info=True)
             QMessageBox.critical(
                 self.main_window,
                 "오류",
                 f"웹소켓 URL 추출 중 오류가 발생했습니다: {e}"
             )
             return None
-            
+
+    
     def _show_websocket_extraction_progress(self):
         """웹소켓 추출 진행 상황 안내"""
         try:

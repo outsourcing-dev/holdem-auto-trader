@@ -7,7 +7,8 @@ import time
 import logging
 import re
 from typing import List, Optional
-
+import asyncio
+from playwright.async_api import async_playwright
 
 class WebSocketParser:
     def __init__(self, devtools_controller, logger=None):
@@ -19,43 +20,36 @@ class WebSocketParser:
 
     def auto_detect_websocket_urls(self) -> List[str]:
         """
-        자동으로 웹소켓 URL 탐지
-        
-        Returns:
-            list: 발견된 웹소켓 URL 목록
+        Playwright를 이용한 웹소켓 URL 자동 탐지 (동기 wrapper)
         """
-        self.logger.info("🚀 웹소켓 URL 자동 탐지 시작")
-        
-        # 초기 상태에서 웹소켓 확인
-        self._collect_websockets_from_current_state()
-        
-        # 새로고침을 통한 추가 탐지
-        for attempt in range(self.max_refresh_attempts):
-            self.logger.info(f"🔄 새로고침 시도 {attempt + 1}/{self.max_refresh_attempts}")
-            
-            if self._refresh_and_detect():
-                # 웹소켓이 발견되면 추가 시도
-                time.sleep(2)  # 안정화 대기
-                self._collect_websockets_from_current_state()
-            
-            # 충분한 웹소켓이 발견되면 조기 종료
-            if len(self.found_websockets) >= 1:
-                break
-        
-        # 자동 상호작용으로 추가 탐지 시도
-        if len(self.found_websockets) == 0:
-            self.logger.info("🎯 자동 상호작용으로 웹소켓 탐지 시도")
-            self._trigger_interactions_for_websocket_detection()
-        
-        # 결과 정리 및 검증
-        valid_websockets = self._validate_and_filter_websockets(list(self.found_websockets))
-        
-        self.logger.info(f"✅ 총 {len(valid_websockets)}개의 유효한 웹소켓 URL 발견")
-        for url in valid_websockets:
-            self.logger.info(f"   📡 {url[:100]}...")
-        
-        return valid_websockets
+        target_url = self.devtools.get_redirected_url() if self.devtools else None
+        if not target_url:
+            raise ValueError("DevTools에서 현재 URL을 가져올 수 없습니다.")
 
+        return asyncio.run(self._auto_detect_websocket_urls_with_playwright(target_url))
+
+    async def _auto_detect_websocket_urls_with_playwright(self, target_url: str) -> List[str]:
+        websocket_urls = []
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=False)
+            context = await browser.new_context()
+            page = await context.new_page()
+
+            page.on("websocket", lambda ws: websocket_urls.append(ws.url))
+
+            self.logger.info(f"🌐 {target_url} 접속 중 (Playwright)...")
+            await page.goto(target_url)
+
+            await page.wait_for_timeout(5000)  # 5초 대기 (필요시 늘리세요)
+
+            await browser.close()
+
+        # 중복 제거 후 반환
+        unique_urls = list(set(websocket_urls))
+        self.logger.info(f"✅ Playwright로 탐지한 웹소켓: {unique_urls}")
+        return unique_urls
+    
     def _collect_websockets_from_current_state(self):
         """현재 상태에서 웹소켓 수집"""
         try:
