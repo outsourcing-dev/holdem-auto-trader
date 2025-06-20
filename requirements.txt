@@ -12,3 +12,4 @@ pyinstaller  # exe 파일로 변환
 pycryptodome
 PyQt6-Qt6>=6.6.0
 PyQt6-sip>=13.6.0
+playwright==1.40.0

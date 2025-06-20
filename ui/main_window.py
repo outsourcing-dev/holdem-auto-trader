@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         self.trading_manager = TradingManager(self)
         self.ui_updater = UIUpdater(self)
         self.update_button_styles()
-        self.devtools.start_browser()
+        # self.devtools.start_browser()
 
 
     def apply_stylesheet(self):
