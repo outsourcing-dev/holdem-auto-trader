@@ -756,10 +756,6 @@ class TradingManager:
             self.devtools.driver.switch_to.window(window_handles[1])
             self.logger.info("에볼루션 로비 창으로 전환 완료")
             
-            # 페이지 로딩 대기
-            print("페이지 로딩을 위해 3초 대기 중...")
-            time.sleep(3)
-            
             # 에볼루션 페이지인지 확인
             try:
                 evolution_found = False
