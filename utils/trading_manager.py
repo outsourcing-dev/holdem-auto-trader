@@ -1,5 +1,5 @@
-# utils/trading_manager.py (Performance Logging 없는 웹소켓 추출 버전)
-from cmath import e
+# utils/trading_manager.py (수정된 버전 - 멀티스레드 WebSocket + 개선된 서버 연결)
+
 import time
 import logging
 import os
@@ -63,6 +63,9 @@ class TradingManager:
         # 여기에 추가: 마틴 상태 추적 변수
         self.last_martin_step = 0  # 마지막으로 기록된 마틴 단계
 
+        # ✅ 멀티스레드 WebSocket Parser 초기화
+        self.ws_parser = None
+
         # 서비스 클래스 초기화
         self._init_services()
         
@@ -122,12 +125,10 @@ class TradingManager:
             self.logger.info("모든 서비스 초기화 완료")
             
         except Exception as e:
-            self.logger.error(f"베팅 조건 확인 오류: {e}", exc_info=True)
-            if self.is_trading_active:
-                self.main_window.set_remaining_time(0, 0, 2)
+            self.logger.error(f"서비스 초기화 오류: {e}", exc_info=True)
 
     def start_trading(self):
-        """자동 매매 시작 - 브라우저 상태 디버깅 버전"""
+        """자동 매매 시작 - 개선된 버전"""
         try:
             # ✅ 상세한 브라우저 상태 디버깅
             self.logger.info("=== 브라우저 상태 디버깅 시작 ===")
@@ -204,8 +205,23 @@ class TradingManager:
             if not self._ensure_evolution_lobby_ready():
                 return
             
-            # ✅ Performance Logging 없는 웹소켓 URL 추출
-            websocket_url = self._extract_websocket_without_performance_logging()
+            # ✅ 서버 상태 먼저 확인
+            self.logger.info("🔍 서버 연결 상태 확인 중...")
+            if not self.server_client.get_server_status():
+                QMessageBox.warning(
+                    self.main_window,
+                    "서버 연결 실패",
+                    "바카라 분석 서버에 연결할 수 없습니다.\n\n" +
+                    "가능한 원인:\n" +
+                    "• 서버가 일시적으로 다운됨\n" +
+                    "• 네트워크 연결 문제\n" +
+                    "• CloudType 서버 재시작 중\n\n" +
+                    "잠시 후 다시 시도해주세요."
+                )
+                return
+            
+            # ✅ 멀티스레드 웹소켓 URL 추출
+            websocket_url = self._extract_websocket_async()
             
             if not websocket_url:
                 # 완전 실패 시 프로그램 종료
@@ -223,29 +239,23 @@ class TradingManager:
             # ✅ 서버 기반 모드로 진행
             self.logger.info("🌐 서버 기반 모드로 자동 매매 시작")
             
-            # 서버 상태 확인
-            if not self.server_client.get_server_status():
-                QMessageBox.warning(
-                    self.main_window,
-                    "서버 연결 실패",
-                    "바카라 분석 서버에 연결할 수 없습니다.\n" +
-                    "서버 상태를 확인해주세요."
-                )
-                return
-            
-            # ✅ 서버 설정 및 모니터링 시작
+            # ✅ 웹소켓 설정 전송
             if not self.server_client.send_websocket_config(websocket_url, self.user_id):
                 QMessageBox.warning(
                     self.main_window,
-                    "서버 설정 실패",
-                    "서버에 웹소켓 설정을 전송하지 못했습니다."
+                    "설정 전송 실패",
+                    "서버에 웹소켓 설정을 전송하지 못했습니다.\n\n" +
+                    "웹소켓 URL이 올바른지 확인해주세요."
                 )
                 return
-            elif not self.server_client.start_monitoring(self.user_id):
+            
+            # ✅ 모니터링 시작 
+            if not self.server_client.start_monitoring(self.user_id):
                 QMessageBox.warning(
                     self.main_window,
-                    "모니터링 시작 실패",
-                    "서버에서 모니터링을 시작하지 못했습니다."
+                    "모니터링 시작 실패", 
+                    "서버에서 모니터링을 시작하지 못했습니다.\n\n" +
+                    "로그를 확인하고 다시 시도해주세요."
                 )
                 return
             else:
@@ -258,7 +268,7 @@ class TradingManager:
             
             # UI 업데이트
             self.main_window.start_button.setEnabled(False)
-            self.main_window.stop_button.setEnabled(False)
+            self.main_window.stop_button.setEnabled(True)  # ✅ 수정: 중지 버튼 활성화
             self.main_window.update_button_styles()
             QApplication.processEvents()
             
@@ -278,7 +288,65 @@ class TradingManager:
                 "자동 매매 오류", 
                 f"자동 매매 중 심각한 오류가 발생했습니다.\n자동 매매가 중지됩니다.\n오류: {str(e)}"
             )
+
+    def _extract_websocket_async(self) -> str:
+        """멀티스레드 웹소켓 URL 추출"""
+        try:
+            self.logger.info("⚡ 멀티스레드 웹소켓 URL 추출 시작")
+
+            # ✅ 멀티스레드 WebSocketParser 사용
+            self.ws_parser = WebSocketParser(self.devtools, self.logger)
+
+            # ✅ 비동기 + 콜백 방식으로 추출
+            websocket_result = {"url": None, "completed": False}
+
+            def on_websocket_result(result):
+                """웹소켓 추출 완료 콜백"""
+                websocket_result["completed"] = True
+                if result.success and result.urls:
+                    websocket_result["url"] = result.urls[0]
+                    self.logger.info(f"✅ 웹소켓 URL 추출 성공 ({result.elapsed_time:.1f}초)")
+                    self.logger.info(f"📡 URL: {result.urls[0]}")
+                else:
+                    self.logger.error(f"❌ 웹소켓 URL 추출 실패: {result.error}")
+
+            # 비동기 추출 시작
+            future = self.ws_parser.auto_detect_websocket_urls_async(callback=on_websocket_result)
             
+            # UI 진행 상황 표시
+            self._show_websocket_extraction_progress()
+            
+            # 완료 대기 (최대 30초)
+            import time
+            max_wait = 30
+            start_time = time.time()
+            
+            while not websocket_result["completed"] and (time.time() - start_time) < max_wait:
+                QApplication.processEvents()  # UI 업데이트
+                time.sleep(0.1)
+            
+            # 타임아웃 처리
+            if not websocket_result["completed"]:
+                self.logger.warning("웹소켓 추출 타임아웃")
+                if self.ws_parser:
+                    self.ws_parser.cancel_current_operation()
+                return None
+            
+            return websocket_result["url"]
+
+        except Exception as e:
+            self.logger.error(f"웹소켓 URL 추출 오류: {e}", exc_info=True)
+            return None
+            
+    def _show_websocket_extraction_progress(self):
+        """웹소켓 추출 진행 상황 안내 - 논블로킹"""
+        try:
+            # 간단한 상태 메시지만 로그에 출력
+            self.logger.info("📡 백그라운드에서 웹소켓 URL 추출 중...")
+            self.logger.info("🎮 에볼루션 페이지에서 게임을 클릭하면 추출이 더 빨라집니다.")
+        except Exception as e:
+            self.logger.warning(f"진행 상황 안내 표시 실패: {e}")
+
     def stop_trading(self):
         """자동 매매 중지 - 서버 모니터링도 중지"""
         try:
@@ -287,6 +355,13 @@ class TradingManager:
                 return
                 
             self.logger.info("자동 매매 중지 중...")
+            
+            # ✅ WebSocket Parser 정리
+            if hasattr(self, 'ws_parser') and self.ws_parser:
+                self.ws_parser.cancel_current_operation()
+                self.ws_parser.shutdown()
+                self.ws_parser = None
+                self.logger.info("WebSocket Parser 정리 완료")
             
             # 서버 모니터링 중지
             if self.server_monitoring_active:
@@ -377,8 +452,9 @@ class TradingManager:
                 self.main_window, 
                 "중지 오류", 
                 f"자동 매매 중지 중 문제가 발생했습니다.\n수동으로 중지되었습니다."
-            )        
-            
+            )
+
+    # 나머지 메서드들은 기존과 동일...
     def update_settings(self):
         """설정이 변경된 경우 호출될 설정 업데이트 메서드"""
         try:
@@ -622,339 +698,6 @@ class TradingManager:
             if self.is_trading_active:
                 self.main_window.set_remaining_time(0, 0, 2)
 
-    # 추가 유틸리티 메서드들
-    def get_current_status(self):
-        """현재 트레이딩 상태 반환"""
-        return {
-            'is_active': self.is_trading_active,
-            'server_monitoring': self.server_monitoring_active,
-            'current_room': self.current_room_name,
-            'game_count': self.game_count,
-            'result_count': self.result_count,
-            'has_bet': getattr(self.betting_service, 'has_bet_current_round', False) if hasattr(self, 'betting_service') else False,
-            'wait_first_result': self.wait_first_result,
-            'stop_flag': getattr(self, 'stop_all_processes', False)
-        }
-
-    def emergency_stop(self):
-        """비상 정지 - 모든 프로세스 즉시 중단"""
-        try:
-            self.logger.warning("🚨 비상 정지 실행")
-            
-            # 즉시 플래그 설정
-            self.stop_all_processes = True
-            self.is_trading_active = False
-            self.server_monitoring_active = False
-            
-            # 서버 연결 강제 해제
-            try:
-                if hasattr(self, 'server_client'):
-                    self.server_client.force_disconnect()
-            except:
-                pass
-            
-            # 타이머 강제 중지
-            try:
-                if hasattr(self.main_window, 'timer'):
-                    self.main_window.timer.stop()
-                    QApplication.processEvents()
-            except:
-                pass
-            
-            # UI 상태 강제 복원
-            try:
-                self.main_window.start_button.setEnabled(True)
-                self.main_window.stop_button.setEnabled(False)
-                self.main_window.update_button_styles()
-            except:
-                pass
-            
-            self.logger.info("비상 정지 완료")
-            
-        except Exception as e:
-            self.logger.error(f"비상 정지 중 오류: {e}")
-
-    def reset_all_states(self):
-        """모든 상태 완전 초기화"""
-        try:
-            self.logger.info("모든 상태 완전 초기화 시작")
-            
-            # 플래그 초기화
-            self.is_trading_active = False
-            self.server_monitoring_active = False
-            self.stop_all_processes = False
-            self.wait_first_result = False
-            self.just_won = False
-            self.had_tie_last_round = False
-            
-            # 카운터 초기화
-            self.game_count = 0
-            self.result_count = 0
-            self.wait_first_result_count = 0
-            self.game_state_check_count = 0
-            self.same_round_count = 0
-            self.no_result_counter = 0
-            self.entered_round = -1
-            self.last_martin_step = 0
-            
-            # 데이터 구조 초기화
-            self.current_room_name = ""
-            self.current_pick = None
-            self.processed_rounds = set()
-            self.recent_game_results = []
-            self.filtered_game_results = []
-            
-            # 서버 모니터링 초기화
-            self.last_server_check = 0
-            
-            # 서비스별 초기화
-            if hasattr(self, 'betting_service'):
-                self.betting_service.reset_betting_state()
-            
-            if hasattr(self, 'martin_service'):
-                self.martin_service.reset()
-            
-            self.logger.info("모든 상태 완전 초기화 완료")
-            
-        except Exception as e:
-            self.logger.error(f"상태 초기화 중 오류: {e}")
-
-    def __del__(self):
-        """소멸자 - 리소스 정리"""
-        try:
-            if hasattr(self, 'server_monitoring_active') and self.server_monitoring_active:
-                if hasattr(self, 'server_client'):
-                    self.server_client.stop_monitoring(getattr(self, 'user_id', ''))
-            
-            # 타이머 정리
-            if hasattr(self, 'main_window') and hasattr(self.main_window, 'timer'):
-                if self.main_window.timer.isActive():
-                    self.main_window.timer.stop()
-                    
-        except:
-            pass  # 소멸자에서는 예외를 조용히 처리류", 
-            
-            
-
-    def _ensure_evolution_lobby_ready(self):
-        """에볼루션 로비 준비 상태 확인 및 전환"""
-        try:
-            # 창 개수 확인
-            window_handles = self.devtools.driver.window_handles
-            print(f"전체 창 개수: {len(window_handles)}")
-            
-            if len(window_handles) < 2:
-                QMessageBox.information(
-                    self.main_window, 
-                    "에볼루션 접속 필요", 
-                    "에볼루션 카지노에 먼저 접속해주세요.\n사이트 버튼을 눌러 에볼루션에 접속 후 다시 시도해주세요."
-                )
-                return False
-            
-            # 에볼루션 로비 창으로 전환 (보통 2번째 창)
-            print(f"2번째 창으로 전환: {window_handles[1]}")
-            self.devtools.driver.switch_to.window(window_handles[1])
-            self.logger.info("에볼루션 로비 창으로 전환 완료")
-            
-            # 에볼루션 페이지인지 확인
-            try:
-                evolution_found = False
-                
-                # 1. URL 기반 확인 (가장 확실한 방법)
-                current_url = self.devtools.driver.current_url
-                if any(keyword in current_url.lower() for keyword in ['evolution', 'evo']):
-                    self.logger.info(f"URL에서 에볼루션 확인: {current_url}")
-                    evolution_found = True
-                
-                # 2. 페이지 소스에서 키워드 확인
-                if not evolution_found:
-                    try:
-                        page_source = self.devtools.driver.page_source.lower()
-                        if ('evolution' in page_source or 'evologo' in page_source):
-                            self.logger.info("페이지 소스에서 에볼루션 키워드 확인")
-                            evolution_found = True
-                    except:
-                        pass
-                
-                # 에볼루션 페이지가 아닌 경우 사용자에게 확인
-                if not evolution_found:
-                    reply = QMessageBox.question(
-                        self.main_window,
-                        "에볼루션 페이지 확인",
-                        "자동으로 에볼루션 페이지를 확인하지 못했습니다.\n\n" +
-                        "현재 페이지가 에볼루션 카지노가 맞습니까?\n\n" +
-                        f"현재 URL: {current_url[:100]}...",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.Yes
-                    )
-                    
-                    if reply == QMessageBox.StandardButton.Yes:
-                        self.logger.info("사용자가 에볼루션 페이지임을 확인")
-                        evolution_found = True
-                    else:
-                        QMessageBox.information(
-                            self.main_window,
-                            "에볼루션 접속 필요",
-                            "사이트 버튼을 눌러 에볼루션에 접속해주세요."
-                        )
-                        return False
-                
-                if not evolution_found:
-                    return False
-                    
-            except Exception as e:
-                self.logger.warning(f"에볼루션 페이지 확인 중 오류: {e}")
-                
-                # 오류 발생시에도 사용자에게 확인 요청
-                reply = QMessageBox.question(
-                    self.main_window,
-                    "페이지 확인 오류",
-                    "페이지 확인 중 오류가 발생했습니다.\n\n" +
-                    "현재 페이지가 에볼루션 카지노가 맞습니까?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.Yes
-                )
-                
-                if reply != QMessageBox.StandardButton.Yes:
-                    return False
-            
-            # 잔액 확인 (로비 상태 검증)
-            if not self.helpers.setup_browser_and_check_balance():
-                return False
-                
-            self.logger.info("에볼루션 로비 준비 완료")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"에볼루션 로비 준비 중 오류: {e}")
-            return False
-
-    def _extract_websocket_without_performance_logging(self):
-        """최적화된 웹소켓 URL 추출"""
-        try:
-            self.logger.info("⚡ 최적화된 웹소켓 URL 추출 시작")
-
-            from services.websocket_parser import WebSocketParser
-            ws_parser = WebSocketParser(self.devtools, self.logger)
-
-            # 백그라운드에서 빠르게 추출
-            websocket_url = ws_parser.get_best_websocket_url()
-
-            if websocket_url:
-                # 성공 - 로그에만 기록
-                self.logger.info(f"✅ 웹소켓 URL 추출 성공")
-                self.logger.info(f"📡 URL: {websocket_url}")
-                return websocket_url
-            else:
-                # 실패
-                self.logger.error("❌ 웹소켓 URL 추출 실패")
-                return None
-
-        except Exception as e:
-            self.logger.error(f"웹소켓 URL 추출 오류: {e}", exc_info=True)
-            return None
-            
-    def _show_websocket_extraction_progress(self):
-        """웹소켓 추출 진행 상황 안내"""
-        try:
-            QMessageBox.information(
-                self.main_window,
-                "웹소켓 URL 추출 중",
-                "웹소켓 URL을 자동으로 추출하고 있습니다.\n\n" +
-                "⏳ 최대 1분 정도 소요될 수 있습니다.\n" +
-                "🎮 이 시간 동안 에볼루션 페이지에서 게임을 클릭하거나\n" +
-                "    로비를 둘러보시면 추출이 더 빨라집니다.\n\n" +
-                "잠시만 기다려주세요..."
-            )
-        except Exception as e:
-            self.logger.warning(f"진행 상황 안내 표시 실패: {e}")
-
-    def _request_manual_websocket_url(self):
-        """최후의 수단: 사용자에게 수동 입력 요청"""
-        try:
-            self.logger.info("🙋 사용자에게 수동 웹소켓 URL 입력 요청")
-            
-            from PyQt6.QtWidgets import QInputDialog, QTextEdit, QVBoxLayout, QDialog, QPushButton, QLabel
-            
-            # 커스텀 다이얼로그 생성
-            dialog = QDialog(self.main_window)
-            dialog.setWindowTitle("웹소켓 URL 수동 입력 (최후의 수단)")
-            dialog.setFixedSize(700, 500)
-            
-            layout = QVBoxLayout()
-            
-            # 안내 텍스트
-            instructions = QLabel("""
-❌ 자동 웹소켓 URL 추출에 실패했습니다.
-
-🔍 수동으로 웹소켓 URL을 찾는 방법:
-
-1. F12 키를 눌러 개발자 도구를 엽니다
-2. 'Network' 탭을 클릭합니다  
-3. 필터에서 'WS' (WebSocket)를 선택합니다
-4. 에볼루션 페이지에서 게임을 클릭하거나 새로고침(F5)합니다
-5. 웹소켓 연결이 나타나면 클릭합니다
-6. 'Headers' 탭에서 'Request URL'을 복사합니다
-
-📝 예시 URL 형태:
-wss://skylinestart.evo-games.com/public/lobby/socket/v2?sessionId=...
-
-⚠️ 이 단계를 건너뛰면 자동 매매를 사용할 수 없습니다.
-            """)
-            instructions.setWordWrap(True)
-            instructions.setStyleSheet("font-size: 11px; padding: 10px;")
-            layout.addWidget(instructions)
-            
-            # 입력 필드
-            url_input = QTextEdit()
-            url_input.setPlaceholderText("웹소켓 URL을 여기에 붙여넣기하세요 (wss://로 시작)")
-            url_input.setMaximumHeight(80)
-            layout.addWidget(url_input)
-            
-            # 버튼들
-            button_layout = QVBoxLayout()
-            
-            confirm_btn = QPushButton("✅ 확인하고 계속 진행")
-            cancel_btn = QPushButton("❌ 취소 (자동 매매 중단)")
-            
-            button_layout.addWidget(confirm_btn)
-            button_layout.addWidget(cancel_btn)
-            
-            layout.addLayout(button_layout)
-            dialog.setLayout(layout)
-            
-            result = {"url": None}
-            
-            def on_confirm():
-                url = url_input.toPlainText().strip()
-                if url:
-                    # 기본 검증
-                    if url.startswith('wss://') and len(url) > 30:
-                        result["url"] = url
-                        dialog.accept()
-                    else:
-                        QMessageBox.warning(dialog, "입력 오류", 
-                                          "올바른 웹소켓 URL을 입력해주세요.\n(wss://로 시작하는 긴 URL)")
-                else:
-                    QMessageBox.warning(dialog, "입력 오류", "웹소켓 URL을 입력해주세요.")
-            
-            def on_cancel():
-                dialog.reject()
-            
-            confirm_btn.clicked.connect(on_confirm)
-            cancel_btn.clicked.connect(on_cancel)
-            
-            if dialog.exec() == QDialog.DialogCode.Accepted and result["url"]:
-                manual_url = result["url"]
-                self.logger.info(f"✅ 사용자가 수동으로 입력한 웹소켓 URL: {manual_url[:100]}...")
-                return manual_url
-            
-            return None
-            
-        except Exception as e:
-            self.logger.error(f"수동 입력 처리 중 오류: {e}")
-            return None
-
     def process_server_monitoring_data(self, monitoring_data):
         """서버 모니터링 데이터 처리"""
         try:
@@ -1075,6 +818,207 @@ wss://skylinestart.evo-games.com/public/lobby/socket/v2?sessionId=...
             self.logger.error(f"베팅 픽 결정 오류: {e}")
             return 'P'
 
+    # 추가 유틸리티 메서드들
+    def get_current_status(self):
+        """현재 트레이딩 상태 반환"""
+        return {
+            'is_active': self.is_trading_active,
+            'server_monitoring': self.server_monitoring_active,
+            'current_room': self.current_room_name,
+            'game_count': self.game_count,
+            'result_count': self.result_count,
+            'has_bet': getattr(self.betting_service, 'has_bet_current_round', False) if hasattr(self, 'betting_service') else False,
+            'wait_first_result': self.wait_first_result,
+            'stop_flag': getattr(self, 'stop_all_processes', False)
+        }
+
+    def emergency_stop(self):
+        """비상 정지 - 모든 프로세스 즉시 중단"""
+        try:
+            self.logger.warning("🚨 비상 정지 실행")
+            
+            # 즉시 플래그 설정
+            self.stop_all_processes = True
+            self.is_trading_active = False
+            self.server_monitoring_active = False
+            
+            # WebSocket Parser 정리
+            if hasattr(self, 'ws_parser') and self.ws_parser:
+                self.ws_parser.cancel_current_operation()
+                self.ws_parser.shutdown()
+                self.ws_parser = None
+            
+            # 서버 연결 강제 해제
+            try:
+                if hasattr(self, 'server_client'):
+                    self.server_client.force_disconnect()
+            except:
+                pass
+            
+            # 타이머 강제 중지
+            try:
+                if hasattr(self.main_window, 'timer'):
+                    self.main_window.timer.stop()
+                    QApplication.processEvents()
+            except:
+                pass
+            
+            # UI 상태 강제 복원
+            try:
+                self.main_window.start_button.setEnabled(True)
+                self.main_window.stop_button.setEnabled(False)
+                self.main_window.update_button_styles()
+            except:
+                pass
+            
+            self.logger.info("비상 정지 완료")
+            
+        except Exception as e:
+            self.logger.error(f"비상 정지 중 오류: {e}")
+
+    def reset_all_states(self):
+        """모든 상태 완전 초기화"""
+        try:
+            self.logger.info("모든 상태 완전 초기화 시작")
+            
+            # 플래그 초기화
+            self.is_trading_active = False
+            self.server_monitoring_active = False
+            self.stop_all_processes = False
+            self.wait_first_result = False
+            self.just_won = False
+            self.had_tie_last_round = False
+            
+            # 카운터 초기화
+            self.game_count = 0
+            self.result_count = 0
+            self.wait_first_result_count = 0
+            self.game_state_check_count = 0
+            self.same_round_count = 0
+            self.no_result_counter = 0
+            self.entered_round = -1
+            self.last_martin_step = 0
+            
+            # 데이터 구조 초기화
+            self.current_room_name = ""
+            self.current_pick = None
+            self.processed_rounds = set()
+            self.recent_game_results = []
+            self.filtered_game_results = []
+            
+            # 서버 모니터링 초기화
+            self.last_server_check = 0
+            
+            # WebSocket Parser 정리
+            if hasattr(self, 'ws_parser') and self.ws_parser:
+                self.ws_parser.shutdown()
+                self.ws_parser = None
+            
+            # 서비스별 초기화
+            if hasattr(self, 'betting_service'):
+                self.betting_service.reset_betting_state()
+            
+            if hasattr(self, 'martin_service'):
+                self.martin_service.reset()
+            
+            self.logger.info("모든 상태 완전 초기화 완료")
+            
+        except Exception as e:
+            self.logger.error(f"상태 초기화 중 오류: {e}")
+
+    def _ensure_evolution_lobby_ready(self):
+        """에볼루션 로비 준비 상태 확인 및 전환"""
+        try:
+            # 창 개수 확인
+            window_handles = self.devtools.driver.window_handles
+            print(f"전체 창 개수: {len(window_handles)}")
+            
+            if len(window_handles) < 2:
+                QMessageBox.information(
+                    self.main_window, 
+                    "에볼루션 접속 필요", 
+                    "에볼루션 카지노에 먼저 접속해주세요.\n사이트 버튼을 눌러 에볼루션에 접속 후 다시 시도해주세요."
+                )
+                return False
+            
+            # 에볼루션 로비 창으로 전환 (보통 2번째 창)
+            print(f"2번째 창으로 전환: {window_handles[1]}")
+            self.devtools.driver.switch_to.window(window_handles[1])
+            self.logger.info("에볼루션 로비 창으로 전환 완료")
+            
+            # 에볼루션 페이지인지 확인
+            try:
+                evolution_found = False
+                
+                # 1. URL 기반 확인 (가장 확실한 방법)
+                current_url = self.devtools.driver.current_url
+                if any(keyword in current_url.lower() for keyword in ['evolution', 'evo']):
+                    self.logger.info(f"URL에서 에볼루션 확인: {current_url}")
+                    evolution_found = True
+                
+                # 2. 페이지 소스에서 키워드 확인
+                if not evolution_found:
+                    try:
+                        page_source = self.devtools.driver.page_source.lower()
+                        if ('evolution' in page_source or 'evologo' in page_source):
+                            self.logger.info("페이지 소스에서 에볼루션 키워드 확인")
+                            evolution_found = True
+                    except:
+                        pass
+                
+                # 에볼루션 페이지가 아닌 경우 사용자에게 확인
+                if not evolution_found:
+                    reply = QMessageBox.question(
+                        self.main_window,
+                        "에볼루션 페이지 확인",
+                        "자동으로 에볼루션 페이지를 확인하지 못했습니다.\n\n" +
+                        "현재 페이지가 에볼루션 카지노가 맞습니까?\n\n" +
+                        f"현재 URL: {current_url[:100]}...",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes
+                    )
+                    
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.logger.info("사용자가 에볼루션 페이지임을 확인")
+                        evolution_found = True
+                    else:
+                        QMessageBox.information(
+                            self.main_window,
+                            "에볼루션 접속 필요",
+                            "사이트 버튼을 눌러 에볼루션에 접속해주세요."
+                        )
+                        return False
+                
+                if not evolution_found:
+                    return False
+                    
+            except Exception as e:
+                self.logger.warning(f"에볼루션 페이지 확인 중 오류: {e}")
+                
+                # 오류 발생시에도 사용자에게 확인 요청
+                reply = QMessageBox.question(
+                    self.main_window,
+                    "페이지 확인 오류",
+                    "페이지 확인 중 오류가 발생했습니다.\n\n" +
+                    "현재 페이지가 에볼루션 카지노가 맞습니까?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                
+                if reply != QMessageBox.StandardButton.Yes:
+                    return False
+            
+            # 잔액 확인 (로비 상태 검증)
+            if not self.helpers.setup_browser_and_check_balance():
+                return False
+                
+            self.logger.info("에볼루션 로비 준비 완료")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"에볼루션 로비 준비 중 오류: {e}")
+            return False
+
     # 이전 복잡한 분석 메서드들은 주석 처리하거나 단순화
     def analyze_current_game(self):
         """현재 게임 상태 분석 - 단순화됨"""
@@ -1108,3 +1052,23 @@ wss://skylinestart.evo-games.com/public/lobby/socket/v2?sessionId=...
                 "자동 매매 오류", 
                 f"자동 매매 중 심각한 오류가 발생했습니다.\n자동 매매가 중지됩니다.\n오류: {str(e)}"
             )
+
+    def __del__(self):
+        """소멸자 - 리소스 정리"""
+        try:
+            # WebSocket Parser 정리
+            if hasattr(self, 'ws_parser') and self.ws_parser:
+                self.ws_parser.shutdown()
+            
+            # 서버 모니터링 중지
+            if hasattr(self, 'server_monitoring_active') and self.server_monitoring_active:
+                if hasattr(self, 'server_client'):
+                    self.server_client.stop_monitoring(getattr(self, 'user_id', ''))
+            
+            # 타이머 정리
+            if hasattr(self, 'main_window') and hasattr(self.main_window, 'timer'):
+                if self.main_window.timer.isActive():
+                    self.main_window.timer.stop()
+                    
+        except:
+            pass  # 소멸자에서는 예외를 조용히 처리

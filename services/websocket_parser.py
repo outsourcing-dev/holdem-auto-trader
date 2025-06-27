@@ -1,15 +1,25 @@
 # services/websocket_parser.py
 """
-WebSocketParser - 최적화된 빠른 웹소켓 URL 추출
+WebSocketParser - 멀티스레드 최적화된 빠른 웹소켓 URL 추출
 """
 import time
 import logging
 import re
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, Callable
 from playwright.async_api import async_playwright
 import threading
 import queue
+from concurrent.futures import ThreadPoolExecutor, Future
+from dataclasses import dataclass
+
+@dataclass
+class WebSocketResult:
+    """웹소켓 추출 결과"""
+    urls: List[str]
+    success: bool
+    error: Optional[str] = None
+    elapsed_time: float = 0.0
 
 class WebSocketParser:
     def __init__(self, devtools_controller, logger=None):
@@ -19,86 +29,117 @@ class WebSocketParser:
         self.max_refresh_attempts = 3
         self.detection_timeout = 45
         self.result_queue = queue.Queue()
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="websocket")
+        self._current_future: Optional[Future] = None
+        self._shutdown = False
+
+    def auto_detect_websocket_urls_async(self, callback: Optional[Callable[[WebSocketResult], None]] = None) -> Future[WebSocketResult]:
+        """비동기 웹소켓 URL 추출 - 콜백 지원"""
+        if self._current_future and not self._current_future.done():
+            self._current_future.cancel()
+        
+        self._current_future = self._executor.submit(self._extract_websocket_sync_wrapper, callback)
+        return self._current_future
 
     def auto_detect_websocket_urls(self) -> List[str]:
-        """웹소켓 URL 자동 탐지 - 최적화된 버전"""
+        """동기 웹소켓 URL 추출 (기존 호환성 유지)"""
         try:
-            self.logger.info("⚡ 최적화된 웹소켓 URL 추출 시작")
-            
-            # 백그라운드에서 웹소켓 추출 시작
-            extraction_thread = threading.Thread(
-                target=self._extract_websocket_background,
-                daemon=True
-            )
-            extraction_thread.start()
-            
-            # 최대 15초 대기 (일반적으로 3-5초면 찾음)
-            max_wait_time = 15
-            start_time = time.time()
-            
-            while time.time() - start_time < max_wait_time:
-                try:
-                    # 0.1초마다 결과 확인
-                    result = self.result_queue.get(timeout=0.1)
-                    if result:
-                        elapsed = time.time() - start_time
-                        self.logger.info(f"✅ 웹소켓 URL 추출 완료 ({elapsed:.1f}초)")
-                        return result
-                except queue.Empty:
-                    continue
-            
-            self.logger.warning(f"⏰ 웹소켓 추출 타임아웃 ({max_wait_time}초)")
-            # 타임아웃시 폴백 방식 시도
-            return self._fallback_websocket_detection()
-            
+            future = self.auto_detect_websocket_urls_async()
+            result = future.result(timeout=30)  # 최대 30초 대기
+            return result.urls if result.success else []
         except Exception as e:
             self.logger.error(f"웹소켓 추출 오류: {e}")
             return []
 
-    def _extract_websocket_background(self):
-        """백그라운드에서 웹소켓 추출"""
+    def _extract_websocket_sync_wrapper(self, callback: Optional[Callable[[WebSocketResult], None]] = None) -> WebSocketResult:
+        """동기 래퍼 - 별도 스레드에서 실행"""
+        start_time = time.time()
+        
         try:
-            # 비동기 함수를 새 이벤트 루프에서 실행
+            self.logger.info("⚡ 멀티스레드 웹소켓 URL 추출 시작")
+            
+            # 새 이벤트 루프에서 비동기 실행
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-            result = loop.run_until_complete(self._auto_detect_websocket_urls_with_playwright())
-            
-            if result:
-                self.result_queue.put(result)
-            else:
-                self.result_queue.put([])
+            try:
+                urls = loop.run_until_complete(self._extract_websocket_async())
+                elapsed = time.time() - start_time
+                
+                result = WebSocketResult(
+                    urls=urls,
+                    success=True,
+                    elapsed_time=elapsed
+                )
+                
+                self.logger.info(f"✅ 웹소켓 URL 추출 완료 ({elapsed:.1f}초, {len(urls)}개 발견)")
+                
+                if callback:
+                    try:
+                        callback(result)
+                    except Exception as e:
+                        self.logger.error(f"콜백 실행 중 오류: {e}")
+                
+                return result
+                
+            finally:
+                loop.close()
                 
         except Exception as e:
-            self.logger.error(f"백그라운드 웹소켓 추출 오류: {e}")
-            self.result_queue.put([])
+            elapsed = time.time() - start_time
+            error_msg = f"웹소켓 추출 중 오류: {e}"
+            self.logger.error(error_msg)
+            
+            result = WebSocketResult(
+                urls=[],
+                success=False,
+                error=error_msg,
+                elapsed_time=elapsed
+            )
+            
+            if callback:
+                try:
+                    callback(result)
+                except Exception as cb_error:
+                    self.logger.error(f"에러 콜백 실행 중 오류: {cb_error}")
+            
+            return result
 
-    async def _auto_detect_websocket_urls_with_playwright(self) -> List[str]:
-        """Playwright를 이용한 실제 웹소켓 탐지 - 최적화된 버전"""
-        websocket_urls = []
-        
-        # 디버깅 포트 찾기
-        debug_port = self._get_debug_port()
+    async def _extract_websocket_async(self) -> List[str]:
+        """실제 비동기 웹소켓 추출 로직"""
+        # 기존 브라우저 연결 시도
+        debug_port = await self._get_debug_port_async()
         if debug_port:
-            # 기존 브라우저에 연결 시도
             urls = await self._connect_to_existing_browser(debug_port)
             if urls:
                 return urls
         
-        # 폴백: 새 브라우저로 시도
+        # 폴백: 새 브라우저
         return await self._fallback_new_browser()
 
-    def _get_debug_port(self) -> Optional[int]:
-        """디버깅 포트 가져오기"""
+    async def _get_debug_port_async(self) -> Optional[int]:
+        """비동기 디버깅 포트 탐지"""
         try:
-            # 1. 일반적인 포트들 빠르게 테스트
+            # 백그라운드에서 포트 테스트
+            loop = asyncio.get_event_loop()
+            
+            # 일반적인 포트들 병렬 테스트
             common_ports = [9222, 9223, 9224, 9225]
-            for port in common_ports:
-                if self._test_debug_port(port):
+            tasks = [
+                loop.run_in_executor(None, self._test_debug_port, port)
+                for port in common_ports
+            ]
+            
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for port, result in zip(common_ports, results):
+                if result is True:
+                    self.logger.info(f"✅ 디버깅 포트 발견: {port}")
                     return port
             
-            # 2. 프로세스에서 포트 찾기
-            return self._detect_port_from_process()
+            # 프로세스에서 포트 찾기
+            port = await loop.run_in_executor(None, self._detect_port_from_process)
+            return port
             
         except Exception as e:
             self.logger.warning(f"디버깅 포트 감지 실패: {e}")
@@ -144,7 +185,6 @@ class WebSocketParser:
         
         async with async_playwright() as p:
             try:
-                # 기존 브라우저에 연결
                 browser = await p.chromium.connect_over_cdp(f"http://localhost:{debug_port}")
                 contexts = browser.contexts
                 
@@ -178,11 +218,10 @@ class WebSocketParser:
                     if self._is_valid_websocket_url(url):
                         websocket_urls.append(url)
                         self.logger.info(f"📡 WebSocket 연결 감지: {url}")
-                        websocket_found.set()  # 즉시 완료 신호
+                        websocket_found.set()
                 
                 evolution_page.on("websocket", on_websocket)
                 
-                # 네트워크 요청 감지
                 def on_request(request):
                     if 'websocket' in request.headers.get('upgrade', '').lower():
                         websocket_urls.append(request.url)
@@ -191,10 +230,10 @@ class WebSocketParser:
                 
                 evolution_page.on("request", on_request)
                 
-                # 빠른 트리거 (페이지 새로고침)
+                # 빠른 트리거
                 await evolution_page.reload(wait_until="domcontentloaded")
                 
-                # 웹소켓 발견되면 즉시 반환 (최대 12초 대기)
+                # 웹소켓 감지 대기
                 try:
                     await asyncio.wait_for(websocket_found.wait(), timeout=12.0)
                 except asyncio.TimeoutError:
@@ -202,9 +241,7 @@ class WebSocketParser:
                     await evolution_page.reload()
                     await asyncio.wait_for(websocket_found.wait(), timeout=8.0)
                 
-                # 결과 처리
-                unique_urls = self._validate_and_filter_websockets(list(set(websocket_urls)))
-                return unique_urls
+                return self._validate_and_filter_websockets(list(set(websocket_urls)))
                 
             except Exception as e:
                 self.logger.error(f"기존 브라우저 연결 중 오류: {e}")
@@ -214,7 +251,6 @@ class WebSocketParser:
         """폴백: 새 브라우저로 웹소켓 탐지"""
         websocket_urls = []
         
-        # 기존 브라우저에서 URL 가져오기
         target_url = self._get_target_url()
         if not target_url:
             return []
@@ -223,7 +259,7 @@ class WebSocketParser:
         
         async with async_playwright() as p:
             browser = await p.chromium.launch(
-                headless=True,  # 폴백은 숨김 모드
+                headless=True,
                 args=[
                     '--disable-web-security',
                     '--no-sandbox',
@@ -235,14 +271,12 @@ class WebSocketParser:
                 context = await browser.new_context()
                 page = await context.new_page()
 
-                # WebSocket 감지
                 def on_websocket(ws):
                     websocket_urls.append(ws.url)
                     self.logger.info(f"📡 WebSocket 연결 감지: {ws.url}")
                 
                 page.on("websocket", on_websocket)
                 
-                # 페이지 로드
                 await page.goto(target_url, wait_until="networkidle", timeout=30000)
                 await page.wait_for_timeout(5000)
                 
@@ -264,31 +298,19 @@ class WebSocketParser:
 
         return self._validate_and_filter_websockets(list(set(websocket_urls)))
 
-    def _fallback_websocket_detection(self) -> List[str]:
-        """동기 폴백 웹소켓 탐지"""
-        try:
-            self.logger.info("🔄 동기 폴백 웹소켓 탐지 시작")
-            return asyncio.run(self._fallback_new_browser())
-        except Exception as e:
-            self.logger.error(f"폴백 웹소켓 탐지 실패: {e}")
-            return []
-
     def _get_target_url(self) -> Optional[str]:
         """기존 브라우저에서 현재 URL 가져오기"""
         try:
             if not self.devtools or not self.devtools.driver:
                 return None
             
-            # 에볼루션 창 찾기
             window_handles = self.devtools.driver.window_handles
             if len(window_handles) >= 2:
-                # 에볼루션 창으로 전환
                 self.devtools.driver.switch_to.window(window_handles[1])
                 current_url = self.devtools.driver.current_url
                 self.logger.info(f"기존 브라우저 URL: {current_url}")
                 return current_url
             else:
-                # 현재 창의 URL 사용
                 return self.devtools.driver.current_url
                 
         except Exception as e:
@@ -322,7 +344,6 @@ class WebSocketParser:
         if len(url) < 10:
             return False
         
-        # 에볼루션 웹소켓인지 확인
         url_lower = url.lower()
         return any(keyword in url_lower for keyword in [
             'evo-games.com', 'evolution', 'lobby', 'socket'
@@ -344,7 +365,6 @@ class WebSocketParser:
             
             valid_urls.append(clean_url)
         
-        # 에볼루션 우선순위 정렬
         def evolution_priority(url):
             priority = 0
             url_lower = url.lower()
@@ -365,21 +385,60 @@ class WebSocketParser:
         valid_urls.sort(key=evolution_priority)
         return valid_urls
 
-    def get_best_websocket_url(self) -> Optional[str]:
-        """최적의 웹소켓 URL 하나 반환"""
-        try:
-            urls = self.auto_detect_websocket_urls()
-            
-            if not urls:
+    def get_best_websocket_url_async(self, callback: Optional[Callable[[Optional[str]], None]] = None) -> Future[Optional[str]]:
+        """비동기로 최적의 웹소켓 URL 하나 반환"""
+        def process_result(result: WebSocketResult) -> Optional[str]:
+            if result.success and result.urls:
+                best_url = result.urls[0]
+                self.logger.info(f"🎯 최적 웹소켓 URL 선택: {best_url}")
+                if callback:
+                    callback(best_url)
+                return best_url
+            else:
                 self.logger.warning("❌ 웹소켓 URL을 찾을 수 없습니다.")
+                if callback:
+                    callback(None)
                 return None
-            
-            # 가장 우선순위가 높은 URL 반환
-            best_url = urls[0]
-            self.logger.info(f"🎯 최적 웹소켓 URL 선택: {best_url}")
-            
-            return best_url
-            
+        
+        def wrapper_callback(result: WebSocketResult):
+            process_result(result)
+        
+        future = self.auto_detect_websocket_urls_async(wrapper_callback)
+        
+        # Future를 반환하되, 결과를 최적 URL로 변환
+        def transform_future():
+            try:
+                result = future.result()
+                return process_result(result)
+            except Exception as e:
+                self.logger.error(f"웹소켓 URL 탐지 중 오류: {e}")
+                return None
+        
+        return self._executor.submit(transform_future)
+
+    def get_best_websocket_url(self) -> Optional[str]:
+        """동기 최적의 웹소켓 URL 반환 (기존 호환성)"""
+        try:
+            future = self.get_best_websocket_url_async()
+            return future.result(timeout=30)
         except Exception as e:
             self.logger.error(f"웹소켓 URL 탐지 중 오류: {e}")
             return None
+
+    def cancel_current_operation(self):
+        """현재 진행 중인 작업 취소"""
+        if self._current_future and not self._current_future.done():
+            self.logger.info("🛑 웹소켓 추출 작업 취소 중...")
+            self._current_future.cancel()
+
+    def shutdown(self):
+        """리소스 정리"""
+        self._shutdown = True
+        self.cancel_current_operation()
+        self._executor.shutdown(wait=False)
+        self.logger.info("🔚 WebSocketParser 종료됨")
+
+    def __del__(self):
+        """소멸자에서 리소스 정리"""
+        if not self._shutdown:
+            self.shutdown()
