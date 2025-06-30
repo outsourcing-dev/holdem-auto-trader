@@ -5,10 +5,14 @@ import re
 import subprocess
 import platform
 import logging
+import random
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 class DevToolsController:
     def __init__(self, logger=None):
-        self.driver = None  # 초기에는 브라우저 실행 X
+        self.driver = None
         self.logger = logger or logging.getLogger(__name__)
 
     def get_chrome_version(self):
@@ -18,7 +22,6 @@ class DevToolsController:
         
         try:
             if system == "Windows":
-                # Windows에서 Chrome 레지스트리 경로
                 import winreg
                 key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Google\Chrome\BLBeacon')
                 version, _ = winreg.QueryValueEx(key, 'version')
@@ -37,7 +40,6 @@ class DevToolsController:
                 )
                 version = process.communicate()[0].decode('UTF-8').replace('Google Chrome', '').strip()
             
-            # 버전에서 메이저 버전 추출 (예: "92.0.4515.107" -> 92)
             if version:
                 version_match = re.search(r'(\d+)\.', version)
                 if version_match:
@@ -47,280 +49,168 @@ class DevToolsController:
             print(f"[WARNING] Chrome 버전 감지 중 오류 발생: {e}")
             print("[INFO] 기본 ChromeDriver 사용")
         
-        return None  # 버전을 감지할 수 없는 경우
+        return None
 
     def start_browser(self):
-        """Chrome 브라우저 실행 - Chrome 137 최적화 버전"""
-        # 이미 실행 중인 경우 먼저 닫기
+        """Chrome 버전 호환성 문제 해결 - 강제 버전 지정"""
         if self.driver:
             try:
                 self.close_browser()
-                time.sleep(1)
+                time.sleep(2)
                 print("[INFO] 기존 브라우저 종료 완료")
             except Exception as e:
                 print(f"[WARNING] 기존 브라우저 종료 실패: {e}")
                 self.driver = None
 
-        # ✅ Chrome 137 호환 최적화: 단순한 설정으로 바로 시작
+        # Chrome 137 버전 강제 지정으로 시도
         try:
-            print("[INFO] Chrome 137 호환 모드로 브라우저 시작...")
+            print("[INFO] Chrome 137 호환 ChromeDriver로 브라우저 시작...")
+            options = self._create_minimal_safe_options()
             
-            # 가장 안전한 옵션으로 시작
-            options = self._create_chrome137_compatible_options()
-            
-            # 버전 지정 없이 바로 시작 (호환성 문제 회피)
-            self.driver = uc.Chrome(options=options)
+            # Chrome 137 전용 ChromeDriver 사용
+            self.driver = uc.Chrome(
+                options=options,
+                version_main=137,  # Chrome 137 버전 명시적 지정
+                driver_executable_path=None,
+                browser_executable_path=None
+            )
             
             if self.driver:
-                self._post_browser_setup()
+                self._configure_minimal_settings()
                 print("[INFO] Chrome 137 호환 브라우저 시작 완료")
                 return True
                 
         except Exception as e:
-            print(f"[WARNING] Chrome 137 호환 모드 실패: {e}")
+            print(f"[WARNING] Chrome 137 전용 시도 실패: {e}")
             self.driver = None
+
+        # 백업: 버전 자동 감지로 시도
+        try:
+            print("[INFO] 버전 자동 감지로 재시도...")
+            options = self._create_ultra_minimal_options()
             
-            # ✅ 백업: 최소한의 설정으로 재시도
-            try:
-                print("[INFO] 최소 설정으로 재시도...")
-                options = self._create_ultra_minimal_options()
-                self.driver = uc.Chrome(options=options)
+            # 가장 기본적인 설정으로 시도
+            self.driver = uc.Chrome(options=options)
+            
+            if self.driver:
+                self.driver.implicitly_wait(5)
+                print("[INFO] 자동 감지 브라우저 시작 완료")
+                return True
                 
-                if self.driver:
-                    self._post_browser_setup_minimal()
-                    print("[INFO] 최소 설정 브라우저 시작 완료")
-                    return True
-                    
-            except Exception as final_error:
-                print(f"[ERROR] 최종 브라우저 시작 실패: {final_error}")
-                self.driver = None
-                return False
-        
+        except Exception as e:
+            print(f"[ERROR] 모든 브라우저 시작 시도 실패: {e}")
+            print("[SOLUTION] 해결 방법:")
+            print("1. Chrome을 최신 버전(138+)으로 업데이트")
+            print("2. 또는 undetected_chromedriver를 재설치: pip install --upgrade undetected-chromedriver")
+            print("3. 또는 수동으로 ChromeDriver 137 다운로드")
+            self.driver = None
+            return False
+
         return False
 
-    def _create_chrome137_compatible_options(self):
-        """Chrome 137 완전 호환 옵션 - 디버깅 포트 추가"""
-        try:
-            options = uc.ChromeOptions()
-            options.headless = False
-            
-            # ✅ Chrome 137에서 확실히 작동하는 최소 옵션만
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-            
-            # ✅ 디버깅 포트 추가 (Playwright 연결용)
-            options.add_argument("--remote-debugging-port=9222")
-            
-            print("[INFO] Chrome 137 완전 호환 옵션 설정 (디버깅 포트 포함)")
-            return options
-            
-        except Exception as e:
-            print(f"[ERROR] Chrome 137 호환 옵션 생성 실패: {e}")
-            return self._create_ultra_minimal_options()
+    def _create_minimal_safe_options(self):
+        """Chrome 137에서 확실히 작동하는 최소 옵션"""
+        options = uc.ChromeOptions()
+        
+        # Chrome 137에서 확실히 지원되는 기본 옵션만
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--remote-debugging-port=9222")
+        
+        # 자동화 감지 방지 (Chrome 137 호환)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        
+        print("[INFO] Chrome 137 최소 안전 옵션 설정 완료")
+        return options
 
     def _create_ultra_minimal_options(self):
-        """초최소 Chrome 옵션 (최후의 수단) - 디버깅 포트 추가"""
-        try:
-            options = uc.ChromeOptions()
-            options.headless = False
-            
-            # ✅ 디버깅 포트는 반드시 추가
-            options.add_argument("--remote-debugging-port=9222")
-            
-            print("[INFO] 초최소 Chrome 옵션 설정 (디버깅 포트 포함)")
-            return options
-            
-        except Exception as e:
-            print(f"[ERROR] 초최소 Chrome 옵션 생성 실패: {e}")
-            # 최후의 수단에도 디버깅 포트 추가
-            options = uc.ChromeOptions()
-            options.add_argument("--remote-debugging-port=9222")
-            return options
+        """가장 기본적인 옵션 (최후의 수단)"""
+        options = uc.ChromeOptions()
+        
+        # 필수 옵션만
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        
+        print("[INFO] 울트라 미니멀 옵션 설정 완료")
+        return options
 
-    def _create_stable_chrome_options(self):
-        """안정적인 Chrome 옵션 (성공률 높음) - Chrome 137 호환"""
+    def _configure_minimal_settings(self):
+        """최소한의 안전한 설정만 적용"""
         try:
-            options = uc.ChromeOptions()
-            options.headless = False
-            
-            # ✅ Chrome 137에서 안전한 기본 설정만 사용
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--disable-extensions")
-            
-            # ✅ 디버깅 포트 추가
-            options.add_argument("--remote-debugging-port=9222")
-            
-            # ✅ 실험적 옵션 완전 제거 (Chrome 137 호환성 문제 해결)
-            # options.add_experimental_option("useAutomationExtension", False)
-            # options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            
-            print("[INFO] Chrome 137 호환 안정적인 옵션 설정 완료 (디버깅 포트 포함)")
-            return options
-            
-        except Exception as e:
-            print(f"[ERROR] 안정적인 Chrome 옵션 설정 오류: {e}")
-            return self._create_minimal_chrome_options()
-
-    def _create_minimal_chrome_options(self):
-        """최소한의 Chrome 옵션 (백업용)"""
-        try:
-            options = uc.ChromeOptions()
-            options.headless = False
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            
-            # ✅ 디버깅 포트 추가
-            options.add_argument("--remote-debugging-port=9222")
-            
-            print("[INFO] 최소한의 Chrome 옵션 설정 완료 (디버깅 포트 포함)")
-            return options
-            
-        except Exception as e:
-            print(f"[ERROR] 최소한의 Chrome 옵션 생성 오류: {e}")
-            return self._create_basic_chrome_options()
-
-    def _create_basic_chrome_options(self):
-        """기본 Chrome 옵션 (최후의 수단)"""
-        try:
-            options = uc.ChromeOptions()
-            options.headless = False
-            
-            # ✅ 디버깅 포트 추가
-            options.add_argument("--remote-debugging-port=9222")
-            
-            print("[INFO] 기본 Chrome 옵션 설정 완료 (디버깅 포트 포함)")
-            return options
-            
-        except Exception as e:
-            print(f"[ERROR] 기본 Chrome 옵션 생성 실패: {e}")
-            # 최후의 수단
-            options = uc.ChromeOptions()
-            options.add_argument("--remote-debugging-port=9222")
-            return options
-
-    def _post_browser_setup(self):
-        """브라우저 시작 후 추가 설정 - Chrome 137 최적화 버전"""
-        try:
-            if not self.driver:
-                return False
-            
-            # 기본 설정만 적용
             self.driver.implicitly_wait(10)
             self.driver.set_page_load_timeout(30)
             
-            print("[INFO] 기본 브라우저 설정 완료")
+            # Chrome 137에서 안전한 스크립트만 실행
+            try:
+                self.driver.execute_script("console.log('Browser initialized');")
+                print("[INFO] 기본 JavaScript 실행 테스트 성공")
+            except Exception as js_error:
+                print(f"[WARNING] JavaScript 실행 실패: {js_error}")
             
-            # ✅ Performance Logging 테스트 제거 (Chrome 137에서 지원 안함)
-            # Performance Logging이 필요한 경우에만 별도로 테스트
-            
-            # CDP 설정 시도 (선택적)
-            self._setup_cdp_if_available()
-            
-            # WebSocket 후킹 설정 (선택적)
-            self._setup_websocket_hooks()
-            
+            print("[INFO] 최소 설정 적용 완료")
             return True
             
         except Exception as e:
-            print(f"[WARNING] 브라우저 후처리 설정 중 오류: {e}")
+            print(f"[WARNING] 최소 설정 적용 중 오류: {e}")
             return False
 
-    def _test_performance_logging_if_needed(self):
-        """필요한 경우에만 Performance Logging 테스트"""
-        try:
-            logs = self.driver.get_log("performance")
-            print(f"[INFO] ✅ Performance Logging 사용 가능 ({len(logs)}개 로그)")
-            return True
-        except Exception as e:
-            print(f"[INFO] ℹ️ Performance Logging 미지원 (Chrome 137+에서 정상)")
-            return False
+    def _create_stealth_options(self):
+        """최소한의 실험적 옵션 제거 버전"""
+        options = uc.ChromeOptions()
+        
+        # Chrome 137에서 확실히 지원되는 옵션만 사용
+        options.add_argument("--no-first-run")
+        options.add_argument("--no-default-browser-check")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--remote-debugging-port=9222")
+        
+        # 임시 프로파일 (Windows 경로 호환)
+        temp_profile = f"C:\\temp\\chrome_profile_{random.randint(1000, 9999)}"
+        options.add_argument(f"--user-data-dir={temp_profile}")
+        
+        # 실험적 옵션 완전 제거 (Chrome 137 호환성 문제)
+        print("[INFO] Chrome 137 호환 옵션 설정 완료 (실험적 옵션 제거)")
+        return options
 
-    def _post_browser_setup_minimal(self):
-        """최소한의 브라우저 설정 (백업용)"""
+    def _configure_stealth_settings(self):
+        """브라우저 시작 후 스텔스 설정 적용"""
         try:
-            if not self.driver:
-                return False
+            # 기본 타임아웃 설정
+            self.driver.implicitly_wait(10)
+            self.driver.set_page_load_timeout(30)
             
-            # 가장 기본적인 설정만
-            self.driver.implicitly_wait(5)
-            self.driver.set_page_load_timeout(20)
+            # 자동화 관련 JavaScript 속성 제거
+            self.driver.execute_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined,
+                });
+            """)
             
-            print("[INFO] 최소 브라우저 설정 완료")
-            return True
-            
-        except Exception as e:
-            print(f"[WARNING] 최소 브라우저 설정 중 오류: {e}")
-            return False
-
-    def _setup_cdp_if_available(self):
-        """CDP 사용 가능하면 설정"""
-        try:
-            # CDP 명령 테스트
-            self.driver.execute_cdp_cmd('Runtime.evaluate', {'expression': '1+1'})
-            
-            # Network 도메인 활성화
-            self.driver.execute_cdp_cmd('Network.enable', {})
-            self.driver.execute_cdp_cmd('Runtime.enable', {})
-            
-            print("[INFO] ✅ CDP를 통한 Network 도메인 활성화 성공")
-            return True
-            
-        except Exception as e:
-            print(f"[WARNING] CDP 설정 실패 (무시하고 계속): {e}")
-            return False
-
-    def _setup_websocket_hooks(self):
-        """WebSocket 연결 감지를 위한 JavaScript 후킹 설정"""
-        try:
-            websocket_hook_script = """
-            // WebSocket 후킹을 위한 글로벌 저장소
-            if (!window.websocketCapture) {
-                window.websocketCapture = {
-                    urls: [],
-                    connections: [],
-                    setupComplete: true
-                };
+            # Navigator 속성들을 실제 브라우저처럼 설정
+            self.driver.execute_script("""
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['ko-KR', 'ko', 'en-US', 'en'],
+                });
                 
-                // 기존 WebSocket 생성자 백업
-                window.OriginalWebSocket = window.WebSocket;
-                
-                // WebSocket 생성자 후킹
-                window.WebSocket = function(url, protocols) {
-                    console.log('🔗 WebSocket 연결 감지:', url);
-                    window.websocketCapture.urls.push(url);
-                    
-                    const ws = new window.OriginalWebSocket(url, protocols);
-                    window.websocketCapture.connections.push(ws);
-                    
-                    // 이벤트 리스너 추가
-                    ws.addEventListener('open', function() {
-                        console.log('📡 WebSocket 연결 열림:', url);
-                    });
-                    
-                    return ws;
-                };
-                
-                console.log('WebSocket 후킹 설정 완료');
-            }
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5],
+                });
+            """)
             
-            return window.websocketCapture.setupComplete ? 'WebSocket 후킹 활성화됨' : 'WebSocket 후킹 실패';
-            """
-            
-            result = self.driver.execute_script(websocket_hook_script)
-            print(f"[INFO] WebSocket 후킹 설정: {result}")
+            print("[INFO] 스텔스 설정 적용 완료")
             return True
             
         except Exception as e:
-            print(f"[WARNING] WebSocket 후킹 설정 실패: {e}")
+            print(f"[WARNING] 스텔스 설정 적용 중 오류: {e}")
             return False
 
-    def open_site(self, url):
-        """사이트 열기 - 최적화된 버전"""
+    def open_site(self, url, wait_for_cloudflare=True):
+        """Cloudflare 체크를 고려한 사이트 열기"""
         try:
-            # 브라우저가 없으면 시작
             if not self.driver:
                 print("[INFO] 브라우저가 실행되지 않아 start_browser() 호출")
                 start_success = self.start_browser()
@@ -334,135 +224,131 @@ class DevToolsController:
 
             print(f"[INFO] 사이트 이동: {url}")
             
-            try:
-                self.driver.get(url)
-                print(f"[INFO] 사이트 로드 완료: {url}")
-            except Exception as e:
-                print(f"[ERROR] 페이지 이동 중 오류 발생: {e}")
-                return False
-                    
-            time.sleep(2)  # 페이지 로딩 대기
-            return True
+            # 랜덤 지연으로 자연스럽게
+            time.sleep(random.uniform(1, 3))
             
+            self.driver.get(url)
+            
+            if wait_for_cloudflare:
+                return self._handle_cloudflare_check()
+            else:
+                time.sleep(2)
+                return True
+                
         except Exception as e:
             print(f"[ERROR] 사이트 열기 실패: {e}")
             return False
 
+    def _handle_cloudflare_check(self):
+        """Cloudflare 보안 검사 처리"""
+        try:
+            print("[INFO] Cloudflare 보안 검사 대기 중...")
+            
+            # Cloudflare 체크 페이지 감지
+            max_wait_time = 30  # 최대 30초 대기
+            start_time = time.time()
+            
+            while time.time() - start_time < max_wait_time:
+                current_url = self.driver.current_url
+                page_source = self.driver.page_source.lower()
+                
+                # Cloudflare 체크 페이지 패턴 감지
+                cf_patterns = [
+                    "checking your browser",
+                    "verifying you are human",
+                    "please wait",
+                    "security check",
+                    "cloudflare",
+                    "작업을 완료하여 사람인지 확인"
+                ]
+                
+                is_cf_page = any(pattern in page_source for pattern in cf_patterns)
+                
+                if is_cf_page:
+                    print(f"[INFO] Cloudflare 보안 검사 진행 중... ({int(time.time() - start_time)}초)")
+                    
+                    # 자연스러운 마우스 움직임 시뮬레이션
+                    self._simulate_human_behavior()
+                    
+                    time.sleep(2)
+                    continue
+                else:
+                    print("[INFO] Cloudflare 보안 검사 통과 완료")
+                    return True
+            
+            # 타임아웃 발생
+            print("[WARNING] Cloudflare 보안 검사 타임아웃")
+            return False
+            
+        except Exception as e:
+            print(f"[ERROR] Cloudflare 처리 중 오류: {e}")
+            return False
+
+    def _simulate_human_behavior(self):
+        """사람처럼 행동하는 패턴 시뮬레이션"""
+        try:
+            # 랜덤한 마우스 움직임
+            self.driver.execute_script("""
+                // 랜덤한 스크롤
+                window.scrollBy(0, Math.random() * 100 - 50);
+                
+                // 마우스 이벤트 시뮬레이션
+                document.dispatchEvent(new MouseEvent('mousemove', {
+                    clientX: Math.random() * window.innerWidth,
+                    clientY: Math.random() * window.innerHeight
+                }));
+            """)
+            
+            # 랜덤 지연
+            time.sleep(random.uniform(0.5, 1.5))
+            
+        except Exception as e:
+            print(f"[WARNING] 인간 행동 시뮬레이션 실패: {e}")
+
+    def wait_for_element(self, selector, timeout=10):
+        """요소가 나타날 때까지 대기"""
+        try:
+            wait = WebDriverWait(self.driver, timeout)
+            element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+            return element
+        except Exception as e:
+            print(f"[WARNING] 요소 대기 실패: {e}")
+            return None
+
     def close_browser(self):
-        """브라우저 종료 - 에러 처리 강화"""
+        """브라우저 종료"""
         if self.driver:
             try:
                 self.driver.quit()
-                self.driver = None  # 종료 후 드라이버 변수 초기화
+                self.driver = None
                 print("[INFO] 브라우저 종료됨")
                 return True
             except Exception as e:
                 print(f"[WARNING] 브라우저 종료 중 오류: {e}")
-                self.driver = None  # 오류 시에도 참조 초기화
+                self.driver = None
                 return False
-        return True  # 이미 닫혀 있는 경우
+        return True
 
     def get_page_source(self):
         """현재 페이지의 HTML 가져오기"""
         if not self.driver:
             print("[ERROR] 브라우저가 실행되지 않음")
             return None
-        return self.driver.page_source  # HTML 반환
+        return self.driver.page_source
 
     def get_redirected_url(self):
         """현재 브라우저의 URL을 가져오는 함수"""
         if not self.driver:
             print("[ERROR] WebDriver가 실행되지 않음")
             return None
-        return self.driver.current_url  # 현재 URL 반환
-    
-    def clear_browser_cache(self):
-        """브라우저 캐시 및 쿠키 삭제"""
-        try:
-            if self.driver:
-                self.driver.execute_cdp_cmd('Network.clearBrowserCache', {})
-                self.driver.execute_cdp_cmd('Network.clearBrowserCookies', {})
-                print("[INFO] 브라우저 캐시 및 쿠키 삭제 완료")
-                return True
-            return False
-        except Exception as e:
-            print(f"[ERROR] 캐시 삭제 중 오류: {e}")
-            return False
-
-    # ✅ Performance Logging 관련 메서드들 (안전한 버전)
-    def get_performance_logs(self):
-        """Performance 로그 안전하게 가져오기 - Chrome 137 호환"""
-        try:
-            if not self.driver:
-                return []
-            
-            # Chrome 137+에서는 performance 로그가 지원되지 않을 수 있음
-            return self.driver.get_log("performance")
-            
-        except Exception as e:
-            # Chrome 137+에서는 정상적인 동작이므로 경고 레벨 낮춤
-            # print(f"[WARNING] Performance 로그 가져오기 실패: {e}")
-            return []
-
-    def get_browser_logs(self):
-        """Browser 콘솔 로그 안전하게 가져오기"""
-        try:
-            if not self.driver:
-                return []
-            
-            return self.driver.get_log("browser")
-            
-        except Exception as e:
-            print(f"[WARNING] Browser 로그 가져오기 실패: {e}")
-            return []
-
-    def get_captured_websockets(self):
-        """JavaScript 후킹으로 캡처된 웹소켓 URL들 가져오기"""
-        try:
-            if not self.driver:
-                return []
-            
-            urls = self.driver.execute_script("""
-                return window.websocketCapture ? 
-                    window.websocketCapture.urls || [] : 
-                    [];
-            """)
-            return urls or []
-            
-        except Exception as e:
-            print(f"[WARNING] 캡처된 웹소켓 URL 가져오기 실패: {e}")
-            return []
-
-    def execute_javascript(self, script):
-        """JavaScript 실행"""
-        try:
-            if not self.driver:
-                return None
-            return self.driver.execute_script(script)
-        except Exception as e:
-            print(f"[WARNING] JavaScript 실행 실패: {e}")
-            return None
-
-    def refresh_page(self):
-        """페이지 새로고침"""
-        try:
-            if not self.driver:
-                return False
-            self.driver.refresh()
-            return True
-        except Exception as e:
-            print(f"[WARNING] 페이지 새로고침 실패: {e}")
-            return False
+        return self.driver.current_url
 
     def is_driver_alive(self):
         """드라이버가 살아있는지 확인"""
         try:
             if not self.driver:
                 return False
-            
-            # 간단한 명령으로 연결 상태 확인
             self.driver.current_url
             return True
-            
         except Exception:
             return False
