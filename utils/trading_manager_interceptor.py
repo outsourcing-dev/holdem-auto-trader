@@ -1,15 +1,14 @@
-# utils/trading_manager.py (완전한 디버그 강화 버전)
+# utils/trading_manager_interceptor.py
 """
 웹소켓 인터셉터 기반 TradingManager
 - 기존 웹소켓 연결을 모니터링하여 게임 데이터 수집
 - 직접 연결 없이 CDP를 통한 메시지 가로채기
-- 강화된 디버그 및 데이터 수집 모니터링
 """
 
 import time
 import logging
 from PyQt6.QtWidgets import QMessageBox, QApplication
-from PyQt6.QtCore import QThread, QTimer
+from PyQt6.QtCore import QThread
 
 # 기존 imports
 from services.room_entry_service import RoomEntryService
@@ -22,7 +21,10 @@ from utils.settings_manager import SettingsManager
 from utils.trading_manager_helpers import TradingManagerHelpers, get_widget_position
 from utils.devtools import DevToolsController
 
-class TradingManager:
+# 새로운 웹소켓 인터셉터
+from services.websocket_interceptor import WebSocketInterceptor
+
+class TradingManagerInterceptor:
     """웹소켓 인터셉터 기반 자동매매 매니저"""
 
     def __init__(self, main_window, logger=None):
@@ -172,15 +174,11 @@ class TradingManager:
             )
 
     def _start_websocket_interceptor(self) -> bool:
-        """웹소켓 인터셉터 시작 - URL 추출 로깅 포함"""
+        """웹소켓 인터셉터 시작"""
         try:
             self.logger.info("🎯 웹소켓 인터셉터 초기화")
             
-            # =============== 1단계: 웹소켓 URL 추출 (이전 방식 유지) ===============
-            websocket_urls = self._extract_websocket_urls_for_logging()
-            
-            # =============== 2단계: 웹소켓 인터셉터 생성 ===============
-            from services.websocket_interceptor import WebSocketInterceptor
+            # 웹소켓 인터셉터 생성
             self.websocket_interceptor = WebSocketInterceptor(
                 devtools=self.devtools,
                 logger=self.logger
@@ -202,59 +200,15 @@ class TradingManager:
             self.logger.error(f"웹소켓 인터셉터 시작 오류: {e}")
             return False
 
-    def _extract_websocket_urls_for_logging(self) -> list:
-        """웹소켓 URL 추출 및 로깅 (이전 로그 형식 유지)"""
-        try:
-            self.logger.info("⚡ 웹소켓 URL 추출 시작")
-            start_time = time.time()
-            
-            # WebSocketParser 사용 (이전 방식)
-            from services.websocket_parser import WebSocketParser
-            ws_parser = WebSocketParser(self.devtools, self.logger)
-            
-            # URL 추출 실행
-            websocket_urls = []
-            try:
-                # 기존 auto_detect_websocket_urls 메서드 호출
-                websocket_urls = ws_parser.auto_detect_websocket_urls()
-            except Exception as e:
-                self.logger.warning(f"웹소켓 URL 추출 중 오류: {e}")
-                websocket_urls = []
-            
-            elapsed_time = time.time() - start_time
-            
-            # 이전과 동일한 로그 형식으로 출력
-            if websocket_urls:
-                # 첫 번째 URL 로깅 (이전 형식)
-                first_url = websocket_urls[0]
-                self.logger.info(f"📡 WebSocket 연결 감지: {first_url}")
-                self.logger.info(f"✅ 웹소켓 URL 추출 완료 ({elapsed_time:.1f}초, {len(websocket_urls)}개 발견)")
-                self.logger.info(f"✅ 웹소켓 URL 추출 성공: {first_url[:100]}...")
-                
-                # 연결 감지 시그널 발송
-                self._on_websocket_connection_detected(first_url)
-            else:
-                self.logger.warning(f"❌ 웹소켓 URL 추출 실패 ({elapsed_time:.1f}초)")
-            
-            # 정리
-            if hasattr(ws_parser, 'shutdown'):
-                ws_parser.shutdown()
-            
-            return websocket_urls
-            
-        except Exception as e:
-            self.logger.error(f"웹소켓 URL 추출 오류: {e}")
-            return []
-
     def _connect_interceptor_signals(self):
-        """웹소켓 인터셉터 시그널 연결 - 디버그 강화"""
+        """웹소켓 인터셉터 시그널 연결"""
         try:
             if not self.websocket_interceptor:
                 return
                 
-            # 웹소켓 메시지 수신 시그널 (디버그 강화)
+            # 웹소켓 메시지 수신 시그널
             self.websocket_interceptor.websocket_message_received.connect(
-                self._on_websocket_message_received_debug
+                self._on_websocket_message_received
             )
             
             # 게임 데이터 추출 시그널
@@ -277,61 +231,22 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"인터셉터 시그널 연결 오류: {e}")
 
-    def _on_websocket_message_received_debug(self, ws_message: dict):
-        """웹소켓 메시지 수신 시 처리 - 디버그 버전"""
+    def _on_websocket_message_received(self, ws_message: dict):
+        """웹소켓 메시지 수신 시 처리"""
         try:
             self.message_count += 1
             
-            # 처음 20개 메시지는 상세 로그 출력
-            if self.message_count <= 20:
-                direction = ws_message.get('direction', 'unknown')
-                payload = ws_message.get('payload', '')
-                payload_length = len(payload)
-                payload_preview = payload[:200] + '...' if len(payload) > 200 else payload
-                
-                self.logger.info(f"📨 메시지 #{self.message_count} [{direction}] ({payload_length}자)")
-                self.logger.info(f"   내용: {payload_preview}")
-                
-                # JSON인지 확인
-                if payload.strip().startswith('{') or payload.strip().startswith('['):
-                    try:
-                        import json
-                        parsed = json.loads(payload)
-                        self.logger.info(f"   📄 JSON 파싱 성공: {type(parsed)} ({len(str(parsed))}자)")
-                        
-                        # 바카라 관련 키워드 체크
-                        payload_str = str(parsed).lower()
-                        baccarat_keywords = ['baccarat', 'player', 'banker', 'tie', 'round', 'game', 'table', 'result']
-                        found_keywords = [kw for kw in baccarat_keywords if kw in payload_str]
-                        
-                        if found_keywords:
-                            self.logger.info(f"   🎰 바카라 관련 키워드 발견: {found_keywords}")
-                        else:
-                            self.logger.info(f"   ❓ 바카라 키워드 없음")
-                            
-                    except json.JSONDecodeError:
-                        self.logger.info(f"   ❌ JSON 파싱 실패")
-                else:
-                    # 텍스트 메시지 키워드 체크
-                    payload_lower = payload.lower()
-                    baccarat_keywords = ['baccarat', 'player', 'banker', 'tie', 'round', 'game']
-                    found_keywords = [kw for kw in baccarat_keywords if kw in payload_lower]
-                    
-                    if found_keywords:
-                        self.logger.info(f"   🎰 텍스트에서 바카라 키워드 발견: {found_keywords}")
-                    else:
-                        self.logger.info(f"   📝 일반 텍스트 메시지")
+            if self.message_count % 100 == 0:
+                self.logger.info(f"📊 웹소켓 메시지 수신: {self.message_count}개")
             
-            # 매 100개마다 통계 출력
-            elif self.message_count % 100 == 0:
-                self.logger.info(f"📊 웹소켓 메시지 수신 총계: {self.message_count}개")
+            # 디버그용 로그 (첫 10개 메시지만)
+            if self.message_count <= 10:
+                direction = ws_message.get('direction', 'unknown')
+                payload_preview = ws_message.get('payload', '')[:100]
+                self.logger.info(f"📨 웹소켓 메시지 [{direction}]: {payload_preview}...")
                 
-                # 인터셉터 상태 체크
-                stats = self.get_interceptor_status()
-                self.logger.info(f"📈 인터셉터 상태: 버퍼={stats.get('message_buffer_size', 0)}, 연결={stats.get('websocket_connections', 0)}")
-                    
         except Exception as e:
-            self.logger.error(f"웹소켓 메시지 디버그 처리 오류: {e}")
+            self.logger.error(f"웹소켓 메시지 수신 처리 오류: {e}")
 
     def _on_game_data_extracted(self, game_data: dict):
         """게임 데이터 추출 시 처리"""
@@ -588,176 +503,33 @@ class TradingManager:
             return False
 
     def _start_room_monitoring(self):
-        """방 모니터링 시작 - 서버 검색 완전 제거, 데이터 수집만 집중"""
+        """방 모니터링 시작 (인터셉터 기반)"""
         try:
             self.logger.info("🏠 인터셉터 기반 방 모니터링 시작")
-            self.logger.info("💡 웹소켓 데이터 수집에만 집중 (방 입장 건너뜀)")
             
-            # 🔥 방 입장 로직 완전 제거 - 웹소켓 데이터 수집만 집중
-            self.current_room_name = "웹소켓_데이터_수집_모드"
-            self.game_count = 0
-            self.wait_first_result = True
+            # 방 입장 시도
+            room_name = self.room_entry_service.enter_room()
             
-            # UI 업데이트
-            self.main_window.update_betting_status(room_name="데이터 수집 중...")
-            
-            self.logger.info("✅ 웹소켓 데이터 수집 모드 활성화")
-            
-            # 🔍 데이터 수집 모니터링 시작
-            self._start_data_collection_monitoring()
+            if room_name:
+                self.current_room_name = room_name
+                self.game_count = 0
+                self.wait_first_result = True
+                
+                # UI 업데이트
+                self.main_window.update_betting_status(room_name=room_name)
+                
+                self.logger.info(f"✅ 방 입장 성공: {room_name}")
+                
+                # 게임 상태 확인
+                self._verify_room_game_state()
+                
+            else:
+                self.logger.warning("❌ 방 입장 실패 - 재시도")
+                # 5초 후 재시도
+                self.main_window.set_remaining_time(0, 0, 5)
                 
         except Exception as e:
             self.logger.error(f"방 모니터링 시작 오류: {e}")
-
-    def _start_data_collection_monitoring(self):
-        """데이터 수집 모니터링 시작"""
-        try:
-            self.logger.info("🔍 웹소켓 데이터 수집 모니터링 시작")
-            
-            # 즉시 첫 번째 상태 체크
-            self._immediate_status_check()
-            
-            # 🔥 10초마다 강제 체크 (30초 대신)
-            self.data_check_timer = QTimer()
-            self.data_check_timer.timeout.connect(self._force_check_websocket_activity)
-            self.data_check_timer.start(10000)  # 10초마다
-            
-        except Exception as e:
-            self.logger.error(f"데이터 수집 모니터링 시작 오류: {e}")
-
-    def _immediate_status_check(self):
-        """즉시 상태 체크"""
-        try:
-            self.logger.info("🔎 즉시 상태 체크 실행")
-            
-            # 인터셉터 상태
-            if self.websocket_interceptor:
-                stats = self.websocket_interceptor.get_interceptor_stats()
-                self.logger.info(f"📊 인터셉터 통계:")
-                self.logger.info(f"  - 인터셉팅 활성: {stats.get('is_intercepting', False)}")
-                self.logger.info(f"  - CDP 세션 활성: {stats.get('cdp_session_active', False)}")
-                self.logger.info(f"  - 웹소켓 연결 수: {stats.get('websocket_connections', 0)}")
-                self.logger.info(f"  - 메시지 버퍼: {stats.get('message_buffer_size', 0)}")
-            
-            # 현재 메시지 카운트
-            self.logger.info(f"📈 현재 메시지 수신: {self.message_count}개")
-            
-        except Exception as e:
-            self.logger.error(f"즉시 상태 체크 오류: {e}")
-
-    def _force_check_websocket_activity(self):
-        """강제 웹소켓 활동 체크"""
-        try:
-            self.logger.info(f"🔎 강제 웹소켓 체크 - 현재 메시지: {self.message_count}개")
-            
-            # 브라우저 로그 직접 확인
-            self._check_browser_logs_directly()
-            
-            # CDP 연결 상태 확인
-            self._check_cdp_connection_status()
-            
-            # 웹소켓 연결 강제 확인
-            self._force_websocket_detection()
-            
-        except Exception as e:
-            self.logger.error(f"강제 웹소켓 체크 오류: {e}")
-
-    def _check_browser_logs_directly(self):
-        """브라우저 로그 직접 확인"""
-        try:
-            # Browser 로그 확인
-            browser_logs = self.devtools.driver.get_log('browser')
-            self.logger.info(f"📋 Browser 로그: {len(browser_logs)}개")
-            
-            for log in browser_logs[-5:]:  # 최근 5개만
-                if 'websocket' in str(log).lower():
-                    self.logger.info(f"🔌 Browser 로그에서 웹소켓 발견: {log}")
-            
-            # Driver 로그 확인 
-            try:
-                driver_logs = self.devtools.driver.get_log('driver')
-                self.logger.info(f"📋 Driver 로그: {len(driver_logs)}개")
-            except:
-                self.logger.info("📋 Driver 로그 접근 불가")
-                
-        except Exception as e:
-            self.logger.warning(f"브라우저 로그 확인 실패: {e}")
-
-    def _check_cdp_connection_status(self):
-        """CDP 연결 상태 직접 확인"""
-        try:
-            # CDP 명령 테스트
-            result = self.devtools.driver.execute_cdp_cmd('Runtime.evaluate', {
-                'expression': 'navigator.userAgent'
-            })
-            self.logger.info(f"✅ CDP 연결 정상: {result['result']['value'][:50]}...")
-            
-            # Network 도메인 상태 확인
-            try:
-                network_result = self.devtools.driver.execute_cdp_cmd('Network.getResponseBody', {
-                    'requestId': 'test'
-                })
-            except Exception as e:
-                if 'Invalid' in str(e):
-                    self.logger.info("✅ CDP Network 도메인 활성화 확인됨 (예상된 에러)")
-                else:
-                    self.logger.warning(f"CDP Network 상태: {e}")
-                    
-        except Exception as e:
-            self.logger.error(f"CDP 연결 상태 확인 실패: {e}")
-
-    def _force_websocket_detection(self):
-        """강제 웹소켓 감지 시도"""
-        try:
-            # 현재 페이지에서 웹소켓 확인
-            script = """
-            return {
-                websockets: typeof WebSocket !== 'undefined',
-                activeConnections: window.webSocketConnections ? window.webSocketConnections.length : 0,
-                location: window.location.href,
-                title: document.title
-            };
-            """
-            
-            result = self.devtools.driver.execute_script(script)
-            self.logger.info(f"🌐 페이지 웹소켓 상태: {result}")
-            
-            # Evolution 게임 상태 확인
-            evo_script = """
-            return {
-                evolutionLoaded: typeof window.evolution !== 'undefined',
-                gameState: window.gameState || 'unknown',
-                lobbyActive: document.querySelector('.lobby') !== null
-            };
-            """
-            
-            evo_result = self.devtools.driver.execute_script(evo_script)
-            self.logger.info(f"🎮 Evolution 상태: {evo_result}")
-            
-        except Exception as e:
-            self.logger.warning(f"강제 웹소켓 감지 실패: {e}")
-
-    def _check_browser_current_state(self):
-        """브라우저 현재 상태 체크"""
-        try:
-            if not self.devtools or not self.devtools.driver:
-                self.logger.warning("브라우저 연결 없음")
-                return
-                
-            current_url = self.devtools.driver.current_url
-            current_title = self.devtools.driver.title
-            
-            self.logger.info(f"🌐 현재 페이지: {current_url}")
-            self.logger.info(f"📄 페이지 제목: {current_title}")
-            
-            # Evolution 페이지인지 체크
-            if 'evo-games.com' in current_url.lower():
-                self.logger.info("✅ Evolution Gaming 페이지에 있음")
-            else:
-                self.logger.warning("❌ Evolution Gaming 페이지가 아님")
-                
-        except Exception as e:
-            self.logger.error(f"브라우저 상태 체크 오류: {e}")
 
     def _verify_room_game_state(self):
         """방 입장 후 게임 상태 검증"""
@@ -791,10 +563,6 @@ class TradingManager:
                 return
                 
             self.logger.info("🛑 웹소켓 인터셉터 자동 매매 중지 중...")
-            
-            # 데이터 체크 타이머 정리
-            if hasattr(self, 'data_check_timer'):
-                self.data_check_timer.stop()
             
             # 웹소켓 인터셉터 중지
             if self.websocket_interceptor:
@@ -972,10 +740,6 @@ class TradingManager:
                 self.main_window.timer.stop()
                 QApplication.processEvents()
             
-            # 데이터 체크 타이머도 정리
-            if hasattr(self, 'data_check_timer'):
-                self.data_check_timer.stop()
-            
             # UI 상태 강제 복원
             self.main_window.start_button.setEnabled(True)
             self.main_window.stop_button.setEnabled(False)
@@ -986,109 +750,11 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"비상 정지 중 오류: {e}")
 
-    # ==================== 기존 메서드들 호환성 유지 ====================
-    
-    def _extract_websocket_async(self):
-        """기존 호환성을 위한 더미 메서드"""
-        self.logger.warning("기존 웹소켓 추출 방식은 더 이상 사용되지 않습니다 (인터셉터 방식 사용)")
-        return None
-    
-    def _start_websocket_connection(self, websocket_url):
-        """기존 호환성을 위한 더미 메서드"""
-        self.logger.warning("기존 웹소켓 직접 연결 방식은 더 이상 사용되지 않습니다 (인터셉터 방식 사용)")
-        return False
-    
-    def _process_websocket_game_data(self, game_data):
-        """기존 호환성을 위한 메서드 - 인터셉터 방식으로 리다이렉트"""
-        try:
-            # 인터셉터 방식의 게임 데이터 처리로 리다이렉트
-            self._process_intercepted_game_data(game_data)
-        except Exception as e:
-            self.logger.error(f"게임 데이터 처리 오류: {e}")
-
-    def get_websocket_status(self):
-        """기존 호환성을 위한 메서드 - 인터셉터 상태로 리다이렉트"""
-        return self.get_interceptor_status()
-
-    # ==================== 레거시 메서드들 ====================
-    
-    def _handle_win_result_legacy(self):
-        """기존 승리 처리 로직 (필요시 사용)"""
-        return self._handle_win_result()
-    
-    def _handle_lose_result_legacy(self):
-        """기존 패배 처리 로직 (필요시 사용)"""
-        return self._handle_lose_result()
-    
-    def _handle_tie_result_legacy(self):
-        """기존 무승부 처리 로직 (필요시 사용)"""
-        return self._handle_tie_result()
-
-    # ==================== 추가 유틸리티 메서드들 ====================
-    
-    def force_collect_data(self):
-        """수동 데이터 수집 트리거"""
-        try:
-            if self.websocket_interceptor and self.websocket_intercepting:
-                # 인터셉터의 수동 수집 메서드 호출 (있는 경우)
-                if hasattr(self.websocket_interceptor, 'force_collect_data'):
-                    return self.websocket_interceptor.force_collect_data()
-                else:
-                    self.logger.info("수동 데이터 수집: 인터셉터가 자동으로 수집 중")
-                    return True
-            else:
-                self.logger.warning("인터셉터가 활성화되지 않음")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"수동 데이터 수집 오류: {e}")
-            return False
-
-    def get_connection_stats(self):
-        """연결 통계 반환"""
-        try:
-            return {
-                'interceptor_active': self.websocket_intercepting,
-                'trading_active': self.is_trading_active,
-                'message_count': self.message_count,
-                'current_room': self.current_room_name,
-                'game_count': self.game_count,
-                'result_count': self.result_count,
-                'interceptor_stats': self.get_interceptor_status() if self.websocket_interceptor else {}
-            }
-        except Exception as e:
-            self.logger.error(f"연결 통계 수집 오류: {e}")
-            return {}
-
-    def debug_interceptor_status(self):
-        """디버그용 인터셉터 상태 출력"""
-        try:
-            stats = self.get_interceptor_status()
-            self.logger.info("🔍 인터셉터 디버그 상태:")
-            for key, value in stats.items():
-                self.logger.info(f"  - {key}: {value}")
-            
-            if self.websocket_interceptor:
-                recent_messages = self.get_recent_websocket_messages(3)
-                self.logger.info(f"📋 최근 메시지 {len(recent_messages)}개:")
-                for i, msg in enumerate(recent_messages, 1):
-                    direction = msg.get('direction', 'unknown')
-                    payload_preview = str(msg.get('payload', ''))[:50]
-                    self.logger.info(f"  {i}. [{direction}] {payload_preview}...")
-            else:
-                self.logger.info("  - 인터셉터 인스턴스 없음")
-                
-        except Exception as e:
-            self.logger.error(f"디버그 상태 출력 오류: {e}")
-
     def __del__(self):
         """소멸자 - 리소스 정리"""
         try:
             if hasattr(self, 'websocket_interceptor') and self.websocket_interceptor:
                 self.websocket_interceptor.stop_intercepting()
-            
-            if hasattr(self, 'data_check_timer'):
-                self.data_check_timer.stop()
                 
         except:
             pass
