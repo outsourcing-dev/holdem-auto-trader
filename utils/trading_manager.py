@@ -1,15 +1,14 @@
-# utils/trading_manager.py (완전한 디버그 강화 버전)
 """
-웹소켓 인터셉터 기반 TradingManager
-- 기존 웹소켓 연결을 모니터링하여 게임 데이터 수집
-- 직접 연결 없이 CDP를 통한 메시지 가로채기
-- 강화된 디버그 및 데이터 수집 모니터링
+JavaScript 하이브리드 웹소켓 기반 TradingManager
+- 기존 DevTools 구조 유지
+- JavaScript로 웹소켓 직접 연결
+- 실시간 데이터를 Python으로 전달
 """
 
 import time
 import logging
 from PyQt6.QtWidgets import QMessageBox, QApplication
-from PyQt6.QtCore import QThread, QTimer
+from PyQt6.QtCore import QTimer
 
 # 기존 imports
 from services.room_entry_service import RoomEntryService
@@ -23,7 +22,7 @@ from utils.trading_manager_helpers import TradingManagerHelpers, get_widget_posi
 from utils.devtools import DevToolsController
 
 class TradingManager:
-    """웹소켓 인터셉터 기반 자동매매 매니저"""
+    """JavaScript 하이브리드 웹소켓 기반 자동매매 매니저"""
 
     def __init__(self, main_window, logger=None):
         self.logger = logger or logging.getLogger(__name__)
@@ -42,8 +41,9 @@ class TradingManager:
         self.room_manager = main_window.room_manager
         self.settings_manager = SettingsManager()
 
-        # 웹소켓 인터셉터
-        self.websocket_interceptor = None
+        # JavaScript 하이브리드 웹소켓 서비스
+        self.websocket_service = None
+        self.websocket_interceptor = None  # 호환성 유지
         
         # 상태 관리 속성
         self.is_trading_active = False
@@ -121,9 +121,9 @@ class TradingManager:
             self.logger.error(f"서비스 초기화 오류: {e}", exc_info=True)
 
     def start_trading(self):
-        """웹소켓 인터셉터 기반 자동 매매 시작"""
+        """JavaScript 하이브리드 웹소켓 기반 자동 매매 시작"""
         try:
-            self.logger.info("🚀 웹소켓 인터셉터 기반 자동 매매 시작")
+            self.logger.info("🚀 JavaScript 하이브리드 웹소켓 기반 자동 매매 시작")
             
             # 기본 검증
             if not self.helpers.validate_trading_prerequisites():
@@ -142,25 +142,25 @@ class TradingManager:
             if not self._ensure_evolution_lobby_ready():
                 return
 
-            # 웹소켓 인터셉터 시작
-            if not self._start_websocket_interceptor():
+            # JavaScript 하이브리드 웹소켓 서비스 시작
+            if not self._start_websocket_service():
                 QMessageBox.warning(
                     self.main_window,
-                    "웹소켓 인터셉터 실패",
-                    "웹소켓 메시지 인터셉터를 시작할 수 없습니다."
+                    "웹소켓 서비스 실패",
+                    "JavaScript 웹소켓 서비스를 시작할 수 없습니다."
                 )
                 return
 
             # 자동 매매 활성화
             self.is_trading_active = True
-            self.logger.info("🎯 웹소켓 인터셉터 기반 자동 매매 시작 완료")
+            self.logger.info("🎯 JavaScript 하이브리드 웹소켓 기반 자동 매매 시작 완료")
             
             # UI 업데이트
             self.main_window.start_button.setEnabled(False)
             self.main_window.stop_button.setEnabled(True)
             self.main_window.update_button_styles()
             
-            # 방 입장 시작
+            # 방 모니터링 시작
             self._start_room_monitoring()
 
         except Exception as e:
@@ -171,51 +171,81 @@ class TradingManager:
                 f"자동 매매 시작 중 오류가 발생했습니다.\n{str(e)}"
             )
 
-    def _start_websocket_interceptor(self) -> bool:
-        """웹소켓 인터셉터 시작 - URL 추출 로깅 포함"""
+    def _start_websocket_service(self) -> bool:
+        """JavaScript 하이브리드 웹소켓 서비스 시작 - 새로고침 후 URL 재추출"""
         try:
-            self.logger.info("🎯 웹소켓 인터셉터 초기화")
+            self.logger.info("🎯 새로고침 후 웹소켓 URL 재추출 시작")
             
-            # =============== 1단계: 웹소켓 URL 추출 (이전 방식 유지) ===============
-            websocket_urls = self._extract_websocket_urls_for_logging()
+            # =============== 1단계: 첫 번째 URL 추출 ===============
+            self.logger.info("1️⃣ 첫 번째 웹소켓 URL 추출...")
+            initial_websocket_urls = self._extract_websocket_urls_for_logging()
             
-            # =============== 2단계: 웹소켓 인터셉터 생성 ===============
-            from services.websocket_interceptor import WebSocketInterceptor
-            self.websocket_interceptor = WebSocketInterceptor(
+            if initial_websocket_urls:
+                initial_url = initial_websocket_urls[0]
+                self.logger.info(f"📡 초기 웹소켓 URL: {initial_url[:100]}...")
+            
+            # =============== 2단계: 페이지 새로고침 감지 및 대기 ===============
+            self.logger.info("2️⃣ 페이지 새로고침 후 웹소켓 재생성 대기...")
+            
+            # 새로고침이 일어날 것을 예상하고 잠시 대기
+            time.sleep(3)
+            
+            # =============== 3단계: 새로고침 후 URL 재추출 ===============
+            self.logger.info("3️⃣ 새로고침 후 실제 웹소켓 URL 재추출...")
+            final_websocket_urls = self._extract_websocket_urls_after_refresh()
+            
+            if not final_websocket_urls:
+                self.logger.error("❌ 새로고침 후 웹소켓 URL을 찾을 수 없습니다")
+                # 초기 URL로 폴백
+                if initial_websocket_urls:
+                    self.logger.info("🔄 초기 URL로 폴백 시도")
+                    final_websocket_urls = initial_websocket_urls
+                else:
+                    return False
+            
+            # 최종 URL 사용
+            websocket_url = final_websocket_urls[0]
+            self.logger.info(f"📡 최종 사용할 웹소켓 URL: {websocket_url[:100]}...")
+            
+            # =============== 4단계: JavaScript 하이브리드 서비스 생성 ===============
+            from services.websocket_hybrid_service import WebSocketHybridService
+            self.websocket_service = WebSocketHybridService(
                 devtools=self.devtools,
                 logger=self.logger
             )
             
-            # 시그널 연결
-            self._connect_interceptor_signals()
+            # 기존 호환성을 위한 변수 설정
+            self.websocket_interceptor = self.websocket_service
             
-            # 인터셉터 시작
-            if self.websocket_interceptor.start_intercepting():
+            # =============== 5단계: 시그널 연결 ===============
+            self._connect_hybrid_service_signals()
+            
+            # =============== 6단계: JavaScript 웹소켓 연결 시작 ===============
+            if self.websocket_service.start_websocket_connection(websocket_url):
                 self.websocket_intercepting = True
-                self.logger.info("✅ 웹소켓 인터셉터 시작 성공")
+                self.logger.info("✅ JavaScript 하이브리드 웹소켓 서비스 시작 성공")
                 return True
             else:
-                self.logger.error("❌ 웹소켓 인터셉터 시작 실패")
+                self.logger.error("❌ JavaScript 웹소켓 연결 실패")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"웹소켓 인터셉터 시작 오류: {e}")
+            self.logger.error(f"JavaScript 하이브리드 웹소켓 서비스 시작 오류: {e}")
             return False
 
     def _extract_websocket_urls_for_logging(self) -> list:
-        """웹소켓 URL 추출 및 로깅 (이전 로그 형식 유지)"""
+        """웹소켓 URL 추출 및 로깅"""
         try:
             self.logger.info("⚡ 웹소켓 URL 추출 시작")
             start_time = time.time()
             
-            # WebSocketParser 사용 (이전 방식)
+            # WebSocketParser 사용
             from services.websocket_parser import WebSocketParser
             ws_parser = WebSocketParser(self.devtools, self.logger)
             
             # URL 추출 실행
             websocket_urls = []
             try:
-                # 기존 auto_detect_websocket_urls 메서드 호출
                 websocket_urls = ws_parser.auto_detect_websocket_urls()
             except Exception as e:
                 self.logger.warning(f"웹소켓 URL 추출 중 오류: {e}")
@@ -223,16 +253,12 @@ class TradingManager:
             
             elapsed_time = time.time() - start_time
             
-            # 이전과 동일한 로그 형식으로 출력
+            # 로그 출력
             if websocket_urls:
-                # 첫 번째 URL 로깅 (이전 형식)
                 first_url = websocket_urls[0]
                 self.logger.info(f"📡 WebSocket 연결 감지: {first_url}")
                 self.logger.info(f"✅ 웹소켓 URL 추출 완료 ({elapsed_time:.1f}초, {len(websocket_urls)}개 발견)")
                 self.logger.info(f"✅ 웹소켓 URL 추출 성공: {first_url[:100]}...")
-                
-                # 연결 감지 시그널 발송
-                self._on_websocket_connection_detected(first_url)
             else:
                 self.logger.warning(f"❌ 웹소켓 URL 추출 실패 ({elapsed_time:.1f}초)")
             
@@ -246,97 +272,208 @@ class TradingManager:
             self.logger.error(f"웹소켓 URL 추출 오류: {e}")
             return []
 
-    def _connect_interceptor_signals(self):
-        """웹소켓 인터셉터 시그널 연결 - 디버그 강화"""
+    def _extract_websocket_urls_after_refresh(self) -> list:
+        """새로고침 후 웹소켓 URL 재추출"""
         try:
-            if not self.websocket_interceptor:
+            self.logger.info("🔄 새로고침 후 웹소켓 URL 재추출 시작")
+            
+            # 페이지가 완전히 로드될 때까지 대기
+            max_wait_time = 10  # 최대 10초 대기
+            wait_interval = 0.5  # 0.5초마다 체크
+            
+            for attempt in range(int(max_wait_time / wait_interval)):
+                try:
+                    # 페이지 로드 상태 확인
+                    page_ready = self.devtools.driver.execute_script("return document.readyState === 'complete';")
+                    
+                    if page_ready:
+                        self.logger.info(f"✅ 페이지 로드 완료 ({attempt * wait_interval:.1f}초 후)")
+                        break
+                        
+                    time.sleep(wait_interval)
+                    
+                except Exception as e:
+                    self.logger.debug(f"페이지 상태 확인 중 오류: {e}")
+                    time.sleep(wait_interval)
+            
+            # 추가 대기 (웹소켓 연결이 생성될 시간)
+            time.sleep(2)
+            
+            # 실시간 활성 웹소켓 URL 확인
+            active_websocket_url = self._get_current_active_websocket_url()
+            
+            if active_websocket_url:
+                self.logger.info(f"🎯 실시간 활성 웹소켓 발견: {active_websocket_url[:100]}...")
+                return [active_websocket_url]
+            
+            # 폴백: 일반적인 웹소켓 파서 재실행
+            self.logger.info("🔄 일반 웹소켓 파서로 재시도...")
+            
+            from services.websocket_parser import WebSocketParser
+            ws_parser = WebSocketParser(self.devtools, self.logger)
+            
+            try:
+                websocket_urls = ws_parser.auto_detect_websocket_urls()
+                
+                if websocket_urls:
+                    new_url = websocket_urls[0]
+                    self.logger.info(f"✅ 새로고침 후 웹소켓 URL 재추출 성공: {new_url[:100]}...")
+                    return websocket_urls
+                else:
+                    self.logger.warning("❌ 새로고침 후 웹소켓 URL 재추출 실패")
+                    return []
+                    
+            finally:
+                if hasattr(ws_parser, 'shutdown'):
+                    ws_parser.shutdown()
+            
+        except Exception as e:
+            self.logger.error(f"새로고침 후 웹소켓 URL 재추출 오류: {e}")
+            return []
+
+    def _get_current_active_websocket_url(self) -> str:
+        """현재 활성 웹소켓 URL 실시간 확인"""
+        try:
+            # JavaScript로 현재 활성 웹소켓 찾기
+            script = """
+            // 현재 활성 웹소켓 찾기
+            const activeWebSockets = [];
+            
+            // 전역에서 웹소켓 연결 찾기 시도
+            for (let prop in window) {
+                try {
+                    if (window[prop] && window[prop].constructor === WebSocket) {
+                        if (window[prop].readyState === 1 && window[prop].url.includes('evo-games.com')) {
+                            activeWebSockets.push(window[prop].url);
+                        }
+                    }
+                } catch (e) {
+                    // 무시
+                }
+            }
+            
+            // 활성 웹소켓이 없으면 인터셉터 설정하여 새 연결 감지
+            if (activeWebSockets.length === 0) {
+                if (!window.websocketInterceptorInstalled) {
+                    const originalWebSocket = WebSocket;
+                    window.detectedWebSockets = [];
+                    
+                    window.WebSocket = function(url, protocols) {
+                        if (url.includes('evo-games.com')) {
+                            window.detectedWebSockets.push(url);
+                            console.log('🎯 Evolution 웹소켓 감지:', url);
+                        }
+                        return new originalWebSocket(url, protocols);
+                    };
+                    
+                    window.websocketInterceptorInstalled = true;
+                }
+                
+                // 이미 감지된 웹소켓이 있으면 반환
+                if (window.detectedWebSockets && window.detectedWebSockets.length > 0) {
+                    return window.detectedWebSockets[window.detectedWebSockets.length - 1];
+                }
+            }
+            
+            return activeWebSockets.length > 0 ? activeWebSockets[0] : null;
+            """
+            
+            result = self.devtools.driver.execute_script(script)
+            
+            if result:
+                self.logger.info(f"🎯 실시간 활성 웹소켓 발견: {result}")
+                return result
+            else:
+                self.logger.debug("실시간 활성 웹소켓 없음")
+                return None
+                
+        except Exception as e:
+            self.logger.debug(f"실시간 웹소켓 확인 오류: {e}")
+            return None
+        """웹소켓 URL 추출 및 로깅"""
+        try:
+            self.logger.info("⚡ 웹소켓 URL 추출 시작")
+            start_time = time.time()
+            
+            # WebSocketParser 사용
+            from services.websocket_parser import WebSocketParser
+            ws_parser = WebSocketParser(self.devtools, self.logger)
+            
+            # URL 추출 실행
+            websocket_urls = []
+            try:
+                websocket_urls = ws_parser.auto_detect_websocket_urls()
+            except Exception as e:
+                self.logger.warning(f"웹소켓 URL 추출 중 오류: {e}")
+                websocket_urls = []
+            
+            elapsed_time = time.time() - start_time
+            
+            # 로그 출력
+            if websocket_urls:
+                first_url = websocket_urls[0]
+                self.logger.info(f"📡 WebSocket 연결 감지: {first_url}")
+                self.logger.info(f"✅ 웹소켓 URL 추출 완료 ({elapsed_time:.1f}초, {len(websocket_urls)}개 발견)")
+                self.logger.info(f"✅ 웹소켓 URL 추출 성공: {first_url[:100]}...")
+            else:
+                self.logger.warning(f"❌ 웹소켓 URL 추출 실패 ({elapsed_time:.1f}초)")
+            
+            # 정리
+            if hasattr(ws_parser, 'shutdown'):
+                ws_parser.shutdown()
+            
+            return websocket_urls
+            
+        except Exception as e:
+            self.logger.error(f"웹소켓 URL 추출 오류: {e}")
+            return []
+
+    def _connect_hybrid_service_signals(self):
+        """JavaScript 하이브리드 서비스 시그널 연결"""
+        try:
+            if not self.websocket_service:
                 return
                 
-            # 웹소켓 메시지 수신 시그널 (디버그 강화)
-            self.websocket_interceptor.websocket_message_received.connect(
-                self._on_websocket_message_received_debug
-            )
-            
-            # 게임 데이터 추출 시그널
-            self.websocket_interceptor.game_data_extracted.connect(
+            # 게임 데이터 수신 시그널
+            self.websocket_service.game_data_received.connect(
                 self._on_game_data_extracted
             )
             
-            # 웹소켓 연결 감지 시그널
-            self.websocket_interceptor.connection_detected.connect(
-                self._on_websocket_connection_detected
+            # 연결 상태 변경 시그널
+            self.websocket_service.connection_status_changed.connect(
+                self._on_hybrid_connection_status_changed
             )
             
             # 오류 발생 시그널
-            self.websocket_interceptor.error_occurred.connect(
-                self._on_interceptor_error
+            self.websocket_service.error_occurred.connect(
+                self._on_websocket_error
             )
             
-            self.logger.info("웹소켓 인터셉터 시그널 연결 완료")
+            self.logger.info("JavaScript 하이브리드 서비스 시그널 연결 완료")
             
         except Exception as e:
-            self.logger.error(f"인터셉터 시그널 연결 오류: {e}")
+            self.logger.error(f"하이브리드 서비스 시그널 연결 오류: {e}")
 
-    def _on_websocket_message_received_debug(self, ws_message: dict):
-        """웹소켓 메시지 수신 시 처리 - 디버그 버전"""
+    def _on_hybrid_connection_status_changed(self, connected: bool):
+        """하이브리드 서비스 연결 상태 변경 처리"""
         try:
-            self.message_count += 1
+            status_text = "연결됨" if connected else "연결 끊김"
+            self.logger.info(f"🔌 JavaScript 웹소켓 상태 변경: {status_text}")
             
-            # 처음 20개 메시지는 상세 로그 출력
-            if self.message_count <= 20:
-                direction = ws_message.get('direction', 'unknown')
-                payload = ws_message.get('payload', '')
-                payload_length = len(payload)
-                payload_preview = payload[:200] + '...' if len(payload) > 200 else payload
-                
-                self.logger.info(f"📨 메시지 #{self.message_count} [{direction}] ({payload_length}자)")
-                self.logger.info(f"   내용: {payload_preview}")
-                
-                # JSON인지 확인
-                if payload.strip().startswith('{') or payload.strip().startswith('['):
-                    try:
-                        import json
-                        parsed = json.loads(payload)
-                        self.logger.info(f"   📄 JSON 파싱 성공: {type(parsed)} ({len(str(parsed))}자)")
-                        
-                        # 바카라 관련 키워드 체크
-                        payload_str = str(parsed).lower()
-                        baccarat_keywords = ['baccarat', 'player', 'banker', 'tie', 'round', 'game', 'table', 'result']
-                        found_keywords = [kw for kw in baccarat_keywords if kw in payload_str]
-                        
-                        if found_keywords:
-                            self.logger.info(f"   🎰 바카라 관련 키워드 발견: {found_keywords}")
-                        else:
-                            self.logger.info(f"   ❓ 바카라 키워드 없음")
-                            
-                    except json.JSONDecodeError:
-                        self.logger.info(f"   ❌ JSON 파싱 실패")
-                else:
-                    # 텍스트 메시지 키워드 체크
-                    payload_lower = payload.lower()
-                    baccarat_keywords = ['baccarat', 'player', 'banker', 'tie', 'round', 'game']
-                    found_keywords = [kw for kw in baccarat_keywords if kw in payload_lower]
-                    
-                    if found_keywords:
-                        self.logger.info(f"   🎰 텍스트에서 바카라 키워드 발견: {found_keywords}")
-                    else:
-                        self.logger.info(f"   📝 일반 텍스트 메시지")
-            
-            # 매 100개마다 통계 출력
-            elif self.message_count % 100 == 0:
-                self.logger.info(f"📊 웹소켓 메시지 수신 총계: {self.message_count}개")
-                
-                # 인터셉터 상태 체크
-                stats = self.get_interceptor_status()
-                self.logger.info(f"📈 인터셉터 상태: 버퍼={stats.get('message_buffer_size', 0)}, 연결={stats.get('websocket_connections', 0)}")
+            if connected:
+                self.logger.info("✅ 실시간 게임 데이터 수신 시작")
+            else:
+                if self.is_trading_active:
+                    self.logger.warning("⚠️ 자동 매매 중 연결 끊김")
                     
         except Exception as e:
-            self.logger.error(f"웹소켓 메시지 디버그 처리 오류: {e}")
+            self.logger.error(f"연결 상태 변경 처리 오류: {e}")
 
     def _on_game_data_extracted(self, game_data: dict):
         """게임 데이터 추출 시 처리"""
         try:
             self.last_game_data = game_data
+            self.message_count += 1
             
             # 게임 데이터 로깅
             room_name = game_data.get('room_name', '')
@@ -344,43 +481,35 @@ class TradingManager:
             latest_result = game_data.get('latest_result', '')
             
             if room_name or latest_result:
-                self.logger.info(f"🎮 게임 데이터 추출: 방={room_name}, 라운드={round_number}, 결과={latest_result}")
+                self.logger.info(f"🎮 JavaScript 게임 데이터: 방={room_name}, 라운드={round_number}, 결과={latest_result}")
             
             # 자동 매매가 활성화된 경우 게임 데이터 처리
             if self.is_trading_active:
-                self._process_intercepted_game_data(game_data)
+                self._process_game_data(game_data)
                 
         except Exception as e:
             self.logger.error(f"게임 데이터 추출 처리 오류: {e}")
 
-    def _on_websocket_connection_detected(self, websocket_url: str):
-        """웹소켓 연결 감지 시 처리"""
+    def _on_websocket_error(self, error_message: str):
+        """웹소켓 오류 발생 시 처리"""
         try:
-            self.logger.info(f"🔌 Evolution 웹소켓 연결 감지: {websocket_url[:100]}...")
-            
-        except Exception as e:
-            self.logger.error(f"웹소켓 연결 감지 처리 오류: {e}")
-
-    def _on_interceptor_error(self, error_message: str):
-        """인터셉터 오류 발생 시 처리"""
-        try:
-            self.logger.error(f"🚨 웹소켓 인터셉터 오류: {error_message}")
+            self.logger.error(f"🚨 JavaScript 웹소켓 오류: {error_message}")
             
             # 심각한 오류인 경우 자동 매매 중지
             if "connection" in error_message.lower() or "timeout" in error_message.lower():
-                self.logger.warning("심각한 인터셉터 오류로 인한 자동 매매 중지")
+                self.logger.warning("심각한 웹소켓 오류로 인한 자동 매매 중지")
                 self.stop_trading()
                 
         except Exception as e:
-            self.logger.error(f"인터셉터 오류 처리 중 오류: {e}")
+            self.logger.error(f"웹소켓 오류 처리 중 오류: {e}")
 
-    def _process_intercepted_game_data(self, game_data: dict):
-        """인터셉터에서 수집한 게임 데이터 처리"""
+    def _process_game_data(self, game_data: dict):
+        """수집한 게임 데이터 처리"""
         try:
             # 현재 방과 일치하는 데이터인지 확인
             room_name = game_data.get('room_name', '')
             if self.current_room_name and room_name:
-                if self.current_room_name not in room_name:
+                if self.current_room_name not in room_name and "데이터_수집_모드" not in self.current_room_name:
                     return  # 다른 방의 데이터는 무시
             
             # 게임 카운트 업데이트
@@ -391,16 +520,16 @@ class TradingManager:
             # 새로운 결과가 있는 경우 처리
             latest_result = game_data.get('latest_result', '')
             if latest_result and latest_result in ['P', 'B', 'T']:
-                self._handle_intercepted_game_result(game_data)
+                self._handle_game_result(game_data)
             
             # 베팅 타이밍 확인
-            self._check_intercepted_betting_opportunity(game_data)
+            self._check_betting_opportunity(game_data)
             
         except Exception as e:
-            self.logger.error(f"인터셉터 게임 데이터 처리 오류: {e}")
+            self.logger.error(f"게임 데이터 처리 오류: {e}")
 
-    def _handle_intercepted_game_result(self, game_data: dict):
-        """인터셉터 게임 결과 처리"""
+    def _handle_game_result(self, game_data: dict):
+        """게임 결과 처리"""
         try:
             latest_result = game_data.get('latest_result', '')
             round_number = game_data.get('round_number', 0)
@@ -444,10 +573,10 @@ class TradingManager:
                     self.excel_trading_service.choice_pick_system.add_result(latest_result)
                     
         except Exception as e:
-            self.logger.error(f"인터셉터 게임 결과 처리 오류: {e}")
+            self.logger.error(f"게임 결과 처리 오류: {e}")
 
-    def _check_intercepted_betting_opportunity(self, game_data: dict):
-        """인터셉터 데이터 기반 베팅 기회 확인"""
+    def _check_betting_opportunity(self, game_data: dict):
+        """베팅 기회 확인"""
         try:
             # 이미 베팅했으면 스킵
             if hasattr(self.betting_service, 'has_bet_current_round') and self.betting_service.has_bet_current_round:
@@ -460,24 +589,24 @@ class TradingManager:
                     self.logger.info("첫 결과 수신 - 대기 모드 해제")
                 return
             
-            # 베팅 가능 상태 확인 (게임 상태가 betting인지 등)
+            # 베팅 가능 상태 확인
             game_status = game_data.get('game_status', '')
             if game_status and 'betting' not in game_status.lower():
                 return
             
             # 픽 생성
-            next_pick = self._generate_pick_from_intercepted_data(game_data)
+            next_pick = self._generate_pick_from_data(game_data)
             
             if next_pick in ['P', 'B']:
                 # 베팅 실행
                 round_number = game_data.get('round_number', self.game_count + 1)
-                self._execute_intercepted_betting(next_pick, round_number)
+                self._execute_betting(next_pick, round_number)
                 
         except Exception as e:
-            self.logger.error(f"인터셉터 베팅 기회 확인 오류: {e}")
+            self.logger.error(f"베팅 기회 확인 오류: {e}")
 
-    def _generate_pick_from_intercepted_data(self, game_data: dict) -> str:
-        """인터셉터 데이터 기반 픽 생성"""
+    def _generate_pick_from_data(self, game_data: dict) -> str:
+        """데이터 기반 픽 생성"""
         try:
             # ExcelTradingService의 ChoicePickSystem 사용
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
@@ -496,10 +625,10 @@ class TradingManager:
             self.logger.error(f"픽 생성 오류: {e}")
             return 'P'
 
-    def _execute_intercepted_betting(self, pick: str, round_number: int):
-        """인터셉터 기반 베팅 실행"""
+    def _execute_betting(self, pick: str, round_number: int):
+        """베팅 실행"""
         try:
-            self.logger.info(f"🎯 인터셉터 베팅 실행: {pick} (라운드 {round_number})")
+            self.logger.info(f"🎯 베팅 실행: {pick} (라운드 {round_number})")
             
             # 베팅 금액 계산
             widget_pos = get_widget_position(self.main_window)
@@ -521,7 +650,7 @@ class TradingManager:
                 self.logger.warning(f"❌ 베팅 실패: {pick}")
                 
         except Exception as e:
-            self.logger.error(f"인터셉터 베팅 실행 오류: {e}")
+            self.logger.error(f"베팅 실행 오류: {e}")
 
     def _handle_win_result(self):
         """승리 결과 처리"""
@@ -588,218 +717,139 @@ class TradingManager:
             return False
 
     def _start_room_monitoring(self):
-        """방 모니터링 시작 - 서버 검색 완전 제거, 데이터 수집만 집중"""
+        """방 모니터링 시작 - 데이터 수집 모드"""
         try:
-            self.logger.info("🏠 인터셉터 기반 방 모니터링 시작")
-            self.logger.info("💡 웹소켓 데이터 수집에만 집중 (방 입장 건너뜀)")
+            self.logger.info("🏠 JavaScript 웹소켓 기반 방 모니터링 시작")
+            self.logger.info("💡 웹소켓 데이터 수집에 집중")
             
-            # 🔥 방 입장 로직 완전 제거 - 웹소켓 데이터 수집만 집중
+            # 데이터 수집 모드
             self.current_room_name = "웹소켓_데이터_수집_모드"
             self.game_count = 0
             self.wait_first_result = True
             
             # UI 업데이트
-            self.main_window.update_betting_status(room_name="데이터 수집 중...")
+            self.main_window.update_betting_status(room_name="JavaScript 데이터 수집 중...")
             
-            self.logger.info("✅ 웹소켓 데이터 수집 모드 활성화")
+            self.logger.info("✅ JavaScript 웹소켓 데이터 수집 모드 활성화")
             
-            # 🔍 데이터 수집 모니터링 시작
-            self._start_data_collection_monitoring()
+            # 데이터 수집 모니터링 시작
+            self._start_data_monitoring()
                 
         except Exception as e:
             self.logger.error(f"방 모니터링 시작 오류: {e}")
 
-    def _start_data_collection_monitoring(self):
+    def _start_data_monitoring(self):
         """데이터 수집 모니터링 시작"""
         try:
-            self.logger.info("🔍 웹소켓 데이터 수집 모니터링 시작")
+            self.logger.info("🔍 JavaScript 웹소켓 데이터 모니터링 시작")
             
-            # 즉시 첫 번째 상태 체크
-            self._immediate_status_check()
+            # 즉시 상태 체크
+            self._check_service_status()
             
-            # 🔥 10초마다 강제 체크 (30초 대신)
+            # 10초마다 상태 체크
             self.data_check_timer = QTimer()
-            self.data_check_timer.timeout.connect(self._force_check_websocket_activity)
+            self.data_check_timer.timeout.connect(self._periodic_status_check)
             self.data_check_timer.start(10000)  # 10초마다
             
         except Exception as e:
-            self.logger.error(f"데이터 수집 모니터링 시작 오류: {e}")
+            self.logger.error(f"데이터 모니터링 시작 오류: {e}")
 
-    def _immediate_status_check(self):
-        """즉시 상태 체크"""
+    def _check_service_status(self):
+        """서비스 상태 체크 (강화된 디버그)"""
         try:
-            self.logger.info("🔎 즉시 상태 체크 실행")
-            
-            # 인터셉터 상태
-            if self.websocket_interceptor:
-                stats = self.websocket_interceptor.get_interceptor_stats()
-                self.logger.info(f"📊 인터셉터 통계:")
-                self.logger.info(f"  - 인터셉팅 활성: {stats.get('is_intercepting', False)}")
-                self.logger.info(f"  - CDP 세션 활성: {stats.get('cdp_session_active', False)}")
-                self.logger.info(f"  - 웹소켓 연결 수: {stats.get('websocket_connections', 0)}")
-                self.logger.info(f"  - 메시지 버퍼: {stats.get('message_buffer_size', 0)}")
-            
-            # 현재 메시지 카운트
-            self.logger.info(f"📈 현재 메시지 수신: {self.message_count}개")
-            
-        except Exception as e:
-            self.logger.error(f"즉시 상태 체크 오류: {e}")
-
-    def _force_check_websocket_activity(self):
-        """강제 웹소켓 활동 체크"""
-        try:
-            self.logger.info(f"🔎 강제 웹소켓 체크 - 현재 메시지: {self.message_count}개")
-            
-            # 브라우저 로그 직접 확인
-            self._check_browser_logs_directly()
-            
-            # CDP 연결 상태 확인
-            self._check_cdp_connection_status()
-            
-            # 웹소켓 연결 강제 확인
-            self._force_websocket_detection()
-            
-        except Exception as e:
-            self.logger.error(f"강제 웹소켓 체크 오류: {e}")
-
-    def _check_browser_logs_directly(self):
-        """브라우저 로그 직접 확인"""
-        try:
-            # Browser 로그 확인
-            browser_logs = self.devtools.driver.get_log('browser')
-            self.logger.info(f"📋 Browser 로그: {len(browser_logs)}개")
-            
-            for log in browser_logs[-5:]:  # 최근 5개만
-                if 'websocket' in str(log).lower():
-                    self.logger.info(f"🔌 Browser 로그에서 웹소켓 발견: {log}")
-            
-            # Driver 로그 확인 
-            try:
-                driver_logs = self.devtools.driver.get_log('driver')
-                self.logger.info(f"📋 Driver 로그: {len(driver_logs)}개")
-            except:
-                self.logger.info("📋 Driver 로그 접근 불가")
+            if self.websocket_service:
+                status = self.websocket_service.get_connection_status()
+                js_status = status.get('javascript_status', {})
                 
-        except Exception as e:
-            self.logger.warning(f"브라우저 로그 확인 실패: {e}")
-
-    def _check_cdp_connection_status(self):
-        """CDP 연결 상태 직접 확인"""
-        try:
-            # CDP 명령 테스트
-            result = self.devtools.driver.execute_cdp_cmd('Runtime.evaluate', {
-                'expression': 'navigator.userAgent'
-            })
-            self.logger.info(f"✅ CDP 연결 정상: {result['result']['value'][:50]}...")
-            
-            # Network 도메인 상태 확인
-            try:
-                network_result = self.devtools.driver.execute_cdp_cmd('Network.getResponseBody', {
-                    'requestId': 'test'
-                })
-            except Exception as e:
-                if 'Invalid' in str(e):
-                    self.logger.info("✅ CDP Network 도메인 활성화 확인됨 (예상된 에러)")
-                else:
-                    self.logger.warning(f"CDP Network 상태: {e}")
+                self.logger.info(f"📊 JavaScript 웹소켓 서비스 상태:")
+                self.logger.info(f"  - 활성: {status.get('active', False)}")
+                self.logger.info(f"  - 연결: {status.get('connected', False)}")
+                self.logger.info(f"  - Python 메시지 수: {status.get('message_count', 0)}")
+                self.logger.info(f"  - JavaScript 메시지 수: {js_status.get('messageCount', 0)}")
+                self.logger.info(f"  - JavaScript 게임데이터 수: {js_status.get('gameDataCount', 0)}")
+                
+                # 불일치 감지
+                python_count = status.get('message_count', 0)
+                js_count = js_status.get('messageCount', 0)
+                
+                if abs(python_count - js_count) > 5:
+                    self.logger.warning(f"⚠️ 메시지 카운트 불일치: Python={python_count}, JS={js_count}")
+                
+                # JavaScript에서 메시지는 있는데 게임 데이터가 없는 경우
+                js_game_count = js_status.get('gameDataCount', 0)
+                if js_count > 0 and js_game_count == 0:
+                    self.logger.warning(f"⚠️ 게임 데이터 생성 문제: 메시지={js_count}개, 게임데이터={js_game_count}개")
                     
+                    # 수동으로 최근 메시지 디버그
+                    self.websocket_service._debug_javascript_messages()
+            
+            self.logger.info(f"📈 총 처리된 게임 데이터: {self.message_count}개")
+            
         except Exception as e:
-            self.logger.error(f"CDP 연결 상태 확인 실패: {e}")
+            self.logger.error(f"서비스 상태 체크 오류: {e}")
 
-    def _force_websocket_detection(self):
-        """강제 웹소켓 감지 시도"""
+    def _periodic_status_check(self):
+        """주기적 상태 체크 (문제 진단 강화)"""
         try:
-            # 현재 페이지에서 웹소켓 확인
-            script = """
-            return {
-                websockets: typeof WebSocket !== 'undefined',
-                activeConnections: window.webSocketConnections ? window.webSocketConnections.length : 0,
-                location: window.location.href,
-                title: document.title
-            };
-            """
+            self.logger.info(f"🔎 주기적 상태 체크 - 처리된 데이터: {self.message_count}개")
             
-            result = self.devtools.driver.execute_script(script)
-            self.logger.info(f"🌐 페이지 웹소켓 상태: {result}")
-            
-            # Evolution 게임 상태 확인
-            evo_script = """
-            return {
-                evolutionLoaded: typeof window.evolution !== 'undefined',
-                gameState: window.gameState || 'unknown',
-                lobbyActive: document.querySelector('.lobby') !== null
-            };
-            """
-            
-            evo_result = self.devtools.driver.execute_script(evo_script)
-            self.logger.info(f"🎮 Evolution 상태: {evo_result}")
+            # 연결 상태 및 데이터 수집 상태 확인
+            if self.websocket_service:
+                status = self.websocket_service.get_connection_status()
+                js_status = status.get('javascript_status', {})
+                
+                # 상세 진단
+                python_count = self.message_count
+                js_count = js_status.get('messageCount', 0)
+                js_game_count = js_status.get('gameDataCount', 0)
+                
+                self.logger.info(f"📊 상세 진단:")
+                self.logger.info(f"  Python 처리: {python_count}개")
+                self.logger.info(f"  JS 메시지: {js_count}개")
+                self.logger.info(f"  JS 게임데이터: {js_game_count}개")
+                
+                # 문제 상황 감지
+                if js_count > 0 and js_game_count == 0:
+                    self.logger.warning("🚨 데이터 파싱 문제 감지 - 메시지는 있지만 게임데이터 생성 안됨")
+                elif js_count == 0:
+                    self.logger.warning("🚨 메시지 수신 문제 감지 - JavaScript에서 메시지를 받지 못함")
+                elif python_count != js_game_count:
+                    self.logger.warning(f"🚨 데이터 전송 문제 감지 - JS게임데이터({js_game_count}) != Python처리({python_count})")
+                else:
+                    self.logger.info("✅ 데이터 수집 정상")
+                
+                # 연결 끊김 확인
+                if not status.get('connected', False):
+                    self.logger.warning("⚠️ JavaScript 웹소켓 연결 끊김 감지")
+                    
+                    # 재연결 시도
+                    if self.is_trading_active:
+                        self.logger.info("🔄 자동 재연결 시도")
+                        self.websocket_service.force_reconnect()
             
         except Exception as e:
-            self.logger.warning(f"강제 웹소켓 감지 실패: {e}")
-
-    def _check_browser_current_state(self):
-        """브라우저 현재 상태 체크"""
-        try:
-            if not self.devtools or not self.devtools.driver:
-                self.logger.warning("브라우저 연결 없음")
-                return
-                
-            current_url = self.devtools.driver.current_url
-            current_title = self.devtools.driver.title
-            
-            self.logger.info(f"🌐 현재 페이지: {current_url}")
-            self.logger.info(f"📄 페이지 제목: {current_title}")
-            
-            # Evolution 페이지인지 체크
-            if 'evo-games.com' in current_url.lower():
-                self.logger.info("✅ Evolution Gaming 페이지에 있음")
-            else:
-                self.logger.warning("❌ Evolution Gaming 페이지가 아님")
-                
-        except Exception as e:
-            self.logger.error(f"브라우저 상태 체크 오류: {e}")
-
-    def _verify_room_game_state(self):
-        """방 입장 후 게임 상태 검증"""
-        try:
-            # 기존 게임 모니터링 서비스로 현재 상태 확인
-            game_state = self.game_monitoring_service.get_current_game_state()
-            
-            if game_state:
-                current_round = game_state.get('round', 0)
-                self.game_count = current_round
-                
-                # ChoicePickSystem에 라운드 정보 설정
-                if hasattr(self.excel_trading_service, 'choice_pick_system'):
-                    cps = self.excel_trading_service.choice_pick_system
-                    cps._entered_round = current_round
-                    cps._current_game_round = current_round
-                    cps.wait_first_result = True
-                
-                self.logger.info(f"🎮 현재 게임 라운드: {current_round}")
-            else:
-                self.logger.warning("게임 상태 확인 실패")
-                
-        except Exception as e:
-            self.logger.error(f"게임 상태 검증 오류: {e}")
+            self.logger.error(f"주기적 상태 체크 오류: {e}")
 
     def stop_trading(self):
-        """웹소켓 인터셉터 기반 자동 매매 중지"""
+        """JavaScript 하이브리드 웹소켓 기반 자동 매매 중지"""
         try:
             if not self.is_trading_active:
                 self.logger.info("자동 매매가 이미 중지된 상태입니다.")
                 return
                 
-            self.logger.info("🛑 웹소켓 인터셉터 자동 매매 중지 중...")
+            self.logger.info("🛑 JavaScript 하이브리드 웹소켓 자동 매매 중지 중...")
             
             # 데이터 체크 타이머 정리
             if hasattr(self, 'data_check_timer'):
                 self.data_check_timer.stop()
             
-            # 웹소켓 인터셉터 중지
-            if self.websocket_interceptor:
-                self.websocket_interceptor.stop_intercepting()
-                self.websocket_interceptor = None
+            # JavaScript 하이브리드 서비스 중지
+            if self.websocket_service:
+                self.websocket_service.stop_websocket_connection()
+                self.websocket_service = None
+            
+            # 호환성을 위한 기존 변수도 정리
+            self.websocket_interceptor = None
             
             # 중지 플래그 설정
             self.stop_all_processes = True
@@ -816,6 +866,7 @@ class TradingManager:
             self.result_count = 0
             self.current_pick = None
             self.processed_rounds = set()
+            self.message_count = 0
             
             # 서비스 초기화
             if hasattr(self, 'betting_service'):
@@ -837,7 +888,7 @@ class TradingManager:
                 except:
                     pass
             
-            self.logger.info("✅ 웹소켓 인터셉터 자동 매매 중지 완료")
+            self.logger.info("✅ JavaScript 하이브리드 웹소켓 자동 매매 중지 완료")
             
             # 목표 금액 도달이 아닌 경우에만 메시지 표시
             target_reached = (hasattr(self.balance_service, '_target_amount_reached') and 
@@ -852,36 +903,6 @@ class TradingManager:
             self.is_trading_active = False
             self.websocket_intercepting = False
 
-    def get_interceptor_status(self) -> dict:
-        """인터셉터 상태 정보 반환"""
-        try:
-            if self.websocket_interceptor:
-                return self.websocket_interceptor.get_interceptor_stats()
-            else:
-                return {
-                    'is_intercepting': False,
-                    'performance_logs_enabled': False,
-                    'cdp_session_active': False,
-                    'websocket_connections': 0,
-                    'active_connections': 0,
-                    'message_buffer_size': 0,
-                    'processed_messages': 0
-                }
-        except Exception as e:
-            self.logger.error(f"인터셉터 상태 확인 오류: {e}")
-            return {'error': str(e)}
-
-    def get_recent_websocket_messages(self, count=10):
-        """최근 웹소켓 메시지 반환"""
-        try:
-            if self.websocket_interceptor:
-                return self.websocket_interceptor.get_recent_messages(count)
-            return []
-        except Exception as e:
-            self.logger.error(f"최근 메시지 가져오기 오류: {e}")
-            return []
-
-    # 기존 메서드들 유지
     def refresh_settings(self):
         """설정 새로고침"""
         try:
@@ -934,9 +955,42 @@ class TradingManager:
             self.logger.error(f"에볼루션 로비 준비 오류: {e}")
             return False
 
+    # ==================== 상태 확인 및 디버그 메서드들 ====================
+
+    def get_interceptor_status(self) -> dict:
+        """하이브리드 서비스 상태 정보 반환 (기존 호환성 유지)"""
+        try:
+            if self.websocket_service:
+                js_status = self.websocket_service.get_connection_status()
+                
+                # 기존 인터셉터 형식으로 변환
+                return {
+                    'is_intercepting': js_status.get('active', False),
+                    'performance_logs_enabled': True,  # JavaScript 방식이므로 항상 true
+                    'cdp_session_active': js_status.get('connected', False),
+                    'websocket_connections': 1 if js_status.get('connected') else 0,
+                    'active_connections': 1 if js_status.get('connected') else 0,
+                    'message_buffer_size': js_status.get('message_count', 0),
+                    'processed_messages': js_status.get('message_count', 0),
+                    'javascript_status': js_status
+                }
+            else:
+                return {
+                    'is_intercepting': False,
+                    'performance_logs_enabled': False,
+                    'cdp_session_active': False,
+                    'websocket_connections': 0,
+                    'active_connections': 0,
+                    'message_buffer_size': 0,
+                    'processed_messages': 0
+                }
+        except Exception as e:
+            self.logger.error(f"하이브리드 서비스 상태 확인 오류: {e}")
+            return {'error': str(e)}
+
     def get_current_status(self):
         """현재 상태 반환"""
-        interceptor_status = self.get_interceptor_status()
+        service_status = self.get_interceptor_status()
         
         return {
             'is_active': self.is_trading_active,
@@ -947,10 +1001,95 @@ class TradingManager:
             'has_bet': getattr(self.betting_service, 'has_bet_current_round', False) if hasattr(self, 'betting_service') else False,
             'wait_first_result': self.wait_first_result,
             'stop_flag': self.stop_all_processes,
-            'interceptor_status': interceptor_status,
+            'service_status': service_status,
             'message_count': self.message_count,
             'last_game_data': self.last_game_data
         }
+
+    def get_connection_stats(self):
+        """연결 통계 반환"""
+        try:
+            return {
+                'service_active': self.websocket_intercepting,
+                'trading_active': self.is_trading_active,
+                'message_count': self.message_count,
+                'current_room': self.current_room_name,
+                'game_count': self.game_count,
+                'result_count': self.result_count,
+                'service_stats': self.get_interceptor_status()
+            }
+        except Exception as e:
+            self.logger.error(f"연결 통계 수집 오류: {e}")
+            return {}
+
+    def force_collect_data(self):
+        """수동 데이터 수집 트리거 (하이브리드 서비스용)"""
+        try:
+            if self.websocket_service and self.websocket_intercepting:
+                # JavaScript 상태 확인
+                status = self.websocket_service.get_connection_status()
+                self.logger.info(f"🔍 수동 데이터 수집: {status}")
+                
+                # JavaScript 상태 디버그
+                debug_result = self.websocket_service.debug_javascript_state()
+                self.logger.info(f"🔍 JavaScript 디버그: {debug_result}")
+                
+                return status.get('connected', False)
+            else:
+                self.logger.warning("하이브리드 서비스가 활성화되지 않음")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"수동 데이터 수집 오류: {e}")
+            return False
+
+    def debug_service_status(self):
+        """디버그용 하이브리드 서비스 상태 출력"""
+        try:
+            if self.websocket_service:
+                self.logger.info("🔍 JavaScript 하이브리드 서비스 디버그 상태:")
+                
+                # 연결 상태
+                status = self.websocket_service.get_connection_status()
+                for key, value in status.items():
+                    self.logger.info(f"  - {key}: {value}")
+                
+                # JavaScript 상태
+                js_debug = self.websocket_service.debug_javascript_state()
+                self.logger.info("🔍 JavaScript 환경:")
+                for key, value in js_debug.items():
+                    self.logger.info(f"  - {key}: {value}")
+                    
+            else:
+                self.logger.info("  - 하이브리드 서비스 인스턴스 없음")
+                
+        except Exception as e:
+            self.logger.error(f"디버그 상태 출력 오류: {e}")
+
+    def force_reconnect_websocket(self):
+        """웹소켓 강제 재연결"""
+        try:
+            if self.websocket_service:
+                self.logger.info("🔄 웹소켓 강제 재연결 시도")
+                return self.websocket_service.force_reconnect()
+            else:
+                self.logger.warning("재연결할 웹소켓 서비스가 없습니다")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"강제 재연결 오류: {e}")
+            return False
+
+    def get_websocket_connection_info(self):
+        """웹소켓 연결 정보 반환"""
+        try:
+            if self.websocket_service:
+                return self.websocket_service.get_connection_status()
+            return {'connected': False, 'error': 'No websocket service'}
+            
+        except Exception as e:
+            self.logger.error(f"연결 정보 확인 오류: {e}")
+            return {'connected': False, 'error': str(e)}
 
     def emergency_stop(self):
         """비상 정지"""
@@ -962,10 +1101,12 @@ class TradingManager:
             self.is_trading_active = False
             self.websocket_intercepting = False
             
-            # 웹소켓 인터셉터 강제 종료
-            if self.websocket_interceptor:
-                self.websocket_interceptor.stop_intercepting()
-                self.websocket_interceptor = None
+            # 웹소켓 서비스 강제 종료
+            if self.websocket_service:
+                self.websocket_service.stop_websocket_connection()
+                self.websocket_service = None
+            
+            self.websocket_interceptor = None
             
             # 타이머 강제 중지
             if hasattr(self.main_window, 'timer'):
@@ -986,106 +1127,28 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"비상 정지 중 오류: {e}")
 
-    # ==================== 기존 메서드들 호환성 유지 ====================
-    
-    def _extract_websocket_async(self):
-        """기존 호환성을 위한 더미 메서드"""
-        self.logger.warning("기존 웹소켓 추출 방식은 더 이상 사용되지 않습니다 (인터셉터 방식 사용)")
-        return None
-    
-    def _start_websocket_connection(self, websocket_url):
-        """기존 호환성을 위한 더미 메서드"""
-        self.logger.warning("기존 웹소켓 직접 연결 방식은 더 이상 사용되지 않습니다 (인터셉터 방식 사용)")
-        return False
-    
-    def _process_websocket_game_data(self, game_data):
-        """기존 호환성을 위한 메서드 - 인터셉터 방식으로 리다이렉트"""
-        try:
-            # 인터셉터 방식의 게임 데이터 처리로 리다이렉트
-            self._process_intercepted_game_data(game_data)
-        except Exception as e:
-            self.logger.error(f"게임 데이터 처리 오류: {e}")
+    # ==================== 기존 호환성 메서드들 ====================
 
     def get_websocket_status(self):
-        """기존 호환성을 위한 메서드 - 인터셉터 상태로 리다이렉트"""
+        """기존 호환성을 위한 메서드"""
         return self.get_interceptor_status()
 
-    # ==================== 레거시 메서드들 ====================
-    
-    def _handle_win_result_legacy(self):
-        """기존 승리 처리 로직 (필요시 사용)"""
-        return self._handle_win_result()
-    
-    def _handle_lose_result_legacy(self):
-        """기존 패배 처리 로직 (필요시 사용)"""
-        return self._handle_lose_result()
-    
-    def _handle_tie_result_legacy(self):
-        """기존 무승부 처리 로직 (필요시 사용)"""
-        return self._handle_tie_result()
-
-    # ==================== 추가 유틸리티 메서드들 ====================
-    
-    def force_collect_data(self):
-        """수동 데이터 수집 트리거"""
-        try:
-            if self.websocket_interceptor and self.websocket_intercepting:
-                # 인터셉터의 수동 수집 메서드 호출 (있는 경우)
-                if hasattr(self.websocket_interceptor, 'force_collect_data'):
-                    return self.websocket_interceptor.force_collect_data()
-                else:
-                    self.logger.info("수동 데이터 수집: 인터셉터가 자동으로 수집 중")
-                    return True
-            else:
-                self.logger.warning("인터셉터가 활성화되지 않음")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"수동 데이터 수집 오류: {e}")
-            return False
-
-    def get_connection_stats(self):
-        """연결 통계 반환"""
-        try:
-            return {
-                'interceptor_active': self.websocket_intercepting,
-                'trading_active': self.is_trading_active,
-                'message_count': self.message_count,
-                'current_room': self.current_room_name,
-                'game_count': self.game_count,
-                'result_count': self.result_count,
-                'interceptor_stats': self.get_interceptor_status() if self.websocket_interceptor else {}
-            }
-        except Exception as e:
-            self.logger.error(f"연결 통계 수집 오류: {e}")
-            return {}
+    def get_recent_websocket_messages(self, count=10):
+        """기존 호환성을 위한 메서드 (더미)"""
+        # JavaScript 방식에서는 메시지 버퍼를 직접 노출하지 않음
+        return []
 
     def debug_interceptor_status(self):
-        """디버그용 인터셉터 상태 출력"""
-        try:
-            stats = self.get_interceptor_status()
-            self.logger.info("🔍 인터셉터 디버그 상태:")
-            for key, value in stats.items():
-                self.logger.info(f"  - {key}: {value}")
-            
-            if self.websocket_interceptor:
-                recent_messages = self.get_recent_websocket_messages(3)
-                self.logger.info(f"📋 최근 메시지 {len(recent_messages)}개:")
-                for i, msg in enumerate(recent_messages, 1):
-                    direction = msg.get('direction', 'unknown')
-                    payload_preview = str(msg.get('payload', ''))[:50]
-                    self.logger.info(f"  {i}. [{direction}] {payload_preview}...")
-            else:
-                self.logger.info("  - 인터셉터 인스턴스 없음")
-                
-        except Exception as e:
-            self.logger.error(f"디버그 상태 출력 오류: {e}")
+        """기존 호환성을 위한 메서드"""
+        return self.debug_service_status()
+
+    # ==================== 정리 ====================
 
     def __del__(self):
         """소멸자 - 리소스 정리"""
         try:
-            if hasattr(self, 'websocket_interceptor') and self.websocket_interceptor:
-                self.websocket_interceptor.stop_intercepting()
+            if hasattr(self, 'websocket_service') and self.websocket_service:
+                self.websocket_service.stop_websocket_connection()
             
             if hasattr(self, 'data_check_timer'):
                 self.data_check_timer.stop()
