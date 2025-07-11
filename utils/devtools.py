@@ -1,354 +1,360 @@
-import undetected_chromedriver as uc
 import time
-import os
-import re
-import subprocess
-import platform
 import logging
-import random
+import psutil
+import os
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import undetected_chromedriver as uc
+from selenium.common.exceptions import WebDriverException, TimeoutException
 
 class DevToolsController:
     def __init__(self, logger=None):
-        self.driver = None
         self.logger = logger or logging.getLogger(__name__)
-
-    def get_chrome_version(self):
-        """현재 시스템에 설치된 Chrome 브라우저의 버전을 감지"""
-        version = None
-        system = platform.system()
+        self.logger.setLevel(logging.INFO)
         
-        try:
-            if system == "Windows":
-                import winreg
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Google\Chrome\BLBeacon')
-                version, _ = winreg.QueryValueEx(key, 'version')
-            
-            elif system == "Darwin":  # macOS
-                process = subprocess.Popen(
-                    ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '--version'],
-                    stdout=subprocess.PIPE
-                )
-                version = process.communicate()[0].decode('UTF-8').replace('Google Chrome', '').strip()
-            
-            elif system == "Linux":
-                process = subprocess.Popen(
-                    ['google-chrome', '--version'],
-                    stdout=subprocess.PIPE
-                )
-                version = process.communicate()[0].decode('UTF-8').replace('Google Chrome', '').strip()
-            
-            if version:
-                version_match = re.search(r'(\d+)\.', version)
-                if version_match:
-                    return int(version_match.group(1))
+        self.driver = None
+        self.service = None
+        self.debug_port = None
         
-        except Exception as e:
-            print(f"[WARNING] Chrome 버전 감지 중 오류 발생: {e}")
-            print("[INFO] 기본 ChromeDriver 사용")
+        # Chrome 시작 재시도 설정
+        self.max_start_retries = 3
+        self.retry_delay = 2
         
-        return None
-
     def start_browser(self):
-        """Chrome 버전 호환성 문제 해결 - 강제 버전 지정"""
-        if self.driver:
-            try:
-                self.close_browser()
-                time.sleep(2)
-                print("[INFO] 기존 브라우저 종료 완료")
-            except Exception as e:
-                print(f"[WARNING] 기존 브라우저 종료 실패: {e}")
-                self.driver = None
-
-        # Chrome 137 버전 강제 지정으로 시도
+        """
+        간소화된 Chrome 브라우저 시작 (Basic 모드만 사용)
+        """
         try:
-            print("[INFO] Chrome 137 호환 ChromeDriver로 브라우저 시작...")
-            options = self._create_minimal_safe_options()
+            # 기존 Chrome 프로세스 정리
+            self._cleanup_chrome_processes()
             
-            # Chrome 137 전용 ChromeDriver 사용
-            self.driver = uc.Chrome(
-                options=options,
-                version_main=137,  # Chrome 137 버전 명시적 지정
-                driver_executable_path=None,
-                browser_executable_path=None
-            )
+            # Basic 모드로 여러 번 시도
+            for attempt in range(self.max_start_retries):
+                try:
+                    self.logger.info(f"Chrome 브라우저 시작 시도 {attempt + 1}/{self.max_start_retries}")
+                    
+                    if self._start_chrome_basic():
+                        self.logger.info("✅ Chrome 브라우저 시작 성공")
+                        return True
+                        
+                except Exception as e:
+                    self.logger.warning(f"시도 {attempt + 1} 실패: {e}")
+                    
+                    # 실패한 경우 정리 후 재시도
+                    if self.driver:
+                        try:
+                            self.driver.quit()
+                        except:
+                            pass
+                        self.driver = None
+                    
+                    if attempt < self.max_start_retries - 1:
+                        self.logger.info(f"{self.retry_delay}초 후 재시도...")
+                        time.sleep(self.retry_delay)
+                        self._cleanup_chrome_processes()
             
-            if self.driver:
-                self._configure_minimal_settings()
-                print("[INFO] Chrome 137 호환 브라우저 시작 완료")
-                return True
-                
+            self.logger.error("모든 Chrome 시작 시도 실패")
+            return False
+            
         except Exception as e:
-            print(f"[WARNING] Chrome 137 전용 시도 실패: {e}")
-            self.driver = None
+            self.logger.error(f"Chrome 브라우저 시작 중 치명적 오류: {e}")
+            return False
 
-        # 백업: 버전 자동 감지로 시도
+    def _cleanup_chrome_processes(self):
+        """기존 Chrome 프로세스 정리"""
         try:
-            print("[INFO] 버전 자동 감지로 재시도...")
-            options = self._create_ultra_minimal_options()
+            self.logger.info("기존 Chrome 프로세스 정리 중...")
             
-            # 가장 기본적인 설정으로 시도
+            chrome_processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    proc_info = proc.info
+                    if proc_info['name'] and 'chrome' in proc_info['name'].lower():
+                        cmdline = ' '.join(proc_info['cmdline'] or [])
+                        # 자동화 관련 Chrome만 종료 (일반 사용자 Chrome은 보호)
+                        if any(keyword in cmdline.lower() for keyword in [
+                            'remote-debugging', 'disable-blink-features', 'test-type'
+                        ]):
+                            chrome_processes.append(proc)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            
+            # Chrome 프로세스 종료
+            for proc in chrome_processes:
+                try:
+                    proc.terminate()
+                    self.logger.debug(f"Chrome 프로세스 종료: PID {proc.pid}")
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            
+            # 종료 대기
+            if chrome_processes:
+                time.sleep(2)
+                
+                # 강제 종료
+                for proc in chrome_processes:
+                    try:
+                        if proc.is_running():
+                            proc.kill()
+                            self.logger.debug(f"Chrome 프로세스 강제 종료: PID {proc.pid}")
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                        
+                self.logger.info(f"기존 Chrome 프로세스 {len(chrome_processes)}개 정리 완료")
+            
+        except Exception as e:
+            self.logger.warning(f"Chrome 프로세스 정리 중 오류: {e}")
+
+    def _start_chrome_basic(self):
+        """검증된 Basic 모드로 Chrome 시작"""
+        try:
+            self.logger.info("🔄 Chrome 시작 중...")
+            
+            options = uc.ChromeOptions()
+            
+            # 검증된 기본 옵션만 사용
+            basic_options = [
+                '--disable-blink-features=AutomationControlled',
+                '--user-data-dir=' + self._get_temp_user_data_dir()
+            ]
+            
+            for option in basic_options:
+                options.add_argument(option)
+            
+            # undetected_chromedriver로 시작
             self.driver = uc.Chrome(options=options)
             
-            if self.driver:
-                self.driver.implicitly_wait(5)
-                print("[INFO] 자동 감지 브라우저 시작 완료")
-                return True
-                
-        except Exception as e:
-            print(f"[ERROR] 모든 브라우저 시작 시도 실패: {e}")
-            print("[SOLUTION] 해결 방법:")
-            print("1. Chrome을 최신 버전(138+)으로 업데이트")
-            print("2. 또는 undetected_chromedriver를 재설치: pip install --upgrade undetected-chromedriver")
-            print("3. 또는 수동으로 ChromeDriver 137 다운로드")
-            self.driver = None
-            return False
-
-        return False
-
-    def _create_minimal_safe_options(self):
-        """Chrome 137에서 확실히 작동하는 최소 옵션"""
-        options = uc.ChromeOptions()
-        
-        # Chrome 137에서 확실히 지원되는 기본 옵션만
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--remote-debugging-port=9222")
-        
-        # 자동화 감지 방지 (Chrome 137 호환)
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        
-        print("[INFO] Chrome 137 최소 안전 옵션 설정 완료")
-        return options
-
-    def _create_ultra_minimal_options(self):
-        """가장 기본적인 옵션 (최후의 수단)"""
-        options = uc.ChromeOptions()
-        
-        # 필수 옵션만
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        
-        print("[INFO] 울트라 미니멀 옵션 설정 완료")
-        return options
-
-    def _configure_minimal_settings(self):
-        """최소한의 안전한 설정만 적용"""
-        try:
-            self.driver.implicitly_wait(10)
-            self.driver.set_page_load_timeout(30)
+            # 연결 테스트
+            self.driver.get("about:blank")
+            time.sleep(1)
             
-            # Chrome 137에서 안전한 스크립트만 실행
-            try:
-                self.driver.execute_script("console.log('Browser initialized');")
-                print("[INFO] 기본 JavaScript 실행 테스트 성공")
-            except Exception as js_error:
-                print(f"[WARNING] JavaScript 실행 실패: {js_error}")
-            
-            print("[INFO] 최소 설정 적용 완료")
+            self.logger.info("✅ Chrome 시작 성공")
             return True
             
         except Exception as e:
-            print(f"[WARNING] 최소 설정 적용 중 오류: {e}")
+            self.logger.warning(f"Chrome 시작 실패: {e}")
             return False
 
-    def _create_stealth_options(self):
-        """최소한의 실험적 옵션 제거 버전"""
-        options = uc.ChromeOptions()
-        
-        # Chrome 137에서 확실히 지원되는 옵션만 사용
-        options.add_argument("--no-first-run")
-        options.add_argument("--no-default-browser-check")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--remote-debugging-port=9222")
-        
-        # 임시 프로파일 (Windows 경로 호환)
-        temp_profile = f"C:\\temp\\chrome_profile_{random.randint(1000, 9999)}"
-        options.add_argument(f"--user-data-dir={temp_profile}")
-        
-        # 실험적 옵션 완전 제거 (Chrome 137 호환성 문제)
-        print("[INFO] Chrome 137 호환 옵션 설정 완료 (실험적 옵션 제거)")
-        return options
-
-    def _configure_stealth_settings(self):
-        """브라우저 시작 후 스텔스 설정 적용"""
+    def _get_temp_user_data_dir(self):
+        """임시 사용자 데이터 디렉토리 생성"""
         try:
-            # 기본 타임아웃 설정
-            self.driver.implicitly_wait(10)
-            self.driver.set_page_load_timeout(30)
+            import tempfile
+            import uuid
             
-            # 자동화 관련 JavaScript 속성 제거
-            self.driver.execute_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined,
-                });
-            """)
+            temp_dir = tempfile.gettempdir()
+            unique_id = str(uuid.uuid4())[:8]
+            user_data_dir = os.path.join(temp_dir, f"chrome_auto_{unique_id}")
             
-            # Navigator 속성들을 실제 브라우저처럼 설정
-            self.driver.execute_script("""
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['ko-KR', 'ko', 'en-US', 'en'],
-                });
-                
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
-                });
-            """)
-            
-            print("[INFO] 스텔스 설정 적용 완료")
-            return True
+            os.makedirs(user_data_dir, exist_ok=True)
+            return user_data_dir
             
         except Exception as e:
-            print(f"[WARNING] 스텔스 설정 적용 중 오류: {e}")
-            return False
-
-    def open_site(self, url, wait_for_cloudflare=True):
-        """Cloudflare 체크를 고려한 사이트 열기"""
-        try:
-            if not self.driver:
-                print("[INFO] 브라우저가 실행되지 않아 start_browser() 호출")
-                start_success = self.start_browser()
-                if not start_success:
-                    print("[ERROR] 브라우저 시작 실패")
-                    return False
-
-            # URL 형식 검증 및 수정
-            if not url.startswith("http://") and not url.startswith("https://"):
-                url = "https://" + url
-
-            print(f"[INFO] 사이트 이동: {url}")
-            
-            # 랜덤 지연으로 자연스럽게
-            time.sleep(random.uniform(1, 3))
-            
-            self.driver.get(url)
-            
-            if wait_for_cloudflare:
-                return self._handle_cloudflare_check()
-            else:
-                time.sleep(2)
-                return True
-                
-        except Exception as e:
-            print(f"[ERROR] 사이트 열기 실패: {e}")
-            return False
-
-    def _handle_cloudflare_check(self):
-        """Cloudflare 보안 검사 처리"""
-        try:
-            print("[INFO] Cloudflare 보안 검사 대기 중...")
-            
-            # Cloudflare 체크 페이지 감지
-            max_wait_time = 30  # 최대 30초 대기
-            start_time = time.time()
-            
-            while time.time() - start_time < max_wait_time:
-                current_url = self.driver.current_url
-                page_source = self.driver.page_source.lower()
-                
-                # Cloudflare 체크 페이지 패턴 감지
-                cf_patterns = [
-                    "checking your browser",
-                    "verifying you are human",
-                    "please wait",
-                    "security check",
-                    "cloudflare",
-                    "작업을 완료하여 사람인지 확인"
-                ]
-                
-                is_cf_page = any(pattern in page_source for pattern in cf_patterns)
-                
-                if is_cf_page:
-                    print(f"[INFO] Cloudflare 보안 검사 진행 중... ({int(time.time() - start_time)}초)")
-                    
-                    # 자연스러운 마우스 움직임 시뮬레이션
-                    self._simulate_human_behavior()
-                    
-                    time.sleep(2)
-                    continue
-                else:
-                    print("[INFO] Cloudflare 보안 검사 통과 완료")
-                    return True
-            
-            # 타임아웃 발생
-            print("[WARNING] Cloudflare 보안 검사 타임아웃")
-            return False
-            
-        except Exception as e:
-            print(f"[ERROR] Cloudflare 처리 중 오류: {e}")
-            return False
-
-    def _simulate_human_behavior(self):
-        """사람처럼 행동하는 패턴 시뮬레이션"""
-        try:
-            # 랜덤한 마우스 움직임
-            self.driver.execute_script("""
-                // 랜덤한 스크롤
-                window.scrollBy(0, Math.random() * 100 - 50);
-                
-                // 마우스 이벤트 시뮬레이션
-                document.dispatchEvent(new MouseEvent('mousemove', {
-                    clientX: Math.random() * window.innerWidth,
-                    clientY: Math.random() * window.innerHeight
-                }));
-            """)
-            
-            # 랜덤 지연
-            time.sleep(random.uniform(0.5, 1.5))
-            
-        except Exception as e:
-            print(f"[WARNING] 인간 행동 시뮬레이션 실패: {e}")
-
-    def wait_for_element(self, selector, timeout=10):
-        """요소가 나타날 때까지 대기"""
-        try:
-            wait = WebDriverWait(self.driver, timeout)
-            element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
-            return element
-        except Exception as e:
-            print(f"[WARNING] 요소 대기 실패: {e}")
-            return None
+            self.logger.warning(f"임시 디렉토리 생성 실패: {e}")
+            return ""
 
     def close_browser(self):
-        """브라우저 종료"""
-        if self.driver:
+        """브라우저 안전하게 종료"""
+        try:
+            if self.driver:
+                self.logger.info("브라우저 종료 중...")
+                
+                try:
+                    # 모든 창 닫기
+                    self.driver.quit()
+                except Exception as e:
+                    self.logger.warning(f"브라우저 정상 종료 실패: {e}")
+                    
+                finally:
+                    self.driver = None
+                    
+                # 잔여 프로세스 정리
+                time.sleep(1)
+                self._cleanup_chrome_processes()
+                
+                self.logger.info("브라우저 종료 완료")
+                
+        except Exception as e:
+            self.logger.error(f"브라우저 종료 중 오류: {e}")
+
+    def get_performance_logs(self):
+        """Performance 로그 가져오기"""
+        try:
+            if not self.driver:
+                return []
+            
+            logs = []
             try:
-                self.driver.quit()
-                self.driver = None
-                print("[INFO] 브라우저 종료됨")
-                return True
-            except Exception as e:
-                print(f"[WARNING] 브라우저 종료 중 오류: {e}")
-                self.driver = None
-                return False
-        return True
+                # 기본 방식 시도
+                logs = self.driver.get_log('performance')
+            except Exception:
+                # 실패 시 CDP 방식으로 대체
+                try:
+                    result = self.driver.execute_cdp_cmd('Log.enable', {})
+                    entries = self.driver.execute_cdp_cmd('Log.getEntries', {})
+                    logs = entries.get('entries', [])
+                except Exception as e:
+                    self.logger.debug(f"CDP 로그 수집 실패: {e}")
+                    logs = []
+            
+            return logs
+            
+        except Exception as e:
+            self.logger.debug(f"Performance 로그 가져오기 실패: {e}")
+            return []
 
-    def get_page_source(self):
-        """현재 페이지의 HTML 가져오기"""
-        if not self.driver:
-            print("[ERROR] 브라우저가 실행되지 않음")
-            return None
-        return self.driver.page_source
-
-    def get_redirected_url(self):
-        """현재 브라우저의 URL을 가져오는 함수"""
-        if not self.driver:
-            print("[ERROR] WebDriver가 실행되지 않음")
-            return None
-        return self.driver.current_url
-
-    def is_driver_alive(self):
-        """드라이버가 살아있는지 확인"""
+    def is_browser_active(self):
+        """브라우저가 활성 상태인지 확인"""
         try:
             if not self.driver:
                 return False
+            
+            # 간단한 명령으로 브라우저 응답 확인
             self.driver.current_url
             return True
+            
         except Exception:
             return False
+
+    def refresh_browser(self):
+        """브라우저 새로고침"""
+        try:
+            if self.driver:
+                self.driver.refresh()
+                time.sleep(2)
+                return True
+            return False
+            
+        except Exception as e:
+            self.logger.warning(f"브라우저 새로고침 실패: {e}")
+            return False
+
+    def get_browser_info(self):
+        """브라우저 정보 반환"""
+        try:
+            if not self.driver:
+                return {"status": "inactive"}
+            
+            return {
+                "status": "active",
+                "current_url": self.driver.current_url,
+                "title": self.driver.title,
+                "window_handles": len(self.driver.window_handles),
+                "capabilities": {
+                    "browser_name": self.driver.capabilities.get('browserName'),
+                    "browser_version": self.driver.capabilities.get('browserVersion'),
+                    "platform": self.driver.capabilities.get('platformName')
+                }
+            }
+            
+        except Exception as e:
+            self.logger.warning(f"브라우저 정보 수집 실패: {e}")
+            return {"status": "error", "error": str(e)}
+
+    def wait_for_element(self, by, value, timeout=10):
+        """요소 대기"""
+        try:
+            if not self.driver:
+                return None
+            
+            wait = WebDriverWait(self.driver, timeout)
+            element = wait.until(EC.presence_of_element_located((by, value)))
+            return element
+            
+        except TimeoutException:
+            self.logger.warning(f"요소 대기 시간 초과: {by}={value}")
+            return None
+        except Exception as e:
+            self.logger.warning(f"요소 대기 실패: {e}")
+            return None
+
+    def safe_navigate(self, url):
+        """안전한 페이지 이동"""
+        try:
+            if not self.driver:
+                self.logger.error("브라우저가 시작되지 않았습니다.")
+                return False
+            
+            self.logger.info(f"페이지 이동: {url}")
+            self.driver.get(url)
+            
+            # 페이지 로드 대기
+            WebDriverWait(self.driver, 30).until(
+                lambda driver: driver.execute_script("return document.readyState") == "complete"
+            )
+            
+            time.sleep(2)  # 추가 안정화 대기
+            return True
+            
+        except TimeoutException:
+            self.logger.warning("페이지 로드 시간 초과")
+            return False
+        except Exception as e:
+            self.logger.error(f"페이지 이동 실패: {e}")
+            return False
+
+    def execute_safe_script(self, script):
+        """안전한 JavaScript 실행"""
+        try:
+            if not self.driver:
+                return None
+            
+            return self.driver.execute_script(script)
+            
+        except Exception as e:
+            self.logger.warning(f"JavaScript 실행 실패: {e}")
+            return None
+
+    def get_debug_info(self):
+        """디버그 정보 반환"""
+        try:
+            info = {
+                "driver_active": self.driver is not None,
+                "browser_responsive": self.is_browser_active(),
+                "debug_port": self.debug_port,
+                "chrome_processes": []
+            }
+            
+            # Chrome 프로세스 정보
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if 'chrome' in proc.info['name'].lower():
+                        info["chrome_processes"].append({
+                            "pid": proc.info['pid'],
+                            "name": proc.info['name'],
+                            "cmdline": ' '.join(proc.info['cmdline'] or [])[:100]
+                        })
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            
+            return info
+            
+        except Exception as e:
+            self.logger.error(f"디버그 정보 수집 실패: {e}")
+            return {"error": str(e)}
+
+    def emergency_restart(self):
+        """비상 재시작"""
+        try:
+            self.logger.warning("브라우저 비상 재시작 실행")
+            
+            # 강제 종료
+            self.close_browser()
+            time.sleep(3)
+            
+            # 재시작
+            return self.start_browser()
+            
+        except Exception as e:
+            self.logger.error(f"비상 재시작 실패: {e}")
+            return False
+
+    def __del__(self):
+        """소멸자 - 리소스 정리"""
+        try:
+            self.close_browser()
+        except:
+            pass
