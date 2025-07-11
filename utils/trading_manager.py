@@ -172,42 +172,22 @@ class TradingManager:
             )
 
     def _start_websocket_service(self) -> bool:
-        """JavaScript 하이브리드 웹소켓 서비스 시작 - 새로고침 후 URL 재추출"""
+        """JavaScript 하이브리드 웹소켓 서비스 시작 - 간단 버전"""
         try:
-            self.logger.info("🎯 새로고침 후 웹소켓 URL 재추출 시작")
+            self.logger.info("🎯 웹소켓 URL 추출 및 연결 시작")
             
-            # =============== 1단계: 첫 번째 URL 추출 ===============
-            self.logger.info("1️⃣ 첫 번째 웹소켓 URL 추출...")
-            initial_websocket_urls = self._extract_websocket_urls_for_logging()
+            # 웹소켓 URL 추출
+            websocket_urls = self._extract_websocket_urls_for_logging()
             
-            if initial_websocket_urls:
-                initial_url = initial_websocket_urls[0]
-                self.logger.info(f"📡 초기 웹소켓 URL: {initial_url[:100]}...")
+            if not websocket_urls:
+                self.logger.error("❌ 웹소켓 URL을 찾을 수 없습니다")
+                return False
             
-            # =============== 2단계: 페이지 새로고침 감지 및 대기 ===============
-            self.logger.info("2️⃣ 페이지 새로고침 후 웹소켓 재생성 대기...")
+            # 첫 번째 URL 사용
+            websocket_url = websocket_urls[0]
+            self.logger.info(f"📡 사용할 웹소켓 URL: {websocket_url[:100]}...")
             
-            # 새로고침이 일어날 것을 예상하고 잠시 대기
-            time.sleep(3)
-            
-            # =============== 3단계: 새로고침 후 URL 재추출 ===============
-            self.logger.info("3️⃣ 새로고침 후 실제 웹소켓 URL 재추출...")
-            final_websocket_urls = self._extract_websocket_urls_after_refresh()
-            
-            if not final_websocket_urls:
-                self.logger.error("❌ 새로고침 후 웹소켓 URL을 찾을 수 없습니다")
-                # 초기 URL로 폴백
-                if initial_websocket_urls:
-                    self.logger.info("🔄 초기 URL로 폴백 시도")
-                    final_websocket_urls = initial_websocket_urls
-                else:
-                    return False
-            
-            # 최종 URL 사용
-            websocket_url = final_websocket_urls[0]
-            self.logger.info(f"📡 최종 사용할 웹소켓 URL: {websocket_url[:100]}...")
-            
-            # =============== 4단계: JavaScript 하이브리드 서비스 생성 ===============
+            # JavaScript 하이브리드 서비스 생성
             from services.websocket_hybrid_service import WebSocketHybridService
             self.websocket_service = WebSocketHybridService(
                 devtools=self.devtools,
@@ -217,10 +197,10 @@ class TradingManager:
             # 기존 호환성을 위한 변수 설정
             self.websocket_interceptor = self.websocket_service
             
-            # =============== 5단계: 시그널 연결 ===============
+            # 시그널 연결
             self._connect_hybrid_service_signals()
             
-            # =============== 6단계: JavaScript 웹소켓 연결 시작 ===============
+            # JavaScript 웹소켓 연결 시작 (새로고침 없이 바로 연결)
             if self.websocket_service.start_websocket_connection(websocket_url):
                 self.websocket_intercepting = True
                 self.logger.info("✅ JavaScript 하이브리드 웹소켓 서비스 시작 성공")
@@ -232,7 +212,7 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"JavaScript 하이브리드 웹소켓 서비스 시작 오류: {e}")
             return False
-
+        
     def _extract_websocket_urls_for_logging(self) -> list:
         """웹소켓 URL 추출 및 로깅"""
         try:
