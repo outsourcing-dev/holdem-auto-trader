@@ -1,7 +1,8 @@
-# utils/server_client.py (호환성 추가 버전)
+# utils/server_client.py - 방 데이터 및 연패 체크 API 추가
 import requests
 import json
 import logging
+import time
 from typing import Dict, List, Optional, Any
 from urllib.parse import urlparse, parse_qs
 
@@ -9,8 +10,10 @@ class BaccaratServerClient:
     def __init__(self, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         # CloudType 배포된 서버 주소
-        self.base_url = "https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app"
-        self.timeout = 15  # 타임아웃 증가
+        # self.base_url = "https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app"
+        self.base_url = "http://localhost:8080"
+
+        self.timeout = 15
         self.session = requests.Session()
         
         # 연결 풀 설정
@@ -44,6 +47,138 @@ class BaccaratServerClient:
         except Exception as e:
             self.logger.error(f"❌ 서버 상태 확인 오류: {e}")
             return False
+
+    def send_room_results(self, room_id: str, room_name: str, recent_results: List[str], round_number: int) -> bool:
+        """방 결과 데이터를 서버로 전송"""
+        try:
+            self.logger.info(f"📡 방 결과 데이터 전송: {room_name} ({room_id})")
+            
+            payload = {
+                "room_id": room_id,
+                "room_name": room_name,
+                "recent_results": recent_results,
+                "round_number": round_number,
+                "timestamp": int(time.time() * 1000)  # 밀리초 단위 타임스탬프
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/rooms/results",
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "success":
+                    self.logger.info(f"✅ 방 결과 전송 성공: {room_name}")
+                    return True
+                else:
+                    self.logger.error(f"방 결과 전송 실패: {result.get('message', 'Unknown error')}")
+                    return False
+            else:
+                self.logger.error(f"방 결과 전송 HTTP 오류: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"방 결과 전송 오류: {e}")
+            return False
+
+    def get_room_streak_info(self, room_id: str) -> Optional[Dict]:
+        """서버에서 방의 연패 정보 조회"""
+        try:
+            self.logger.debug(f"🔍 연패 정보 조회: {room_id}")
+            
+            response = self.session.get(
+                f"{self.base_url}/api/rooms/streak/{room_id}",
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "success":
+                    streak_data = result.get("streak_data", {})
+                    
+                    streak_count = streak_data.get("streak_count", 0)
+                    streak_type = streak_data.get("streak_type", "")
+                    
+                    if streak_count > 0:
+                        self.logger.info(f"🔍 연패 정보: {room_id} - {streak_type} {streak_count}연패")
+                    
+                    return streak_data
+                else:
+                    self.logger.debug(f"연패 정보 없음: {room_id}")
+                    return None
+            else:
+                self.logger.debug(f"연패 정보 조회 HTTP 오류: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            self.logger.debug(f"연패 정보 조회 오류: {e}")
+            return None
+
+    def find_streak_rooms(self, min_streak: int = 3) -> Optional[List[Dict]]:
+        """연패 방 목록 조회"""
+        try:
+            self.logger.info(f"🔍 {min_streak}연패 이상 방 검색 중...")
+            
+            payload = {
+                "min_streak": min_streak
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/rooms/find-streak",
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "success":
+                    streak_rooms = result.get("streak_rooms", [])
+                    self.logger.info(f"✅ 연패 방 검색 완료: {len(streak_rooms)}개 발견")
+                    
+                    # 연패 방 정보 로그
+                    for room in streak_rooms:
+                        self.logger.info(f"  📍 {room.get('room_name', '')} - {room.get('streak_type', '')} {room.get('streak_count', 0)}연패")
+                    
+                    return streak_rooms
+                else:
+                    self.logger.info("연패 방을 찾지 못했습니다.")
+                    return []
+            else:
+                self.logger.error(f"연패 방 검색 HTTP 오류: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            self.logger.error(f"연패 방 검색 오류: {e}")
+            return []
+
+    def get_all_room_status(self) -> Optional[Dict]:
+        """모든 방의 상태 정보 조회"""
+        try:
+            self.logger.info("📊 전체 방 상태 조회 중...")
+            
+            response = self.session.get(
+                f"{self.base_url}/api/rooms/status",
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "success":
+                    rooms_data = result.get("rooms_data", {})
+                    self.logger.info(f"✅ 전체 방 상태 조회 완료: {len(rooms_data)}개 방")
+                    return rooms_data
+                else:
+                    self.logger.warning(f"전체 방 상태 조회 실패: {result.get('message')}")
+                    return None
+            else:
+                self.logger.warning(f"전체 방 상태 조회 HTTP 오류: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"전체 방 상태 조회 오류: {e}")
+            return None
 
     def send_websocket_config(self, websocket_url: str, user_id: str) -> bool:
         """웹소켓 설정 전송 - 서버 API에 맞춤"""
@@ -92,10 +227,9 @@ class BaccaratServerClient:
         try:
             self.logger.info(f"🎯 사용자 {user_id} 모니터링 시작 요청...")
             
-            # ✅ 타임아웃을 30초로 증가 (기존 15초 → 30초)
             response = self.session.post(
                 f"{self.base_url}/api/baccarat/start/{user_id}",
-                timeout=30  # 15초 → 30초로 증가
+                timeout=30  # 30초로 증가
             )
             
             if response.status_code == 200:
@@ -111,7 +245,7 @@ class BaccaratServerClient:
                 return False
                 
         except requests.exceptions.Timeout:
-            self.logger.error(f"모니터링 시작 타임아웃 (30초)")  # 메시지도 수정
+            self.logger.error(f"모니터링 시작 타임아웃 (30초)")
             return False
         except Exception as e:
             self.logger.error(f"모니터링 시작 오류: {e}")
@@ -138,39 +272,6 @@ class BaccaratServerClient:
         except Exception as e:
             self.logger.warning(f"모니터링 중지 오류: {e}")
             return False
-
-    def find_streak_rooms(self, user_id: str, streak_count: int = 3) -> Optional[Dict]:
-        """연패 방 찾기"""
-        try:
-            self.logger.info(f"🔍 {streak_count}연패 방 검색 중...")
-            
-            payload = {
-                "streak_count": streak_count,
-                "user_id": user_id
-            }
-            
-            response = self.session.post(
-                f"{self.base_url}/api/baccarat/find-streak-rooms",
-                json=payload,
-                timeout=self.timeout
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("status") == "success":
-                    streak_rooms = result.get("streak_rooms", [])
-                    self.logger.info(f"✅ 연패 방 검색 완료: {len(streak_rooms)}개 발견")
-                    return result
-                else:
-                    self.logger.warning("연패 방을 찾지 못했습니다.")
-                    return None
-            else:
-                self.logger.error(f"연패 방 검색 HTTP 오류: {response.status_code}")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"연패 방 검색 오류: {e}")
-            return None
 
     def get_monitoring_data(self, user_id: str) -> Optional[Dict]:
         """모니터링 데이터 조회"""
@@ -249,7 +350,7 @@ class ServerClient(BaccaratServerClient):
         self.logger.info("⚠️ ServerClient는 BaccaratServerClient의 별칭입니다. 새 코드에서는 BaccaratServerClient를 사용하세요.")
 
 
-# ✅ 추가 호환성 함수들 (필요한 경우)
+# ✅ 추가 호환성 함수들
 def create_server_client(logger=None):
     """서버 클라이언트 생성 함수"""
     return BaccaratServerClient(logger)
