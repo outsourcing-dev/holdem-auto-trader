@@ -193,6 +193,20 @@ class RoomEntryService:
         self.logger.info("서버 기반 방 입장 실패, 레거시 방식으로 폴백")
         return self._legacy_enter_room()
 
+    # services/room_entry_service.py에 추가할 메소드
+
+    def enter_room_by_name(self, room_name: str) -> bool:
+        """
+        방 이름으로 직접 방 입장 (기존 enter_specific_room의 별칭)
+        
+        Args:
+            room_name (str): 입장할 방 이름
+            
+        Returns:
+            bool: 입장 성공 여부
+        """
+        return self.enter_specific_room(room_name)
+
     def _legacy_enter_room(self):
         """
         기존 방식의 방 입장 로직 (레거시 호환용)

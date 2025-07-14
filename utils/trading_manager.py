@@ -475,6 +475,8 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"연패 모니터링 시작 오류: {e}")
 
+    # utils/trading_manager.py의 _update_streak_room_display 메소드 수정
+
     def _update_streak_room_display(self):
         """연패 방 목록 UI 업데이트"""
         try:
@@ -484,17 +486,18 @@ class TradingManager:
                 streak_count = top_room.get('streak_count', 0)
                 
                 if not self.room_entry_in_progress and not self.current_target_room:
+                    # status 매개변수 제거하고 로그로 대체
                     self.main_window.update_betting_status(
-                        room_name=f"발견: {room_name}",
-                        status=f"{streak_count}연패 방 대기 중"
+                        room_name=f"발견: {room_name}"
                     )
+                    self.logger.info(f"연패 방 대기 중: {room_name} ({streak_count}연패)")
             else:
                 if not self.room_entry_in_progress and not self.current_target_room:
                     self.main_window.update_betting_status(room_name="연패 방 감지 중...")
                     
         except Exception as e:
             self.logger.error(f"연패 방 표시 업데이트 오류: {e}")
-
+            
     def _on_connection_status_changed(self, connected: bool):
         """웹소켓 연결 상태 변경 처리"""
         try:

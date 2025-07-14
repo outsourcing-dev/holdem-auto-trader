@@ -89,7 +89,9 @@ class UIUpdater:
             self.main_window.total_bet_amount = total_bet
             self.main_window.header.update_total_bet(total_bet)
     
-    def update_betting_status(self, room_name=None, pick=None, step_markers=None, bet_amount=None, reset_counter=False):
+    # utils/ui_updater.py - update_betting_status 메소드 수정
+    def update_betting_status(self, room_name=None, pick=None, step_markers=None, bet_amount=None, 
+                            reset_counter=False, status=None, streak_info=None):
         """배팅 상태 업데이트 - 두 위젯 모두 업데이트"""
         if room_name is not None:
             # BettingWidget에 현재 방 이름 설정
@@ -111,6 +113,13 @@ class UIUpdater:
         if bet_amount is not None:
             # BettingWidget에 현재 배팅 금액 설정
             self.main_window.betting_widget.update_bet_amount(bet_amount)
+        
+        # status와 streak_info는 로깅용으로 사용 (UI에 직접 표시 안함)
+        if status is not None:
+            self.logger.info(f"베팅 상태 업데이트: {status}")
+        
+        if streak_info is not None:
+            self.logger.info(f"연패 정보: {streak_info}")
             
     def add_betting_result(self, no, room_name, step, result):
         """배팅 결과 추가 - BettingWidget 업데이트"""
