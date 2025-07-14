@@ -1,9 +1,3 @@
-# services/websocket_hybrid_service.py - 서버 연동 버전
-"""
-JavaScript 하이브리드 웹소켓 서비스 - 필터링된 방 데이터 서버 전송
-Evolution Gaming 웹소켓 메시지에서 filtered_room_mappings.json에 있는 방만 서버로 전송
-"""
-
 import json
 import time
 import logging
@@ -15,18 +9,19 @@ from datetime import datetime
 
 
 class WebSocketHybridService(QObject):
-    """JavaScript 하이브리드 웹소켓 서비스 - 필터링된 방 데이터 서버 전송"""
+    """JavaScript 하이브리드 웹소켓 서비스 - 연패 감지 및 자동 방 입장"""
     
     # Qt 시그널
     game_data_received = pyqtSignal(dict)
     connection_status_changed = pyqtSignal(bool)
     error_occurred = pyqtSignal(str)
-    streak_room_found = pyqtSignal(dict)  # 연패 방 발견 시그널
+    streak_room_found = pyqtSignal(dict)
+    room_entry_requested = pyqtSignal(dict)  # 방 입장 요청 시그널
     
     def __init__(self, devtools, server_client=None, logger=None):
         super().__init__()
         self.devtools = devtools
-        self.server_client = server_client  # 서버 클라이언트 주입
+        self.server_client = server_client
         self.logger = logger or logging.getLogger(__name__)
         
         # 필터링된 방 ID 목록 로드
@@ -49,12 +44,24 @@ class WebSocketHybridService(QObject):
         # 이미 처리한 방 결과 추적 (중복 방지)
         self.processed_room_results = set()
         
-        self.logger.info("🔍 WebSocketHybridService 서버 연동 모드 초기화")
+        # 사용자 설정 연패 기준
+        self.user_streak_threshold = 3  # 기본값
+        self.auto_room_entry = True
+        self._load_user_settings()
+        
+        # 방 입장 관리
+        self.recent_room_entries = set()
+        self.entry_cooldown_time = 300  # 5분 쿨다운
+        self._last_entry_attempts = {}
+        
+        # 내부 연패 캐시
+        self.internal_streak_cache = {}
+        
+        self.logger.info("🔍 WebSocketHybridService 연패 감지 및 자동 방 입장 모드 초기화")
         
     def _load_filtered_room_mappings(self):
         """필터링된 방 매핑 로드"""
         try:
-            # 필터링 JSON 파일 경로 찾기
             if getattr(sys, 'frozen', False):
                 base_dir = os.path.dirname(sys.executable)
                 json_paths = [
@@ -71,7 +78,6 @@ class WebSocketHybridService(QObject):
             self.filtered_room_ids = set()
             self.room_mappings = {}
             
-            # 파일 찾기 및 로드
             for json_path in json_paths:
                 if os.path.exists(json_path):
                     with open(json_path, 'r', encoding='utf-8') as f:
@@ -82,14 +88,8 @@ class WebSocketHybridService(QObject):
                         self.room_mappings = room_mappings
                         
                     self.logger.info(f"📋 필터링 방 목록 로드 완료: {len(self.filtered_room_ids)}개")
-                    
-                    # 방 이름들 로그
-                    for room_id, room_name in room_mappings.items():
-                        self.logger.info(f"  {room_id} → {room_name}")
-                    
                     return
             
-            # 파일을 찾지 못한 경우
             self.logger.warning("❌ filtered_room_mappings.json 파일을 찾을 수 없습니다.")
             self.filtered_room_ids = set()
             self.room_mappings = {}
@@ -99,10 +99,35 @@ class WebSocketHybridService(QObject):
             self.filtered_room_ids = set()
             self.room_mappings = {}
 
+    def _load_user_settings(self):
+        """사용자 설정 로드"""
+        try:
+            from utils.settings_manager import SettingsManager
+            settings = SettingsManager()
+            
+            # 연패 기준 설정 로드 (기본값 3)
+            self.user_streak_threshold = getattr(settings, 'streak_threshold', 3)
+            self.auto_room_entry = getattr(settings, 'auto_room_entry', True)
+            
+            self.logger.info(f"📋 사용자 설정: 연패 기준 {self.user_streak_threshold}, 자동 입장 {self.auto_room_entry}")
+            
+        except Exception as e:
+            self.logger.warning(f"사용자 설정 로드 실패: {e}, 기본값 사용")
+
+    def update_streak_threshold(self, threshold: int):
+        """연패 기준 업데이트"""
+        self.user_streak_threshold = threshold
+        self.logger.info(f"🎯 연패 기준 업데이트: {threshold}")
+
+    def update_auto_room_entry(self, enabled: bool):
+        """자동 방 입장 설정 업데이트"""
+        self.auto_room_entry = enabled
+        self.logger.info(f"🚪 자동 방 입장 설정: {enabled}")
+
     def start_websocket_connection(self, websocket_url: str) -> bool:
         """JavaScript 웹소켓 연결 시작"""
         try:
-            self.logger.info(f"🔌 필터링된 방 서버 전송용 웹소켓 연결 시작")
+            self.logger.info(f"🔌 연패 감지 웹소켓 연결 시작")
             self.logger.info(f"📍 URL: {websocket_url[:100]}...")
             
             if not self.devtools or not self.devtools.driver:
@@ -111,25 +136,20 @@ class WebSocketHybridService(QObject):
             
             self.websocket_url = websocket_url
             
-            # 서버 전송용 인터셉터 주입
             if not self._inject_server_interceptor():
                 return False
             
-            # 웹소켓 연결 시작
             if not self._start_javascript_websocket():
                 return False
             
-            # 연결 확인
             if not self._verify_connection():
                 return False
             
-            # 상태 체크 타이머 시작
-            self.status_check_timer.start(5000)  # 5초마다 상태 체크
-            
+            self.status_check_timer.start(5000)
             self.is_active = True
             self.connection_status_changed.emit(True)
             
-            self.logger.info("✅ 필터링된 방 서버 전송용 웹소켓 연결 성공")
+            self.logger.info("✅ 연패 감지 웹소켓 연결 성공")
             return True
             
         except Exception as e:
@@ -140,32 +160,27 @@ class WebSocketHybridService(QObject):
     def _inject_server_interceptor(self) -> bool:
         """서버 전송용 인터셉터 주입"""
         try:
-            # 서버 전송에 특화된 JavaScript 코드
             interceptor_script = """
-            // 🎯 서버 전송용 필터링된 방 데이터 인터셉터
             (function() {
-                console.log('🎯 서버 전송용 방 데이터 분석 모드 시작');
+                console.log('🎯 연패 감지용 방 데이터 분석 시작');
                 
-                // 분석용 저장소 초기화
                 window.wsServerAnalysis = {
                     totalMessages: 0,
                     filteredMessages: 0,
                     sentToServer: 0,
                     roomData: new Map(),
-                    lastProcessedRounds: new Map()  // 중복 방지용
+                    lastProcessedRounds: new Map()
                 };
                 
-                // 원본 WebSocket 백업
                 const OriginalWebSocket = window.WebSocket;
                 
-                // WebSocket 가로채기
                 window.WebSocket = function(url, protocols) {
                     console.log('🔗 WebSocket 연결:', url);
                     
                     const ws = new OriginalWebSocket(url, protocols);
                     
                     if (url.includes('evo-games.com')) {
-                        console.log('🎮 Evolution WebSocket 감지 - 서버 전송 모드 활성화');
+                        console.log('🎮 Evolution WebSocket 감지 - 연패 감지 모드 활성화');
                         window.gameWebSocket = ws;
                         
                         ws.addEventListener('message', function(event) {
@@ -186,7 +201,6 @@ class WebSocketHybridService(QObject):
                                 roundNumber: null
                             };
                             
-                            // JSON 파싱 시도
                             if (typeof messageData === 'string') {
                                 try {
                                     if (messageData.trim().startsWith('{') || messageData.trim().startsWith('[')) {
@@ -194,7 +208,6 @@ class WebSocketHybridService(QObject):
                                         analysisResult.isJSON = true;
                                         analysisResult.parsedData = parsed;
                                         
-                                        // 방 데이터 추출
                                         const roomDataResult = extractRoomData(parsed);
                                         if (roomDataResult) {
                                             analysisResult.hasRoomInfo = true;
@@ -214,7 +227,6 @@ class WebSocketHybridService(QObject):
                                 }
                             }
                             
-                            // Python으로 모든 분석 결과 전송
                             if (window.sendServerAnalysisResultToPython) {
                                 try {
                                     window.sendServerAnalysisResultToPython(analysisResult);
@@ -236,11 +248,9 @@ class WebSocketHybridService(QObject):
                     return ws;
                 };
                 
-                // 방 ID 및 게임 결과 추출 함수
                 function extractRoomData(data) {
                     if (!data || typeof data !== 'object') return null;
                     
-                    // lobby.historyUpdated 메시지에서 게임 결과 추출
                     if (data.type === 'lobby.historyUpdated' && data.args) {
                         for (const roomId of Object.keys(data.args)) {
                             const roomData = data.args[roomId];
@@ -249,7 +259,6 @@ class WebSocketHybridService(QObject):
                                 const results = roomData.results;
                                 
                                 if (results.length > 0) {
-                                    // 최근 10개 결과 추출
                                     const recentResults = [];
                                     for (let i = 0; i < results.length; i++) {
                                         const result = results[i];
@@ -273,14 +282,12 @@ class WebSocketHybridService(QObject):
                     return null;
                 }
                 
-                console.log('✅ 서버 전송용 인터셉터 설치 완료');
+                console.log('✅ 연패 감지용 인터셉터 설치 완료');
             })();
             """
             
-            # JavaScript 코드 실행
             result = self.devtools.driver.execute_script(interceptor_script)
-            
-            self.logger.info("✅ 서버 전송용 인터셉터 주입 완료")
+            self.logger.info("✅ 연패 감지용 인터셉터 주입 완료")
             return True
             
         except Exception as e:
@@ -291,7 +298,6 @@ class WebSocketHybridService(QObject):
         """JavaScript 웹소켓 연결 시작"""
         try:
             callback_script = f"""
-            // Python 분석 결과 콜백 함수 설정
             window.sendServerAnalysisResultToPython = function(analysisResult) {{
                 const event = new CustomEvent('pythonServerAnalysisData', {{
                     detail: analysisResult
@@ -304,7 +310,6 @@ class WebSocketHybridService(QObject):
                 window.lastServerAnalysisTimestamp = Date.now();
             }});
             
-            // 실제 웹소켓 연결
             try {{
                 console.log('🔌 Evolution 웹소켓 연결 시작');
                 window.gameWebSocket = new WebSocket('{self.websocket_url}');
@@ -337,7 +342,7 @@ class WebSocketHybridService(QObject):
             self.message_collection_timer.timeout.connect(self._collect_and_process_messages)
             self.message_collection_timer.start(2000)  # 2초마다 수집
             
-            self.logger.info("✅ 서버 전송용 메시지 수집 시작")
+            self.logger.info("✅ 연패 감지용 메시지 수집 시작")
             
         except Exception as e:
             self.logger.error(f"메시지 수집 시작 오류: {e}")
@@ -374,7 +379,6 @@ class WebSocketHybridService(QObject):
             has_room_info = analysis_data.get('hasRoomInfo', False)
             has_results = analysis_data.get('hasResults', False)
             
-            # 필터링된 방 ID인지 확인
             is_filtered_room = room_id and room_id in self.filtered_room_ids
             
             if is_filtered_room:
@@ -384,12 +388,10 @@ class WebSocketHybridService(QObject):
                 self.logger.info(f"🎯 [필터링된 방 {self.filtered_room_count}] 방 ID: {room_id}")
                 self.logger.info(f"📍 매핑된 방 이름: {mapped_room_name}")
                 
-                # 게임 결과가 있는 경우 서버로 전송
                 if has_results:
                     game_results = analysis_data.get('gameResults', [])
                     round_number = analysis_data.get('roundNumber', 0)
                     
-                    # 중복 방지 체크
                     result_key = f"{room_id}_{round_number}_{len(game_results)}"
                     if result_key not in self.processed_room_results:
                         self.processed_room_results.add(result_key)
@@ -397,7 +399,7 @@ class WebSocketHybridService(QObject):
                         self.logger.info(f"🎮 게임 결과 발견! 방 ID: {room_id}")
                         self.logger.info(f"📊 최근 {len(game_results)}개 결과: {game_results}")
                         
-                        # 서버로 전송
+                        # 서버로 전송 및 연패 체크
                         self._send_room_data_to_server(room_id, mapped_room_name, game_results, round_number)
                 
                 # Qt 시그널로 게임 데이터 전송
@@ -412,7 +414,6 @@ class WebSocketHybridService(QObject):
                 
                 self.game_data_received.emit(game_data)
             
-            # 간단한 통계 출력
             if self.filtered_room_count > 0 and self.filtered_room_count % 5 == 0:
                 self.logger.info(f"📊 통계: 총 {self.message_count}개 메시지, 필터링된 방 {self.filtered_room_count}개, 서버 전송 {self.sent_to_server_count}개")
                 
@@ -420,7 +421,7 @@ class WebSocketHybridService(QObject):
             self.logger.error(f"분석 데이터 처리 오류: {e}")
 
     def _send_room_data_to_server(self, room_id: str, room_name: str, game_results: list, round_number: int):
-        """필터링된 방 데이터를 서버로 전송"""
+        """서버로 데이터 전송 및 연패 감지"""
         try:
             if not self.server_client:
                 self.logger.warning("서버 클라이언트가 설정되지 않음")
@@ -429,53 +430,205 @@ class WebSocketHybridService(QObject):
             self.logger.info(f"📡 서버로 데이터 전송: {room_name} ({room_id})")
             self.logger.info(f"📊 결과 데이터: {game_results}")
             
-            # 서버가 기대하는 형식으로 데이터 구성
             payload = {
                 "room_id": room_id,
-                "mapped_room_name": room_name,  # room_name -> mapped_room_name
-                "all_results": game_results,    # recent_results -> all_results  
-                "total_results": len(game_results),  # round_number -> total_results
+                "room_name": room_name,
+                "all_results": game_results,
+                "total_results": len(game_results),
                 "latest_result": game_results[-1] if game_results else ""
             }
             
-            # 직접 requests로 전송 (server_client 사용하지 않고)
             import requests
             response = requests.post(
-                f"{self.server_client.base_url}/api/rooms/results",
+                f"{self.server_client.base_url}/api/rooms/calculate-streak",
                 json=payload,
                 timeout=15
             )
             
             if response.status_code == 200:
                 result = response.json()
-                if result.get("status") == "success":
-                    self.sent_to_server_count += 1
-                    self.logger.info(f"✅ 서버 전송 성공: {room_name}")
-                    
-                    # 연패 정보 확인
-                    current_streak = result.get("current_streak", 0)
-                    if current_streak >= 3:
-                        self.logger.info(f"🚨 연패 방 발견! {room_name} - {current_streak}연패")
-                        
-                        streak_data = {
-                            'room_id': room_id,
-                            'room_name': room_name,
-                            'streak_count': current_streak,
-                            'streak_type': 'Choice Pick Prediction',
-                            'recent_results': game_results
-                        }
-                        
-                        self.streak_room_found.emit(streak_data)
-                    else:
-                        self.logger.debug(f"연패 {current_streak}회: {room_name}")
-                else:
-                    self.logger.warning(f"❌ 서버 응답 실패: {result.get('message', 'Unknown error')}")
+                current_streak = result.get("current_streak", 0)
+                self.sent_to_server_count += 1
+                
+                self.logger.info(f"✅ 서버 전송 성공: {room_name} - {current_streak}연패")
+                
+                # 🔥 연패 정보 즉시 처리
+                self._process_streak_response(room_id, room_name, current_streak, game_results)
+                
             else:
                 self.logger.warning(f"❌ 서버 전송 HTTP 오류: {response.status_code} - {response.text}")
                     
         except Exception as e:
             self.logger.error(f"서버 데이터 전송 오류: {e}")
+
+    def _process_streak_response(self, room_id: str, room_name: str, streak_count: int, recent_results: list):
+        """서버 응답 연패 정보 처리 - 방 입장 로직"""
+        try:
+            self.logger.info(f"🔍 연패 응답 처리: {room_name} - {streak_count}연패 (기준: {self.user_streak_threshold})")
             
+            # 🎯 사용자 설정 연패 기준과 비교
+            if streak_count >= self.user_streak_threshold:
+                self.logger.info(f"🚨 연패 기준 달성! {room_name} - {streak_count}연패 (기준: {self.user_streak_threshold})")
+                
+                streak_data = {
+                    'room_id': room_id,
+                    'room_name': room_name,
+                    'streak_count': streak_count,
+                    'streak_type': 'Choice Pick Prediction',
+                    'recent_results': recent_results,
+                    'detection_time': datetime.now().isoformat(),
+                    'priority_score': self._calculate_priority_score(streak_count, recent_results),
+                    'user_threshold': self.user_streak_threshold,
+                    'meets_criteria': True
+                }
+                
+                # 🔥 연패 방 발견 시그널
+                self.streak_room_found.emit(streak_data)
+                
+                # 🚪 자동 방 입장 조건 체크
+                if self.auto_room_entry and self._should_enter_room(room_id, streak_count):
+                    self.logger.info(f"🎯 자동 방 입장 조건 만족: {room_name}")
+                    self._request_room_entry(streak_data)
+                
+                # 📝 내부 캐시 업데이트
+                self._update_internal_streak_cache(streak_data)
+                
+            else:
+                self.logger.debug(f"연패 {streak_count}회: {room_name} (기준: {self.user_streak_threshold} 미만)")
+                self._remove_from_streak_cache(room_id)
+        
+        except Exception as e:
+            self.logger.error(f"연패 응답 처리 오류: {e}")
+
+    def _should_enter_room(self, room_id: str, streak_count: int) -> bool:
+        """방 입장 여부 판단"""
+        try:
+            current_time = time.time()
+            
+            # 쿨다운 체크
+            last_attempt = self._last_entry_attempts.get(room_id, 0)
+            if current_time - last_attempt < self.entry_cooldown_time:
+                self.logger.debug(f"방 입장 쿨다운 중: {room_id}")
+                return False
+            
+            # 중복 입장 방지
+            entry_key = f"{room_id}_{streak_count}"
+            if entry_key in self.recent_room_entries:
+                self.logger.debug(f"이미 처리한 방 입장: {entry_key}")
+                return False
+            
+            # 연패 수 상한선 체크 (너무 높으면 위험)
+            if streak_count > 15:
+                self.logger.warning(f"연패 수 너무 높음: {streak_count}, 입장 제외")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"방 입장 판단 오류: {e}")
+            return False
+
+    def _request_room_entry(self, streak_data: dict):
+        """방 입장 요청"""
+        try:
+            room_id = streak_data['room_id']
+            room_name = streak_data['room_name']
+            streak_count = streak_data['streak_count']
+            
+            self.logger.info(f"🚪 방 입장 요청: {room_name} ({streak_count}연패)")
+            
+            # 입장 시도 기록
+            current_time = time.time()
+            self._last_entry_attempts[room_id] = current_time
+            entry_key = f"{room_id}_{streak_count}"
+            self.recent_room_entries.add(entry_key)
+            
+            # 방 입장 요청 시그널 발송
+            self.room_entry_requested.emit(streak_data)
+            
+            # 쿨다운 타이머 설정 (5분 후 제거)
+            QTimer.singleShot(self.entry_cooldown_time * 1000, 
+                            lambda: self.recent_room_entries.discard(entry_key))
+            
+        except Exception as e:
+            self.logger.error(f"방 입장 요청 오류: {e}")
+
+    def _calculate_priority_score(self, streak_count: int, recent_results: list) -> float:
+        """연패 방 우선순위 점수 계산"""
+        try:
+            base_score = streak_count
+            bonus_score = 0
+            
+            if len(recent_results) >= 5:
+                last_5 = recent_results[-5:]
+                p_count = last_5.count('P')
+                b_count = last_5.count('B')
+                pattern_bonus = abs(p_count - b_count) * 0.2
+                bonus_score += pattern_bonus
+            
+            data_bonus = min(len(recent_results) / 100, 1.0)
+            bonus_score += data_bonus
+            
+            final_score = base_score + bonus_score
+            
+            self.logger.debug(f"우선순위 점수: {streak_count}연패 + {bonus_score:.2f}보너스 = {final_score:.2f}")
+            
+            return final_score
+            
+        except Exception as e:
+            self.logger.error(f"우선순위 점수 계산 오류: {e}")
+            return float(streak_count)
+
+    def _update_internal_streak_cache(self, streak_data: dict):
+        """내부 연패 캐시 업데이트"""
+        try:
+            room_id = streak_data['room_id']
+            self.internal_streak_cache[room_id] = streak_data
+            
+            # 캐시 크기 제한 (최대 50개)
+            if len(self.internal_streak_cache) > 50:
+                sorted_items = sorted(
+                    self.internal_streak_cache.items(),
+                    key=lambda x: x[1].get('priority_score', 0),
+                    reverse=True
+                )
+                self.internal_streak_cache = dict(sorted_items[:50])
+            
+            self.logger.debug(f"연패 캐시 업데이트: {room_id} (총 {len(self.internal_streak_cache)}개)")
+            
+        except Exception as e:
+            self.logger.error(f"연패 캐시 업데이트 오류: {e}")
+
+    def _remove_from_streak_cache(self, room_id: str):
+        """연패 캐시에서 제거"""
+        try:
+            if room_id in self.internal_streak_cache:
+                del self.internal_streak_cache[room_id]
+                self.logger.debug(f"연패 캐시에서 제거: {room_id}")
+        except Exception as e:
+            self.logger.error(f"연패 캐시 제거 오류: {e}")
+
+    def get_current_streak_rooms(self, min_streak: int = None) -> list:
+        """현재 캐시된 연패 방 목록 반환"""
+        try:
+            if min_streak is None:
+                min_streak = self.user_streak_threshold
+            
+            qualifying_rooms = []
+            for room_data in self.internal_streak_cache.values():
+                if room_data.get('streak_count', 0) >= min_streak:
+                    qualifying_rooms.append(room_data)
+            
+            qualifying_rooms.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
+            
+            self.logger.info(f"현재 연패 방 목록: {len(qualifying_rooms)}개 (기준: {min_streak}연패 이상)")
+            
+            return qualifying_rooms
+            
+        except Exception as e:
+            self.logger.error(f"연패 방 목록 조회 오류: {e}")
+            return []
+
     def _verify_connection(self) -> bool:
         """연결 확인"""
         try:
@@ -541,19 +694,16 @@ class WebSocketHybridService(QObject):
             if not self.is_active:
                 return
                 
-            self.logger.info("🛑 서버 전송용 웹소켓 연결 중지")
+            self.logger.info("🛑 연패 감지 웹소켓 연결 중지")
             
-            # 타이머 중지
             if hasattr(self, 'status_check_timer'):
                 self.status_check_timer.stop()
             
             if hasattr(self, 'message_collection_timer'):
                 self.message_collection_timer.stop()
             
-            # 최종 통계 출력
             self.logger.info(f"📊 최종 통계: 총 메시지 {self.message_count}개, 필터링된 방 {self.filtered_room_count}개, 서버 전송 {self.sent_to_server_count}개")
             
-            # JavaScript 정리
             cleanup_script = """
             if (window.gameWebSocket) {
                 try {
@@ -562,17 +712,16 @@ class WebSocketHybridService(QObject):
                     console.log('WebSocket 정리 중 오류:', e);
                 }
             }
-            console.log('🛑 서버 전송용 WebSocket 정리 완료');
+            console.log('🛑 연패 감지 WebSocket 정리 완료');
             """
             
             self.devtools.driver.execute_script(cleanup_script)
             
-            # 상태 초기화
             self.is_active = False
             self.is_connected = False
             
             self.connection_status_changed.emit(False)
-            self.logger.info("✅ 서버 전송용 웹소켓 중지 완료")
+            self.logger.info("✅ 연패 감지 웹소켓 중지 완료")
             
         except Exception as e:
             self.logger.error(f"웹소켓 중지 중 오류: {e}")
@@ -588,7 +737,10 @@ class WebSocketHybridService(QObject):
                 'filtered_room_messages': self.filtered_room_count,
                 'sent_to_server': self.sent_to_server_count,
                 'filtering_ratio': (self.filtered_room_count/self.message_count*100) if self.message_count > 0 else 0,
-                'total_filtered_rooms': len(self.filtered_room_ids)
+                'total_filtered_rooms': len(self.filtered_room_ids),
+                'streak_threshold': self.user_streak_threshold,
+                'auto_room_entry': self.auto_room_entry,
+                'cached_streak_rooms': len(self.internal_streak_cache)
             }
             
         except Exception as e:
@@ -598,7 +750,7 @@ class WebSocketHybridService(QObject):
     def force_reconnect(self) -> bool:
         """강제 재연결"""
         try:
-            self.logger.info("🔄 서버 전송용 웹소켓 강제 재연결")
+            self.logger.info("🔄 연패 감지 웹소켓 강제 재연결")
             self.stop_websocket_connection()
             time.sleep(2)
             
@@ -619,8 +771,27 @@ class WebSocketHybridService(QObject):
             'filtered_room_messages': self.filtered_room_count,
             'sent_to_server': self.sent_to_server_count,
             'total_filtered_rooms': len(self.filtered_room_ids),
-            'room_mappings': self.room_mappings
+            'room_mappings': self.room_mappings,
+            'streak_threshold': self.user_streak_threshold,
+            'auto_room_entry': self.auto_room_entry,
+            'cached_streak_rooms': len(self.internal_streak_cache)
         }
+
+    def debug_streak_cache(self):
+        """연패 캐시 디버그 정보 출력"""
+        try:
+            cache_size = len(self.internal_streak_cache)
+            self.logger.info(f"📊 연패 캐시 디버그 (총 {cache_size}개):")
+            
+            for room_id, room_data in self.internal_streak_cache.items():
+                room_name = room_data.get('room_name', 'Unknown')
+                streak_count = room_data.get('streak_count', 0)
+                priority_score = room_data.get('priority_score', 0)
+                
+                self.logger.info(f"  {room_name}: {streak_count}연패 (점수: {priority_score:.2f})")
+        
+        except Exception as e:
+            self.logger.error(f"연패 캐시 디버그 오류: {e}")
 
     def __del__(self):
         """소멸자 - 리소스 정리"""

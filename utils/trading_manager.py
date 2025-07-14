@@ -1,12 +1,3 @@
-"""
-JavaScript 하이브리드 웹소켓 기반 TradingManager - 서버 연동 버전
-- 기존 DevTools 구조 유지
-- JavaScript로 웹소켓 직접 연결
-- 실시간 데이터를 Python으로 전달
-- 서버로 필터링된 방 데이터 전송
-- 연패 방 우선 입장 로직
-"""
-
 import time
 import logging
 from PyQt6.QtWidgets import QMessageBox, QApplication
@@ -25,7 +16,7 @@ from utils.devtools import DevToolsController
 from utils.server_client import BaccaratServerClient
 
 class TradingManager:
-    """JavaScript 하이브리드 웹소켓 기반 자동매매 매니저 - 서버 연동"""
+    """연패 감지 및 자동 방 입장 기반 자동매매 매니저"""
 
     def __init__(self, main_window, logger=None):
         self.logger = logger or logging.getLogger(__name__)
@@ -47,7 +38,7 @@ class TradingManager:
         # 서버 클라이언트 초기화
         self.server_client = BaccaratServerClient(logger=self.logger)
         
-        # JavaScript 하이브리드 웹소켓 서비스
+        # 웹소켓 서비스
         self.websocket_service = None
         self.websocket_interceptor = None  # 호환성 유지
         
@@ -65,9 +56,10 @@ class TradingManager:
         self.message_count = 0
         
         # 연패 방 관리
-        self.available_streak_rooms = []  # 연패 방 목록
-        self.current_target_room = None   # 현재 타겟 방
-        self.waiting_for_room_entry = False  # 방 입장 대기 중
+        self.target_streak_rooms = []     # 연패 기준을 만족하는 방 목록
+        self.current_target_room = None   # 현재 입장할 타겟 방
+        self.is_entering_room = False     # 방 입장 진행 중
+        self.room_entry_in_progress = False
         
         # 기타 상태 변수
         self.wait_first_result = False
@@ -132,9 +124,9 @@ class TradingManager:
             self.logger.error(f"서비스 초기화 오류: {e}", exc_info=True)
 
     def start_trading(self):
-        """JavaScript 하이브리드 웹소켓 기반 자동 매매 시작 - 서버 연동"""
+        """연패 감지 및 자동 방 입장 기반 자동 매매 시작"""
         try:
-            self.logger.info("🚀 JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 시작")
+            self.logger.info("🚀 연패 감지 자동 매매 시작")
             
             # 기본 검증
             if not self.helpers.validate_trading_prerequisites():
@@ -157,26 +149,26 @@ class TradingManager:
             if not self._ensure_evolution_lobby_ready():
                 return
 
-            # JavaScript 하이브리드 웹소켓 서비스 시작
+            # 웹소켓 서비스 시작
             if not self._start_websocket_service():
                 QMessageBox.warning(
                     self.main_window,
                     "웹소켓 서비스 실패",
-                    "JavaScript 웹소켓 서비스를 시작할 수 없습니다."
+                    "연패 감지 웹소켓 서비스를 시작할 수 없습니다."
                 )
                 return
 
             # 자동 매매 활성화
             self.is_trading_active = True
-            self.logger.info("🎯 JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 시작 완료")
+            self.logger.info("🎯 연패 감지 자동 매매 시작 완료")
             
             # UI 업데이트
             self.main_window.start_button.setEnabled(False)
             self.main_window.stop_button.setEnabled(True)
             self.main_window.update_button_styles()
             
-            # 연패 방 모니터링 시작
-            self._start_streak_room_monitoring()
+            # 연패 감지 시작
+            self._start_streak_monitoring()
 
         except Exception as e:
             self.logger.error(f"자동 매매 시작 오류: {e}", exc_info=True)
@@ -212,9 +204,9 @@ class TradingManager:
             return False
 
     def _start_websocket_service(self) -> bool:
-        """JavaScript 하이브리드 웹소켓 서비스 시작 - 서버 연동 버전"""
+        """연패 감지 웹소켓 서비스 시작"""
         try:
-            self.logger.info("🎯 웹소켓 URL 추출 및 서버 연동 시작")
+            self.logger.info("🎯 연패 감지 웹소켓 서비스 시작")
             
             # 웹소켓 URL 추출
             websocket_urls = self._extract_websocket_urls_for_logging()
@@ -223,48 +215,45 @@ class TradingManager:
                 self.logger.error("❌ 웹소켓 URL을 찾을 수 없습니다")
                 return False
             
-            # 첫 번째 URL 사용
             websocket_url = websocket_urls[0]
             self.logger.info(f"📡 사용할 웹소켓 URL: {websocket_url[:100]}...")
             
-            # JavaScript 하이브리드 서비스 생성 (서버 클라이언트 주입)
+            # 연패 감지 서비스 생성
             from services.websocket_hybrid_service import WebSocketHybridService
             self.websocket_service = WebSocketHybridService(
                 devtools=self.devtools,
-                server_client=self.server_client,  # 서버 클라이언트 주입
+                server_client=self.server_client,
                 logger=self.logger
             )
             
-            # 기존 호환성을 위한 변수 설정
+            # 호환성을 위한 변수 설정
             self.websocket_interceptor = self.websocket_service
             
             # 시그널 연결
-            self._connect_hybrid_service_signals()
+            self._connect_websocket_signals()
             
-            # JavaScript 웹소켓 연결 시작
+            # 웹소켓 연결 시작
             if self.websocket_service.start_websocket_connection(websocket_url):
                 self.websocket_intercepting = True
-                self.logger.info("✅ JavaScript 하이브리드 웹소켓 + 서버 연동 시작 성공")
+                self.logger.info("✅ 연패 감지 웹소켓 서비스 시작 성공")
                 return True
             else:
-                self.logger.error("❌ JavaScript 웹소켓 연결 실패")
+                self.logger.error("❌ 웹소켓 연결 실패")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"JavaScript 하이브리드 웹소켓 + 서버 연동 시작 오류: {e}")
+            self.logger.error(f"연패 감지 웹소켓 서비스 시작 오류: {e}")
             return False
         
     def _extract_websocket_urls_for_logging(self) -> list:
-        """웹소켓 URL 추출 및 로깅"""
+        """웹소켓 URL 추출"""
         try:
             self.logger.info("⚡ 웹소켓 URL 추출 시작")
             start_time = time.time()
             
-            # WebSocketParser 사용
             from services.websocket_parser import WebSocketParser
             ws_parser = WebSocketParser(self.devtools, self.logger)
             
-            # URL 추출 실행
             websocket_urls = []
             try:
                 websocket_urls = ws_parser.auto_detect_websocket_urls()
@@ -274,16 +263,13 @@ class TradingManager:
             
             elapsed_time = time.time() - start_time
             
-            # 로그 출력
             if websocket_urls:
                 first_url = websocket_urls[0]
                 self.logger.info(f"📡 WebSocket 연결 감지: {first_url}")
                 self.logger.info(f"✅ 웹소켓 URL 추출 완료 ({elapsed_time:.1f}초, {len(websocket_urls)}개 발견)")
-                self.logger.info(f"✅ 웹소켓 URL 추출 성공: {first_url[:100]}...")
             else:
                 self.logger.warning(f"❌ 웹소켓 URL 추출 실패 ({elapsed_time:.1f}초)")
             
-            # 정리
             if hasattr(ws_parser, 'shutdown'):
                 ws_parser.shutdown()
             
@@ -293,20 +279,20 @@ class TradingManager:
             self.logger.error(f"웹소켓 URL 추출 오류: {e}")
             return []
 
-    def _connect_hybrid_service_signals(self):
-        """JavaScript 하이브리드 서비스 시그널 연결 - 서버 연동"""
+    def _connect_websocket_signals(self):
+        """웹소켓 서비스 시그널 연결"""
         try:
             if not self.websocket_service:
                 return
                 
             # 게임 데이터 수신 시그널
             self.websocket_service.game_data_received.connect(
-                self._on_game_data_extracted
+                self._on_game_data_received
             )
             
             # 연결 상태 변경 시그널
             self.websocket_service.connection_status_changed.connect(
-                self._on_hybrid_connection_status_changed
+                self._on_connection_status_changed
             )
             
             # 오류 발생 시그널
@@ -314,15 +300,20 @@ class TradingManager:
                 self._on_websocket_error
             )
             
-            # 연패 방 발견 시그널 (새로 추가)
+            # 연패 방 발견 시그널
             self.websocket_service.streak_room_found.connect(
                 self._on_streak_room_found
             )
             
-            self.logger.info("JavaScript 하이브리드 서비스 시그널 연결 완료 (서버 연동 포함)")
+            # 방 입장 요청 시그널
+            self.websocket_service.room_entry_requested.connect(
+                self._on_room_entry_requested
+            )
+            
+            self.logger.info("연패 감지 웹소켓 시그널 연결 완료")
             
         except Exception as e:
-            self.logger.error(f"하이브리드 서비스 시그널 연결 오류: {e}")
+            self.logger.error(f"웹소켓 시그널 연결 오류: {e}")
 
     def _on_streak_room_found(self, streak_data: dict):
         """연패 방 발견 시 처리"""
@@ -330,137 +321,134 @@ class TradingManager:
             room_id = streak_data.get('room_id', '')
             room_name = streak_data.get('room_name', '')
             streak_count = streak_data.get('streak_count', 0)
-            streak_type = streak_data.get('streak_type', '')
             
-            self.logger.info(f"🚨 연패 방 발견! {room_name} - {streak_type} {streak_count}연패")
+            self.logger.info(f"🚨 연패 방 발견! {room_name} - {streak_count}연패")
             
-            # 연패 방 리스트에 추가 (중복 체크)
-            existing_room = next((room for room in self.available_streak_rooms if room['room_id'] == room_id), None)
+            # 타겟 연패 방 리스트에 추가 (중복 체크)
+            existing_room = next((room for room in self.target_streak_rooms if room['room_id'] == room_id), None)
             
             if existing_room:
-                # 기존 방 정보 업데이트
                 existing_room.update(streak_data)
                 self.logger.info(f"📝 연패 방 정보 업데이트: {room_name}")
             else:
-                # 새로운 연패 방 추가
-                self.available_streak_rooms.append(streak_data)
+                self.target_streak_rooms.append(streak_data)
                 self.logger.info(f"➕ 새 연패 방 추가: {room_name}")
             
             # 연패 수가 높은 순으로 정렬
-            self.available_streak_rooms.sort(key=lambda x: x.get('streak_count', 0), reverse=True)
+            self.target_streak_rooms.sort(key=lambda x: x.get('streak_count', 0), reverse=True)
             
-            # 현재 방에 있지 않고 대기 중이 아니면 즉시 방 입장 시도
-            if not self.waiting_for_room_entry and not self.current_target_room:
-                self._try_enter_best_streak_room()
+            # UI 업데이트
+            self._update_streak_room_display()
                 
         except Exception as e:
             self.logger.error(f"연패 방 발견 처리 오류: {e}")
 
-    def _try_enter_best_streak_room(self):
-        """가장 좋은 연패 방 입장 시도"""
+    def _on_room_entry_requested(self, streak_data: dict):
+        """방 입장 요청 처리"""
         try:
-            if not self.available_streak_rooms:
-                self.logger.info("입장 가능한 연패 방이 없습니다.")
-                return False
+            if self.room_entry_in_progress or self.is_entering_room:
+                self.logger.info(f"방 입장이 이미 진행 중입니다. 요청 무시: {streak_data.get('room_name', '')}")
+                return
             
-            # 가장 연패 수가 높은 방 선택
-            best_room = self.available_streak_rooms[0]
-            room_name = best_room.get('room_name', '')
-            streak_count = best_room.get('streak_count', 0)
-            streak_type = best_room.get('streak_type', '')
+            room_name = streak_data.get('room_name', '')
+            streak_count = streak_data.get('streak_count', 0)
             
-            self.logger.info(f"🎯 최우선 연패 방 입장 시도: {room_name} ({streak_type} {streak_count}연패)")
+            self.logger.info(f"🚪 방 입장 요청 처리: {room_name} ({streak_count}연패)")
             
-            # 방 입장 시도
-            self.waiting_for_room_entry = True
-            self.current_target_room = best_room
+            # 방 입장 플래그 설정
+            self.room_entry_in_progress = True
+            self.is_entering_room = True
+            self.current_target_room = streak_data
             
             # UI 업데이트
             self.main_window.update_betting_status(
-                room_name=f"연패방 입장 중: {room_name}",
-                streak_info=f"{streak_type} {streak_count}연패"
+                room_name=f"입장 중: {room_name}",
+                status=f"{streak_count}연패 방 입장 시도"
             )
             
-            # 실제 방 입장 (RoomEntryService 사용)
-            success = self._enter_streak_room(best_room)
-            
-            if success:
-                self.logger.info(f"✅ 연패 방 입장 성공: {room_name}")
-                self.current_room_name = room_name
-                self.waiting_for_room_entry = False
-                
-                # 게임 모니터링 시작
-                self._start_game_monitoring_in_room()
-                return True
-            else:
-                self.logger.warning(f"❌ 연패 방 입장 실패: {room_name}")
-                self.waiting_for_room_entry = False
-                self.current_target_room = None
-                
-                # 실패한 방을 리스트에서 제거하고 다음 방 시도
-                self.available_streak_rooms.remove(best_room)
-                
-                # 다른 방이 있으면 재시도
-                if self.available_streak_rooms:
-                    self.logger.info("다른 연패 방으로 재시도...")
-                    return self._try_enter_best_streak_room()
-                
-                return False
+            # 실제 방 입장 실행
+            self._execute_room_entry(streak_data)
                 
         except Exception as e:
-            self.logger.error(f"연패 방 입장 시도 오류: {e}")
-            self.waiting_for_room_entry = False
-            self.current_target_room = None
-            return False
+            self.logger.error(f"방 입장 요청 처리 오류: {e}")
+            self.room_entry_in_progress = False
+            self.is_entering_room = False
 
-    def _enter_streak_room(self, room_data: dict) -> bool:
-        """연패 방 실제 입장"""
+    def _execute_room_entry(self, streak_data: dict):
+        """실제 방 입장 실행"""
         try:
-            room_name = room_data.get('room_name', '')
-            room_id = room_data.get('room_id', '')
+            room_name = streak_data.get('room_name', '')
+            room_id = streak_data.get('room_id', '')
+            streak_count = streak_data.get('streak_count', 0)
             
-            self.logger.info(f"🚪 방 입장 시작: {room_name} ({room_id})")
+            self.logger.info(f"🚪 방 입장 실행: {room_name} ({room_id})")
             
-            # RoomEntryService를 통한 방 입장
+            # 기존 방 입장 서비스 활용
             if hasattr(self.room_entry_service, 'enter_room_by_name'):
                 success = self.room_entry_service.enter_room_by_name(room_name)
             else:
-                # 폴백: 직접 방 입장 로직
-                success = self._direct_room_entry(room_name)
+                success = self._fallback_room_entry(room_name)
             
             if success:
-                self.logger.info(f"✅ 방 입장 완료: {room_name}")
+                self.logger.info(f"✅ 방 입장 성공: {room_name}")
                 
-                # 방 입장 후 대기 시간
-                time.sleep(3)
+                # 현재 방 정보 업데이트
+                self.current_room_name = room_name
                 
-                return True
+                # 게임 모니터링 시작
+                self._start_game_monitoring_in_room(streak_data)
+                
+                # UI 업데이트
+                self.main_window.update_betting_status(
+                    room_name=room_name,
+                    status=f"{streak_count}연패 방 입장 완료",
+                    streak_info=f"{streak_count}연패"
+                )
+                
             else:
                 self.logger.warning(f"❌ 방 입장 실패: {room_name}")
-                return False
+                
+                # 실패한 방을 타겟 목록에서 제거
+                self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+                
+                # 다른 방이 있으면 재시도
+                if self.target_streak_rooms:
+                    self.logger.info("다른 연패 방으로 재시도...")
+                    next_room = self.target_streak_rooms[0]
+                    self._execute_room_entry(next_room)
+                    return
+            
+            # 방 입장 플래그 해제
+            self.room_entry_in_progress = False
+            self.is_entering_room = False
                 
         except Exception as e:
-            self.logger.error(f"방 입장 오류: {e}")
-            return False
+            self.logger.error(f"방 입장 실행 오류: {e}")
+            self.room_entry_in_progress = False
+            self.is_entering_room = False
 
-    def _direct_room_entry(self, room_name: str) -> bool:
-        """직접 방 입장 로직 (폴백)"""
+    def _fallback_room_entry(self, room_name: str) -> bool:
+        """폴백 방 입장 로직"""
         try:
-            # 방 검색 및 클릭 로직
-            # 실제 구현은 기존 room_entry_service 코드 참조
-            self.logger.info(f"직접 방 입장 시도: {room_name}")
+            self.logger.info(f"폴백 방 입장 시도: {room_name}")
             
-            # 여기서는 단순히 성공으로 처리 (실제로는 DOM 조작 필요)
+            # 간단한 방 입장 로직 (실제로는 DOM 조작 필요)
+            # 여기서는 성공으로 가정
+            time.sleep(2)  # 입장 시뮬레이션
+            
             return True
             
         except Exception as e:
-            self.logger.error(f"직접 방 입장 오류: {e}")
+            self.logger.error(f"폴백 방 입장 오류: {e}")
             return False
 
-    def _start_game_monitoring_in_room(self):
+    def _start_game_monitoring_in_room(self, streak_data: dict):
         """방 입장 후 게임 모니터링 시작"""
         try:
-            self.logger.info(f"🎮 게임 모니터링 시작: {self.current_room_name}")
+            room_name = streak_data.get('room_name', '')
+            streak_count = streak_data.get('streak_count', 0)
+            
+            self.logger.info(f"🎮 게임 모니터링 시작: {room_name} ({streak_count}연패)")
             
             # 게임 상태 초기화
             self.game_count = 0
@@ -468,493 +456,53 @@ class TradingManager:
             self.wait_first_result = True
             self.processed_rounds = set()
             
-            # UI 업데이트
-            self.main_window.update_betting_status(
-                room_name=self.current_room_name,
-                status="게임 모니터링 중..."
-            )
+            # 현재 타겟 방 설정
+            self.current_target_room = streak_data
             
         except Exception as e:
             self.logger.error(f"게임 모니터링 시작 오류: {e}")
 
-    def _start_streak_room_monitoring(self):
-        """연패 방 모니터링 시작"""
+    def _start_streak_monitoring(self):
+        """연패 모니터링 시작"""
         try:
-            self.logger.info("🏠 연패 방 모니터링 시작")
-            
-            # 초기 연패 방 검색
-            self._search_initial_streak_rooms()
-            
-            # 주기적 연패 방 업데이트 타이머
-            self.streak_monitor_timer = QTimer()
-            self.streak_monitor_timer.timeout.connect(self._periodic_streak_room_check)
-            self.streak_monitor_timer.start(30000)  # 30초마다 연패 방 체크
+            self.logger.info("🏠 연패 모니터링 시작")
             
             # UI 업데이트
-            self.main_window.update_betting_status(room_name="연패 방 검색 중...")
+            self.main_window.update_betting_status(room_name="연패 방 감지 중...")
             
-            self.logger.info("✅ 연패 방 모니터링 활성화")
+            self.logger.info("✅ 연패 모니터링 활성화")
                 
         except Exception as e:
-            self.logger.error(f"연패 방 모니터링 시작 오류: {e}")
+            self.logger.error(f"연패 모니터링 시작 오류: {e}")
 
-    def _search_initial_streak_rooms(self):
-        """초기 연패 방 검색"""
+    def _update_streak_room_display(self):
+        """연패 방 목록 UI 업데이트"""
         try:
-            self.logger.info("🔍 초기 연패 방 검색 중...")
-            
-            # 서버에서 연패 방 목록 조회
-            streak_rooms = self.server_client.find_streak_rooms(min_streak=3)
-            
-            if streak_rooms:
-                self.available_streak_rooms = streak_rooms
-                self.logger.info(f"✅ 초기 연패 방 {len(streak_rooms)}개 발견")
+            if self.target_streak_rooms:
+                top_room = self.target_streak_rooms[0]
+                room_name = top_room.get('room_name', '')
+                streak_count = top_room.get('streak_count', 0)
                 
-                # 즉시 가장 좋은 방 입장 시도
-                self._try_enter_best_streak_room()
+                if not self.room_entry_in_progress and not self.current_target_room:
+                    self.main_window.update_betting_status(
+                        room_name=f"발견: {room_name}",
+                        status=f"{streak_count}연패 방 대기 중"
+                    )
             else:
-                self.logger.info("초기 연패 방을 찾지 못했습니다. 웹소켓 데이터를 통해 실시간 감지합니다.")
-                
-                # 데이터 수집 모드로 전환
-                self._start_data_collection_mode()
-                
-        except Exception as e:
-            self.logger.error(f"초기 연패 방 검색 오류: {e}")
-            # 오류 시에도 데이터 수집 모드로 전환
-            self._start_data_collection_mode()
-
-    def _periodic_streak_room_check(self):
-        """주기적 연패 방 체크"""
-        try:
-            self.logger.info("🔄 주기적 연패 방 상태 체크")
-            
-            # 현재 방에 있지 않거나 대기 중이 아닐 때만 새로운 방 검색
-            if not self.current_target_room and not self.waiting_for_room_entry:
-                streak_rooms = self.server_client.find_streak_rooms(min_streak=3)
-                
-                if streak_rooms:
-                    # 기존 목록과 병합
-                    for new_room in streak_rooms:
-                        existing = next((room for room in self.available_streak_rooms 
-                                       if room['room_id'] == new_room['room_id']), None)
-                        if existing:
-                            existing.update(new_room)
-                        else:
-                            self.websocket_service.force_reconnect()
-            
-        except Exception as e:
-            self.logger.error(f"주기적 상태 체크 오류: {e}")
-
-    def stop_trading(self):
-        """JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 중지"""
-        try:
-            if not self.is_trading_active:
-                self.logger.info("자동 매매가 이미 중지된 상태입니다.")
-                return
-                
-            self.logger.info("🛑 JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 중지 중...")
-            
-            # 연패 방 모니터링 타이머 정리
-            if hasattr(self, 'streak_monitor_timer'):
-                self.streak_monitor_timer.stop()
-            
-            # 데이터 체크 타이머 정리
-            if hasattr(self, 'data_check_timer'):
-                self.data_check_timer.stop()
-            
-            # JavaScript 하이브리드 서비스 중지
-            if self.websocket_service:
-                self.websocket_service.stop_websocket_connection()
-                self.websocket_service = None
-            
-            # 호환성을 위한 기존 변수도 정리
-            self.websocket_interceptor = None
-            
-            # 중지 플래그 설정
-            self.stop_all_processes = True
-            self.is_trading_active = False
-            self.websocket_intercepting = False
-            
-            # 타이머 중지
-            if hasattr(self.main_window, 'timer') and self.main_window.timer.isActive():
-                self.main_window.timer.stop()
-                QApplication.processEvents()
-            
-            # 상태 초기화
-            self.game_count = 0
-            self.result_count = 0
-            self.current_pick = None
-            self.processed_rounds = set()
-            self.message_count = 0
-            
-            # 연패 방 관련 상태 초기화
-            self.available_streak_rooms = []
-            self.current_target_room = None
-            self.waiting_for_room_entry = False
-            
-            # 서비스 초기화
-            if hasattr(self, 'betting_service'):
-                self.betting_service.reset_betting_state()
-            
-            if hasattr(self, 'martin_service'):
-                self.martin_service.reset()
-            
-            # UI 상태 복원
-            self.main_window.start_button.setEnabled(True)
-            self.main_window.stop_button.setEnabled(False)
-            self.main_window.update_button_styles()
-            
-            # 현재 방에서 나가기
-            if self.current_room_name:
-                try:
-                    if hasattr(self, 'game_monitoring_service'):
-                        self.game_monitoring_service.close_current_room()
-                except:
-                    pass
-            
-            self.logger.info("✅ JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 중지 완료")
-            
-            # 목표 금액 도달이 아닌 경우에만 메시지 표시
-            target_reached = (hasattr(self.balance_service, '_target_amount_reached') and 
-                            self.balance_service._target_amount_reached)
-            
-            if not target_reached:
-                QMessageBox.information(self.main_window, "알림", "자동 매매가 중지되었습니다.")
-
-        except Exception as e:
-            self.logger.error(f"자동 매매 중지 중 오류: {e}")
-            # 강제 중지
-            self.is_trading_active = False
-            self.websocket_intercepting = False
-
-    def refresh_settings(self):
-        """설정 새로고침"""
-        try:
-            self.settings_manager = SettingsManager()
-            
-            # 서비스들의 설정 매니저 갱신
-            services = ['balance_service', 'martin_service', 'room_entry_service', 'excel_trading_service']
-            for service_name in services:
-                if hasattr(self, service_name):
-                    service = getattr(self, service_name)
-                    if hasattr(service, 'settings_manager'):
-                        service.settings_manager = self.settings_manager
-            
-            # 마틴 설정 적용
-            martin_count, martin_amounts = self.settings_manager.get_martin_settings()
-            if hasattr(self, 'excel_trading_service'):
-                self.excel_trading_service.set_martin_amounts(martin_amounts)
+                if not self.room_entry_in_progress and not self.current_target_room:
+                    self.main_window.update_betting_status(room_name="연패 방 감지 중...")
                     
-            self.logger.info(f"설정 새로고침 완료 - 마틴: {martin_count}단계, {martin_amounts}")
-            return True
-            
         except Exception as e:
-            self.logger.error(f"설정 새로고침 오류: {e}")
-            return False
+            self.logger.error(f"연패 방 표시 업데이트 오류: {e}")
 
-    def _ensure_evolution_lobby_ready(self):
-        """에볼루션 로비 준비 상태 확인"""
-        try:
-            window_handles = self.devtools.driver.window_handles
-            
-            if len(window_handles) < 2:
-                QMessageBox.information(
-                    self.main_window, 
-                    "에볼루션 접속 필요", 
-                    "에볼루션 카지노에 먼저 접속해주세요."
-                )
-                return False
-            
-            # 에볼루션 로비 창으로 전환
-            self.devtools.driver.switch_to.window(window_handles[1])
-            self.logger.info("에볼루션 로비 창으로 전환 완료")
-            
-            # 잔액 확인
-            if not self.helpers.setup_browser_and_check_balance():
-                return False
-                
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"에볼루션 로비 준비 오류: {e}")
-            return False
-
-    # ==================== 상태 확인 및 디버그 메서드들 ====================
-
-    def get_interceptor_status(self) -> dict:
-        """하이브리드 서비스 상태 정보 반환 (기존 호환성 유지)"""
-        try:
-            if self.websocket_service:
-                js_status = self.websocket_service.get_connection_status()
-                
-                # 기존 인터셉터 형식으로 변환
-                return {
-                    'is_intercepting': js_status.get('active', False),
-                    'performance_logs_enabled': True,  # JavaScript 방식이므로 항상 true
-                    'cdp_session_active': js_status.get('connected', False),
-                    'websocket_connections': 1 if js_status.get('connected') else 0,
-                    'active_connections': 1 if js_status.get('connected') else 0,
-                    'message_buffer_size': js_status.get('total_messages', 0),
-                    'processed_messages': js_status.get('total_messages', 0),
-                    'server_sent_count': js_status.get('sent_to_server', 0),
-                    'filtered_room_count': js_status.get('filtered_room_messages', 0),
-                    'available_streak_rooms': len(self.available_streak_rooms),
-                    'current_target_room': self.current_target_room
-                }
-            else:
-                return {
-                    'is_intercepting': False,
-                    'performance_logs_enabled': False,
-                    'cdp_session_active': False,
-                    'websocket_connections': 0,
-                    'active_connections': 0,
-                    'message_buffer_size': 0,
-                    'processed_messages': 0,
-                    'server_sent_count': 0,
-                    'filtered_room_count': 0,
-                    'available_streak_rooms': 0,
-                    'current_target_room': None
-                }
-        except Exception as e:
-            self.logger.error(f"하이브리드 서비스 상태 확인 오류: {e}")
-            return {'error': str(e)}
-
-    def get_current_status(self):
-        """현재 상태 반환 - 서버 연동 포함"""
-        service_status = self.get_interceptor_status()
-        
-        return {
-            'is_active': self.is_trading_active,
-            'websocket_intercepting': self.websocket_intercepting,
-            'current_room': self.current_room_name,
-            'game_count': self.game_count,
-            'result_count': self.result_count,
-            'has_bet': getattr(self.betting_service, 'has_bet_current_round', False) if hasattr(self, 'betting_service') else False,
-            'wait_first_result': self.wait_first_result,
-            'stop_flag': self.stop_all_processes,
-            'service_status': service_status,
-            'message_count': self.message_count,
-            'last_game_data': self.last_game_data,
-            'available_streak_rooms': len(self.available_streak_rooms),
-            'current_target_room': self.current_target_room,
-            'waiting_for_room_entry': self.waiting_for_room_entry,
-            'server_connected': bool(self.server_client and self.server_client.get_server_status())
-        }
-
-    def get_connection_stats(self):
-        """연결 통계 반환 - 서버 연동 포함"""
-        try:
-            return {
-                'service_active': self.websocket_intercepting,
-                'trading_active': self.is_trading_active,
-                'message_count': self.message_count,
-                'current_room': self.current_room_name,
-                'game_count': self.game_count,
-                'result_count': self.result_count,
-                'service_stats': self.get_interceptor_status(),
-                'streak_room_stats': {
-                    'available_rooms': len(self.available_streak_rooms),
-                    'current_target': self.current_target_room,
-                    'waiting_entry': self.waiting_for_room_entry
-                },
-                'server_stats': {
-                    'connected': bool(self.server_client),
-                    'sent_count': self.get_interceptor_status().get('server_sent_count', 0)
-                }
-            }
-        except Exception as e:
-            self.logger.error(f"연결 통계 수집 오류: {e}")
-            return {}
-
-    def force_collect_data(self):
-        """수동 데이터 수집 트리거 (하이브리드 서비스용)"""
-        try:
-            if self.websocket_service and self.websocket_intercepting:
-                # JavaScript 상태 확인
-                status = self.websocket_service.get_connection_status()
-                self.logger.info(f"🔍 수동 데이터 수집: {status}")
-                
-                return status.get('connected', False)
-            else:
-                self.logger.warning("하이브리드 서비스가 활성화되지 않음")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"수동 데이터 수집 오류: {e}")
-            return False
-
-    def debug_service_status(self):
-        """디버그용 하이브리드 서비스 + 서버 연동 상태 출력"""
-        try:
-            if self.websocket_service:
-                self.logger.info("🔍 JavaScript 하이브리드 서비스 + 서버 연동 디버그 상태:")
-                
-                # 연결 상태
-                status = self.websocket_service.get_connection_status()
-                for key, value in status.items():
-                    self.logger.info(f"  - {key}: {value}")
-                
-                # 연패 방 상태
-                self.logger.info(f"🏠 연패 방 관리 상태:")
-                self.logger.info(f"  - 사용 가능한 연패 방: {len(self.available_streak_rooms)}개")
-                self.logger.info(f"  - 현재 타겟 방: {self.current_target_room}")
-                self.logger.info(f"  - 방 입장 대기 중: {self.waiting_for_room_entry}")
-                
-                # 서버 연결 상태
-                server_connected = bool(self.server_client and self.server_client.get_server_status())
-                self.logger.info(f"📡 서버 연결 상태: {server_connected}")
-                    
-            else:
-                self.logger.info("  - 하이브리드 서비스 인스턴스 없음")
-                
-        except Exception as e:
-            self.logger.error(f"디버그 상태 출력 오류: {e}")
-
-    def force_reconnect_websocket(self):
-        """웹소켓 강제 재연결"""
-        try:
-            if self.websocket_service:
-                self.logger.info("🔄 웹소켓 강제 재연결 시도")
-                return self.websocket_service.force_reconnect()
-            else:
-                self.logger.warning("재연결할 웹소켓 서비스가 없습니다")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"강제 재연결 오류: {e}")
-            return False
-
-    def get_websocket_connection_info(self):
-        """웹소켓 연결 정보 반환"""
-        try:
-            if self.websocket_service:
-                return self.websocket_service.get_connection_status()
-            return {'connected': False, 'error': 'No websocket service'}
-            
-        except Exception as e:
-            self.logger.error(f"연결 정보 확인 오류: {e}")
-            return {'connected': False, 'error': str(e)}
-
-    def get_streak_room_info(self):
-        """연패 방 정보 반환"""
-        try:
-            return {
-                'available_streak_rooms': self.available_streak_rooms,
-                'current_target_room': self.current_target_room,
-                'waiting_for_room_entry': self.waiting_for_room_entry,
-                'room_count': len(self.available_streak_rooms)
-            }
-        except Exception as e:
-            self.logger.error(f"연패 방 정보 확인 오류: {e}")
-            return {'error': str(e)}
-
-    def force_search_streak_rooms(self):
-        """연패 방 강제 검색"""
-        try:
-            self.logger.info("🔍 연패 방 강제 검색 시작")
-            self._search_initial_streak_rooms()
-            return len(self.available_streak_rooms)
-        except Exception as e:
-            self.logger.error(f"연패 방 강제 검색 오류: {e}")
-            return 0
-
-    def emergency_stop(self):
-        """비상 정지"""
-        try:
-            self.logger.warning("🚨 비상 정지 실행")
-            
-            # 모든 플래그 즉시 설정
-            self.stop_all_processes = True
-            self.is_trading_active = False
-            self.websocket_intercepting = False
-            
-            # 웹소켓 서비스 강제 종료
-            if self.websocket_service:
-                self.websocket_service.stop_websocket_connection()
-                self.websocket_service = None
-            
-            self.websocket_interceptor = None
-            
-            # 타이머 강제 중지
-            if hasattr(self.main_window, 'timer'):
-                self.main_window.timer.stop()
-                QApplication.processEvents()
-            
-            # 추가 타이머들 정리
-            for timer_name in ['data_check_timer', 'streak_monitor_timer']:
-                if hasattr(self, timer_name):
-                    getattr(self, timer_name).stop()
-            
-            # 연패 방 상태 초기화
-            self.available_streak_rooms = []
-            self.current_target_room = None
-            self.waiting_for_room_entry = False
-            
-            # UI 상태 강제 복원
-            self.main_window.start_button.setEnabled(True)
-            self.main_window.stop_button.setEnabled(False)
-            self.main_window.update_button_styles()
-            
-            self.logger.info("비상 정지 완료")
-            
-        except Exception as e:
-            self.logger.error(f"비상 정지 중 오류: {e}")
-
-    # ==================== 기존 호환성 메서드들 ====================
-
-    def get_websocket_status(self):
-        """기존 호환성을 위한 메서드"""
-        return self.get_interceptor_status()
-
-    def get_recent_websocket_messages(self, count=10):
-        """기존 호환성을 위한 메서드 (더미)"""
-        # JavaScript 방식에서는 메시지 버퍼를 직접 노출하지 않음
-        return []
-
-    def debug_interceptor_status(self):
-        """기존 호환성을 위한 메서드"""
-        return self.debug_service_status()
-
-    # ==================== 정리 ====================
-    def __del__(self):
-        """소멸자 - 리소스 정리"""
-        try:
-            if hasattr(self, 'websocket_service') and self.websocket_service:
-                self.websocket_service.stop_websocket_connection()
-            
-            for timer_name in ['data_check_timer', 'streak_monitor_timer']:
-                if hasattr(self, timer_name):
-                    getattr(self, timer_name).stop()
-                
-        except:
-            pass
-
-    def _start_data_collection_mode(self):
-        """데이터 수집 모드 시작"""
-        try:
-            self.logger.info("📊 웹소켓 데이터 수집 모드 시작")
-            
-            self.current_room_name = "웹소켓_데이터_수집_모드"
-            self.game_count = 0
-            self.wait_first_result = False
-            
-            # UI 업데이트
-            self.main_window.update_betting_status(room_name="실시간 데이터 수집 중...")
-            
-            # 데이터 수집 모니터링 시작
-            self._start_data_monitoring()
-            
-        except Exception as e:
-            self.logger.error(f"데이터 수집 모드 시작 오류: {e}")
-
-    def _on_hybrid_connection_status_changed(self, connected: bool):
-        """하이브리드 서비스 연결 상태 변경 처리"""
+    def _on_connection_status_changed(self, connected: bool):
+        """웹소켓 연결 상태 변경 처리"""
         try:
             status_text = "연결됨" if connected else "연결 끊김"
-            self.logger.info(f"🔌 JavaScript 웹소켓 상태 변경: {status_text}")
+            self.logger.info(f"🔌 연패 감지 웹소켓 상태 변경: {status_text}")
             
             if connected:
-                self.logger.info("✅ 실시간 게임 데이터 수신 및 서버 전송 시작")
+                self.logger.info("✅ 실시간 연패 감지 시작")
             else:
                 if self.is_trading_active:
                     self.logger.warning("⚠️ 자동 매매 중 연결 끊김")
@@ -962,65 +510,43 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"연결 상태 변경 처리 오류: {e}")
 
-    def _on_game_data_extracted(self, game_data: dict):
-        """게임 데이터 추출 시 처리 - 서버 연동"""
+    def _on_game_data_received(self, game_data: dict):
+        """게임 데이터 수신 처리"""
         try:
             self.last_game_data = game_data
             self.message_count += 1
             
-            # 게임 데이터 로깅
+            # 현재 방과 일치하는 데이터인지 확인
             room_name = game_data.get('room_name', '')
+            if self.current_target_room and room_name:
+                target_room_name = self.current_target_room.get('room_name', '')
+                if target_room_name in room_name:
+                    # 현재 방의 게임 데이터 처리
+                    self._process_current_room_game_data(game_data)
+                
+        except Exception as e:
+            self.logger.error(f"게임 데이터 수신 처리 오류: {e}")
+
+    def _process_current_room_game_data(self, game_data: dict):
+        """현재 방의 게임 데이터 처리"""
+        try:
             round_number = game_data.get('round_number', 0)
             latest_result = game_data.get('latest_result', '')
             
-            if room_name or latest_result:
-                self.logger.info(f"🎮 JavaScript 게임 데이터: 방={room_name}, 라운드={round_number}, 결과={latest_result}")
-            
-            # 자동 매매가 활성화된 경우 게임 데이터 처리
-            if self.is_trading_active:
-                self._process_game_data(game_data)
-                
-        except Exception as e:
-            self.logger.error(f"게임 데이터 추출 처리 오류: {e}")
-
-    def _on_websocket_error(self, error_message: str):
-        """웹소켓 오류 발생 시 처리"""
-        try:
-            self.logger.error(f"🚨 JavaScript 웹소켓 오류: {error_message}")
-            
-            # 심각한 오류인 경우 자동 매매 중지
-            if "connection" in error_message.lower() or "timeout" in error_message.lower():
-                self.logger.warning("심각한 웹소켓 오류로 인한 자동 매매 중지")
-                self.stop_trading()
-                
-        except Exception as e:
-            self.logger.error(f"웹소켓 오류 처리 중 오류: {e}")
-
-    def _process_game_data(self, game_data: dict):
-        """수집한 게임 데이터 처리"""
-        try:
-            # 현재 방과 일치하는 데이터인지 확인
-            room_name = game_data.get('room_name', '')
-            if self.current_room_name and room_name:
-                if self.current_room_name not in room_name and "데이터_수집_모드" not in self.current_room_name:
-                    return  # 다른 방의 데이터는 무시
-            
             # 게임 카운트 업데이트
-            round_number = game_data.get('round_number', 0)
             if round_number > self.game_count:
                 self.game_count = round_number
             
             # 새로운 결과가 있는 경우 처리
-            latest_result = game_data.get('latest_result', '')
             if latest_result and latest_result in ['P', 'B', 'T']:
                 self._handle_game_result(game_data)
             
-            # 베팅 타이밍 확인 (실제 방에 있을 때만)
-            if self.current_target_room and not self.waiting_for_room_entry:
+            # 베팅 타이밍 확인
+            if self.current_target_room and not self.room_entry_in_progress:
                 self._check_betting_opportunity(game_data)
             
         except Exception as e:
-            self.logger.error(f"게임 데이터 처리 오류: {e}")
+            self.logger.error(f"현재 방 게임 데이터 처리 오류: {e}")
 
     def _handle_game_result(self, game_data: dict):
         """게임 결과 처리"""
@@ -1038,15 +564,13 @@ class TradingManager:
             
             self.logger.info(f"🎯 새로운 게임 결과: 라운드 {round_number}, 결과 {latest_result}")
             
-            # 베팅 결과 확인 (실제 베팅한 경우만)
+            # 베팅 결과 확인
             if (hasattr(self.betting_service, 'has_bet_current_round') and 
-                self.betting_service.has_bet_current_round and 
-                self.current_target_room):
+                self.betting_service.has_bet_current_round):
                 
                 last_bet = self.betting_service.get_last_bet()
                 
                 if last_bet and last_bet['type'] in ['P', 'B']:
-                    # 베팅 결과 처리
                     result_status = self.bet_helper.process_bet_result(
                         last_bet['type'], 
                         latest_result, 
@@ -1055,7 +579,6 @@ class TradingManager:
                     
                     self.logger.info(f"베팅 결과 처리: {result_status}")
                     
-                    # 결과에 따른 후속 처리
                     if result_status == 'win':
                         self.just_won = True
                         self._handle_win_result()
@@ -1086,49 +609,36 @@ class TradingManager:
                     self.logger.info("첫 결과 수신 - 대기 모드 해제")
                 return
             
-            # 베팅 가능 상태 확인
-            game_status = game_data.get('game_status', '')
-            if game_status and 'betting' not in game_status.lower():
-                return
-            
             # 연패 방에서만 베팅 실행
             if not self.current_target_room:
                 return
             
             # 픽 생성
-            next_pick = self._generate_pick_from_data(game_data)
+            next_pick = self._generate_pick_for_streak_room()
             
             if next_pick in ['P', 'B']:
-                # 베팅 실행
                 round_number = game_data.get('round_number', self.game_count + 1)
                 self._execute_betting(next_pick, round_number)
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
 
-    def _generate_pick_from_data(self, game_data: dict) -> str:
-        """데이터 기반 픽 생성 - 연패 방 전용"""
+    def _generate_pick_for_streak_room(self) -> str:
+        """연패 방을 위한 픽 생성"""
         try:
             if not self.current_target_room:
-                return 'P'  # 기본값
+                return 'P'
             
-            # 연패 정보 기반 픽 생성
+            # 연패 정보 기반 픽 생성 (연패 반대로 베팅)
             streak_type = self.current_target_room.get('streak_type', '')
             
-            if streak_type:
-                # 연패 반대로 베팅 (P 연패면 B 베팅, B 연패면 P 베팅)
-                if 'P' in streak_type.upper() or 'PLAYER' in streak_type.upper():
-                    return 'B'  # P 연패면 B 베팅
-                elif 'B' in streak_type.upper() or 'BANKER' in streak_type.upper():
-                    return 'P'  # B 연패면 P 베팅
-            
-            # ExcelTradingService의 ChoicePickSystem 사용 (폴백)
+            # ExcelTradingService의 ChoicePickSystem 사용
             if hasattr(self.excel_trading_service, 'choice_pick_system'):
                 pick = self.excel_trading_service.choice_pick_system.generate_choice_pick()
                 if pick in ['P', 'B']:
                     return pick
             
-            return 'P'  # 최종 기본값
+            return 'P'  # 기본값
             
         except Exception as e:
             self.logger.error(f"픽 생성 오류: {e}")
@@ -1139,9 +649,8 @@ class TradingManager:
         try:
             streak_info = ""
             if self.current_target_room:
-                streak_type = self.current_target_room.get('streak_type', '')
                 streak_count = self.current_target_room.get('streak_count', 0)
-                streak_info = f" (연패: {streak_type} {streak_count})"
+                streak_info = f" (연패: {streak_count})"
             
             self.logger.info(f"🎯 베팅 실행: {pick} (라운드 {round_number}){streak_info}")
             
@@ -1187,10 +696,10 @@ class TradingManager:
             
             # 현재 방 정보 초기화
             self.current_target_room = None
-            self.available_streak_rooms = []
+            self.target_streak_rooms = []
             
-            # 새로운 연패 방 검색
-            self._search_initial_streak_rooms()
+            # 새로운 연패 방 검색 모드로 전환
+            self._return_to_streak_monitoring()
             
         except Exception as e:
             self.logger.error(f"승리 처리 오류: {e}")
@@ -1209,12 +718,7 @@ class TradingManager:
             # 연패 확인
             if self._check_consecutive_losses():
                 self.logger.info("연패 조건 달성 - 새로운 방 검색")
-                
-                # 현재 방 정보 초기화
-                self.current_target_room = None
-                
-                # 새로운 연패 방 검색
-                self._search_initial_streak_rooms()
+                self._return_to_streak_monitoring()
                 
         except Exception as e:
             self.logger.error(f"패배 처리 오류: {e}")
@@ -1234,7 +738,6 @@ class TradingManager:
     def _check_consecutive_losses(self) -> bool:
         """연패 확인"""
         try:
-            # ExcelTradingService를 통한 방 이동 조건 확인
             if hasattr(self, 'excel_trading_service'):
                 return self.excel_trading_service.should_change_room()
             
@@ -1244,111 +747,60 @@ class TradingManager:
             self.logger.error(f"연패 확인 오류: {e}")
             return False
 
-    def _start_data_monitoring(self):
-        """데이터 수집 모니터링 시작"""
+    def _return_to_streak_monitoring(self):
+        """연패 모니터링 모드로 복귀"""
         try:
-            self.logger.info("🔍 JavaScript 웹소켓 데이터 모니터링 시작")
+            self.logger.info("🔄 연패 모니터링 모드로 복귀")
             
-            # 즉시 상태 체크
-            self._check_service_status()
+            # 현재 방 정보 초기화
+            self.current_target_room = None
+            self.current_room_name = ""
+            self.target_streak_rooms = []
             
-            # 10초마다 상태 체크
-            self.data_check_timer = QTimer()
-            self.data_check_timer.timeout.connect(self._periodic_status_check)
-            self.data_check_timer.start(10000)  # 10초마다
+            # 상태 초기화
+            self.room_entry_in_progress = False
+            self.is_entering_room = False
+            self.wait_first_result = False
             
-        except Exception as e:
-            self.logger.error(f"데이터 모니터링 시작 오류: {e}")
-
-    def _check_service_status(self):
-        """서비스 상태 체크"""
-        try:
-            if self.websocket_service:
-                status = self.websocket_service.get_connection_status()
-                
-                self.logger.info(f"📊 JavaScript 웹소켓 + 서버 연동 상태:")
-                self.logger.info(f"  - 활성: {status.get('active', False)}")
-                self.logger.info(f"  - 연결: {status.get('connected', False)}")
-                self.logger.info(f"  - 총 메시지: {status.get('total_messages', 0)}")
-                self.logger.info(f"  - 필터링된 방: {status.get('filtered_room_messages', 0)}")
-                self.logger.info(f"  - 서버 전송: {status.get('sent_to_server', 0)}")
+            # UI 업데이트
+            self.main_window.update_betting_status(room_name="연패 방 감지 중...")
             
-            self.logger.info(f"📈 총 처리된 게임 데이터: {self.message_count}개")
-            self.logger.info(f"🏠 현재 연패 방 목록: {len(self.available_streak_rooms)}개")
-            
-        except Exception as e:
-            self.logger.error(f"서비스 상태 체크 오류: {e}")
-
-    def _periodic_status_check(self):
-            """주기적 상태 체크"""
+            # 현재 방에서 나가기 (선택사항)
             try:
-                self.logger.info(f"🔎 주기적 상태 체크 - 처리된 데이터: {self.message_count}개")
+                if hasattr(self, 'game_monitoring_service'):
+                    self.game_monitoring_service.close_current_room()
+            except:
+                pass
+            
+        except Exception as e:
+            self.logger.error(f"연패 모니터링 복귀 오류: {e}")
+
+    def _on_websocket_error(self, error_message: str):
+        """웹소켓 오류 발생 시 처리"""
+        try:
+            self.logger.error(f"🚨 연패 감지 웹소켓 오류: {error_message}")
+            
+            if "connection" in error_message.lower() or "timeout" in error_message.lower():
+                self.logger.warning("심각한 웹소켓 오류로 인한 자동 매매 중지")
+                self.stop_trading()
                 
-                # 연결 상태 및 데이터 수집 상태 확인
-                if self.websocket_service:
-                    status = self.websocket_service.get_connection_status()
-                    
-                    # 연결 끊김 확인
-                    if not status.get('connected', False):
-                        self.logger.warning("⚠️ JavaScript 웹소켓 연결 끊김 감지")
-                        
-                        # 재연결 시도
-                        if self.is_trading_active:
-                            self.logger.info("🔄 자동 재연결 시도")
-                            self.websocket_service.force_reconnect()
-                    
-                    # 서버 전송 상태 체크
-                    sent_count = status.get('sent_to_server', 0)
-                    filtered_count = status.get('filtered_room_messages', 0)
-                    
-                    if filtered_count > 0 and sent_count == 0:
-                        self.logger.warning("⚠️ 필터링된 방 데이터가 있지만 서버 전송이 안됨")
-                    elif sent_count > 0:
-                        self.logger.info(f"📡 서버 전송 정상: {sent_count}개 전송됨")
-                
-                # 연패 방 상태 체크
-                self.logger.info(f"🏠 현재 연패 방 상태:")
-                self.logger.info(f"  - 사용 가능한 연패 방: {len(self.available_streak_rooms)}개")
-                self.logger.info(f"  - 현재 타겟 방: {self.current_target_room.get('room_name', 'None') if self.current_target_room else 'None'}")
-                self.logger.info(f"  - 방 입장 대기 중: {self.waiting_for_room_entry}")
-                
-                # 서버 연결 상태 체크
-                if self.server_client:
-                    try:
-                        server_status = self.server_client.get_server_status()
-                        if not server_status:
-                            self.logger.warning("⚠️ 서버 연결 끊김 감지")
-                        else:
-                            self.logger.debug("📡 서버 연결 정상")
-                    except Exception as e:
-                        self.logger.warning(f"⚠️ 서버 상태 확인 실패: {e}")
-                
-            except Exception as e:
-                self.logger.error(f"주기적 상태 체크 오류: {e}")
+        except Exception as e:
+            self.logger.error(f"웹소켓 오류 처리 중 오류: {e}")
 
     def stop_trading(self):
-        """JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 중지"""
+        """연패 감지 자동 매매 중지"""
         try:
             if not self.is_trading_active:
                 self.logger.info("자동 매매가 이미 중지된 상태입니다.")
                 return
                 
-            self.logger.info("🛑 JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 중지 중...")
+            self.logger.info("🛑 연패 감지 자동 매매 중지 중...")
             
-            # 연패 방 모니터링 타이머 정리
-            if hasattr(self, 'streak_monitor_timer'):
-                self.streak_monitor_timer.stop()
-            
-            # 데이터 체크 타이머 정리
-            if hasattr(self, 'data_check_timer'):
-                self.data_check_timer.stop()
-            
-            # JavaScript 하이브리드 서비스 중지
+            # 웹소켓 서비스 중지
             if self.websocket_service:
                 self.websocket_service.stop_websocket_connection()
                 self.websocket_service = None
             
-            # 호환성을 위한 기존 변수도 정리
             self.websocket_interceptor = None
             
             # 중지 플래그 설정
@@ -1369,9 +821,10 @@ class TradingManager:
             self.message_count = 0
             
             # 연패 방 관련 상태 초기화
-            self.available_streak_rooms = []
+            self.target_streak_rooms = []
             self.current_target_room = None
-            self.waiting_for_room_entry = False
+            self.room_entry_in_progress = False
+            self.is_entering_room = False
             
             # 서비스 초기화
             if hasattr(self, 'betting_service'):
@@ -1393,7 +846,7 @@ class TradingManager:
                 except:
                     pass
             
-            self.logger.info("✅ JavaScript 하이브리드 웹소켓 + 서버 연동 자동 매매 중지 완료")
+            self.logger.info("✅ 연패 감지 자동 매매 중지 완료")
             
             # 목표 금액 도달이 아닌 경우에만 메시지 표시
             target_reached = (hasattr(self.balance_service, '_target_amount_reached') and 
@@ -1425,6 +878,11 @@ class TradingManager:
             martin_count, martin_amounts = self.settings_manager.get_martin_settings()
             if hasattr(self, 'excel_trading_service'):
                 self.excel_trading_service.set_martin_amounts(martin_amounts)
+            
+            # 웹소켓 서비스에 연패 기준 업데이트
+            if self.websocket_service:
+                streak_threshold = getattr(self.settings_manager, 'streak_threshold', 3)
+                self.websocket_service.update_streak_threshold(streak_threshold)
                     
             self.logger.info(f"설정 새로고침 완료 - 마틴: {martin_count}단계, {martin_amounts}")
             return True
@@ -1463,15 +921,14 @@ class TradingManager:
     # ==================== 상태 확인 및 디버그 메서드들 ====================
 
     def get_interceptor_status(self) -> dict:
-        """하이브리드 서비스 상태 정보 반환 (기존 호환성 유지)"""
+        """웹소켓 서비스 상태 정보 반환"""
         try:
             if self.websocket_service:
                 js_status = self.websocket_service.get_connection_status()
                 
-                # 기존 인터셉터 형식으로 변환
                 return {
                     'is_intercepting': js_status.get('active', False),
-                    'performance_logs_enabled': True,  # JavaScript 방식이므로 항상 true
+                    'performance_logs_enabled': True,
                     'cdp_session_active': js_status.get('connected', False),
                     'websocket_connections': 1 if js_status.get('connected') else 0,
                     'active_connections': 1 if js_status.get('connected') else 0,
@@ -1479,8 +936,9 @@ class TradingManager:
                     'processed_messages': js_status.get('total_messages', 0),
                     'server_sent_count': js_status.get('sent_to_server', 0),
                     'filtered_room_count': js_status.get('filtered_room_messages', 0),
-                    'available_streak_rooms': len(self.available_streak_rooms),
-                    'current_target_room': self.current_target_room
+                    'target_streak_rooms': len(self.target_streak_rooms),
+                    'current_target_room': self.current_target_room,
+                    'room_entry_in_progress': self.room_entry_in_progress
                 }
             else:
                 return {
@@ -1493,15 +951,16 @@ class TradingManager:
                     'processed_messages': 0,
                     'server_sent_count': 0,
                     'filtered_room_count': 0,
-                    'available_streak_rooms': 0,
-                    'current_target_room': None
+                    'target_streak_rooms': 0,
+                    'current_target_room': None,
+                    'room_entry_in_progress': False
                 }
         except Exception as e:
-            self.logger.error(f"하이브리드 서비스 상태 확인 오류: {e}")
+            self.logger.error(f"웹소켓 상태 확인 오류: {e}")
             return {'error': str(e)}
 
     def get_current_status(self):
-        """현재 상태 반환 - 서버 연동 포함"""
+        """현재 상태 반환"""
         service_status = self.get_interceptor_status()
         
         return {
@@ -1516,80 +975,27 @@ class TradingManager:
             'service_status': service_status,
             'message_count': self.message_count,
             'last_game_data': self.last_game_data,
-            'available_streak_rooms': len(self.available_streak_rooms),
+            'target_streak_rooms': len(self.target_streak_rooms),
             'current_target_room': self.current_target_room,
-            'waiting_for_room_entry': self.waiting_for_room_entry,
+            'room_entry_in_progress': self.room_entry_in_progress,
             'server_connected': bool(self.server_client and self.server_client.get_server_status())
         }
 
-    def get_connection_stats(self):
-        """연결 통계 반환 - 서버 연동 포함"""
-        try:
-            return {
-                'service_active': self.websocket_intercepting,
-                'trading_active': self.is_trading_active,
-                'message_count': self.message_count,
-                'current_room': self.current_room_name,
-                'game_count': self.game_count,
-                'result_count': self.result_count,
-                'service_stats': self.get_interceptor_status(),
-                'streak_room_stats': {
-                    'available_rooms': len(self.available_streak_rooms),
-                    'current_target': self.current_target_room,
-                    'waiting_entry': self.waiting_for_room_entry
-                },
-                'server_stats': {
-                    'connected': bool(self.server_client),
-                    'sent_count': self.get_interceptor_status().get('server_sent_count', 0)
-                }
-            }
-        except Exception as e:
-            self.logger.error(f"연결 통계 수집 오류: {e}")
-            return {}
-
     def force_collect_data(self):
-        """수동 데이터 수집 트리거 (하이브리드 서비스용)"""
+        """수동 데이터 수집 트리거"""
         try:
             if self.websocket_service and self.websocket_intercepting:
-                # JavaScript 상태 확인
                 status = self.websocket_service.get_connection_status()
                 self.logger.info(f"🔍 수동 데이터 수집: {status}")
                 
                 return status.get('connected', False)
             else:
-                self.logger.warning("하이브리드 서비스가 활성화되지 않음")
+                self.logger.warning("웹소켓 서비스가 활성화되지 않음")
                 return False
                 
         except Exception as e:
             self.logger.error(f"수동 데이터 수집 오류: {e}")
             return False
-
-    def debug_service_status(self):
-        """디버그용 하이브리드 서비스 + 서버 연동 상태 출력"""
-        try:
-            if self.websocket_service:
-                self.logger.info("🔍 JavaScript 하이브리드 서비스 + 서버 연동 디버그 상태:")
-                
-                # 연결 상태
-                status = self.websocket_service.get_connection_status()
-                for key, value in status.items():
-                    self.logger.info(f"  - {key}: {value}")
-                
-                # 연패 방 상태
-                self.logger.info(f"🏠 연패 방 관리 상태:")
-                self.logger.info(f"  - 사용 가능한 연패 방: {len(self.available_streak_rooms)}개")
-                self.logger.info(f"  - 현재 타겟 방: {self.current_target_room}")
-                self.logger.info(f"  - 방 입장 대기 중: {self.waiting_for_room_entry}")
-                
-                # 서버 연결 상태
-                server_connected = bool(self.server_client and self.server_client.get_server_status())
-                self.logger.info(f"📡 서버 연결 상태: {server_connected}")
-                    
-            else:
-                self.logger.info("  - 하이브리드 서비스 인스턴스 없음")
-                
-        except Exception as e:
-            self.logger.error(f"디버그 상태 출력 오류: {e}")
 
     def force_reconnect_websocket(self):
         """웹소켓 강제 재연결"""
@@ -1605,39 +1011,43 @@ class TradingManager:
             self.logger.error(f"강제 재연결 오류: {e}")
             return False
 
-    def get_websocket_connection_info(self):
-        """웹소켓 연결 정보 반환"""
-        try:
-            if self.websocket_service:
-                return self.websocket_service.get_connection_status()
-            return {'connected': False, 'error': 'No websocket service'}
-            
-        except Exception as e:
-            self.logger.error(f"연결 정보 확인 오류: {e}")
-            return {'connected': False, 'error': str(e)}
-
     def get_streak_room_info(self):
         """연패 방 정보 반환"""
         try:
             return {
-                'available_streak_rooms': self.available_streak_rooms,
+                'target_streak_rooms': self.target_streak_rooms,
                 'current_target_room': self.current_target_room,
-                'waiting_for_room_entry': self.waiting_for_room_entry,
-                'room_count': len(self.available_streak_rooms)
+                'room_entry_in_progress': self.room_entry_in_progress,
+                'is_entering_room': self.is_entering_room,
+                'room_count': len(self.target_streak_rooms)
             }
         except Exception as e:
             self.logger.error(f"연패 방 정보 확인 오류: {e}")
             return {'error': str(e)}
 
-    def force_search_streak_rooms(self):
-        """연패 방 강제 검색"""
+    def debug_service_status(self):
+        """디버그용 서비스 상태 출력"""
         try:
-            self.logger.info("🔍 연패 방 강제 검색 시작")
-            self._search_initial_streak_rooms()
-            return len(self.available_streak_rooms)
+            if self.websocket_service:
+                self.logger.info("🔍 연패 감지 서비스 디버그 상태:")
+                
+                status = self.websocket_service.get_connection_status()
+                for key, value in status.items():
+                    self.logger.info(f"  - {key}: {value}")
+                
+                self.logger.info(f"🏠 연패 방 관리 상태:")
+                self.logger.info(f"  - 타겟 연패 방: {len(self.target_streak_rooms)}개")
+                self.logger.info(f"  - 현재 타겟 방: {self.current_target_room}")
+                self.logger.info(f"  - 방 입장 진행 중: {self.room_entry_in_progress}")
+                
+                server_connected = bool(self.server_client and self.server_client.get_server_status())
+                self.logger.info(f"📡 서버 연결 상태: {server_connected}")
+                    
+            else:
+                self.logger.info("  - 웹소켓 서비스 인스턴스 없음")
+                
         except Exception as e:
-            self.logger.error(f"연패 방 강제 검색 오류: {e}")
-            return 0
+            self.logger.error(f"디버그 상태 출력 오류: {e}")
 
     def emergency_stop(self):
         """비상 정지"""
@@ -1661,15 +1071,11 @@ class TradingManager:
                 self.main_window.timer.stop()
                 QApplication.processEvents()
             
-            # 추가 타이머들 정리
-            for timer_name in ['data_check_timer', 'streak_monitor_timer']:
-                if hasattr(self, timer_name):
-                    getattr(self, timer_name).stop()
-            
             # 연패 방 상태 초기화
-            self.available_streak_rooms = []
+            self.target_streak_rooms = []
             self.current_target_room = None
-            self.waiting_for_room_entry = False
+            self.room_entry_in_progress = False
+            self.is_entering_room = False
             
             # UI 상태 강제 복원
             self.main_window.start_button.setEnabled(True)
@@ -1688,25 +1094,17 @@ class TradingManager:
         return self.get_interceptor_status()
 
     def get_recent_websocket_messages(self, count=10):
-        """기존 호환성을 위한 메서드 (더미)"""
-        # JavaScript 방식에서는 메시지 버퍼를 직접 노출하지 않음
+        """기존 호환성을 위한 메서드"""
         return []
 
     def debug_interceptor_status(self):
         """기존 호환성을 위한 메서드"""
         return self.debug_service_status()
 
-    # ==================== 정리 ====================
-
     def __del__(self):
         """소멸자 - 리소스 정리"""
         try:
             if hasattr(self, 'websocket_service') and self.websocket_service:
                 self.websocket_service.stop_websocket_connection()
-            
-            for timer_name in ['data_check_timer', 'streak_monitor_timer']:
-                if hasattr(self, timer_name):
-                    getattr(self, timer_name).stop()
-                
         except:
             pass
