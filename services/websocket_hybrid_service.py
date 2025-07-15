@@ -430,9 +430,10 @@ class WebSocketHybridService(QObject):
             self.logger.info(f"📡 서버로 데이터 전송: {room_name} ({room_id})")
             self.logger.info(f"📊 결과 데이터: {game_results}")
             
+            # ✅ mapped_room_name 필드 추가
             payload = {
                 "room_id": room_id,
-                "room_name": room_name,
+                "mapped_room_name": room_name,  # ✅ 서버에서 요구하는 필드명으로 변경
                 "all_results": game_results,
                 "total_results": len(game_results),
                 "latest_result": game_results[-1] if game_results else ""
@@ -460,7 +461,7 @@ class WebSocketHybridService(QObject):
                     
         except Exception as e:
             self.logger.error(f"서버 데이터 전송 오류: {e}")
-
+            
     def _process_streak_response(self, room_id: str, room_name: str, streak_count: int, recent_results: list):
         """서버 응답 연패 정보 처리 - 방 입장 로직"""
         try:
