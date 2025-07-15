@@ -45,7 +45,7 @@ class WebSocketHybridService(QObject):
         self.processed_room_results = set()
         
         # 사용자 설정 연패 기준
-        self.user_streak_threshold = 3  # 기본값
+        self.user_streak_threshold = 1  # 기본값
         self.auto_room_entry = True
         self._load_user_settings()
         
@@ -106,7 +106,7 @@ class WebSocketHybridService(QObject):
             settings = SettingsManager()
             
             # 연패 기준 설정 로드 (기본값 3)
-            self.user_streak_threshold = getattr(settings, 'streak_threshold', 3)
+            self.user_streak_threshold = getattr(settings, 'streak_threshold', 1)
             self.auto_room_entry = getattr(settings, 'auto_room_entry', True)
             
             self.logger.info(f"📋 사용자 설정: 연패 기준 {self.user_streak_threshold}, 자동 입장 {self.auto_room_entry}")

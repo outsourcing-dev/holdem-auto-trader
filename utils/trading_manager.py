@@ -375,7 +375,7 @@ class TradingManager:
             self.is_entering_room = False
 
     def _execute_room_entry(self, streak_data: dict):
-        """실제 방 입장 실행"""
+        """실제 방 입장 실행 - 게임 모니터링 서비스와 연동"""
         try:
             room_name = streak_data.get('room_name', '')
             room_id = streak_data.get('room_id', '')
@@ -383,7 +383,7 @@ class TradingManager:
             
             self.logger.info(f"🚪 방 입장 실행: {room_name} ({room_id})")
             
-            # 기존 방 입장 서비스 활용
+            # 1. 방 입장 시도
             if hasattr(self.room_entry_service, 'enter_room_by_name'):
                 success = self.room_entry_service.enter_room_by_name(room_name)
             else:
@@ -392,19 +392,81 @@ class TradingManager:
             if success:
                 self.logger.info(f"✅ 방 입장 성공: {room_name}")
                 
-                # 현재 방 정보 업데이트
-                self.current_room_name = room_name
+                # 2. iframe에서 현재 방 상태 확인 및 웹소켓 하이브리드 양식으로 로그
+                time.sleep(3)  # 방 로딩 대기
                 
-                # 게임 모니터링 시작
-                self._start_game_monitoring_in_room(streak_data)
+                # 게임 모니터링 서비스로 현재 방 데이터 분석
+                self.logger.info(f"🔍 iframe에서 방 데이터 분석 시작: {room_name}")
                 
-                # UI 업데이트
-                self.main_window.update_betting_status(
-                    room_name=room_name,
-                    status=f"{streak_count}연패 방 입장 완료",
-                    streak_info=f"{streak_count}연패"
+                # 서버 전송 형태로 데이터 준비 (로그 출력용)
+                server_data = self.game_monitoring_service.send_room_data_to_server_format(
+                    room_id=room_id,
+                    room_name=room_name
                 )
                 
+                if server_data:
+                    # 3. 연패 상태 검증
+                    is_streak_match = self.game_monitoring_service.verify_room_streak_status(
+                        expected_streak_count=streak_count,
+                        room_id=room_id,
+                        room_name=room_name
+                    )
+                    
+                    if is_streak_match:
+                        # 4-1. 연패 상태 일치 -> 게임 모니터링 시작
+                        self.logger.info(f"✅ 연패 상태 일치 - 게임 모니터링 시작: {room_name}")
+                        self.current_room_name = room_name
+                        self._start_game_monitoring_in_room(streak_data)
+                        
+                        # UI 업데이트
+                        self.main_window.update_betting_status(
+                            room_name=room_name,
+                            status=f"{streak_count}연패 방 입장 완료 (검증됨)",
+                            streak_info=f"{streak_count}연패 확인됨"
+                        )
+                        
+                    else:
+                        # 4-2. 연패 상태 불일치 -> 방 나가기
+                        self.logger.warning(f"❌ 연패 상태 불일치 - 방 나가기: {room_name}")
+                        self.logger.info(f"예상 {streak_count}연패와 실제 상태가 맞지 않습니다")
+                        
+                        # 방 나가기
+                        self.game_monitoring_service.close_current_room()
+                        
+                        # 실패한 방을 타겟 목록에서 제거
+                        self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+                        
+                        # UI 업데이트
+                        self.main_window.update_betting_status(
+                            room_name="연패 방 재검색 중...",
+                            status="연패 상태 불일치로 방 나가기"
+                        )
+                        
+                        # 다른 방이 있으면 재시도
+                        if self.target_streak_rooms:
+                            self.logger.info("다른 연패 방으로 재시도...")
+                            next_room = self.target_streak_rooms[0]
+                            self._execute_room_entry(next_room)
+                            return
+                        else:
+                            self.logger.info("다른 연패 방이 없어 대기 모드로 전환")
+                            self._return_to_streak_monitoring()
+                
+                else:
+                    # 게임 상태 분석 실패
+                    self.logger.error(f"❌ 게임 상태 분석 실패: {room_name}")
+                    self.game_monitoring_service.close_current_room()
+                    
+                    # 실패한 방을 타겟 목록에서 제거
+                    self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+                    
+                    # 다른 방이 있으면 재시도
+                    if self.target_streak_rooms:
+                        self.logger.info("게임 상태 분석 실패로 다른 방 재시도...")
+                        next_room = self.target_streak_rooms[0]
+                        self._execute_room_entry(next_room)
+                        return
+                    
             else:
                 self.logger.warning(f"❌ 방 입장 실패: {room_name}")
                 
@@ -413,10 +475,13 @@ class TradingManager:
                 
                 # 다른 방이 있으면 재시도
                 if self.target_streak_rooms:
-                    self.logger.info("다른 연패 방으로 재시도...")
+                    self.logger.info("방 입장 실패로 다른 연패 방 재시도...")
                     next_room = self.target_streak_rooms[0]
                     self._execute_room_entry(next_room)
                     return
+                else:
+                    self.logger.info("더 이상 시도할 연패 방이 없어 대기 모드로 전환")
+                    self._return_to_streak_monitoring()
             
             # 방 입장 플래그 해제
             self.room_entry_in_progress = False
@@ -426,7 +491,120 @@ class TradingManager:
             self.logger.error(f"방 입장 실행 오류: {e}")
             self.room_entry_in_progress = False
             self.is_entering_room = False
+            
+            # 오류 발생 시에도 대기 모드로 전환
+            self._return_to_streak_monitoring()
 
+    def _start_game_monitoring_in_room(self, streak_data: dict):
+        """방 입장 후 게임 모니터링 시작 - 수정됨"""
+        try:
+            room_name = streak_data.get('room_name', '')
+            room_id = streak_data.get('room_id', '')
+            streak_count = streak_data.get('streak_count', 0)
+            
+            self.logger.info(f"🎮 게임 모니터링 시작: {room_name} ({streak_count}연패 확인됨)")
+            
+            # 게임 상태 초기화
+            self.game_count = 0
+            self.result_count = 0
+            self.wait_first_result = True
+            self.processed_rounds = set()
+            
+            # 현재 타겟 방 설정
+            self.current_target_room = streak_data
+            
+            # 최신 게임 상태로 게임 카운트 설정
+            try:
+                game_state = self.game_monitoring_service.get_current_game_state_with_server_format(
+                    room_id=room_id,
+                    room_name=room_name,
+                    log_always=True
+                )
+                
+                if game_state:
+                    current_round = game_state.get('round', 0)
+                    self.game_count = current_round
+                    self.logger.info(f"🎯 현재 게임 라운드: {current_round}")
+                    
+                    # ChoicePickSystem 초기화
+                    if hasattr(self.excel_trading_service, 'choice_pick_system'):
+                        cps = self.excel_trading_service.choice_pick_system
+                        cps._entered_round = current_round
+                        cps._current_game_round = current_round
+                        cps.wait_first_result = True
+                        self.logger.info(f"ChoicePickSystem 초기화: 라운드 {current_round}")
+                        
+            except Exception as e:
+                self.logger.warning(f"게임 상태 설정 중 오류: {e}")
+            
+            self.logger.info(f"✅ 게임 모니터링 준비 완료: {room_name}")
+            
+        except Exception as e:
+            self.logger.error(f"게임 모니터링 시작 오류: {e}")
+
+    def _return_to_streak_monitoring(self):
+        """연패 모니터링 모드로 복귀 - 수정됨"""
+        try:
+            self.logger.info("🔄 연패 모니터링 모드로 복귀")
+            
+            # 현재 방 정보 초기화
+            self.current_target_room = None
+            self.current_room_name = ""
+            self.target_streak_rooms = []
+            
+            # 상태 초기화
+            self.room_entry_in_progress = False
+            self.is_entering_room = False
+            self.wait_first_result = False
+            
+            # UI 업데이트
+            self.main_window.update_betting_status(
+                room_name="연패 방 감지 중...",
+                status="새로운 연패 방 대기 중"
+            )
+            
+            # 현재 방에서 나가기 (이미 나갔을 수도 있지만 안전하게)
+            try:
+                if hasattr(self, 'game_monitoring_service'):
+                    self.game_monitoring_service.close_current_room()
+            except Exception as e:
+                self.logger.debug(f"방 나가기 중 오류 (무시): {e}")
+            
+            self.logger.info("✅ 연패 모니터링 모드 복귀 완료")
+            
+        except Exception as e:
+            self.logger.error(f"연페 모니터링 복귀 오류: {e}")
+
+    def debug_current_room_status(self):
+        """현재 방 상태 디버그 - 새로 추가"""
+        try:
+            self.logger.info("🔍 현재 방 상태 디버그:")
+            self.logger.info(f"  - 현재 방: {self.current_room_name}")
+            self.logger.info(f"  - 타겟 방: {self.current_target_room}")
+            self.logger.info(f"  - 방 입장 진행 중: {self.room_entry_in_progress}")
+            self.logger.info(f"  - 게임 카운트: {self.game_count}")
+            
+            # 현재 방이 있으면 실시간 분석
+            if self.current_room_name and self.current_target_room:
+                room_id = self.current_target_room.get('room_id', '')
+                room_name = self.current_target_room.get('room_name', '')
+                
+                self.logger.info(f"🎮 실시간 방 분석 시작: {room_name}")
+                
+                # 게임 모니터링 서비스로 현재 상태 분석
+                server_data = self.game_monitoring_service.send_room_data_to_server_format(
+                    room_id=room_id,
+                    room_name=room_name
+                )
+                
+                if server_data:
+                    self.logger.info("✅ 실시간 방 분석 완료")
+                else:
+                    self.logger.warning("❌ 실시간 방 분석 실패")
+            
+        except Exception as e:
+            self.logger.error(f"방 상태 디버그 오류: {e}")
+            
     def _fallback_room_entry(self, room_name: str) -> bool:
         """폴백 방 입장 로직"""
         try:
@@ -442,25 +620,6 @@ class TradingManager:
             self.logger.error(f"폴백 방 입장 오류: {e}")
             return False
 
-    def _start_game_monitoring_in_room(self, streak_data: dict):
-        """방 입장 후 게임 모니터링 시작"""
-        try:
-            room_name = streak_data.get('room_name', '')
-            streak_count = streak_data.get('streak_count', 0)
-            
-            self.logger.info(f"🎮 게임 모니터링 시작: {room_name} ({streak_count}연패)")
-            
-            # 게임 상태 초기화
-            self.game_count = 0
-            self.result_count = 0
-            self.wait_first_result = True
-            self.processed_rounds = set()
-            
-            # 현재 타겟 방 설정
-            self.current_target_room = streak_data
-            
-        except Exception as e:
-            self.logger.error(f"게임 모니터링 시작 오류: {e}")
 
     def _start_streak_monitoring(self):
         """연패 모니터링 시작"""
@@ -749,34 +908,6 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"연패 확인 오류: {e}")
             return False
-
-    def _return_to_streak_monitoring(self):
-        """연패 모니터링 모드로 복귀"""
-        try:
-            self.logger.info("🔄 연패 모니터링 모드로 복귀")
-            
-            # 현재 방 정보 초기화
-            self.current_target_room = None
-            self.current_room_name = ""
-            self.target_streak_rooms = []
-            
-            # 상태 초기화
-            self.room_entry_in_progress = False
-            self.is_entering_room = False
-            self.wait_first_result = False
-            
-            # UI 업데이트
-            self.main_window.update_betting_status(room_name="연패 방 감지 중...")
-            
-            # 현재 방에서 나가기 (선택사항)
-            try:
-                if hasattr(self, 'game_monitoring_service'):
-                    self.game_monitoring_service.close_current_room()
-            except:
-                pass
-            
-        except Exception as e:
-            self.logger.error(f"연패 모니터링 복귀 오류: {e}")
 
     def _on_websocket_error(self, error_message: str):
         """웹소켓 오류 발생 시 처리"""
