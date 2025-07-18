@@ -10,8 +10,8 @@ class BaccaratServerClient:
     def __init__(self, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         # CloudType 배포된 서버 주소
-        # self.base_url = "https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app"
-        self.base_url = "http://localhost:8080"
+        self.base_url = "https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app"
+        # self.base_url = "http://localhost:8080"
 
         self.timeout = 15
         self.session = requests.Session()
@@ -340,7 +340,55 @@ class BaccaratServerClient:
             self.logger.info("서버 연결 강제 해제 완료")
         except:
             pass
+    
+    def verify_streak_and_predict(self, room_id: str, current_results: List[str], expected_streak: int) -> Optional[Dict]:
+        """연패 검증 및 다음 예측값 요청"""
+        try:
+            payload = {
+                "room_id": room_id,
+                "current_results": current_results,
+                "expected_streak": expected_streak
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/rooms/verify-and-predict",
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                self.logger.error(f"연패 검증 HTTP 오류: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"연패 검증 요청 오류: {e}")
+            return None
 
+    def get_next_prediction(self, room_id: str, current_results: List[str]) -> Optional[str]:
+        """다음 베팅 예측값만 요청"""
+        try:
+            payload = {
+                "room_id": room_id,
+                "current_results": current_results
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/rooms/get-prediction",
+                json=payload,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('next_prediction')
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"예측값 요청 오류: {e}")
+            return None
 
 # ✅ 기존 코드와의 호환성을 위한 별칭 클래스
 class ServerClient(BaccaratServerClient):

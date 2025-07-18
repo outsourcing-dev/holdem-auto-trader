@@ -375,11 +375,11 @@ class TradingManager:
             self.is_entering_room = False
 
     def _execute_room_entry(self, streak_data: dict):
-        """실제 방 입장 실행 - 게임 모니터링 서비스와 연동"""
+        """방 입장 후 서버 검증 및 베팅 시작"""
         try:
             room_name = streak_data.get('room_name', '')
             room_id = streak_data.get('room_id', '')
-            streak_count = streak_data.get('streak_count', 0)
+            expected_streak = streak_data.get('streak_count', 0)
             
             self.logger.info(f"🚪 방 입장 실행: {room_name} ({room_id})")
             
@@ -407,7 +407,7 @@ class TradingManager:
                 if server_data:
                     # 3. 연패 상태 검증
                     is_streak_match = self.game_monitoring_service.verify_room_streak_status(
-                        expected_streak_count=streak_count,
+                        expected_streak_count=expected_streak,
                         room_id=room_id,
                         room_name=room_name
                     )
@@ -421,20 +421,20 @@ class TradingManager:
                         # UI 업데이트
                         self.main_window.update_betting_status(
                             room_name=room_name,
-                            status=f"{streak_count}연패 방 입장 완료 (검증됨)",
-                            streak_info=f"{streak_count}연패 확인됨"
+                            status=f"{expected_streak}연패 방 입장 완료 (검증됨)",
+                            streak_info=f"{expected_streak}연패 확인됨"
                         )
                         
                     else:
                         # 4-2. 연패 상태 불일치 -> 방 나가기
                         self.logger.warning(f"❌ 연패 상태 불일치 - 방 나가기: {room_name}")
-                        self.logger.info(f"예상 {streak_count}연패와 실제 상태가 맞지 않습니다")
+                        self.logger.info(f"예상 {expected_streak}연패와 실제 상태가 맞지 않습니다")
                         
                         # 방 나가기
                         self.game_monitoring_service.close_current_room()
                         
                         # 실패한 방을 타겟 목록에서 제거
-                        self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+                        self._remove_failed_room(room_id)
                         
                         # UI 업데이트
                         self.main_window.update_betting_status(
@@ -458,7 +458,7 @@ class TradingManager:
                     self.game_monitoring_service.close_current_room()
                     
                     # 실패한 방을 타겟 목록에서 제거
-                    self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+                    self._remove_failed_room(room_id)
                     
                     # 다른 방이 있으면 재시도
                     if self.target_streak_rooms:
@@ -471,7 +471,7 @@ class TradingManager:
                 self.logger.warning(f"❌ 방 입장 실패: {room_name}")
                 
                 # 실패한 방을 타겟 목록에서 제거
-                self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+                self._remove_failed_room(room_id)
                 
                 # 다른 방이 있으면 재시도
                 if self.target_streak_rooms:
@@ -489,12 +489,41 @@ class TradingManager:
                 
         except Exception as e:
             self.logger.error(f"방 입장 실행 오류: {e}")
+            self._remove_failed_room(room_id)
             self.room_entry_in_progress = False
             self.is_entering_room = False
             
             # 오류 발생 시에도 대기 모드로 전환
             self._return_to_streak_monitoring()
 
+    def _remove_failed_room(self, room_id: str):
+        """실패한 방을 목록에서 제거"""
+        self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+        self.logger.info(f"방 {room_id} 제거 완료")
+        
+
+    def _start_betting_mode(self, server_response: dict):
+        """서버 검증 후 베팅 모드 시작"""
+        try:
+            next_prediction = server_response.get('next_prediction')
+            current_streak = server_response.get('current_streak', 0)
+            
+            self.logger.info(f"🎯 베팅 모드 시작: {current_streak}연패, 예측={next_prediction}")
+            
+            # 초기 상태 설정
+            self.game_count = 0
+            self.wait_first_result = True
+            
+            # UI 업데이트
+            self.main_window.update_betting_status(
+                room_name=self.current_room_name,
+                status=f"{current_streak}연패 베팅 모드"
+            )
+            
+        except Exception as e:
+            self.logger.error(f"베팅 모드 시작 오류: {e}")
+                
+   
     def _start_game_monitoring_in_room(self, streak_data: dict):
         """방 입장 후 게임 모니터링 시작 - 수정됨"""
         try:
@@ -758,25 +787,25 @@ class TradingManager:
             self.logger.error(f"게임 결과 처리 오류: {e}")
 
     def _check_betting_opportunity(self, game_data: dict):
-        """베팅 기회 확인"""
+        """서버 기반 베팅 기회 확인"""
         try:
-            # 이미 베팅했으면 스킵
             if hasattr(self.betting_service, 'has_bet_current_round') and self.betting_service.has_bet_current_round:
                 return
             
-            # 첫 결과 대기 중이면 스킵
             if self.wait_first_result:
                 if game_data.get('latest_result'):
                     self.wait_first_result = False
                     self.logger.info("첫 결과 수신 - 대기 모드 해제")
                 return
             
-            # 연패 방에서만 베팅 실행
             if not self.current_target_room:
                 return
             
-            # 픽 생성
-            next_pick = self._generate_pick_for_streak_room()
+            # 서버에서 다음 예측값 요청
+            room_id = self.current_target_room.get('room_id', '')
+            current_results = self._get_current_game_results()
+            
+            next_pick = self.server_client.get_next_prediction(room_id, current_results)
             
             if next_pick in ['P', 'B']:
                 round_number = game_data.get('round_number', self.game_count + 1)
@@ -784,7 +813,7 @@ class TradingManager:
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
-
+            
     def _generate_pick_for_streak_room(self) -> str:
         """연패 방을 위한 픽 생성"""
         try:
