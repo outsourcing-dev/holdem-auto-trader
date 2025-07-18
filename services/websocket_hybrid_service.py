@@ -6,6 +6,7 @@ import sys
 from typing import Dict, Any, Optional
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from datetime import datetime
+from utils.unified_server_client import get_server_client
 
 
 class WebSocketHybridService(QObject):
@@ -21,7 +22,7 @@ class WebSocketHybridService(QObject):
     def __init__(self, devtools, server_client=None, logger=None):
         super().__init__()
         self.devtools = devtools
-        self.server_client = server_client
+        self.server_client = get_server_client()
         self.logger = logger or logging.getLogger(__name__)
         
         # 필터링된 방 ID 목록 로드
@@ -420,45 +421,27 @@ class WebSocketHybridService(QObject):
         except Exception as e:
             self.logger.error(f"분석 데이터 처리 오류: {e}")
 
+    # 🚫 기존 복잡한 코드를 다음으로 교체:
     def _send_room_data_to_server(self, room_id: str, room_name: str, game_results: list, round_number: int):
-        """서버로 데이터 전송 및 연패 감지"""
+        """서버로 데이터 전송 및 연패 감지 - 통합 클라이언트 사용"""
         try:
-            if not self.server_client:
-                self.logger.warning("서버 클라이언트가 설정되지 않음")
-                return
-            
             self.logger.info(f"📡 서버로 데이터 전송: {room_name} ({room_id})")
-            self.logger.info(f"📊 결과 데이터: {game_results}")
             
-            # ✅ mapped_room_name 필드 추가
-            payload = {
-                "room_id": room_id,
-                "mapped_room_name": room_name,  # ✅ 서버에서 요구하는 필드명으로 변경
-                "all_results": game_results,
-                "total_results": len(game_results),
-                "latest_result": game_results[-1] if game_results else ""
-            }
+            # 🔥 통합 서버 클라이언트 사용
+            result = self.server_client.calculate_streak(room_id, room_name, game_results)
             
-            import requests
-            response = requests.post(
-                f"{self.server_client.base_url}/api/rooms/calculate-streak",
-                json=payload,
-                timeout=15
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
+            if result and result.get("status") == "success":
                 current_streak = result.get("current_streak", 0)
                 self.sent_to_server_count += 1
                 
                 self.logger.info(f"✅ 서버 전송 성공: {room_name} - {current_streak}연패")
                 
-                # 🔥 연패 정보 즉시 처리
+                # 연패 정보 즉시 처리
                 self._process_streak_response(room_id, room_name, current_streak, game_results)
                 
             else:
-                self.logger.warning(f"❌ 서버 전송 HTTP 오류: {response.status_code} - {response.text}")
-                    
+                self.logger.warning(f"❌ 서버 전송 실패: {room_name}")
+                        
         except Exception as e:
             self.logger.error(f"서버 데이터 전송 오류: {e}")
             

@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.iframe_utils import IframeManager, switch_to_iframe_with_retry
-from utils.server_client import ServerClient
+from utils.unified_server_client import get_server_client
 
 class RoomEntryService:
     def __init__(self, devtools, main_window, room_manager, logger=None):
@@ -30,7 +30,7 @@ class RoomEntryService:
         self.room_manager = room_manager  # 레거시 호환용 유지
         
         # 서버 클라이언트 초기화
-        self.server_client = ServerClient()
+        self.server_client = get_server_client()
         
         # iframe 매니저 초기화
         self.iframe_manager = None
@@ -106,34 +106,23 @@ class RoomEntryService:
         self.logger.error(f"방 '{room_name}' 입장 최종 실패 (최대 재시도 횟수 초과)")
         return False
 
+    # 🚫 기존 복잡한 코드 전체를 다음으로 교체:
     def enter_room_from_server(self, streak_count=3):
-        """
-        서버에서 연패 방을 추천받아 입장
-        
-        Args:
-            streak_count (int): 연패 기준 (기본값 3)
-        
-        Returns:
-            str: 입장한 방 이름 또는 None
-        """
-        # 중지 명령 확인
-        if self._should_stop_process():
-            return None
-            
+        """서버에서 연패 방을 추천받아 입장"""
         try:
-            # 연패 방 요청 간격 확인
+            if self._should_stop_process():
+                return None
+                
             current_time = time.time()
             if current_time - self.last_streak_room_request < self.streak_room_request_interval:
                 remaining_time = self.streak_room_request_interval - (current_time - self.last_streak_room_request)
                 self.logger.info(f"연패 방 요청 대기 중... (남은 시간: {remaining_time:.1f}초)")
                 return None
             
-            # 서버에서 연패 방 요청 (실제 API 엔드포인트 사용)
             self.logger.info(f"서버에서 {streak_count}연패 방 검색 요청")
             
-            # 실제 서버 API 호출
-            user_id = getattr(self.main_window, 'user_id', 'default_user')
-            response = self.server_client.find_streak_rooms(user_id, streak_count)
+            # 🔥 통합 서버 클라이언트 사용
+            response = self.server_client.find_streak_rooms(min_streak=streak_count)
             
             self.last_streak_room_request = current_time
             
@@ -142,34 +131,25 @@ class RoomEntryService:
                 self.logger.warning(f"서버에서 연패 방 검색 실패: {error_msg}")
                 return None
             
-            # 서버 응답에서 연패 방 목록 추출
             streak_rooms = response.get('streak_rooms', [])
-            
             if not streak_rooms:
                 self.logger.info("서버에서 추천할 연패 방이 없습니다.")
                 return None
             
-            # 첫 번째 추천 방 선택
+            # 첫 번째 추천 방 선택하여 입장 시도
             target_room = streak_rooms[0]
             room_name = target_room.get('room_name')
-            room_id = target_room.get('room_id')
-            streak_failures = target_room.get('streak_failures', 0)
-            total_games = target_room.get('total_games', 0)
             
-            self.logger.info(f"서버 추천 방: {room_name} (ID: {room_id})")
-            self.logger.info(f"연패 정보: {streak_failures}연패, 총 {total_games}게임")
-            
-            # 추천받은 방에 입장 시도
             if self.enter_specific_room(room_name):
                 return room_name
             else:
                 self.logger.warning(f"서버 추천 방 '{room_name}' 입장 실패")
                 return None
-                
+                    
         except Exception as e:
-            self.logger.error(f"서버 기반 방 입장 중 오류: {e}", exc_info=True)
+            self.logger.error(f"서버 기반 방 입장 중 오류: {e}")
             return None
-
+        
     def enter_room(self, streak_count=3):
         """
         방 입장 메인 메서드 (서버 기반 + 레거시 호환)
