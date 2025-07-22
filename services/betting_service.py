@@ -146,47 +146,219 @@ class BettingService:
         return True
 
     def _wait_for_betting_available(self):
-        """베팅 가능 상태가 될 때까지 대기"""
+        """베팅 가능 상태가 될 때까지 대기 - 동적 칩 감지 방식"""
         self.logger.info("베팅 가능 상태 확인 시작...")
         max_attempts = 60  # 최대 60초 대기 (1초 간격)
         
         for attempt in range(max_attempts):
             try:
-                # 여러 선택자로 1000원 칩 요소 찾기 시도
+                # 모든 칩 요소를 찾아서 활성화된 칩이 있는지 확인
                 chip_selectors = [
-                    "div.chip--29b81[data-role='chip'][data-value='1000']",
-                    "div[data-role='chip'][data-value='1000']",
-                    "div.chip[data-value='1000']"
+                    "div.chip--29b81[data-role='chip']",
+                    "div[data-role='chip']",
+                    "div.chip[data-value]"
                 ]
                 
                 chip_active = False
                 for selector in chip_selectors:
                     chip_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
-                    if chip_elements and len(chip_elements) > 0:
-                        chip_element = chip_elements[0]
+                    
+                    for chip_element in chip_elements:
                         if chip_element.is_displayed():
-                            # 클릭 가능한 상태인지 확인 (disabled 클래스가 없는지)
-                            chip_class = chip_element.get_attribute("class")
-                            if "disabled" not in chip_class:
+                            # 비활성화 상태가 아닌지 확인
+                            chip_class = chip_element.get_attribute("class") or ""
+                            if "disabled" not in chip_class.lower():
                                 chip_active = True
+                                chip_value = chip_element.get_attribute("data-value")
+                                self.logger.info(f"활성화된 칩 발견: {chip_value}원")
                                 break
+                    
+                    if chip_active:
+                        break
                 
-                # 칩이 활성화된 상태라면 베팅 가능으로 판단
+                # 활성화된 칩이 발견되면 베팅 가능 상태로 판단
                 if chip_active:
-                    # 레이블 확인은 베팅 가능 여부 확인에 사용하지 않음
-                    # (레이블은 베팅 후 확인용으로만 사용)
                     self.logger.info("베팅 가능 상태 감지됨 (활성화된 칩 발견)")
                     self._update_game_state()
                     return True
                 
-                # self.logger.info(f"베팅 가능 상태 대기 중... 시도: {attempt+1}/{max_attempts}")
                 time.sleep(1)
             except Exception as e:
-                self.logger.warning(f"칩 클릭 가능 상태 확인 중 오류: {e}")
+                self.logger.warning(f"칩 활성화 상태 확인 중 오류: {e}")
                 time.sleep(0.5)
         
         self.logger.warning("베팅 가능 상태 대기 시간 초과.")
         return False
+
+    def _find_chip(self, chip_value):
+        """칩 찾기 - 개선된 버전"""
+        # 여러 선택자로 칩 찾기
+        chip_selectors = [
+            f"div.chip--29b81[data-role='chip'][data-value='{chip_value}']",
+            f"div[data-role='chip'][data-value='{chip_value}']",
+            f"div.chip[data-value='{chip_value}']"
+        ]
+        
+        for selector in chip_selectors:
+            try:
+                elements = WebDriverWait(self.devtools.driver, 3).until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
+                )
+                
+                for element in elements:
+                    if element.is_displayed():
+                        # 비활성화 상태 체크 (클래스와 속성 모두 확인)
+                        chip_class = element.get_attribute("class") or ""
+                        is_disabled = element.get_attribute("disabled")
+                        
+                        if "disabled" not in chip_class.lower() and not is_disabled:
+                            return element
+            except:
+                continue
+        
+        # XPath 사용 - 비활성화되지 않은 칩만 찾기
+        try:
+            xpath = f"//div[contains(@class, 'chip') and @data-value='{chip_value}' and not(contains(@class, 'disabled'))]"
+            elements = self.devtools.driver.find_elements(By.XPATH, xpath)
+            
+            for element in elements:
+                if element.is_displayed():
+                    return element
+        except:
+            pass
+        
+        return None
+
+    def _get_available_chip_values(self):
+        """사용 가능한 칩 값들을 동적으로 가져오기"""
+        try:
+            chip_selectors = [
+                "div.chip--29b81[data-role='chip']",
+                "div[data-role='chip']",
+                "div.chip[data-value]"
+            ]
+            
+            available_chips = []
+            
+            for selector in chip_selectors:
+                chip_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                
+                for chip_element in chip_elements:
+                    if chip_element.is_displayed():
+                        chip_class = chip_element.get_attribute("class") or ""
+                        chip_value = chip_element.get_attribute("data-value")
+                        
+                        # 비활성화되지 않고 값이 있는 칩만 추가
+                        if "disabled" not in chip_class.lower() and chip_value:
+                            try:
+                                available_chips.append(int(chip_value))
+                            except ValueError:
+                                continue
+            
+            # 중복 제거하고 내림차순 정렬
+            available_chips = sorted(list(set(available_chips)), reverse=True)
+            self.logger.info(f"사용 가능한 칩 값들: {available_chips}")
+            return available_chips
+            
+        except Exception as e:
+            self.logger.warning(f"사용 가능한 칩 값 조회 실패: {e}")
+            # 기본값 반환 (기존 하드코딩된 값들)
+            return [500000, 100000, 50000, 25000, 10000, 5000, 1000]
+
+    def _execute_betting(self, bet_type, bet_amount=None):
+        """베팅 실행 - 동적 칩 감지 적용"""
+        bet_element = self._find_betting_area(bet_type)
+        if not bet_element:
+            self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
+            return False
+
+        # 베팅 전 레이블 확인
+        initial_label = self._check_betting_label()
+        self.logger.info(f"베팅 전 레이블: {initial_label}")
+        
+        self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
+
+        # 동적으로 사용 가능한 칩 값들 가져오기
+        available_chips = self._get_available_chip_values()
+        
+        # 베팅 금액에 따른 칩 조합 계산
+        chip_clicks = {}
+        remaining = bet_amount
+
+        for chip in available_chips:
+            count = remaining // chip
+            if count > 0:
+                chip_clicks[chip] = count
+                remaining %= chip
+
+        # 칩 조합이 없으면 가장 작은 칩으로 기본 베팅
+        if not chip_clicks and available_chips:
+            smallest_chip = min(available_chips)
+            chip_clicks[smallest_chip] = 1
+            self.logger.warning(f"{smallest_chip}원 칩으로 기본 배팅 시도")
+        elif not available_chips:
+            self.logger.error("사용 가능한 칩이 없습니다.")
+            return False
+
+        self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 칩별 클릭 횟수: {chip_clicks}")
+        bet_successful = False
+
+        for chip_value, clicks in chip_clicks.items():
+            chip_element = self._find_chip(chip_value)
+            if not chip_element:
+                self.logger.warning(f"{chip_value}원 칩을 찾지 못함")
+                continue
+
+            # 칩 클릭 시도
+            try:
+                time.sleep(0.2)
+                try:
+                    chip_element.click()
+                    self.logger.info(f"[클릭] {chip_value:,}원 칩 클릭 성공")
+                except Exception as e:
+                    self.logger.warning(f"{chip_value:,}원 칩 일반 클릭 실패 → JS 클릭 시도")
+                    self.devtools.driver.execute_script("arguments[0].click();", chip_element)
+                time.sleep(0.1)
+            except Exception as e:
+                self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
+                continue
+
+            for i in range(clicks):
+                try:
+                    time.sleep(0.1)
+                    try:
+                        bet_element.click()
+                    except Exception as e:
+                        self.logger.warning(f"{bet_type} 영역 일반 클릭 실패 → JS 클릭")
+                        self.devtools.driver.execute_script("arguments[0].click();", bet_element)
+                    bet_successful = True
+                except Exception as e:
+                    self.logger.error(f"베팅 클릭 중 오류 발생: {e}")
+                    continue
+
+        if bet_successful:
+            time.sleep(1.0)
+            current_label = self._check_betting_label()
+            amount_after = self._get_current_bet_amount()
+            
+            self.logger.info(f"베팅 후 레이블: {current_label}, 금액: {amount_after:,}원")
+            
+            # "총 베팅금" 레이블이 있으면 베팅 성공으로 판단
+            if current_label == "총 베팅금":
+                self.logger.info(f"[성공] 베팅 확인: 레이블={current_label}, 금액={amount_after:,}원")
+                return True
+            elif current_label == "지난 우승":
+                self.logger.warning(f"[실패] 베팅 시간 종료: 현재 레이블은 '{current_label}'")
+                return False
+            elif amount_after == bet_amount:
+                self.logger.info(f"[성공] 레이블은 예상과 다르지만({current_label}) 베팅 금액 확인됨: {amount_after:,}원")
+                return True
+            else:
+                self.logger.warning(f"[실패] 예상된 베팅 상태가 아님: 레이블={current_label}, 금액={amount_after:,}원 (기대값: {bet_amount:,}원)")
+                return False
+        else:
+            self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
+            return False
 
     def _update_game_state(self):
         """베팅 가능 상태 감지 후 최신 결과 업데이트"""
@@ -383,35 +555,6 @@ class BettingService:
         self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없습니다.")
         return None
 
-    def _find_chip(self, chip_value):
-        """칩 찾기"""
-        # 여러 선택자로 칩 찾기
-        chip_selectors = [
-            f"div.chip--29b81[data-role='chip'][data-value='{chip_value}']",
-            f"div[data-role='chip'][data-value='{chip_value}']",
-            f"div.chip[data-value='{chip_value}']"
-        ]
-        
-        for selector in chip_selectors:
-            try:
-                elements = WebDriverWait(self.devtools.driver, 3).until(
-                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
-                )
-                if elements and len(elements) > 0 and elements[0].is_displayed():
-                    return elements[0]
-            except:
-                continue
-        
-        # XPath 사용
-        try:
-            xpath = f"//div[contains(@class, 'chip') and @data-value='{chip_value}']"
-            elements = self.devtools.driver.find_elements(By.XPATH, xpath)
-            if elements and len(elements) > 0 and elements[0].is_displayed():
-                return elements[0]
-        except:
-            pass
-        
-        return None
 
     def _check_betting_label(self):
         """
@@ -434,109 +577,7 @@ class BettingService:
             self.logger.debug(f"베팅 레이블 확인 실패: {e}")
             return None
         
-    def _execute_betting(self, bet_type, bet_amount=None):
-        """베팅 실행 - 칩 클릭 속도 개선"""
-        bet_element = self._find_betting_area(bet_type)
-        if not bet_element:
-            self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
-            return False
 
-        # if bet_amount is None:
-        #     bet_amount = self.main_window.trading_manager.martin_service.get_current_bet_amount()
-
-        # 베팅 전 레이블 확인 - 단순히 로그 목적으로만 사용
-        initial_label = self._check_betting_label()
-        self.logger.info(f"베팅 전 레이블: {initial_label}")
-        
-        self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
-
-        available_chips = [500000, 100000, 25000, 5000, 1000]
-        chip_clicks = {}
-        remaining = bet_amount
-
-        for chip in available_chips:
-            count = remaining // chip
-            if count > 0:
-                chip_clicks[chip] = count
-                remaining %= chip
-
-        if not chip_clicks:
-            chip_clicks[1000] = 1
-            self.logger.warning("1000원 칩으로 기본 배팅 시도")
-
-        self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 칩별 클릭 횟수: {chip_clicks}")
-        bet_successful = False
-
-        for chip_value, clicks in chip_clicks.items():
-            chip_element = self._find_chip(chip_value)
-            if not chip_element:
-                self.logger.warning(f"{chip_value}원 칩을 찾지 못함")
-                continue
-
-            if "disabled" in chip_element.get_attribute("class") or not chip_element.is_enabled():
-                self.logger.warning(f"{chip_value:,}원 칩이 비활성화 상태입니다.")
-                continue
-
-            # 칩 클릭 시도 (우선 일반 클릭, 실패 시 JS)
-            try:
-                # ✅ 대기 시간 단축 (0.5초 → 0.2초)
-                time.sleep(0.2)
-                try:
-                    chip_element.click()
-                    self.logger.info(f"[클릭] {chip_value:,}원 칩 클릭 성공")
-                except Exception as e:
-                    self.logger.warning(f"{chip_value:,}원 칩 일반 클릭 실패 → JS 클릭 시도")
-                    self.devtools.driver.execute_script("arguments[0].click();", chip_element)
-                    # self.logger.info(f"[JS 클릭] {chip_value:,}원 칩 클릭 완료")
-                # ✅ 대기 시간 단축 (0.5초 → 0.1초)
-                time.sleep(0.1)
-            except Exception as e:
-                self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
-                continue
-
-            for i in range(clicks):
-                try:
-                    # ✅ 대기 시간 단축 (0.2초 → 0.1초)
-                    time.sleep(0.1)
-                    try:
-                        bet_element.click()
-                        # self.logger.info(f"{bet_type} 영역 {i+1}/{clicks} 클릭 완료")
-                    except Exception as e:
-                        self.logger.warning(f"{bet_type} 영역 일반 클릭 실패 → JS 클릭")
-                        self.devtools.driver.execute_script("arguments[0].click();", bet_element)
-                        # self.logger.info(f"{bet_type} 영역 JS 클릭 완료 ({i+1}/{clicks})")
-                    bet_successful = True
-                except Exception as e:
-                    self.logger.error(f"베팅 클릭 중 오류 발생: {e}")
-                    continue
-
-        if bet_successful:
-            # ✅ 대기 시간 단축 (1.5초 → 1.0초)
-            time.sleep(1.0)
-            current_label = self._check_betting_label()
-            amount_after = self._get_current_bet_amount()
-            
-            self.logger.info(f"베팅 후 레이블: {current_label}, 금액: {amount_after:,}원")
-            
-            # "총 베팅금" 레이블이 있으면 베팅 성공으로 판단
-            if current_label == "총 베팅금":
-                self.logger.info(f"[성공] 베팅 확인: 레이블={current_label}, 금액={amount_after:,}원")
-                return True
-            # "지난 우승" 레이블이 표시되었다면, 베팅 타이밍을 놓친 것
-            elif current_label == "지난 우승":
-                self.logger.warning(f"[실패] 베팅 시간 종료: 현재 레이블은 '{current_label}'")
-                return False
-            # 금액만 확인해서 성공 여부 판단 (추가 방어 로직)
-            elif amount_after == bet_amount:
-                self.logger.info(f"[성공] 레이블은 예상과 다르지만({current_label}) 베팅 금액 확인됨: {amount_after:,}원")
-                return True
-            else:
-                self.logger.warning(f"[실패] 예상된 베팅 상태가 아님: 레이블={current_label}, 금액={amount_after:,}원 (기대값: {bet_amount:,}원)")
-                return False
-        else:
-            self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
-            return False
-        
     def _get_current_bet_amount(self):
         """현재 베팅 금액 조회"""
         try:
