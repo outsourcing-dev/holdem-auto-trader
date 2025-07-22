@@ -450,7 +450,7 @@ class TradingManager:
                     # 5초 대기 후 강제 베팅 시도
                     import threading
                     def force_betting():
-                        time.sleep(5)
+                        # time.sleep(5)
                         try:
                             self.logger.info(f"🧪 [테스트] 강제 베팅 실행 시작")
                             
@@ -459,10 +459,15 @@ class TradingManager:
                             if not current_results:
                                 current_results = ['P', 'B', 'P']  # 테스트용 가짜 데이터
                             
+                            # 원래 서버 예측값 요청
                             next_pick = self.server_client.get_next_prediction(room_id, current_results)
-                            
                             self.logger.info(f"🎯 [테스트] 서버 예측 결과: {next_pick}")
-                            
+
+                            # === 여기서 강제 pick 지정 ===
+                            if next_pick not in ['P', 'B']:
+                                self.logger.info(f"�� [테스트] 서버 예측값이 None이므로 강제로 'P'로 베팅")
+                                next_pick = 'B'  # 또는 'B'로 변경 가능
+
                             if next_pick in ['P', 'B']:
                                 self.logger.info(f"🧪 [테스트] 강제 베팅 실행: {next_pick}")
                                 self._execute_betting(next_pick, fake_game_data['round_number'])

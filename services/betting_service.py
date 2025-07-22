@@ -279,8 +279,11 @@ class BettingService:
         self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
 
         # 동적으로 사용 가능한 칩 값들 가져오기
-        available_chips = self._get_available_chip_values()
-        
+        available_chips = self._wait_for_active_chips(max_wait=60, interval=1)
+        if not available_chips:
+            self.logger.error("사용 가능한 칩이 없습니다. 베팅을 중단합니다.")
+            return False
+
         # 베팅 금액에 따른 칩 조합 계산
         chip_clicks = {}
         remaining = bet_amount
@@ -413,27 +416,17 @@ class BettingService:
     def _find_betting_area(self, bet_type):
         """베팅 영역 찾기 - 실제 HTML 구조에 맞게 업데이트"""
         if bet_type == 'P':
-            # Player 영역 찾기 - 실제 HTML 구조 기반
+            # Player 영역 찾기 - 더 안정적인 선택자로 개선
             player_selectors = [
-                # 새로운 실제 HTML 구조 기반 선택자들 (우선순위 높음)
-                "div.content--e4fdb.player--2c620",              # 최상위 플레이어 컨테이너
-                "div.player--2c620",                             # 플레이어 클래스
-                "div.content--e4fdb[class*='player']",           # 플레이어를 포함하는 content
-                "div.redEnvelopeChip--ad744",                    # 베팅 칩 영역 (플레이어)
-                
-                # 기존 선택자들 (호환성 유지)
+                # 1순위: 가장 명확하고 안정적인 선택자
                 "div.spot--5ad7f[data-betspot-destination='Player']",
-                "div[data-betspot-destination='Player']",
-                "div.player-bet-spot",
-                "div.bet-spot-player",
-                "div[data-type='player']",
-                "div.bet-spot[data-type='Player']",
-                "div.bet-area-player",
-                "div.bet-area[data-role='player']",
                 
-                # 일반적인 패턴 매칭
-                "div[class*='player']",                          # 클래스에 'player' 포함
-                "[class*='player'][class*='content']",           # 플레이어 관련 콘텐츠
+                # 2순위: 그 다음으로 안정적인 선택자
+                "div.content--e4fdb.player--2c620",
+                
+                # 3순위 (기존 호환성)
+                "div.player--2c620",
+                "div[data-betspot-destination='Player']",
             ]
             
             self.logger.info(f"Player 베팅 영역 찾는 중...")
@@ -447,13 +440,10 @@ class BettingService:
                     self.logger.debug(f"선택자 '{selector}' 실패: {e}")
                     continue
             
-            # XPath로 시도 (Player용)
+            # XPath로 시도 (Player용) - 후순위
             xpath_expressions = [
-                "//div[contains(@class, 'player')]",
-                "//div[contains(@class, 'content') and contains(@class, 'player')]",
-                "//div[contains(text(), '플레이어')]/..",
-                "//span[contains(text(), '플레이어')]/../../..",
-                "//div[contains(@class, 'redEnvelopeChip')]"
+                "//div[contains(@class, 'player--') and contains(@class, 'content--')]",
+                "//div[contains(@data-betspot-destination, 'Player')]"
             ]
             
             for xpath in xpath_expressions:
@@ -467,27 +457,17 @@ class BettingService:
                     continue
                     
         elif bet_type == 'B':
-            # Banker 영역 찾기 - 실제 HTML 구조 기반
+            # Banker 영역 찾기 - 더 안정적인 선택자로 개선
             banker_selectors = [
-                # 새로운 실제 HTML 구조 기반 선택자들 (우선순위 높음)
-                "div.content--e4fdb.banker--6b486",              # 최상위 뱅커 컨테이너
-                "div.banker--6b486",                             # 뱅커 클래스
-                "div.content--e4fdb[class*='banker']",           # 뱅커를 포함하는 content
-                "div.content--aed5a div.redEnvelopeChip--ad744", # 뱅커 베팅 칩 영역 (상위 컨테이너 포함)
-                
-                # 기존 선택자들 (호환성 유지)
+                # 1순위: 가장 명확하고 안정적인 선택자
                 "div.spot--5ad7f[data-betspot-destination='Banker']",
-                "div[data-betspot-destination='Banker']",
-                "div.banker-bet-spot",
-                "div.bet-spot-banker",
-                "div[data-type='banker']",
-                "div.bet-spot[data-type='Banker']",
-                "div.bet-area-banker",
-                "div.bet-area[data-role='banker']",
                 
-                # 일반적인 패턴 매칭
-                "div[class*='banker']",                          # 클래스에 'banker' 포함
-                "[class*='banker'][class*='content']",           # 뱅커 관련 콘텐츠
+                # 2순위: 그 다음으로 안정적인 선택자
+                "div.content--e4fdb.banker--6b486",
+
+                # 3순위 (기존 호환성)
+                "div.banker--6b486",
+                "div[data-betspot-destination='Banker']",
             ]
             
             self.logger.info(f"Banker 베팅 영역 찾는 중...")
@@ -501,13 +481,10 @@ class BettingService:
                     self.logger.debug(f"선택자 '{selector}' 실패: {e}")
                     continue
             
-            # XPath로 시도 (Banker용)
+            # XPath로 시도 (Banker용) - 후순위
             xpath_expressions = [
-                "//div[contains(@class, 'banker')]",
-                "//div[contains(@class, 'content') and contains(@class, 'banker')]",
-                "//div[contains(text(), '뱅커')]/..",
-                "//span[contains(text(), '뱅커')]/../../..",
-                "//div[@class='content--aed5a']//div[contains(@class, 'redEnvelopeChip')]"
+                "//div[contains(@class, 'banker--') and contains(@class, 'content--')]",
+                "//div[contains(@data-betspot-destination, 'Banker')]"
             ]
             
             for xpath in xpath_expressions:
@@ -520,7 +497,7 @@ class BettingService:
                     self.logger.debug(f"XPath '{xpath}' 실패: {e}")
                     continue
         
-        # 최후의 수단: iframe_utils의 find_element_in_iframes 사용
+        # 최후의 수단... (기존 코드 유지)
         self.logger.info(f"기본 방법으로 {bet_type} 베팅 영역을 찾지 못함. 고급 검색 시도...")
         try:
             from utils.iframe_utils import find_element_in_iframes
@@ -713,3 +690,24 @@ class BettingService:
             'round': self.current_bet_round,
             'type': self.last_bet_type
         }
+    
+    def _wait_for_active_chips(self, max_wait=60, interval=1):
+        """
+        최대 max_wait초 동안 interval초 간격으로 활성화 칩을 기다림.
+        활성화된 칩 리스트를 반환. 없으면 빈 리스트 반환.
+        """
+        waited = 0
+        while waited < max_wait:
+            available_chips = [chip for chip in self._get_available_chip_values() if chip > 0]
+            if available_chips:
+                return available_chips
+            self.logger.info(f"활성화된 칩이 없음. {interval}초 후 재시도... (누적 대기: {waited+interval}s)")
+            time.sleep(interval)
+            waited += interval
+        self.logger.error("최대 대기 시간 동안 활성화된 칩을 찾지 못했습니다.")
+        return []
+
+    def _remove_failed_room(self, room_id: str):
+        """실패한 방을 목록에서 제거"""
+        self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
+        self.logger.info(f"방 {room_id} 제거 완료")

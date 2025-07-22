@@ -4,9 +4,9 @@
     "site3": "",
     "martin_count": 3,
     "martin_amounts": [
-        100,
-        200,
-        400
+        10000,
+        20000,
+        40000
     ],
     "target_amount": 5000000,
     "double_half_start": 20,
