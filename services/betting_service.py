@@ -239,10 +239,17 @@ class BettingService:
             self.logger.warning(f"베팅 가능 상태 후 최신 결과 확인 중 오류: {e}")
             
     def _find_betting_area(self, bet_type):
-        """베팅 영역 찾기"""
+        """베팅 영역 찾기 - 실제 HTML 구조에 맞게 업데이트"""
         if bet_type == 'P':
-            # Player 영역 찾기
+            # Player 영역 찾기 - 실제 HTML 구조 기반
             player_selectors = [
+                # 새로운 실제 HTML 구조 기반 선택자들 (우선순위 높음)
+                "div.content--e4fdb.player--2c620",              # 최상위 플레이어 컨테이너
+                "div.player--2c620",                             # 플레이어 클래스
+                "div.content--e4fdb[class*='player']",           # 플레이어를 포함하는 content
+                "div.redEnvelopeChip--ad744",                    # 베팅 칩 영역 (플레이어)
+                
+                # 기존 선택자들 (호환성 유지)
                 "div.spot--5ad7f[data-betspot-destination='Player']",
                 "div[data-betspot-destination='Player']",
                 "div.player-bet-spot",
@@ -250,7 +257,11 @@ class BettingService:
                 "div[data-type='player']",
                 "div.bet-spot[data-type='Player']",
                 "div.bet-area-player",
-                "div.bet-area[data-role='player']"
+                "div.bet-area[data-role='player']",
+                
+                # 일반적인 패턴 매칭
+                "div[class*='player']",                          # 클래스에 'player' 포함
+                "[class*='player'][class*='content']",           # 플레이어 관련 콘텐츠
             ]
             
             self.logger.info(f"Player 베팅 영역 찾는 중...")
@@ -258,28 +269,41 @@ class BettingService:
                 try:
                     elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
                     if elements and elements[0].is_displayed():
+                        self.logger.info(f"Player 베팅 영역 찾음: {selector}")
                         return elements[0]
-                except:
+                except Exception as e:
+                    self.logger.debug(f"선택자 '{selector}' 실패: {e}")
                     continue
             
-            # XPath로 시도
+            # XPath로 시도 (Player용)
             xpath_expressions = [
-                "//div[contains(@class, 'spot') and contains(@*, 'Player')]",
-                "//div[contains(@class, 'player') or contains(@class, 'Player')]",
-                "//div[contains(text(), 'Player') and (contains(@class, 'bet') or contains(@class, 'spot'))]"
+                "//div[contains(@class, 'player')]",
+                "//div[contains(@class, 'content') and contains(@class, 'player')]",
+                "//div[contains(text(), '플레이어')]/..",
+                "//span[contains(text(), '플레이어')]/../../..",
+                "//div[contains(@class, 'redEnvelopeChip')]"
             ]
             
             for xpath in xpath_expressions:
                 try:
                     elements = self.devtools.driver.find_elements(By.XPATH, xpath)
                     if elements and elements[0].is_displayed():
+                        self.logger.info(f"Player 베팅 영역 찾음 (XPath): {xpath}")
                         return elements[0]
-                except:
+                except Exception as e:
+                    self.logger.debug(f"XPath '{xpath}' 실패: {e}")
                     continue
                     
         elif bet_type == 'B':
-            # Banker 영역 찾기
+            # Banker 영역 찾기 - 실제 HTML 구조 기반
             banker_selectors = [
+                # 새로운 실제 HTML 구조 기반 선택자들 (우선순위 높음)
+                "div.content--e4fdb.banker--6b486",              # 최상위 뱅커 컨테이너
+                "div.banker--6b486",                             # 뱅커 클래스
+                "div.content--e4fdb[class*='banker']",           # 뱅커를 포함하는 content
+                "div.content--aed5a div.redEnvelopeChip--ad744", # 뱅커 베팅 칩 영역 (상위 컨테이너 포함)
+                
+                # 기존 선택자들 (호환성 유지)
                 "div.spot--5ad7f[data-betspot-destination='Banker']",
                 "div[data-betspot-destination='Banker']",
                 "div.banker-bet-spot",
@@ -287,7 +311,11 @@ class BettingService:
                 "div[data-type='banker']",
                 "div.bet-spot[data-type='Banker']",
                 "div.bet-area-banker",
-                "div.bet-area[data-role='banker']"
+                "div.bet-area[data-role='banker']",
+                
+                # 일반적인 패턴 매칭
+                "div[class*='banker']",                          # 클래스에 'banker' 포함
+                "[class*='banker'][class*='content']",           # 뱅커 관련 콘텐츠
             ]
             
             self.logger.info(f"Banker 베팅 영역 찾는 중...")
@@ -295,38 +323,64 @@ class BettingService:
                 try:
                     elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
                     if elements and elements[0].is_displayed():
+                        self.logger.info(f"Banker 베팅 영역 찾음: {selector}")
                         return elements[0]
-                except:
+                except Exception as e:
+                    self.logger.debug(f"선택자 '{selector}' 실패: {e}")
                     continue
             
-            # XPath로 시도
+            # XPath로 시도 (Banker용)
             xpath_expressions = [
-                "//div[contains(@class, 'spot') and contains(@*, 'Banker')]",
-                "//div[contains(@class, 'banker') or contains(@class, 'Banker')]",
-                "//div[contains(text(), 'Banker') and (contains(@class, 'bet') or contains(@class, 'spot'))]"
+                "//div[contains(@class, 'banker')]",
+                "//div[contains(@class, 'content') and contains(@class, 'banker')]",
+                "//div[contains(text(), '뱅커')]/..",
+                "//span[contains(text(), '뱅커')]/../../..",
+                "//div[@class='content--aed5a']//div[contains(@class, 'redEnvelopeChip')]"
             ]
             
             for xpath in xpath_expressions:
                 try:
                     elements = self.devtools.driver.find_elements(By.XPATH, xpath)
                     if elements and elements[0].is_displayed():
+                        self.logger.info(f"Banker 베팅 영역 찾음 (XPath): {xpath}")
                         return elements[0]
-                except:
+                except Exception as e:
+                    self.logger.debug(f"XPath '{xpath}' 실패: {e}")
                     continue
         
         # 최후의 수단: iframe_utils의 find_element_in_iframes 사용
         self.logger.info(f"기본 방법으로 {bet_type} 베팅 영역을 찾지 못함. 고급 검색 시도...")
-        # 'timeout' 매개변수 제거
-        success, element = find_element_in_iframes(
-            self.devtools.driver,
-            By.XPATH, 
-            f"//div[contains(@*, '{bet_type}') and (contains(@class, 'spot') or contains(@class, 'bet'))]",
-            max_depth=3
-        )
-        
-        if success:
-            return element
+        try:
+            from utils.iframe_utils import find_element_in_iframes
             
+            # 베팅 타입에 따른 고급 검색
+            if bet_type == 'P':
+                advanced_selectors = [
+                    "div[class*='player']",
+                    "div[class*='content'][class*='player']"
+                ]
+            else:  # bet_type == 'B'
+                advanced_selectors = [
+                    "div[class*='banker']", 
+                    "div[class*='content'][class*='banker']"
+                ]
+            
+            for selector in advanced_selectors:
+                success, element = find_element_in_iframes(
+                    self.devtools.driver,
+                    By.CSS_SELECTOR, 
+                    selector,
+                    max_depth=3
+                )
+                
+                if success:
+                    self.logger.info(f"고급 검색으로 {bet_type} 베팅 영역 찾음: {selector}")
+                    return element
+                    
+        except Exception as e:
+            self.logger.warning(f"고급 검색 중 오류: {e}")
+        
+        self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없습니다.")
         return None
 
     def _find_chip(self, chip_value):
