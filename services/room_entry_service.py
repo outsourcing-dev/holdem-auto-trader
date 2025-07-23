@@ -337,10 +337,10 @@ class RoomEntryService:
                 cps._current_game_round = game_count
                 self.logger.info(f"[방 입장] ChoicePickSystem에 _entered_round={game_count}, _current_game_round={game_count} 설정")
             
-            # 게임 수 범위 확인 (16-57판)
-            if game_count < 16 or game_count > 57:
-                self.logger.info(f"방 '{room_name}' 게임 수({game_count})가 범위(16-57) 밖입니다.")
-                return False
+            # # 게임 수 범위 확인 (16-57판)
+            # if game_count < 16 or game_count > 57:
+            #     self.logger.info(f"방 '{room_name}' 게임 수({game_count})가 범위(16-57) 밖입니다.")
+            #     return False
             
             # UI 업데이트
             self.main_window.update_betting_status(room_name=room_name)

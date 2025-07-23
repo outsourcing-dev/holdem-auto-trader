@@ -405,8 +405,8 @@ class TradingManager:
                 )
                 
                 if server_data:
-                    # 🔥 테스트용: 연패 검증 완전히 건너뛰고 무조건 베팅 모드 시작
-                    self.logger.info(f"🧪 [테스트] 연패 검증 건너뛰고 강제 베팅 모드 시작: {room_name}")
+                    # === 서버 예측값 기반 베팅 로직 복원 ===
+                    self.logger.info(f"🎯 서버 예측값 기반 베팅 로직 시작: {room_name}")
                     
                     # 현재 방 정보 설정
                     self.current_room_name = room_name
@@ -415,73 +415,42 @@ class TradingManager:
                     # 게임 상태 초기화
                     self.game_count = server_data.get('round_number', 1)
                     self.result_count = 0
-                    self.wait_first_result = False  # 테스트용으로 대기 건너뛰기
+                    self.wait_first_result = False
                     self.processed_rounds = set()
                     
                     # UI 업데이트
                     self.main_window.update_betting_status(
                         room_name=room_name,
-                        status=f"🧪 테스트용 베팅 모드 시작"
+                        status=f"서버 예측값 기반 베팅 모드 시작"
                     )
                     
-                    self.logger.info(f"🎯 [테스트] 게임 모니터링 준비 완료: {room_name}")
+                    self.logger.info(f"🎯 [서버 예측] 게임 모니터링 준비 완료: {room_name}")
                     
-                    # 🔥 즉시 베팅 기회 확인 시도
-                    self.logger.info(f"🧪 [테스트] 즉시 베팅 기회 확인 시도")
-                    
-                    # 서버 데이터를 기반으로 가짜 game_data 생성
+                    # 서버 데이터를 기반으로 game_data 생성
                     fake_game_data = {
                         'room_id': room_id,
                         'room_name': room_name,
-                        'game_results': server_data.get('all_results', []),
+                        'game_results': [r for r in server_data.get('all_results', []) if r in ('P', 'B')],
                         'latest_result': server_data.get('latest_result', ''),
                         'round_number': server_data.get('round_number', 1),
                         'has_results': True
                     }
                     
-                    self.logger.info(f"🧪 [테스트] 가짜 게임 데이터: {fake_game_data}")
+                    # 서버에서 다음 예측값 요청
+                    room_id = self.current_target_room.get('room_id', '')
+                    current_results = server_data.get('all_results', [])
+                    # TIE('T')를 제외한 값만 서버로 전달 (이중 필터링)
+                    filtered_results = [r for r in current_results if r in ('P', 'B')]
+                    next_pick = self.server_client.get_next_prediction(room_id, filtered_results)
+                    self.logger.info(f"🎯 [서버 예측] 서버 예측 결과: {next_pick}")
                     
-                    # 베팅 기회 확인 호출
-                    self._check_betting_opportunity(fake_game_data)
+                    if next_pick in ['P', 'B']:
+                        self.logger.info(f"🎯 [서버 예측] 베팅 실행: {next_pick}")
+                        self._execute_betting(next_pick, fake_game_data['round_number'])
+                    else:
+                        self.logger.info(f"🎯 [서버 예측] 베팅 안함: {next_pick}")
                     
-                    # 🔥 추가: 만약 베팅 기회 확인이 실패하면 강제로 베팅 시도
-                    self.logger.info(f"🧪 [테스트] 5초 후 강제 베팅 시도")
-                    
-                    # 5초 대기 후 강제 베팅 시도
-                    import threading
-                    def force_betting():
-                        # time.sleep(5)
-                        try:
-                            self.logger.info(f"🧪 [테스트] 강제 베팅 실행 시작")
-                            
-                            # 서버에 예측 요청
-                            current_results = server_data.get('all_results', [])
-                            if not current_results:
-                                current_results = ['P', 'B', 'P']  # 테스트용 가짜 데이터
-                            
-                            # 원래 서버 예측값 요청
-                            next_pick = self.server_client.get_next_prediction(room_id, current_results)
-                            self.logger.info(f"🎯 [테스트] 서버 예측 결과: {next_pick}")
-
-                            # === 여기서 강제 pick 지정 ===
-                            if next_pick not in ['P', 'B']:
-                                self.logger.info(f"�� [테스트] 서버 예측값이 None이므로 강제로 'P'로 베팅")
-                                next_pick = 'B'  # 또는 'B'로 변경 가능
-
-                            if next_pick in ['P', 'B']:
-                                self.logger.info(f"🧪 [테스트] 강제 베팅 실행: {next_pick}")
-                                self._execute_betting(next_pick, fake_game_data['round_number'])
-                            else:
-                                self.logger.info(f"🧪 [테스트] 베팅 안함: {next_pick}")
-                                
-                        except Exception as e:
-                            self.logger.error(f"🧪 [테스트] 강제 베팅 오류: {e}")
-                    
-                    # 별도 스레드에서 강제 베팅 실행
-                    threading.Thread(target=force_betting, daemon=True).start()
-                    
-                    return True  # 성공 처리
-                
+                    return True
                 else:
                     self.logger.error(f"❌ [테스트] 게임 상태 분석 실패: {room_name}")
                     
@@ -933,7 +902,9 @@ class TradingManager:
             room_id = self.current_target_room.get('room_id', '')
             current_results = game_data.get('game_results', [])
             
-            next_pick = self.server_client.get_next_prediction(room_id, current_results)
+            # TIE('T')를 제외한 값만 서버로 전달 (이중 필터링)
+            filtered_results = [r for r in current_results if r in ('P', 'B')]
+            next_pick = self.server_client.get_next_prediction(room_id, filtered_results)
             
             if next_pick in ['P', 'B']:
                 round_number = game_data.get('round_number', self.game_count + 1)

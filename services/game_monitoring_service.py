@@ -569,6 +569,8 @@ class GameMonitoringService:
             
             # 서버 전송용 payload 생성 (웹소켓 하이브리드와 동일)
             filtered_results = game_state.get('filtered_results', [])
+            
+            filtered_results = [r for r in filtered_results if r in ['P', 'B']]
             latest_result = game_state.get('latest_result', '')
             round_number = game_state.get('round', 0)
             
