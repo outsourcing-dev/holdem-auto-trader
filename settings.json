@@ -1,17 +1,15 @@
 {
-    "site1": "aii1dd.net",
-    "site2": "aii1dd.net",
-    "site3": "aii1dd.net",
-    "martin_count": 6,
+
+    "site1": "pan-3718.com",
+    "site2": "http://drdr-1230.com",
+    "site3": "",
+    "martin_count": 3,
     "martin_amounts": [
-        2000,
-        4000,
-        8000,
-        16000,
-        32000,
-        64000
+        10000,
+        20000,
+        40000
     ],
-    "target_amount": 500000,
+    "target_amount": 5000000,
     "double_half_start": 20,
     "double_half_stop": 8
 }

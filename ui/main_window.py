@@ -9,7 +9,7 @@ from ui.betting_widget import BettingWidget
 from utils.devtools import DevToolsController
 from utils.settings_manager import SettingsManager
 from utils.room_manager import RoomManager
-from utils.trading_manager import TradingManager
+from utils.trading_manager import TradingManager  # 인터셉터 기반으로 완전 교체됨
 from utils.ui_updater import UIUpdater
 from ui.room_log_widget import RoomLogWidget
 from datetime import datetime, timedelta
@@ -101,9 +101,15 @@ class MainWindow(QMainWindow):
         # 매니저 클래스 초기화 (UI 구성 후에 초기화)
         self.room_manager = RoomManager(self)
         self.trading_manager = TradingManager(self)
+        if hasattr(self.trading_manager, '_start_websocket_interceptor'):
+            print("✅ 인터셉터 기반 TradingManager 로드 성공")
+        else:
+            print("❌ 기존 방식 TradingManager 로드됨 - 문제 있음!")
         self.ui_updater = UIUpdater(self)
         self.update_button_styles()
-        
+        # self.devtools.start_browser()
+
+
     def apply_stylesheet(self):
         """스타일시트를 적용합니다."""
         try:
