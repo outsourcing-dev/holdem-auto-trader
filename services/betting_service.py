@@ -1,4 +1,4 @@
-# services/betting_service.py 리팩토링
+# services/betting_service.py - 베팅 가능한 상태 감지 개선
 import logging
 import random
 import time
@@ -68,7 +68,8 @@ class BettingService:
         except Exception as e:
             self.logger.error(f"{element_name} JS 클릭 실패: {e}")
             return False
-        
+
+# services/betting_service.py - place_bet 메서드에 최신 데이터 재요청 연동
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
 
@@ -83,9 +84,29 @@ class BettingService:
                 self.logger.error("베팅: iframe 전환 실패, 베팅 진행 불가")
                 return False
 
+            # ✅ 베팅 가능한 상태까지 대기
             if not self._wait_for_betting_available():
+                self.logger.warning("베팅 가능 상태 대기 실패")
                 return False
 
+            # ✅ 핵심 추가: 베팅 가능한 상태가 된 시점에서 최신 데이터로 예측값 재요청
+            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
+                self.logger.info("🔄 베팅 가능 상태 확인됨 - 최신 데이터로 예측값 재요청")
+                
+                # GameProcessor의 최신 데이터 재요청 메서드 호출
+                self.main_window.trading_manager.game_processor._request_betting_with_latest_data()
+                
+                # 잠시 대기 후 새로운 예측값 확인
+                time.sleep(2)
+                
+                # 새로운 예측값이 있는지 확인하고 기존 bet_type과 다르면 업데이트
+                if hasattr(self.main_window.trading_manager, 'current_pick'):
+                    new_pick = self.main_window.trading_manager.current_pick
+                    if new_pick and new_pick in ['P', 'B'] and new_pick != bet_type:
+                        self.logger.info(f"🔄 베팅 타입 업데이트: {bet_type} → {new_pick} (최신 데이터 기반)")
+                        bet_type = new_pick
+            
+            # 위젯 마커 초기화 로직
             if hasattr(self.main_window, 'betting_widget'):
                 marker = getattr(self.main_window.betting_widget, 'get_current_marker', lambda: None)()
                 if marker == "O":
@@ -93,23 +114,18 @@ class BettingService:
                     self.main_window.betting_widget.reset_step_markers()
                     self.main_window.betting_widget.room_position_counter = 0
 
+            # 타이 직후 처리 로직
             had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
             
-            # 타이 직후 베팅 처리 - 이전 베팅 타입 유지
             if had_tie_last_round:
                 self.logger.info("타이 직후 베팅: 동일 위치 유지")
-                # 이전 베팅 타입이 있으면 사용
-                if self.last_bet_type and self.last_bet_type != bet_type:
-                    self.logger.info(f"타이 직후 베팅 타입 수정: {bet_type} → {self.last_bet_type}")
-                    bet_type = self.last_bet_type
-                # 타이 직후 플래그 초기화
                 self.main_window.trading_manager.had_tie_last_round = False
 
             bet_success = self._execute_betting(bet_type, bet_amount)
 
             if bet_success:
                 self._handle_successful_bet(bet_type, game_count, current_room_name)
-                self.has_bet_current_round = True  # ✅ 베팅 성공했을 때만 True
+                self.has_bet_current_round = True
                 return True
             else:
                 return False
@@ -117,8 +133,7 @@ class BettingService:
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
-
-
+        
     def _validate_bet_conditions(self, bet_type, is_trading_active):
         """베팅 전 조건 검증"""
         # 최근 베팅 후 최소 시간 확인
@@ -146,49 +161,107 @@ class BettingService:
         return True
 
     def _wait_for_betting_available(self):
-        """베팅 가능 상태가 될 때까지 대기 - 동적 칩 감지 방식"""
+        """베팅 가능 상태가 될 때까지 대기 - 개선된 버전"""
         self.logger.info("베팅 가능 상태 확인 시작...")
-        max_attempts = 60  # 최대 60초 대기 (1초 간격)
+        max_attempts = 60  # 최대 60초 대기
         
         for attempt in range(max_attempts):
             try:
-                # 모든 칩 요소를 찾아서 활성화된 칩이 있는지 확인
-                chip_selectors = [
-                    "div.chip--29b81[data-role='chip']",
-                    "div[data-role='chip']",
-                    "div.chip[data-value]"
-                ]
-                
-                chip_active = False
-                for selector in chip_selectors:
-                    chip_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                # ✅ 1. 칩 활성화 확인
+                if self._check_chips_active():
+                    self.logger.info("✅ 활성화된 칩 발견 - 베팅 가능 상태")
                     
-                    for chip_element in chip_elements:
-                        if chip_element.is_displayed():
-                            # 비활성화 상태가 아닌지 확인
-                            chip_class = chip_element.get_attribute("class") or ""
-                            if "disabled" not in chip_class.lower():
-                                chip_active = True
-                                chip_value = chip_element.get_attribute("data-value")
-                                self.logger.info(f"활성화된 칩 발견: {chip_value}원")
-                                break
-                    
-                    if chip_active:
-                        break
-                
-                # 활성화된 칩이 발견되면 베팅 가능 상태로 판단
-                if chip_active:
-                    self.logger.info("베팅 가능 상태 감지됨 (활성화된 칩 발견)")
-                    self._update_game_state()
-                    return True
+                    # ✅ 2. 베팅 영역 활성화 확인
+                    if self._check_betting_areas_active():
+                        self.logger.info("✅ 베팅 영역도 활성화됨 - 베팅 준비 완료")
+                        return True
+                    else:
+                        self.logger.info("⏳ 베팅 영역 활성화 대기 중...")
+                else:
+                    self.logger.debug(f"⏳ 칩 비활성화 상태 - 대기 중... ({attempt+1}/{max_attempts})")
                 
                 time.sleep(1)
             except Exception as e:
-                self.logger.warning(f"칩 활성화 상태 확인 중 오류: {e}")
+                self.logger.warning(f"베팅 가능 상태 확인 중 오류: {e}")
                 time.sleep(0.5)
         
         self.logger.warning("베팅 가능 상태 대기 시간 초과.")
         return False
+
+    def _check_chips_active(self):
+        """칩 활성화 상태 확인"""
+        try:
+            chip_selectors = [
+                "div.chip--29b81[data-role='chip']",
+                "div[data-role='chip']",
+                "div.chip[data-value]"
+            ]
+            
+            for selector in chip_selectors:
+                chip_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                
+                for chip_element in chip_elements:
+                    if chip_element.is_displayed():
+                        chip_class = chip_element.get_attribute("class") or ""
+                        if "disabled" not in chip_class.lower():
+                            chip_value = chip_element.get_attribute("data-value")
+                            self.logger.debug(f"활성화된 칩 발견: {chip_value}원")
+                            return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.warning(f"칩 활성화 확인 중 오류: {e}")
+            return False
+
+    def _check_betting_areas_active(self):
+        """베팅 영역 활성화 상태 확인"""
+        try:
+            # Player 영역 확인
+            player_selectors = [
+                "div.spot--5ad7f[data-betspot-destination='Player']",
+                "div.content--e4fdb.player--2c620",
+                "div.player--2c620"
+            ]
+            
+            # Banker 영역 확인
+            banker_selectors = [
+                "div.spot--5ad7f[data-betspot-destination='Banker']",
+                "div.content--e4fdb.banker--6b486", 
+                "div.banker--6b486"
+            ]
+            
+            # Player 영역 활성화 확인
+            for selector in player_selectors:
+                try:
+                    elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if elements and elements[0].is_displayed():
+                        element_class = elements[0].get_attribute("class") or ""
+                        if "disabled" not in element_class.lower():
+                            self.logger.debug("Player 베팅 영역 활성화됨")
+                            break
+                except:
+                    continue
+            else:
+                return False
+            
+            # Banker 영역 활성화 확인
+            for selector in banker_selectors:
+                try:
+                    elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if elements and elements[0].is_displayed():
+                        element_class = elements[0].get_attribute("class") or ""
+                        if "disabled" not in element_class.lower():
+                            self.logger.debug("Banker 베팅 영역 활성화됨")
+                            return True
+                except:
+                    continue
+            
+            return False
+            
+        except Exception as e:
+            self.logger.warning(f"베팅 영역 활성화 확인 중 오류: {e}")
+            return False
 
     def _find_chip(self, chip_value):
         """칩 찾기 - 개선된 버전"""
@@ -362,57 +435,7 @@ class BettingService:
         else:
             self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
             return False
-
-    def _update_game_state(self):
-        """베팅 가능 상태 감지 후 최신 결과 업데이트"""
-        try:
-            # 게임 상태 다시 확인하여 최신 결과 업데이트
-            game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state(log_always=False)
-            if not game_state:
-                return
-
-            latest_result = game_state.get('latest_result')
-            self.logger.info(f"베팅 가능 상태 감지 후 최신 결과 재확인: {latest_result}")
-            
-            # 최신 결과가 있으면 엑셀에 반영
-            if latest_result:
-                # 현재 게임 카운트 저장
-                current_game_count = self.main_window.trading_manager.game_count
-                
-                result = self.main_window.trading_manager.excel_trading_service.process_game_results(
-                    game_state, 
-                    current_game_count,
-                    self.main_window.trading_manager.current_room_name,
-                    log_on_change=True
-                )
-                
-                if result[0] is not None:
-                    last_column, new_game_count, recent_results, next_pick = result
-                    
-                    # 게임 카운트가 한 단계만 증가했는지 확인 (안전 장치)
-                    if new_game_count > current_game_count and new_game_count <= current_game_count + 1:
-                        # self.logger.info(f"게임 카운트 업데이트: {current_game_count} → {new_game_count}")
-                        
-                        # game 속성 대신 game_helper 사용 
-                        if hasattr(self.main_window.trading_manager, 'game_helper'):
-                            self.main_window.trading_manager.game_helper.process_previous_game_result(game_state, new_game_count)
-                        
-                        # 게임 카운트 업데이트
-                        self.main_window.trading_manager.game_count = new_game_count
-                        
-                        # 새로운 PICK 값이 있으면 현재 PICK 값 업데이트 및 UI 갱신
-                        if next_pick in ['P', 'B']:
-                            self.main_window.trading_manager.current_pick = next_pick
-                            self.main_window.update_betting_status(pick=next_pick)
-                    else:
-                        # 갑자기 게임 카운트가 2 이상 증가한 경우 경고 로그
-                        if new_game_count > current_game_count + 1:
-                            self.logger.warning(f"게임 카운트가 비정상적으로 증가: {current_game_count} → {new_game_count}")
-                            # 안전하게 1씩만 증가시킴
-                            self.main_window.trading_manager.game_count = current_game_count + 1
-        except Exception as e:
-            self.logger.warning(f"베팅 가능 상태 후 최신 결과 확인 중 오류: {e}")
-            
+  
     def _find_betting_area(self, bet_type):
         """베팅 영역 찾기 - 실제 HTML 구조에 맞게 업데이트"""
         if bet_type == 'P':
@@ -531,7 +554,6 @@ class BettingService:
         
         self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없습니다.")
         return None
-
 
     def _check_betting_label(self):
         """
