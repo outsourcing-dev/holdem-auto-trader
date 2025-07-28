@@ -69,6 +69,8 @@ class BettingService:
             self.logger.error(f"{element_name} JS 클릭 실패: {e}")
             return False
         
+    # BettingService의 place_bet 메서드에서 타이 직후 처리 수정
+
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
 
@@ -86,6 +88,7 @@ class BettingService:
             if not self._wait_for_betting_available():
                 return False
 
+            # 위젯 마커 초기화 로직
             if hasattr(self.main_window, 'betting_widget'):
                 marker = getattr(self.main_window.betting_widget, 'get_current_marker', lambda: None)()
                 if marker == "O":
@@ -93,15 +96,12 @@ class BettingService:
                     self.main_window.betting_widget.reset_step_markers()
                     self.main_window.betting_widget.room_position_counter = 0
 
+            # 타이 직후 처리 로직 제거 또는 수정
             had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
             
-            # 타이 직후 베팅 처리 - 이전 베팅 타입 유지
             if had_tie_last_round:
                 self.logger.info("타이 직후 베팅: 동일 위치 유지")
-                # 이전 베팅 타입이 있으면 사용
-                if self.last_bet_type and self.last_bet_type != bet_type:
-                    self.logger.info(f"타이 직후 베팅 타입 수정: {bet_type} → {self.last_bet_type}")
-                    bet_type = self.last_bet_type
+                # 타이 직후에는 베팅 타입 변경하지 않음 (서버에서 이미 적절한 예측을 제공함)
                 # 타이 직후 플래그 초기화
                 self.main_window.trading_manager.had_tie_last_round = False
 
@@ -109,7 +109,7 @@ class BettingService:
 
             if bet_success:
                 self._handle_successful_bet(bet_type, game_count, current_room_name)
-                self.has_bet_current_round = True  # ✅ 베팅 성공했을 때만 True
+                self.has_bet_current_round = True
                 return True
             else:
                 return False
@@ -118,6 +118,17 @@ class BettingService:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
 
+    # _update_game_state 메서드는 아예 제거하거나 매우 단순화
+    def _update_game_state(self):
+        """베팅 가능 상태 감지 후 간단한 상태 업데이트만"""
+        try:
+            # 여기서는 게임 결과 처리를 하지 않음!
+            # 단순히 UI 업데이트나 기본적인 상태 확인만 수행
+            self.logger.debug("베팅 가능 상태 감지 완료 - 게임 결과 처리는 별도로 진행")
+            
+        except Exception as e:
+            self.logger.warning(f"상태 업데이트 중 오류: {e}")
+            
 
     def _validate_bet_conditions(self, bet_type, is_trading_active):
         """베팅 전 조건 검증"""
@@ -145,14 +156,15 @@ class BettingService:
             
         return True
 
+    # BettingService의 _wait_for_betting_available 메서드도 수정
     def _wait_for_betting_available(self):
-        """베팅 가능 상태가 될 때까지 대기 - 동적 칩 감지 방식"""
+        """베팅 가능 상태가 될 때까지 대기 - 게임 결과 처리 제거"""
         self.logger.info("베팅 가능 상태 확인 시작...")
-        max_attempts = 60  # 최대 60초 대기 (1초 간격)
+        max_attempts = 60  # 최대 60초 대기
         
         for attempt in range(max_attempts):
             try:
-                # 모든 칩 요소를 찾아서 활성화된 칩이 있는지 확인
+                # 칩 활성화 확인만 수행
                 chip_selectors = [
                     "div.chip--29b81[data-role='chip']",
                     "div[data-role='chip']",
@@ -165,7 +177,6 @@ class BettingService:
                     
                     for chip_element in chip_elements:
                         if chip_element.is_displayed():
-                            # 비활성화 상태가 아닌지 확인
                             chip_class = chip_element.get_attribute("class") or ""
                             if "disabled" not in chip_class.lower():
                                 chip_active = True
@@ -176,10 +187,9 @@ class BettingService:
                     if chip_active:
                         break
                 
-                # 활성화된 칩이 발견되면 베팅 가능 상태로 판단
                 if chip_active:
                     self.logger.info("베팅 가능 상태 감지됨 (활성화된 칩 발견)")
-                    self._update_game_state()
+                    # _update_game_state() 호출 제거! 여기서 게임 결과 처리하지 않음
                     return True
                 
                 time.sleep(1)
@@ -189,6 +199,7 @@ class BettingService:
         
         self.logger.warning("베팅 가능 상태 대기 시간 초과.")
         return False
+
 
     def _find_chip(self, chip_value):
         """칩 찾기 - 개선된 버전"""
@@ -362,57 +373,7 @@ class BettingService:
         else:
             self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
             return False
-
-    def _update_game_state(self):
-        """베팅 가능 상태 감지 후 최신 결과 업데이트"""
-        try:
-            # 게임 상태 다시 확인하여 최신 결과 업데이트
-            game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state(log_always=False)
-            if not game_state:
-                return
-
-            latest_result = game_state.get('latest_result')
-            self.logger.info(f"베팅 가능 상태 감지 후 최신 결과 재확인: {latest_result}")
-            
-            # 최신 결과가 있으면 엑셀에 반영
-            if latest_result:
-                # 현재 게임 카운트 저장
-                current_game_count = self.main_window.trading_manager.game_count
-                
-                result = self.main_window.trading_manager.excel_trading_service.process_game_results(
-                    game_state, 
-                    current_game_count,
-                    self.main_window.trading_manager.current_room_name,
-                    log_on_change=True
-                )
-                
-                if result[0] is not None:
-                    last_column, new_game_count, recent_results, next_pick = result
-                    
-                    # 게임 카운트가 한 단계만 증가했는지 확인 (안전 장치)
-                    if new_game_count > current_game_count and new_game_count <= current_game_count + 1:
-                        # self.logger.info(f"게임 카운트 업데이트: {current_game_count} → {new_game_count}")
-                        
-                        # game 속성 대신 game_helper 사용 
-                        if hasattr(self.main_window.trading_manager, 'game_helper'):
-                            self.main_window.trading_manager.game_helper.process_previous_game_result(game_state, new_game_count)
-                        
-                        # 게임 카운트 업데이트
-                        self.main_window.trading_manager.game_count = new_game_count
-                        
-                        # 새로운 PICK 값이 있으면 현재 PICK 값 업데이트 및 UI 갱신
-                        if next_pick in ['P', 'B']:
-                            self.main_window.trading_manager.current_pick = next_pick
-                            self.main_window.update_betting_status(pick=next_pick)
-                    else:
-                        # 갑자기 게임 카운트가 2 이상 증가한 경우 경고 로그
-                        if new_game_count > current_game_count + 1:
-                            self.logger.warning(f"게임 카운트가 비정상적으로 증가: {current_game_count} → {new_game_count}")
-                            # 안전하게 1씩만 증가시킴
-                            self.main_window.trading_manager.game_count = current_game_count + 1
-        except Exception as e:
-            self.logger.warning(f"베팅 가능 상태 후 최신 결과 확인 중 오류: {e}")
-            
+  
     def _find_betting_area(self, bet_type):
         """베팅 영역 찾기 - 실제 HTML 구조에 맞게 업데이트"""
         if bet_type == 'P':

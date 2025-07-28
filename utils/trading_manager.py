@@ -884,35 +884,88 @@ class TradingManager:
             self.logger.error(f"게임 결과 처리 오류: {e}")
 
     def _check_betting_opportunity(self, game_data: dict):
-        """서버 기반 베팅 기회 확인"""
+        """서버 기반 베팅 기회 확인 - 수정된 버전"""
         try:
+            # 이미 베팅했으면 베팅 안함
             if hasattr(self.betting_service, 'has_bet_current_round') and self.betting_service.has_bet_current_round:
                 return
             
+            # 첫 결과 대기 중이면서 새로운 결과가 왔을 때만 대기 해제
             if self.wait_first_result:
-                if game_data.get('latest_result'):
+                latest_result = game_data.get('latest_result')
+                if latest_result and latest_result in ['P', 'B', 'T']:
                     self.wait_first_result = False
-                    self.logger.info("첫 결과 수신 - 대기 모드 해제")
+                    self.logger.info(f"첫 결과 수신 - 대기 모드 해제: {latest_result}")
+                    
+                    # 타이가 아닌 경우에만 다음 베팅 진행
+                    if latest_result in ['P', 'B']:
+                        self._process_game_result_and_bet(game_data)
                 return
             
+            # 현재 타겟 방이 없으면 베팅 안함
             if not self.current_target_room:
                 return
             
-            # 서버에서 다음 예측값 요청
-            room_id = self.current_target_room.get('room_id', '')
-            current_results = game_data.get('game_results', [])
-            
-            # TIE('T')를 제외한 값만 서버로 전달 (이중 필터링)
-            filtered_results = [r for r in current_results if r in ('P', 'B')]
-            next_pick = self.server_client.get_next_prediction(room_id, filtered_results)
-            
-            if next_pick in ['P', 'B']:
-                round_number = game_data.get('round_number', self.game_count + 1)
-                self._execute_betting(next_pick, round_number)
+            # 새로운 게임 결과가 있을 때만 베팅 진행
+            latest_result = game_data.get('latest_result')
+            if latest_result and latest_result in ['P', 'B']:
+                self._process_game_result_and_bet(game_data)
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
+
+    def _process_game_result_and_bet(self, game_data: dict):
+        """게임 결과 처리 후 다음 베팅 실행"""
+        try:
+            latest_result = game_data.get('latest_result')
+            current_results = game_data.get('game_results', [])
             
+            self.logger.info(f"🎮 게임 결과 처리: {latest_result}")
+            
+            # 1. 이전 베팅 결과 확인 및 처리
+            if hasattr(self.betting_service, 'has_bet_current_round') and self.betting_service.has_bet_current_round:
+                last_bet = self.betting_service.get_last_bet()
+                if last_bet and last_bet['type'] in ['P', 'B']:
+                    # 베팅 결과 처리
+                    result_status = self.bet_helper.process_bet_result(
+                        last_bet['type'], 
+                        latest_result, 
+                        game_data.get('round_number', self.game_count)
+                    )
+                    self.logger.info(f"이전 베팅 결과: {result_status}")
+                    
+                    # 베팅 상태 초기화
+                    self.betting_service.has_bet_current_round = False
+            
+            # 2. 서버에 최신 결과 포함해서 다음 예측 요청
+            room_id = self.current_target_room.get('room_id', '')
+            
+            # 최신 결과를 포함한 결과 리스트 준비
+            updated_results = current_results.copy() if current_results else []
+            if latest_result not in updated_results:
+                updated_results.append(latest_result)
+            
+            # TIE('T')를 제외한 값만 서버로 전달
+            filtered_results = [r for r in updated_results if r in ['P', 'B']]
+            
+            self.logger.info(f"📡 서버 예측 요청: 최신 결과 {latest_result} 포함, 필터링된 결과: {filtered_results}")
+            
+            # 3. 서버에서 다음 예측값 요청
+            next_pick = self.server_client.get_next_prediction(room_id, filtered_results)
+            self.logger.info(f"🎯 [서버 예측] 다음 베팅 예측: {next_pick}")
+            
+            # 4. 유효한 예측값이면 베팅 실행
+            if next_pick in ['P', 'B']:
+                # 잠시 대기 후 베팅 (게임 전환 시간 고려)
+                time.sleep(1)
+                round_number = game_data.get('round_number', self.game_count + 1)
+                self._execute_betting(next_pick, round_number)
+            else:
+                self.logger.info(f"🎯 [서버 예측] 베팅 안함: {next_pick}")
+                
+        except Exception as e:
+            self.logger.error(f"게임 결과 처리 및 베팅 오류: {e}")
+
     def _generate_pick_for_streak_room(self) -> str:
         """연패 방을 위한 픽 생성"""
         try:
