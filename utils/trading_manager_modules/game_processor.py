@@ -1,3 +1,4 @@
+# utils/trading_manager_modules/game_processor.py (베팅 가능 시점 최신 데이터 재요청 수정)
 import logging
 import time
 
@@ -40,7 +41,7 @@ class GameProcessor:
             if latest_result and latest_result in ['P', 'B', 'T']:
                 self._handle_game_result(game_data)
             
-            # 베팅 타이밍 확인
+            # ✅ 베팅 타이밍 확인 - 베팅 가능한 상태에서 최신 데이터로 재요청
             if self.tm.current_target_room and not self.tm.room_entry_in_progress:
                 self._check_betting_opportunity(game_data)
             
@@ -95,7 +96,7 @@ class GameProcessor:
             self.logger.error(f"게임 결과 처리 오류: {e}")
 
     def _check_betting_opportunity(self, game_data: dict):
-        """서버 기반 베팅 기회 확인"""
+        """베팅 기회 확인 - 베팅 가능한 상태에서 최신 데이터로 예측값 요청"""
         try:
             # 이미 베팅했으면 베팅 안함
             if hasattr(self.tm.betting_service, 'has_bet_current_round') and self.tm.betting_service.has_bet_current_round:
@@ -117,16 +118,61 @@ class GameProcessor:
             if not self.tm.current_target_room:
                 return
             
-            # 새로운 게임 결과가 있을 때만 베팅 진행
-            latest_result = game_data.get('latest_result')
-            if latest_result and latest_result in ['P', 'B']:
-                self._process_game_result_and_bet(game_data)
+            # ✅ 핵심 수정: 베팅 가능한 상태가 되었을 때 실시간으로 최신 데이터 요청
+            self._request_betting_with_latest_data()
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
 
+    def _request_betting_with_latest_data(self):
+        """베팅 가능한 상태에서 실시간 최신 데이터로 예측값 요청"""
+        try:
+            room_id = self.tm.current_target_room.get('room_id', '')
+            room_name = self.tm.current_target_room.get('room_name', '')
+            
+            self.logger.info(f"🔍 베팅 가능 상태 - 최신 데이터로 예측값 요청: {room_name}")
+            
+            # ✅ 실시간으로 iframe에서 최신 15개 결과 가져오기 (핵심!)
+            latest_game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
+                room_id=room_id,
+                room_name=room_name,
+                log_always=True,
+                desired_pb_count=15  # 최신 15개 P,B 결과
+            )
+            
+            if not latest_game_state:
+                self.logger.warning("❌ 최신 게임 상태를 가져올 수 없습니다")
+                return
+            
+            # 최신 결과 리스트 (P, B만)
+            current_results = latest_game_state.get('filtered_results', [])
+            
+            if len(current_results) < 5:
+                self.logger.info(f"⏳ 데이터 부족 (현재 {len(current_results)}개) - 베팅 보류")
+                return
+            
+            self.logger.info(f"📊 베팅 가능 시점 최신 {len(current_results)}개 P,B 결과로 예측 요청: {current_results}")
+            
+            # ✅ 서버에 최신 데이터로 예측값 요청
+            next_pick = self.tm.server_client.get_next_prediction(room_id, current_results)
+            self.logger.info(f"🎯 [베팅 가능 시점 예측] 서버 예측 결과: {next_pick}")
+            
+            # 유효한 예측값이면 베팅 실행
+            if next_pick in ['P', 'B']:
+                # 잠시 대기 후 베팅 (게임 전환 시간 고려)
+                time.sleep(1)
+                round_number = latest_game_state.get('round', self.tm.game_count + 1)
+                
+                self.logger.info(f"🎯 [베팅 가능 시점 예측] 베팅 실행: {next_pick} (라운드 {round_number}) - 최신 데이터 기반")
+                self.tm.betting_executor.execute_betting(next_pick, round_number)
+            else:
+                self.logger.info(f"🎯 [베팅 가능 시점 예측] 베팅 안함: {next_pick}")
+                
+        except Exception as e:
+            self.logger.error(f"베팅 가능 시점 최신 데이터 요청 오류: {e}")
+
     def _process_game_result_and_bet(self, game_data: dict):
-        """게임 결과 처리 후 다음 베팅 실행"""
+        """게임 결과 처리 후 다음 베팅 실행 - 기존 방식 유지 (신규 결과 처리용)"""
         try:
             latest_result = game_data.get('latest_result')
             current_results = game_data.get('game_results', [])
@@ -148,31 +194,8 @@ class GameProcessor:
                     # 베팅 상태 초기화
                     self.tm.betting_service.has_bet_current_round = False
             
-            # 2. 서버에 최신 결과 포함해서 다음 예측 요청
-            room_id = self.tm.current_target_room.get('room_id', '')
-            
-            # 최신 결과를 포함한 결과 리스트 준비
-            updated_results = current_results.copy() if current_results else []
-            if latest_result not in updated_results:
-                updated_results.append(latest_result)
-            
-            # TIE('T')를 제외한 값만 서버로 전달
-            filtered_results = [r for r in updated_results if r in ['P', 'B']]
-            
-            self.logger.info(f"📡 서버 예측 요청: 최신 결과 {latest_result} 포함, 필터링된 결과: {filtered_results}")
-            
-            # 3. 서버에서 다음 예측값 요청
-            next_pick = self.tm.server_client.get_next_prediction(room_id, filtered_results)
-            self.logger.info(f"🎯 [서버 예측] 다음 베팅 예측: {next_pick}")
-            
-            # 4. 유효한 예측값이면 베팅 실행
-            if next_pick in ['P', 'B']:
-                # 잠시 대기 후 베팅 (게임 전환 시간 고려)
-                time.sleep(1)
-                round_number = game_data.get('round_number', self.tm.game_count + 1)
-                self.tm.betting_executor.execute_betting(next_pick, round_number)
-            else:
-                self.logger.info(f"🎯 [서버 예측] 베팅 안함: {next_pick}")
+            # 2. ✅ 베팅 가능한 상태가 되면 최신 데이터로 예측값 재요청
+            self._request_betting_with_latest_data()
                 
         except Exception as e:
             self.logger.error(f"게임 결과 처리 및 베팅 오류: {e}")
