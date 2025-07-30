@@ -341,3 +341,258 @@ class TradingManager:
                 self.websocket_manager.cleanup()
         except:
             pass
+        
+    def get_betting_status_summary(self):
+        """베팅 상태 요약 정보 반환"""
+        try:
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                betting_stats = self.game_processor.get_betting_statistics()
+                tracker_info = self.game_processor.betting_tracker.get_current_bet_info()
+                
+                return {
+                    'is_active': self.is_trading_active,
+                    'current_room': self.current_room_name,
+                    'game_count': self.game_count,
+                    'betting_status': tracker_info.get('status', 'idle'),
+                    'waiting_for_result': self.game_processor.betting_tracker.is_waiting_for_result(),
+                    'bet_round': self.game_processor.betting_tracker.get_bet_round(),
+                    'bet_type': self.game_processor.betting_tracker.get_bet_type(),
+                    'statistics': betting_stats
+                }
+            else:
+                return {
+                    'is_active': self.is_trading_active,
+                    'current_room': self.current_room_name,
+                    'game_count': self.game_count,
+                    'betting_status': 'idle',
+                    'waiting_for_result': False,
+                    'bet_round': None,
+                    'bet_type': None,
+                    'statistics': {}
+                }
+        except Exception as e:
+            self.logger.error(f"베팅 상태 요약 조회 오류: {e}")
+            return {'error': str(e)}
+
+    def debug_betting_system(self):
+        """베팅 시스템 전체 디버그"""
+        try:
+            self.logger.info("🔍 베팅 시스템 전체 상태 디버그:")
+            
+            # 기본 상태
+            self.logger.info(f"  - 자동 매매 활성: {self.is_trading_active}")
+            self.logger.info(f"  - 현재 방: {self.current_room_name}")
+            self.logger.info(f"  - 게임 카운트: {self.game_count}")
+            self.logger.info(f"  - 결과 카운트: {self.result_count}")
+            
+            # 베팅 추적기 상태
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                self.game_processor.debug_betting_tracker_status()
+            
+            # 연패 방 상태
+            if hasattr(self, 'streak_handler'):
+                streak_info = self.streak_handler.get_streak_room_info()
+                self.logger.info(f"  - 타겟 연패 방: {streak_info.get('room_count', 0)}개")
+                self.logger.info(f"  - 현재 타겟 방: {streak_info.get('current_target_room')}")
+                self.logger.info(f"  - 방 입장 진행 중: {streak_info.get('room_entry_in_progress', False)}")
+            
+            # 웹소켓 상태
+            websocket_status = self.get_interceptor_status()
+            self.logger.info(f"  - 웹소켓 인터셉트: {websocket_status.get('is_intercepting', False)}")
+            self.logger.info(f"  - 처리된 메시지: {websocket_status.get('processed_messages', 0)}")
+            
+        except Exception as e:
+            self.logger.error(f"베팅 시스템 디버그 오류: {e}")
+
+    def force_exit_current_room(self):
+        """강제로 현재 방 나가기"""
+        try:
+            self.logger.info("🚪 강제 방 나가기 실행")
+            
+            # 베팅 추적기 초기화
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                self.game_processor.betting_tracker.reset_tracking()
+            
+            # 현재 방에서 나가기
+            if hasattr(self, 'game_monitoring_service'):
+                self.game_monitoring_service.close_current_room()
+            
+            # 상태 초기화
+            self.current_room_name = ""
+            self.current_target_room = None
+            self.game_count = 0
+            self.result_count = 0
+            
+            # 베팅 서비스 초기화
+            if hasattr(self, 'betting_service'):
+                self.betting_service.reset_betting_state()
+            
+            # 연패 모니터링으로 복귀
+            if hasattr(self, 'streak_handler'):
+                self.streak_handler.return_to_streak_monitoring()
+            
+            self.logger.info("✅ 강제 방 나가기 완료")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"강제 방 나가기 오류: {e}")
+            return False
+
+    def get_betting_history(self, count: int = 10):
+        """베팅 히스토리 조회"""
+        try:
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                return self.game_processor.betting_tracker.get_recent_results(count)
+            else:
+                return []
+        except Exception as e:
+            self.logger.error(f"베팅 히스토리 조회 오류: {e}")
+            return []
+
+    def get_performance_metrics(self):
+        """성과 지표 조회"""
+        try:
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                tracker = self.game_processor.betting_tracker
+                
+                return {
+                    'win_rate_5': tracker.get_win_rate(5),
+                    'win_rate_10': tracker.get_win_rate(10),
+                    'consecutive_wins': tracker.get_consecutive_results()['consecutive_wins'],
+                    'consecutive_losses': tracker.get_consecutive_results()['consecutive_losses'],
+                    'profit_loss_5': tracker.get_total_profit_loss(5),
+                    'profit_loss_10': tracker.get_total_profit_loss(10),
+                    'total_games': len(tracker.betting_history),
+                    'should_change_room': tracker.should_change_room()
+                }
+            else:
+                return {
+                    'win_rate_5': 0.0,
+                    'win_rate_10': 0.0,
+                    'consecutive_wins': 0,
+                    'consecutive_losses': 0,
+                    'profit_loss_5': 0,
+                    'profit_loss_10': 0,
+                    'total_games': 0,
+                    'should_change_room': False
+                }
+        except Exception as e:
+            self.logger.error(f"성과 지표 조회 오류: {e}")
+            return {'error': str(e)}
+
+    def simulate_betting_result(self, game_result: str):
+        """베팅 결과 시뮬레이션 (테스트용)"""
+        try:
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                if self.game_processor.betting_tracker.is_waiting_for_result():
+                    # 가상의 라운드 번호로 결과 확인
+                    bet_round = self.game_processor.betting_tracker.get_bet_round()
+                    if bet_round:
+                        result = self.game_processor.betting_tracker.check_result(
+                            bet_round + 1, game_result
+                        )
+                        
+                        if result:
+                            self.logger.info(f"🧪 시뮬레이션 결과: {result.value}")
+                            
+                            # 실제 결과 처리와 동일한 로직 적용
+                            if result.value == 'tie':
+                                self.game_processor._handle_tie_result_tracked()
+                            elif result.value == 'win':
+                                self.game_processor._handle_win_result_tracked()
+                            elif result.value == 'lose':
+                                self.game_processor._handle_lose_result_tracked()
+                            
+                            return True
+                        else:
+                            self.logger.warning("시뮬레이션 결과 처리 실패")
+                            return False
+                    else:
+                        self.logger.warning("베팅 라운드 정보가 없음")
+                        return False
+                else:
+                    self.logger.warning("베팅 결과 대기 중이 아님")
+                    return False
+            else:
+                self.logger.warning("베팅 추적기가 없음")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"베팅 결과 시뮬레이션 오류: {e}")
+            return False
+
+    def reset_betting_tracker(self):
+        """베팅 추적기 초기화"""
+        try:
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                self.game_processor.betting_tracker.reset_tracking()
+                self.logger.info("베팅 추적기 초기화 완료")
+                return True
+            else:
+                self.logger.warning("베팅 추적기가 없음")
+                return False
+        except Exception as e:
+            self.logger.error(f"베팅 추적기 초기화 오류: {e}")
+            return False
+
+    def get_current_bet_status(self):
+        """현재 베팅 상태만 간단히 반환"""
+        try:
+            if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+                tracker = self.game_processor.betting_tracker
+                bet_info = tracker.get_current_bet_info()
+                
+                return {
+                    'status': bet_info.get('status', 'idle'),
+                    'waiting_for_result': tracker.is_waiting_for_result(),
+                    'bet_type': tracker.get_bet_type(),
+                    'bet_round': tracker.get_bet_round(),
+                    'bet_info': bet_info.get('bet_info', {}),
+                    'result_info': bet_info.get('result_info', {})
+                }
+            else:
+                return {
+                    'status': 'idle',
+                    'waiting_for_result': False,
+                    'bet_type': None,
+                    'bet_round': None,
+                    'bet_info': {},
+                    'result_info': {}
+                }
+        except Exception as e:
+            self.logger.error(f"현재 베팅 상태 조회 오류: {e}")
+            return {'error': str(e)}
+
+# utils/trading_manager.py의 기존 메서드 수정사항
+
+    def get_current_status(self):
+        """기존 메서드에 베팅 추적 정보 추가"""
+        base_status = {
+            'is_active': self.is_trading_active,
+            'websocket_intercepting': self.websocket_intercepting,
+            'current_room': self.current_room_name,
+            'game_count': self.game_count,
+            'result_count': self.result_count,
+            'has_bet': getattr(self.betting_service, 'has_bet_current_round', False) if hasattr(self, 'betting_service') else False,
+            'wait_first_result': self.wait_first_result,
+            'stop_flag': self.stop_all_processes,
+            'service_status': self.get_interceptor_status(),
+            'message_count': self.message_count,
+            'last_game_data': self.last_game_data,
+            'target_streak_rooms': len(self.target_streak_rooms),
+            'current_target_room': self.current_target_room,  
+            'room_entry_in_progress': self.room_entry_in_progress,
+            'server_connected': bool(self.server_client and self.server_client.get_server_status())
+        }
+        
+        # 베팅 추적 정보 추가
+        if hasattr(self, 'game_processor') and hasattr(self.game_processor, 'betting_tracker'):
+            betting_status = self.get_current_bet_status()
+            base_status.update({
+                'betting_tracker_status': betting_status['status'],
+                'waiting_for_betting_result': betting_status['waiting_for_result'],
+                'current_bet_type': betting_status['bet_type'],
+                'current_bet_round': betting_status['bet_round']
+            })
+        
+        return base_status        

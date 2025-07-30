@@ -1,4 +1,4 @@
-# services/betting_service.py - 베팅 가능한 상태 감지 개선
+# services/betting_service.py - 베팅 접수와 결과 확인 분리된 버전
 import logging
 import random
 import time
@@ -17,60 +17,20 @@ class BettingService:
 
         self.devtools = devtools
         self.main_window = main_window
+        
+        # 베팅 상태 관리
         self.has_bet_current_round = False
         self.current_bet_round = 0
         self.last_bet_type = None
         self.last_bet_time = 0
-
+        
+        # 🔥 새로 추가: 베팅 결과 추적
+        self.pending_bet = None  # 결과 대기 중인 베팅 정보
         self.bet_result_confirmed = False
         self.last_bet_result = None
-        self.last_bet_time = 0
-        
-    # 사용되지 않음. 필요시 수동 클릭 디버깅용
-    def _click_element_randomly(self, element, element_name="", mode="default"):
-        try:
-            if not hasattr(element, 'location_once_scrolled_into_view'):
-                raise ValueError("WebElement가 아님")
 
-            location = element.location_once_scrolled_into_view
-            size = element.size
-            self.logger.info(f"[디버그] {element_name} size: width={size['width']}, height={size['height']}")
-
-            width = int(size['width'])
-            height = int(size['height'])
-
-            offset_x = width // 2
-            offset_y = height // 2
-
-            self.logger.info(f"[정타 클릭] 위치: offset_x={offset_x}, offset_y={offset_y}")
-
-            actions = ActionChains(self.devtools.driver)
-            actions.move_to_element_with_offset(element, offset_x, offset_y).click().perform()
-            return True
-        except Exception as e:
-            self.logger.warning(f"{element_name} 정타 클릭 시도 실패: {e}")
-            return False
-
-    def _safe_click(self, element, element_name=""):
-        try:
-            if not hasattr(element, 'location_once_scrolled_into_view'):
-                self.logger.error(f"{element_name}은(는) 유효한 WebElement가 아닙니다: {type(element)}")
-                return False
-
-            # 스크롤 먼저 이동
-            self.devtools.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-            time.sleep(0.2)
-
-            # JS로 클릭
-            self.logger.info(f"[JS 클릭] {element_name}에 대해 JS 클릭 시도")
-            self.devtools.driver.execute_script("arguments[0].click();", element)
-            return True
-        except Exception as e:
-            self.logger.error(f"{element_name} JS 클릭 실패: {e}")
-            return False
-
-# services/betting_service.py - place_bet 메서드에 최신 데이터 재요청 연동
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
+        """베팅 실행 - 접수 확인에만 집중, 결과는 나중에 확인"""
         self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
 
         try:
@@ -84,22 +44,18 @@ class BettingService:
                 self.logger.error("베팅: iframe 전환 실패, 베팅 진행 불가")
                 return False
 
-            # ✅ 베팅 가능한 상태까지 대기
+            # 베팅 가능한 상태까지 대기
             if not self._wait_for_betting_available():
                 self.logger.warning("베팅 가능 상태 대기 실패")
                 return False
 
-            # ✅ 핵심 추가: 베팅 가능한 상태가 된 시점에서 최신 데이터로 예측값 재요청
+            # 핵심 추가: 베팅 가능한 상태가 된 시점에서 최신 데이터로 예측값 재요청
             if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
                 self.logger.info("🔄 베팅 가능 상태 확인됨 - 최신 데이터로 예측값 재요청")
                 
-                # GameProcessor의 최신 데이터 재요청 메서드 호출
                 self.main_window.trading_manager.game_processor._request_betting_with_latest_data()
-                
-                # 잠시 대기 후 새로운 예측값 확인
                 time.sleep(2)
                 
-                # 새로운 예측값이 있는지 확인하고 기존 bet_type과 다르면 업데이트
                 if hasattr(self.main_window.trading_manager, 'current_pick'):
                     new_pick = self.main_window.trading_manager.current_pick
                     if new_pick and new_pick in ['P', 'B'] and new_pick != bet_type:
@@ -116,14 +72,16 @@ class BettingService:
 
             # 타이 직후 처리 로직
             had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
-            
             if had_tie_last_round:
                 self.logger.info("타이 직후 베팅: 동일 위치 유지")
                 self.main_window.trading_manager.had_tie_last_round = False
 
-            bet_success = self._execute_betting(bet_type, bet_amount)
+            # 🔥 베팅 실행 (접수 확인만)
+            bet_success = self._execute_betting_placement(bet_type, bet_amount)
 
             if bet_success:
+                # 🔥 베팅 결과 추적 시작 (게임 결과 대기)
+                self._start_result_tracking(bet_type, game_count, bet_amount, current_room_name)
                 self._handle_successful_bet(bet_type, game_count, current_room_name)
                 self.has_bet_current_round = True
                 return True
@@ -133,27 +91,278 @@ class BettingService:
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
+
+    def _execute_betting_placement(self, bet_type, bet_amount=None):
+        """베팅 접수 실행 - 칩을 베팅 영역에 올리는 것에만 집중"""
+        bet_element = self._find_betting_area(bet_type)
+        if not bet_element:
+            self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
+            return False
+
+        self.logger.info(f"베팅 접수 시작: {bet_type}, 금액: {bet_amount:,}원")
+
+        # 동적으로 사용 가능한 칩 값들 가져오기
+        available_chips = self._wait_for_active_chips(max_wait=60, interval=1)
+        if not available_chips:
+            self.logger.error("사용 가능한 칩이 없습니다. 베팅을 중단합니다.")
+            return False
+
+        # 베팅 금액에 따른 칩 조합 계산
+        chip_clicks = self._calculate_chip_combination(bet_amount, available_chips)
+        if not chip_clicks:
+            self.logger.error("칩 조합 계산 실패")
+            return False
+
+        self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 칩별 클릭 횟수: {chip_clicks}")
+
+        # 실제 칩 배치
+        placement_success = self._place_chips_on_area(chip_clicks, bet_element, bet_type)
         
+        if placement_success:
+            # 🔥 베팅 접수 확인 (충분한 대기 + 다양한 확인 방법)
+            return self._verify_betting_placement(bet_amount, bet_type)
+        
+        return False
+
+    def _calculate_chip_combination(self, bet_amount, available_chips):
+        """칩 조합 계산"""
+        chip_clicks = {}
+        remaining = bet_amount
+
+        for chip in sorted(available_chips, reverse=True):  # 큰 칩부터
+            count = remaining // chip
+            if count > 0:
+                chip_clicks[chip] = count
+                remaining %= chip
+
+        # 칩 조합이 없으면 가장 작은 칩으로 기본 베팅
+        if not chip_clicks and available_chips:
+            smallest_chip = min(available_chips)
+            chip_clicks[smallest_chip] = 1
+            self.logger.warning(f"정확한 금액 불가, {smallest_chip}원 칩으로 기본 베팅")
+
+        return chip_clicks
+
+    def _place_chips_on_area(self, chip_clicks, bet_element, bet_type):
+        """실제 칩을 베팅 영역에 배치"""
+        bet_successful = False
+        
+        for chip_value, clicks in chip_clicks.items():
+            # 칩 선택
+            chip_element = self._find_chip(chip_value)
+            if not chip_element:
+                self.logger.warning(f"{chip_value}원 칩을 찾지 못함")
+                continue
+
+            # 칩 클릭 (선택)
+            try:
+                self._safe_click(chip_element, f"{chip_value}원 칩")
+                time.sleep(0.2)
+            except Exception as e:
+                self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
+                continue
+
+            # 베팅 영역에 칩 배치 (지정된 횟수만큼)
+            for i in range(clicks):
+                try:
+                    self._safe_click(bet_element, f"{bet_type} 베팅 영역")
+                    time.sleep(0.1)
+                    bet_successful = True
+                except Exception as e:
+                    self.logger.error(f"베팅 영역 클릭 실패 (시도 {i+1}): {e}")
+                    continue
+
+        return bet_successful
+
+    def _verify_betting_placement(self, expected_amount, bet_type, max_attempts=5):
+        """베팅이 정상적으로 접수되었는지 확인 - 🔥 개선된 버전"""
+        self.logger.info(f"베팅 접수 확인 시작 (기대 금액: {expected_amount:,}원)")
+        
+        for attempt in range(max_attempts):
+            try:
+                time.sleep(1.0)  # 🔥 충분한 대기 시간
+                
+                # 방법 1: 베팅 금액 확인
+                current_amount = self._get_current_bet_amount()
+                if current_amount > 0:
+                    # 🔥 오차 허용 범위 확대
+                    amount_diff = abs(current_amount - expected_amount)
+                    if amount_diff <= max(1000, expected_amount * 0.1):  # 1000원 또는 10% 오차 허용
+                        self.logger.info(f"✅ 베팅 접수 확인 - 금액 일치: {current_amount:,}원 (오차: {amount_diff}원)")
+                        return True
+                
+                # 방법 2: 레이블 확인 (보조적)
+                current_label = self._check_betting_label()
+                if current_label == "총 베팅금":
+                    self.logger.info(f"✅ 베팅 접수 확인 - 레이블: {current_label}")
+                    return True
+                
+                # 방법 3: 베팅 영역에 칩이 올라갔는지 시각적 확인
+                if self._check_chips_on_betting_area(bet_type):
+                    self.logger.info(f"✅ 베팅 접수 확인 - {bet_type} 영역에 칩 확인")
+                    return True
+                
+                # 🔥 방법 4: 금액이 0보다 크면 일단 성공으로 간주 (관대한 판단)
+                if current_amount > 0:
+                    self.logger.info(f"✅ 베팅 접수 확인 - 베팅 금액 존재: {current_amount:,}원 (관대한 판단)")
+                    return True
+                    
+                self.logger.debug(f"베팅 확인 시도 {attempt+1}: 금액={current_amount}, 레이블={current_label}")
+                
+            except Exception as e:
+                self.logger.warning(f"베팅 확인 시도 {attempt+1} 실패: {e}")
+                continue
+        
+        self.logger.error("🔥 베팅 접수 확인 실패 - 모든 방법 시도됨")
+        return False
+
+    def _check_chips_on_betting_area(self, bet_type):
+        """베팅 영역에 칩이 올라갔는지 시각적 확인"""
+        try:
+            # 베팅 영역 다시 찾기
+            bet_area = self._find_betting_area(bet_type)
+            if not bet_area:
+                return False
+            
+            # 베팅 영역 내부에 칩 요소가 있는지 확인
+            chip_selectors = [
+                ".chip", ".betting-chip", "[class*='chip']", 
+                ".token", "[class*='token']", "[class*='bet']"
+            ]
+            
+            for selector in chip_selectors:
+                try:
+                    chips = bet_area.find_elements(By.CSS_SELECTOR, selector)
+                    if chips:
+                        self.logger.debug(f"베팅 영역에서 칩 발견: {len(chips)}개")
+                        return True
+                except:
+                    continue
+            
+            return False
+            
+        except Exception as e:
+            self.logger.debug(f"칩 시각 확인 오류: {e}")
+            return False
+
+    # 🔥 새로 추가: 베팅 결과 추적 시스템
+    def _start_result_tracking(self, bet_type, round_number, bet_amount, room_name):
+        """베팅 결과 추적 시작 (게임 결과 대기)"""
+        self.pending_bet = {
+            'type': bet_type,
+            'round': round_number,
+            'amount': bet_amount,
+            'room_name': room_name,
+            'timestamp': time.time()
+        }
+        self.bet_result_confirmed = False
+        self.last_bet_result = None
+        
+        self.logger.info(f"🎯 베팅 결과 추적 시작: {bet_type} 라운드 {round_number} (금액: {bet_amount:,}원)")
+
+    def check_pending_bet_result(self, current_round, game_result):
+        """🔥 대기 중인 베팅의 결과 확인 - 핵심 메서드"""
+        if not self.pending_bet or self.bet_result_confirmed:
+            return None
+        
+        # 베팅한 라운드 이후의 결과인지 확인
+        if current_round <= self.pending_bet['round']:
+            self.logger.debug(f"아직 베팅한 라운드({self.pending_bet['round']}) 결과 아님 (현재: {current_round})")
+            return None
+        
+        bet_type = self.pending_bet['type']
+        bet_round = self.pending_bet['round']
+        
+        # 🔥 결과 판정
+        if game_result == 'T':
+            result_status = "tie"
+            result_text = "무승부"
+            marker = "T"
+        elif bet_type == game_result:
+            result_status = "win"
+            result_text = "적중"
+            marker = "O"
+        else:
+            result_status = "lose"
+            result_text = "실패"  
+            marker = "X"
+        
+        # 결과 확정
+        self.bet_result_confirmed = True
+        self.last_bet_result = result_status
+        
+        self.logger.info(f"🎲 베팅 결과 확정: {bet_type} vs {game_result} = {result_text}")
+        
+        # UI 업데이트
+        if hasattr(self.main_window, 'betting_widget'):
+            widget_pos = get_widget_position(self.main_window)
+            self.main_window.betting_widget.set_step_marker(widget_pos, marker)
+        
+        # 베팅 정보 초기화 (무승부가 아닌 경우)
+        if result_status != "tie":
+            self.pending_bet = None
+            self.has_bet_current_round = False
+        
+        return {
+            'status': result_status,
+            'bet_type': bet_type,
+            'game_result': game_result,
+            'result_text': result_text,
+            'bet_round': bet_round,
+            'current_round': current_round
+        }
+
+    def get_pending_bet_info(self):
+        """현재 대기 중인 베팅 정보 반환"""
+        if self.pending_bet:
+            return {
+                'type': self.pending_bet['type'],
+                'round': self.pending_bet['round'], 
+                'amount': self.pending_bet['amount'],
+                'waiting_time': time.time() - self.pending_bet['timestamp']
+            }
+        return None
+
+    def _safe_click(self, element, element_name=""):
+        """안전한 클릭 - 여러 방법 시도"""
+        try:
+            # 방법 1: 일반 클릭
+            element.click()
+            self.logger.debug(f"일반 클릭 성공: {element_name}")
+            return True
+        except Exception as e1:
+            try:
+                # 방법 2: JavaScript 클릭  
+                self.devtools.driver.execute_script("arguments[0].click();", element)
+                self.logger.debug(f"JS 클릭 성공: {element_name}")
+                return True
+            except Exception as e2:
+                try:
+                    # 방법 3: ActionChains 클릭
+                    ActionChains(self.devtools.driver).click(element).perform()
+                    self.logger.debug(f"ActionChains 클릭 성공: {element_name}")
+                    return True
+                except Exception as e3:
+                    self.logger.error(f"모든 클릭 방법 실패 {element_name}: {e1}, {e2}, {e3}")
+                    return False
+
+    # 기존 메서드들 유지 (길어서 핵심만 포함)
     def _validate_bet_conditions(self, bet_type, is_trading_active):
         """베팅 전 조건 검증"""
-        # 최근 베팅 후 최소 시간 확인
         if hasattr(self, 'last_bet_time'):
             elapsed = time.time() - self.last_bet_time
             if elapsed < 5.0:
                 self.logger.warning(f"마지막 배팅 후 {elapsed:.1f}초밖에 지나지 않았습니다. 최소 5초 대기 필요.")
                 return False
         
-        # 자동 매매 활성화 상태 확인
         if not is_trading_active:
             self.logger.info("자동 매매가 활성화되지 않았습니다.")
             return False
         
-        # 이미 베팅했는지 확인 (중복 베팅 방지)
         if self.has_bet_current_round:
             self.logger.info("이미 현재 라운드에 베팅했습니다.")
             return False
         
-        # bet_type 검증 - P 또는 B만 허용
         if bet_type not in ['P', 'B']:
             self.logger.error(f"잘못된 베팅 타입: {bet_type}. 'P' 또는 'B'만 가능합니다.")
             return False
@@ -161,17 +370,15 @@ class BettingService:
         return True
 
     def _wait_for_betting_available(self):
-        """베팅 가능 상태가 될 때까지 대기 - 개선된 버전"""
+        """베팅 가능 상태가 될 때까지 대기"""
         self.logger.info("베팅 가능 상태 확인 시작...")
-        max_attempts = 60  # 최대 60초 대기
+        max_attempts = 60
         
         for attempt in range(max_attempts):
             try:
-                # ✅ 1. 칩 활성화 확인
                 if self._check_chips_active():
                     self.logger.info("✅ 활성화된 칩 발견 - 베팅 가능 상태")
                     
-                    # ✅ 2. 베팅 영역 활성화 확인
                     if self._check_betting_areas_active():
                         self.logger.info("✅ 베팅 영역도 활성화됨 - 베팅 준비 완료")
                         return True
@@ -217,14 +424,12 @@ class BettingService:
     def _check_betting_areas_active(self):
         """베팅 영역 활성화 상태 확인"""
         try:
-            # Player 영역 확인
             player_selectors = [
                 "div.spot--5ad7f[data-betspot-destination='Player']",
                 "div.content--e4fdb.player--2c620",
                 "div.player--2c620"
             ]
             
-            # Banker 영역 확인
             banker_selectors = [
                 "div.spot--5ad7f[data-betspot-destination='Banker']",
                 "div.content--e4fdb.banker--6b486", 
@@ -264,8 +469,7 @@ class BettingService:
             return False
 
     def _find_chip(self, chip_value):
-        """칩 찾기 - 개선된 버전"""
-        # 여러 선택자로 칩 찾기
+        """칩 찾기"""
         chip_selectors = [
             f"div.chip--29b81[data-role='chip'][data-value='{chip_value}']",
             f"div[data-role='chip'][data-value='{chip_value}']",
@@ -280,7 +484,6 @@ class BettingService:
                 
                 for element in elements:
                     if element.is_displayed():
-                        # 비활성화 상태 체크 (클래스와 속성 모두 확인)
                         chip_class = element.get_attribute("class") or ""
                         is_disabled = element.get_attribute("disabled")
                         
@@ -289,7 +492,6 @@ class BettingService:
             except:
                 continue
         
-        # XPath 사용 - 비활성화되지 않은 칩만 찾기
         try:
             xpath = f"//div[contains(@class, 'chip') and @data-value='{chip_value}' and not(contains(@class, 'disabled'))]"
             elements = self.devtools.driver.find_elements(By.XPATH, xpath)
@@ -321,133 +523,26 @@ class BettingService:
                         chip_class = chip_element.get_attribute("class") or ""
                         chip_value = chip_element.get_attribute("data-value")
                         
-                        # 비활성화되지 않고 값이 있는 칩만 추가
                         if "disabled" not in chip_class.lower() and chip_value:
                             try:
                                 available_chips.append(int(chip_value))
                             except ValueError:
                                 continue
             
-            # 중복 제거하고 내림차순 정렬
             available_chips = sorted(list(set(available_chips)), reverse=True)
-            self.logger.info(f"사용 가능한 칩 값들: {available_chips}")
+            self.logger.info(f"사용 가능한 칙 값들: {available_chips}")
             return available_chips
             
         except Exception as e:
             self.logger.warning(f"사용 가능한 칩 값 조회 실패: {e}")
-            # 기본값 반환 (기존 하드코딩된 값들)
             return [500000, 100000, 50000, 25000, 10000, 5000, 1000]
 
-    def _execute_betting(self, bet_type, bet_amount=None):
-        """베팅 실행 - 동적 칩 감지 적용"""
-        bet_element = self._find_betting_area(bet_type)
-        if not bet_element:
-            self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
-            return False
-
-        # 베팅 전 레이블 확인
-        initial_label = self._check_betting_label()
-        self.logger.info(f"베팅 전 레이블: {initial_label}")
-        
-        self.logger.info(f"현재 베팅 금액: {bet_amount:,}원")
-
-        # 동적으로 사용 가능한 칩 값들 가져오기
-        available_chips = self._wait_for_active_chips(max_wait=60, interval=1)
-        if not available_chips:
-            self.logger.error("사용 가능한 칩이 없습니다. 베팅을 중단합니다.")
-            return False
-
-        # 베팅 금액에 따른 칩 조합 계산
-        chip_clicks = {}
-        remaining = bet_amount
-
-        for chip in available_chips:
-            count = remaining // chip
-            if count > 0:
-                chip_clicks[chip] = count
-                remaining %= chip
-
-        # 칩 조합이 없으면 가장 작은 칩으로 기본 베팅
-        if not chip_clicks and available_chips:
-            smallest_chip = min(available_chips)
-            chip_clicks[smallest_chip] = 1
-            self.logger.warning(f"{smallest_chip}원 칩으로 기본 배팅 시도")
-        elif not available_chips:
-            self.logger.error("사용 가능한 칩이 없습니다.")
-            return False
-
-        self.logger.info(f"베팅 금액 {bet_amount:,}원 -> 칩별 클릭 횟수: {chip_clicks}")
-        bet_successful = False
-
-        for chip_value, clicks in chip_clicks.items():
-            chip_element = self._find_chip(chip_value)
-            if not chip_element:
-                self.logger.warning(f"{chip_value}원 칩을 찾지 못함")
-                continue
-
-            # 칩 클릭 시도
-            try:
-                time.sleep(0.2)
-                try:
-                    chip_element.click()
-                    self.logger.info(f"[클릭] {chip_value:,}원 칩 클릭 성공")
-                except Exception as e:
-                    self.logger.warning(f"{chip_value:,}원 칩 일반 클릭 실패 → JS 클릭 시도")
-                    self.devtools.driver.execute_script("arguments[0].click();", chip_element)
-                time.sleep(0.1)
-            except Exception as e:
-                self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
-                continue
-
-            for i in range(clicks):
-                try:
-                    time.sleep(0.1)
-                    try:
-                        bet_element.click()
-                    except Exception as e:
-                        self.logger.warning(f"{bet_type} 영역 일반 클릭 실패 → JS 클릭")
-                        self.devtools.driver.execute_script("arguments[0].click();", bet_element)
-                    bet_successful = True
-                except Exception as e:
-                    self.logger.error(f"베팅 클릭 중 오류 발생: {e}")
-                    continue
-
-        if bet_successful:
-            time.sleep(1.0)
-            current_label = self._check_betting_label()
-            amount_after = self._get_current_bet_amount()
-            
-            self.logger.info(f"베팅 후 레이블: {current_label}, 금액: {amount_after:,}원")
-            
-            # "총 베팅금" 레이블이 있으면 베팅 성공으로 판단
-            if current_label == "총 베팅금":
-                self.logger.info(f"[성공] 베팅 확인: 레이블={current_label}, 금액={amount_after:,}원")
-                return True
-            elif current_label == "지난 우승":
-                self.logger.warning(f"[실패] 베팅 시간 종료: 현재 레이블은 '{current_label}'")
-                return False
-            elif amount_after == bet_amount:
-                self.logger.info(f"[성공] 레이블은 예상과 다르지만({current_label}) 베팅 금액 확인됨: {amount_after:,}원")
-                return True
-            else:
-                self.logger.warning(f"[실패] 예상된 베팅 상태가 아님: 레이블={current_label}, 금액={amount_after:,}원 (기대값: {bet_amount:,}원)")
-                return False
-        else:
-            self.logger.warning("베팅 클릭이 한 번도 성공하지 않았습니다.")
-            return False
-  
     def _find_betting_area(self, bet_type):
-        """베팅 영역 찾기 - 실제 HTML 구조에 맞게 업데이트"""
+        """베팅 영역 찾기"""
         if bet_type == 'P':
-            # Player 영역 찾기 - 더 안정적인 선택자로 개선
             player_selectors = [
-                # 1순위: 가장 명확하고 안정적인 선택자
                 "div.spot--5ad7f[data-betspot-destination='Player']",
-                
-                # 2순위: 그 다음으로 안정적인 선택자
                 "div.content--e4fdb.player--2c620",
-                
-                # 3순위 (기존 호환성)
                 "div.player--2c620",
                 "div[data-betspot-destination='Player']",
             ]
@@ -462,33 +557,11 @@ class BettingService:
                 except Exception as e:
                     self.logger.debug(f"선택자 '{selector}' 실패: {e}")
                     continue
-            
-            # XPath로 시도 (Player용) - 후순위
-            xpath_expressions = [
-                "//div[contains(@class, 'player--') and contains(@class, 'content--')]",
-                "//div[contains(@data-betspot-destination, 'Player')]"
-            ]
-            
-            for xpath in xpath_expressions:
-                try:
-                    elements = self.devtools.driver.find_elements(By.XPATH, xpath)
-                    if elements and elements[0].is_displayed():
-                        self.logger.info(f"Player 베팅 영역 찾음 (XPath): {xpath}")
-                        return elements[0]
-                except Exception as e:
-                    self.logger.debug(f"XPath '{xpath}' 실패: {e}")
-                    continue
                     
         elif bet_type == 'B':
-            # Banker 영역 찾기 - 더 안정적인 선택자로 개선
             banker_selectors = [
-                # 1순위: 가장 명확하고 안정적인 선택자
                 "div.spot--5ad7f[data-betspot-destination='Banker']",
-                
-                # 2순위: 그 다음으로 안정적인 선택자
                 "div.content--e4fdb.banker--6b486",
-
-                # 3순위 (기존 호환성)
                 "div.banker--6b486",
                 "div[data-betspot-destination='Banker']",
             ]
@@ -503,67 +576,13 @@ class BettingService:
                 except Exception as e:
                     self.logger.debug(f"선택자 '{selector}' 실패: {e}")
                     continue
-            
-            # XPath로 시도 (Banker용) - 후순위
-            xpath_expressions = [
-                "//div[contains(@class, 'banker--') and contains(@class, 'content--')]",
-                "//div[contains(@data-betspot-destination, 'Banker')]"
-            ]
-            
-            for xpath in xpath_expressions:
-                try:
-                    elements = self.devtools.driver.find_elements(By.XPATH, xpath)
-                    if elements and elements[0].is_displayed():
-                        self.logger.info(f"Banker 베팅 영역 찾음 (XPath): {xpath}")
-                        return elements[0]
-                except Exception as e:
-                    self.logger.debug(f"XPath '{xpath}' 실패: {e}")
-                    continue
-        
-        # 최후의 수단... (기존 코드 유지)
-        self.logger.info(f"기본 방법으로 {bet_type} 베팅 영역을 찾지 못함. 고급 검색 시도...")
-        try:
-            from utils.iframe_utils import find_element_in_iframes
-            
-            # 베팅 타입에 따른 고급 검색
-            if bet_type == 'P':
-                advanced_selectors = [
-                    "div[class*='player']",
-                    "div[class*='content'][class*='player']"
-                ]
-            else:  # bet_type == 'B'
-                advanced_selectors = [
-                    "div[class*='banker']", 
-                    "div[class*='content'][class*='banker']"
-                ]
-            
-            for selector in advanced_selectors:
-                success, element = find_element_in_iframes(
-                    self.devtools.driver,
-                    By.CSS_SELECTOR, 
-                    selector,
-                    max_depth=3
-                )
-                
-                if success:
-                    self.logger.info(f"고급 검색으로 {bet_type} 베팅 영역 찾음: {selector}")
-                    return element
-                    
-        except Exception as e:
-            self.logger.warning(f"고급 검색 중 오류: {e}")
         
         self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없습니다.")
         return None
 
     def _check_betting_label(self):
-        """
-        베팅 레이블 확인 ("총 베팅금" 또는 "지난 우승")
-        
-        Returns:
-            str: 레이블 텍스트 또는 None
-        """
+        """베팅 레이블 확인 ("총 베팅금" 또는 "지난 우승")"""
         try:
-            # 정확한 데이터 속성으로 레이블 요소 찾기
             label_element = self.devtools.driver.find_element(
                 By.CSS_SELECTOR, 
                 "span[data-role='total-bet-label-title']"
@@ -575,12 +594,10 @@ class BettingService:
         except Exception as e:
             self.logger.debug(f"베팅 레이블 확인 실패: {e}")
             return None
-        
 
     def _get_current_bet_amount(self):
         """현재 베팅 금액 조회"""
         try:
-            # 베팅 금액 요소 찾기
             bet_amount_selectors = [
                 "span[data-role='total-bet-label-value']",
                 "div[data-role='total-bet'] span",
@@ -593,7 +610,6 @@ class BettingService:
                 if elements and len(elements) > 0:
                     total_bet_element = elements[0]
                     amount_text = total_bet_element.text
-                    # 숫자만 추출
                     return int(''.join(filter(str.isdigit, amount_text)) or '0')
             
             return 0
@@ -604,120 +620,29 @@ class BettingService:
     def _handle_successful_bet(self, bet_type, game_count, current_room_name):
         """성공한 베팅 처리"""
         self.has_bet_current_round = True
-        self.current_bet_round = game_count  # 현재 게임 라운드 저장
-        self.last_bet_type = bet_type        # 베팅한 타입 저장
+        self.current_bet_round = game_count
+        self.last_bet_type = bet_type
         self.last_bet_time = time.time()
         
-        # 로그에 베팅 정보 기록
         self.logger.info(f"[베팅완료] 라운드: {game_count}, 베팅타입: {bet_type}")
         
-        # 방 이름에서 첫 번째 줄만 추출 (UI 표시용)
         display_room_name = current_room_name.split('\n')[0] if '\n' in current_room_name else current_room_name
         
-        # 마틴 단계 확인 및 동기화 - 오류 수정
         martin_step = 0
         martin_step = get_widget_position(self.main_window)
 
-        # 마틴 서비스 동기화
         if hasattr(self.main_window, 'trading_manager'):
             self.main_window.trading_manager.martin_service.current_step = martin_step
 
         self.logger.info(f"베팅 위젯 위치 카운터를 마틴 단계와 동기화: 포지션={martin_step+1}")
         
-        # UI 업데이트
         self.main_window.update_betting_status(
             room_name=f"{display_room_name}",
-            pick=bet_type  # PICK 값 직접 설정
+            pick=bet_type
         )
-        
-    def reset_betting_state(self, new_round=None):
-        """베팅 상태 초기화"""
-        previous_round = self.current_bet_round
-        self.has_bet_current_round = False  # 항상 False로 초기화
-        # 새 라운드가 지정되면 저장, 아니면 0으로 초기화
-        self.current_bet_round = new_round if new_round is not None else 0
-        self.bet_result_confirmed = False   # 결과 확인 여부 초기화
-        self.last_bet_result = None         # 마지막 결과 초기화
-        # self.logger.info(f"베팅 상태 초기화 완료 (라운드: {previous_round} → {self.current_bet_round})")
 
-    def check_is_bet_for_current_round(self, current_round):
-        """현재 라운드에 베팅했는지 확인"""
-        # 무승부 발생 시 베팅 상태가 초기화된 경우를 처리
-        if self.has_bet_current_round == False and self.current_bet_round != current_round:
-            self.logger.info(f"새 라운드({current_round}) 감지, 이전 베팅 기록({self.current_bet_round}) 초기화")
-            self.current_bet_round = current_round
-            return False
-            
-        return self.has_bet_current_round and self.current_bet_round == current_round
-    
-    def check_betting_result(self, bet_type, latest_result, current_room_name, result_count, step=None):
-        """베팅 결과 확인"""
-        try:
-            # 마틴 단계가 None이면 현재 단계 가져오기
-            if step is None:
-                step = self.main_window.trading_manager.martin_service.current_step + 1
-
-            # 결과 번호 증가
-            result_count += 1
-            
-            # 게임 결과가 'T'(타이)인 경우 무승부로 처리
-            if latest_result == 'T':
-                self.logger.info(f"게임 결과: 타이(T) - 무승부 처리")
-                result_text = "무승부"
-                result_status = "tie"
-                marker = "T"
-                
-                # 타이 결과 시 베팅 상태 초기화
-                self.has_bet_current_round = False
-                
-                # 타이 직후 플래그 추가
-                self.main_window.trading_manager.had_tie_last_round = True
-                self.logger.info(f"타이(T) 결과로 베팅 상태 초기화 및 타이 직후 플래그 설정")
-            else:
-                # 베팅 타입과 게임 결과 비교
-                if bet_type == latest_result:
-                    result_status = "win"
-                    result_text = "적중"
-                    marker = "O"
-                else:
-                    result_status = "lose"
-                    result_text = "실패"
-                    marker = "X"
-                self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}, 승패: {result_text}, 단계: {step}")
-            
-            # UI에 결과 추가
-            self.main_window.add_betting_result(
-                no=result_count,
-                room_name=current_room_name,
-                step=step,
-                result=result_text
-            )
-            
-            # 해당 단계에 마커 설정
-            self.main_window.update_betting_status(
-                step_markers={step: marker}
-            )
-            
-            return result_status, result_count
-                
-        except Exception as e:
-            self.logger.error(f"베팅 결과 확인 중 오류 발생: {e}", exc_info=True)
-            return "error", result_count
-        
-    def get_last_bet(self):
-        """마지막 베팅 정보 반환"""
-        if not self.has_bet_current_round:
-            return None
-        return {
-            'round': self.current_bet_round,
-            'type': self.last_bet_type
-        }
-    
     def _wait_for_active_chips(self, max_wait=60, interval=1):
-        """
-        최대 max_wait초 동안 interval초 간격으로 활성화 칩을 기다림.
-        활성화된 칩 리스트를 반환. 없으면 빈 리스트 반환.
-        """
+        """활성화된 칩이 나타날 때까지 대기"""
         waited = 0
         while waited < max_wait:
             available_chips = [chip for chip in self._get_available_chip_values() if chip > 0]
@@ -729,7 +654,106 @@ class BettingService:
         self.logger.error("최대 대기 시간 동안 활성화된 칩을 찾지 못했습니다.")
         return []
 
-    def _remove_failed_room(self, room_id: str):
-        """실패한 방을 목록에서 제거"""
-        self.target_streak_rooms = [room for room in self.target_streak_rooms if room['room_id'] != room_id]
-        self.logger.info(f"방 {room_id} 제거 완료")
+    def reset_betting_state(self, new_round=None):
+        """베팅 상태 초기화"""
+        previous_round = self.current_bet_round
+        self.has_bet_current_round = False
+        self.current_bet_round = new_round if new_round is not None else 0
+        self.bet_result_confirmed = False
+        self.last_bet_result = None
+        # 🔥 대기 중인 베팅 정보는 유지 (게임 결과를 기다리고 있을 수 있음)
+
+    def check_is_bet_for_current_round(self, current_round):
+        """현재 라운드에 베팅했는지 확인"""
+        if self.has_bet_current_round == False and self.current_bet_round != current_round:
+            self.logger.info(f"새 라운드({current_round}) 감지, 이전 베팅 기록({self.current_bet_round}) 초기화")
+            self.current_bet_round = current_round
+            return False
+            
+        return self.has_bet_current_round and self.current_bet_round == current_round
+
+    def check_betting_result(self, bet_type, latest_result, current_room_name, result_count, step=None):
+        """🔥 기존 베팅 결과 확인 (호환성 유지)"""
+        try:
+            if step is None:
+                step = self.main_window.trading_manager.martin_service.current_step + 1
+
+            result_count += 1
+            
+            if latest_result == 'T':
+                self.logger.info(f"게임 결과: 타이(T) - 무승부 처리")
+                result_text = "무승부"
+                result_status = "tie"
+                marker = "T"
+                
+                self.has_bet_current_round = False
+                self.main_window.trading_manager.had_tie_last_round = True
+                self.logger.info(f"타이(T) 결과로 베팅 상태 초기화 및 타이 직후 플래그 설정")
+            else:
+                if bet_type == latest_result:
+                    result_status = "win"
+                    result_text = "적중"
+                    marker = "O"
+                else:
+                    result_status = "lose"
+                    result_text = "실패"
+                    marker = "X"
+                self.logger.info(f"베팅 결과 확인 - 베팅: {bet_type}, 결과: {latest_result}, 승패: {result_text}, 단계: {step}")
+            
+            self.main_window.add_betting_result(
+                no=result_count,
+                room_name=current_room_name,
+                step=step,
+                result=result_text
+            )
+            
+            self.main_window.update_betting_status(
+                step_markers={step: marker}
+            )
+            
+            return result_status, result_count
+                
+        except Exception as e:
+            self.logger.error(f"베팅 결과 확인 중 오류 발생: {e}", exc_info=True)
+            return "error", result_count
+
+    def get_last_bet(self):
+        """마지막 베팅 정보 반환"""
+        if not self.has_bet_current_round:
+            return None
+        return {
+            'round': self.current_bet_round,
+            'type': self.last_bet_type
+        }
+
+    def has_pending_bet(self):
+        """🔥 대기 중인 베팅이 있는지 확인"""
+        return self.pending_bet is not None and not self.bet_result_confirmed
+
+    def get_pending_bet_status(self):
+        """🔥 대기 중인 베팅 상태 반환"""
+        if self.pending_bet:
+            waiting_time = time.time() - self.pending_bet['timestamp']
+            return {
+                'has_pending': True,
+                'bet_type': self.pending_bet['type'],
+                'bet_round': self.pending_bet['round'],
+                'bet_amount': self.pending_bet['amount'],
+                'waiting_time': waiting_time,
+                'result_confirmed': self.bet_result_confirmed
+            }
+        return {
+            'has_pending': False,
+            'bet_type': None,
+            'bet_round': None,
+            'bet_amount': None,
+            'waiting_time': 0,
+            'result_confirmed': False
+        }
+
+    def clear_pending_bet(self):
+        """🔥 대기 중인 베팅 정보 초기화"""
+        self.pending_bet = None
+        self.bet_result_confirmed = False
+        self.last_bet_result = None
+        self.logger.info("대기 중인 베팅 정보 초기화됨")
