@@ -9,7 +9,7 @@ from ui.betting_widget import BettingWidget
 from utils.devtools import DevToolsController
 from utils.settings_manager import SettingsManager
 from utils.room_manager import RoomManager
-from utils.trading_manager_modules import TradingManager  # 인터셉터 기반으로 완전 교체됨
+from utils.trading_manager import TradingManager
 from utils.ui_updater import UIUpdater
 from ui.room_log_widget import RoomLogWidget
 from datetime import datetime, timedelta
