@@ -153,11 +153,18 @@ class TradingManager:
                 f"자동 매매 시작 중 오류가 발생했습니다.\n{str(e)}")
 
     def stop_trading(self):
-        """자동 매매 중지"""
+        """자동 매매 중지 - 베팅 상태 정리 추가"""
         if not self.is_trading_active:
             return
             
         self.logger.info("🛑 연패 감지 자동 매매 중지 중...")
+        
+        # 🔥 베팅 상태 정리
+        if hasattr(self, 'betting_service'):
+            self.betting_service.clear_pending_bet()
+        
+        if hasattr(self, 'game_processor'):
+            self.game_processor._reset_betting_state()
         
         self.websocket_manager.stop_websocket_service()
         self._reset_all_states()
@@ -169,7 +176,7 @@ class TradingManager:
                          self.balance_service._target_amount_reached)
         if not target_reached:
             QMessageBox.information(self.main_window, "알림", "자동 매매가 중지되었습니다.")
-
+            
     def _reset_all_states(self):
         """모든 상태 초기화"""
         self.stop_all_processes = True
@@ -185,10 +192,13 @@ class TradingManager:
         self.room_entry_in_progress = False
         self.is_entering_room = False
         
+        # 🔥 베팅 상태 강제 초기화
         if hasattr(self, 'betting_service'):
+            self.betting_service.clear_pending_bet()
             self.betting_service.reset_betting_state()
-        if hasattr(self, 'martin_service'):
-            self.martin_service.reset()
+        
+        if hasattr(self, 'game_processor'):
+            self.game_processor._reset_betting_state()
 
     def _reset_ui_states(self):
         """UI 상태 초기화"""

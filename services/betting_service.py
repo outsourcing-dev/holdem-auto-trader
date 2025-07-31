@@ -24,74 +24,73 @@ class BettingService:
         self.last_bet_type = None
         self.last_bet_time = 0
         
-        # 🔥 새로 추가: 베팅 결과 추적
         self.pending_bet = None  # 결과 대기 중인 베팅 정보
         self.bet_result_confirmed = False
         self.last_bet_result = None
+        
+        # 🔥 중복 베팅 방지
+        self.is_betting_in_progress = False  # 베팅 진행 중 플래그
+        self.last_bet_timestamp = 0  # 마지막 베팅 시간
 
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
-        """베팅 실행 - 접수 확인에만 집중, 결과는 나중에 확인"""
-        self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
-
+        """베팅 실행 - 중복 방지 강화"""
         try:
-            if not self._validate_bet_conditions(bet_type, is_trading_active):
+            # 🔥 중복 베팅 방지
+            if self.is_betting_in_progress:
+                self.logger.warning("❌ 베팅 진행 중 - 중복 베팅 방지")
                 return False
-
-            self.current_bet_round = game_count
-            gc.collect()
-
-            if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=5, max_depth=3):
-                self.logger.error("베팅: iframe 전환 실패, 베팅 진행 불가")
-                return False
-
-            # 베팅 가능한 상태까지 대기
-            if not self._wait_for_betting_available():
-                self.logger.warning("베팅 가능 상태 대기 실패")
-                return False
-
-            # 핵심 추가: 베팅 가능한 상태가 된 시점에서 최신 데이터로 예측값 재요청
-            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
-                self.logger.info("🔄 베팅 가능 상태 확인됨 - 최신 데이터로 예측값 재요청")
-                
-                self.main_window.trading_manager.game_processor._request_betting_with_latest_data()
-                time.sleep(2)
-                
-                if hasattr(self.main_window.trading_manager, 'current_pick'):
-                    new_pick = self.main_window.trading_manager.current_pick
-                    if new_pick and new_pick in ['P', 'B'] and new_pick != bet_type:
-                        self.logger.info(f"🔄 베팅 타입 업데이트: {bet_type} → {new_pick} (최신 데이터 기반)")
-                        bet_type = new_pick
             
-            # 위젯 마커 초기화 로직
-            if hasattr(self.main_window, 'betting_widget'):
-                marker = getattr(self.main_window.betting_widget, 'get_current_marker', lambda: None)()
-                if marker == "O":
-                    self.logger.info("베팅 직전: 위젯 마커 'O' 감지 → 마커 초기화")
-                    self.main_window.betting_widget.reset_step_markers()
-                    self.main_window.betting_widget.room_position_counter = 0
-
-            # 타이 직후 처리 로직
-            had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
-            if had_tie_last_round:
-                self.logger.info("타이 직후 베팅: 동일 위치 유지")
-                self.main_window.trading_manager.had_tie_last_round = False
-
-            # 🔥 베팅 실행 (접수 확인만)
-            bet_success = self._execute_betting_placement(bet_type, bet_amount)
-
-            if bet_success:
-                # 🔥 베팅 결과 추적 시작 (게임 결과 대기)
-                self._start_result_tracking(bet_type, game_count, bet_amount, current_room_name)
-                self._handle_successful_bet(bet_type, game_count, current_room_name)
-                self.has_bet_current_round = True
-                return True
-            else:
+            # 🔥 베팅 결과 대기 중인지 확인
+            if self.pending_bet and not self.bet_result_confirmed:
+                self.logger.warning("❌ 베팅 결과 대기 중 - 새로운 베팅 금지")
                 return False
+            
+            # 🔥 시간 간격 체크
+            current_time = time.time()
+            if current_time - self.last_bet_timestamp < 10.0:  # 10초 간격
+                self.logger.warning(f"❌ 베팅 간격 부족 - 대기 ({current_time - self.last_bet_timestamp:.1f}초)")
+                return False
+            
+            self.logger.info(f"🎯 베팅 시도: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
+            
+            # 🔥 베팅 진행 플래그 설정
+            self.is_betting_in_progress = True
+            self.last_bet_timestamp = current_time
+            
+            try:
+                # 기존 베팅 로직 실행
+                if not self._validate_bet_conditions(bet_type, is_trading_active):
+                    return False
 
+                if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=5, max_depth=3):
+                    self.logger.error("베팅: iframe 전환 실패")
+                    return False
+
+                if not self._wait_for_betting_available():
+                    self.logger.warning("베팅 가능 상태 대기 실패")
+                    return False
+
+                # 베팅 실행
+                bet_success = self._execute_betting_placement(bet_type, bet_amount)
+
+                if bet_success:
+                    # 🔥 베팅 결과 추적 시작
+                    self._start_result_tracking(bet_type, game_count, bet_amount, current_room_name)
+                    self._handle_successful_bet(bet_type, game_count, current_room_name)
+                    self.has_bet_current_round = True
+                    return True
+                else:
+                    return False
+                    
+            finally:
+                # 🔥 베팅 진행 플래그 해제
+                self.is_betting_in_progress = False
+                
         except Exception as e:
-            self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
+            self.logger.error(f"베팅 중 오류 발생: {e}")
+            self.is_betting_in_progress = False
             return False
-
+        
     def _execute_betting_placement(self, bet_type, bet_amount=None):
         """베팅 접수 실행 - 칩을 베팅 영역에 올리는 것에만 집중"""
         bet_element = self._find_betting_area(bet_type)
@@ -247,7 +246,7 @@ class BettingService:
 
     # 🔥 새로 추가: 베팅 결과 추적 시스템
     def _start_result_tracking(self, bet_type, round_number, bet_amount, room_name):
-        """베팅 결과 추적 시작 (게임 결과 대기)"""
+        """베팅 결과 추적 시작"""
         self.pending_bet = {
             'type': bet_type,
             'round': round_number,
@@ -277,26 +276,18 @@ class BettingService:
         if game_result == 'T':
             result_status = "tie"
             result_text = "무승부"
-            marker = "T"
         elif bet_type == game_result:
             result_status = "win"
             result_text = "적중"
-            marker = "O"
         else:
             result_status = "lose"
-            result_text = "실패"  
-            marker = "X"
+            result_text = "실패"
         
         # 결과 확정
         self.bet_result_confirmed = True
         self.last_bet_result = result_status
         
         self.logger.info(f"🎲 베팅 결과 확정: {bet_type} vs {game_result} = {result_text}")
-        
-        # UI 업데이트
-        if hasattr(self.main_window, 'betting_widget'):
-            widget_pos = get_widget_position(self.main_window)
-            self.main_window.betting_widget.set_step_marker(widget_pos, marker)
         
         # 베팅 정보 초기화 (무승부가 아닌 경우)
         if result_status != "tie":
@@ -311,7 +302,7 @@ class BettingService:
             'bet_round': bet_round,
             'current_round': current_round
         }
-
+        
     def get_pending_bet_info(self):
         """현재 대기 중인 베팅 정보 반환"""
         if self.pending_bet:
@@ -756,4 +747,12 @@ class BettingService:
         self.pending_bet = None
         self.bet_result_confirmed = False
         self.last_bet_result = None
+        self.is_betting_in_progress = False
         self.logger.info("대기 중인 베팅 정보 초기화됨")
+        
+    def reset_betting_state(self, new_round=None):
+        """베팅 상태 초기화 - 강화"""
+        previous_round = self.current_bet_round
+        self.has_bet_current_round = False
+        self.current_bet_round = new_round if new_round is not None else 0
+        self.is_betting_in_progress = False  # 🔥 추가
