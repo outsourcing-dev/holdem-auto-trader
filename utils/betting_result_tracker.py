@@ -35,20 +35,8 @@ class BettingResultTracker:
         self.logger.info("베팅 결과 추적기 초기화 완료")
 
     def start_betting_tracking(self, bet_type: str, round_number: int, bet_amount: int, room_name: str):
-        """베팅 추적 시작 - 중복 방지 강화"""
+        """베팅 추적 시작"""
         try:
-            # 🔥 이전 베팅이 완료되지 않았으면 시작 거부
-            if self.status != BettingStatus.IDLE:
-                self.logger.warning(f"❌ 베팅 추적 시작 거부: 이전 베팅이 완료되지 않음 ({self.status.value})")
-                return False
-            
-            # 동일한 라운드의 중복 베팅 방지
-            if (hasattr(self, 'bet_info') and 
-                self.bet_info.get('round_number') == round_number and
-                time.time() - self.bet_info.get('bet_time', 0) < 30):  # 30초 이내 동일 라운드 중복 방지
-                self.logger.warning(f"❌ 동일 라운드 중복 베팅 방지: 라운드 {round_number}")
-                return False
-            
             # 베팅 정보 저장
             self.bet_info = {
                 'bet_type': bet_type,
@@ -63,11 +51,9 @@ class BettingResultTracker:
             self.result_info = {}
             
             self.logger.info(f"🎯 베팅 추적 시작: {bet_type} 라운드{round_number} {bet_amount:,}원")
-            return True
             
         except Exception as e:
             self.logger.error(f"베팅 추적 시작 오류: {e}")
-            return False
 
     def check_result(self, round_number: int, game_result: str) -> Optional[BettingResult]:
         """베팅 결과 확인"""

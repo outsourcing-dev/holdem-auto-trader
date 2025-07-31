@@ -1,3 +1,4 @@
+# utils/trading_manager_modules/betting_executor.py - 베팅 추적 통합
 import logging
 from utils.trading_manager_helpers import get_widget_position
 
@@ -10,7 +11,7 @@ class BettingExecutor:
         self.logger = trading_manager.logger
 
     def execute_betting(self, pick: str, round_number: int):
-        """베팅 실행"""
+        """베팅 실행 - 추적 통합"""
         try:
             streak_info = ""
             if self.tm.current_target_room:
@@ -22,6 +23,16 @@ class BettingExecutor:
             # 베팅 금액 계산
             widget_pos = get_widget_position(self.tm.main_window)
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
+            
+            # 베팅 추적이 이미 시작되지 않았다면 시작
+            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
+                if not self.tm.game_processor.betting_tracker.is_waiting_for_result():
+                    self.tm.game_processor.betting_tracker.start_betting_tracking(
+                        bet_type=pick,
+                        round_number=round_number,
+                        bet_amount=bet_amount,
+                        room_name=self.tm.current_room_name
+                    )
             
             # 베팅 실행
             bet_success = self.tm.betting_service.place_bet(
@@ -41,9 +52,15 @@ class BettingExecutor:
                 )
             else:
                 self.logger.warning(f"❌ 베팅 실패: {pick}")
+                # 베팅 실패 시 추적 취소
+                if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
+                    self.tm.game_processor.betting_tracker.reset_tracking()
                 
         except Exception as e:
             self.logger.error(f"베팅 실행 오류: {e}")
+            # 오류 시 추적 취소
+            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
+                self.tm.game_processor.betting_tracker.reset_tracking()
 
     def generate_pick_for_streak_room(self) -> str:
         """연패 방을 위한 픽 생성"""
