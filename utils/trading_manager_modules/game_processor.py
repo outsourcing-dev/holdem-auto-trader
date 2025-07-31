@@ -1,15 +1,19 @@
-# utils/trading_manager_modules/game_processor.py (무한루프 방지 수정)
+# utils/trading_manager_modules/game_processor.py (베팅 결과 추적 통합)
 import logging
 import time
 from PyQt6.QtCore import QTimer
+from utils.betting_result_tracker import BettingResultTracker, BettingResult
 
 
 class GameProcessor:
-    """게임 데이터 처리 전담 클래스 - 무한루프 방지 개선"""
+    """게임 데이터 처리 전담 클래스 - 베팅 결과 추적 통합"""
     
     def __init__(self, trading_manager):
         self.tm = trading_manager
         self.logger = trading_manager.logger
+        
+        # 베팅 결과 추적기 초기화
+        self.betting_tracker = BettingResultTracker(logger=self.logger)
         
         # 무한루프 방지를 위한 상태 변수들
         self.is_processing_result = False
@@ -87,7 +91,7 @@ class GameProcessor:
             self.logger.error(f"현재 방 게임 데이터 처리 오류: {e}")
 
     def _handle_game_result(self, game_data: dict):
-        """게임 결과 처리 - 중복 방지"""
+        """게임 결과 처리 - 베팅 결과 추적 통합"""
         try:
             latest_result = game_data.get('latest_result', '')
             round_number = game_data.get('round_number', 0)
@@ -102,28 +106,24 @@ class GameProcessor:
             
             self.logger.info(f"🎯 새로운 게임 결과: 라운드 {round_number}, 결과 {latest_result}")
             
-            # 베팅 결과 확인
-            if (hasattr(self.tm.betting_service, 'has_bet_current_round') and 
-                self.tm.betting_service.has_bet_current_round):
+            # 베팅 결과 추적기로 결과 확인
+            if self.betting_tracker.is_waiting_for_result():
+                betting_result = self.betting_tracker.check_result(round_number, latest_result)
                 
-                last_bet = self.tm.betting_service.get_last_bet()
-                
-                if last_bet and last_bet['type'] in ['P', 'B']:
-                    result_status = self.tm.bet_helper.process_bet_result(
-                        last_bet['type'], 
-                        latest_result, 
-                        round_number
-                    )
+                if betting_result:
+                    self.logger.info(f"🎲 베팅 결과 확정: {betting_result.value}")
                     
-                    self.logger.info(f"베팅 결과 처리: {result_status}")
+                    # 결과에 따른 처리
+                    if betting_result == BettingResult.WIN:
+                        self._handle_win_result_tracked()
+                    elif betting_result == BettingResult.LOSE:
+                        self._handle_lose_result_tracked()
+                    elif betting_result == BettingResult.TIE:
+                        self._handle_tie_result_tracked()
                     
-                    if result_status == 'win':
-                        self.tm.just_won = True
-                        self._handle_win_result()
-                    elif result_status == 'lose':
-                        self._handle_lose_result()
-                    elif result_status == 'tie':
-                        self._handle_tie_result()
+                    # 베팅 서비스 상태 초기화
+                    if hasattr(self.tm.betting_service, 'has_bet_current_round'):
+                        self.tm.betting_service.has_bet_current_round = False
             
             # ExcelTradingService에 결과 추가
             if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
@@ -151,6 +151,10 @@ class GameProcessor:
             
             # 이미 베팅했으면 베팅 안함
             if hasattr(self.tm.betting_service, 'has_bet_current_round') and self.tm.betting_service.has_bet_current_round:
+                return
+            
+            # 베팅 추적기가 결과 대기 중이면 베팅 안함
+            if self.betting_tracker.is_waiting_for_result():
                 return
             
             # 첫 결과 대기 중 처리
@@ -203,12 +207,17 @@ class GameProcessor:
             self.logger.error(f"지연 베팅 스케줄링 오류: {e}")
 
     def _execute_delayed_betting(self, game_data: dict):
-        """지연된 베팅 실행"""
+        """지연된 베팅 실행 - 베팅 추적 통합"""
         try:
             # 상태 재확인
             if (hasattr(self.tm.betting_service, 'has_bet_current_round') and 
                 self.tm.betting_service.has_bet_current_round):
                 self.logger.info("이미 베팅 완료 - 지연 베팅 취소")
+                return
+            
+            # 베팅 추적기가 결과 대기 중이면 베팅 취소
+            if self.betting_tracker.is_waiting_for_result():
+                self.logger.info("이전 베팅 결과 대기 중 - 새 베팅 취소")
                 return
                 
             if not self.tm.current_target_room:
@@ -290,6 +299,19 @@ class GameProcessor:
                     time.sleep(1)
                     
                     self.logger.info(f"🎯 [베팅 가능 시점 예측] 베팅 실행: {next_pick} (라운드 {round_number}) - 최신 데이터 기반")
+                    
+                    # 베팅 실행 및 추적 시작
+                    bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
+                    
+                    # 베팅 추적 시작
+                    self.betting_tracker.start_betting_tracking(
+                        bet_type=next_pick,
+                        round_number=round_number,
+                        bet_amount=bet_amount,
+                        room_name=self.tm.current_room_name
+                    )
+                    
+                    # 베팅 실행
                     self.tm.betting_executor.execute_betting(next_pick, round_number)
                 else:
                     self.logger.info(f"🎯 [베팅 가능 시점 예측] 베팅 안함: {next_pick}")
@@ -301,41 +323,13 @@ class GameProcessor:
             self.logger.error(f"베팅 가능 시점 최신 데이터 요청 오류: {e}")
             self._is_requesting = False
 
-    def _process_game_result_and_bet(self, game_data: dict):
-        """게임 결과 처리 후 다음 베팅 실행 - 쿨다운 적용"""
-        try:
-            latest_result = game_data.get('latest_result')
-            
-            self.logger.info(f"🎮 게임 결과 처리: {latest_result}")
-            
-            # 1. 이전 베팅 결과 확인 및 처리
-            if hasattr(self.tm.betting_service, 'has_bet_current_round') and self.tm.betting_service.has_bet_current_round:
-                last_bet = self.tm.betting_service.get_last_bet()
-                if last_bet and last_bet['type'] in ['P', 'B']:
-                    # 베팅 결과 처리
-                    result_status = self.tm.bet_helper.process_bet_result(
-                        last_bet['type'], 
-                        latest_result, 
-                        game_data.get('round_number', self.tm.game_count)
-                    )
-                    self.logger.info(f"이전 베팅 결과: {result_status}")
-                    
-                    # 베팅 상태 초기화
-                    self.tm.betting_service.has_bet_current_round = False
-            
-            # 2. 베팅 쿨다운 적용 후 예측값 요청
-            if not self.betting_cooldown:
-                self.betting_cooldown = True
-                QTimer.singleShot(3000, lambda: self._request_betting_with_latest_data())  # 3초 후 실행
-                QTimer.singleShot(8000, self._reset_betting_cooldown)  # 8초 후 쿨다운 해제
-                
-        except Exception as e:
-            self.logger.error(f"게임 결과 처리 및 베팅 오류: {e}")
-
-    def _handle_win_result(self):
-        """승리 결과 처리"""
+    def _handle_win_result_tracked(self):
+        """승리 결과 처리 (추적 버전)"""
         try:
             self.logger.info("🎉 승리 처리 - 새로운 연패 방 검색")
+            
+            # 추적 상태 초기화
+            self.betting_tracker.reset_tracking()
             
             # 상태 초기화
             self.betting_cooldown = False
@@ -346,14 +340,20 @@ class GameProcessor:
             if hasattr(self.tm.main_window, 'betting_widget'):
                 self.tm.main_window.betting_widget.room_position_counter = 0
                 self.tm.main_window.betting_widget.reset_step_markers()
+                self.tm.main_window.betting_widget.set_step_marker(0, "O")  # 승리 마커
             
             # 마틴 서비스 초기화
             if hasattr(self.tm, 'martin_service'):
                 self.tm.martin_service.reset()
             
+            # Excel Trading Service에 승리 기록
+            if hasattr(self.tm, 'excel_trading_service'):
+                self.tm.excel_trading_service.record_betting_result(True)
+            
             # 현재 방 정보 초기화
             self.tm.current_target_room = None
             self.tm.target_streak_rooms = []
+            self.tm.just_won = True
             
             # 새로운 연패 방 검색 모드로 전환
             self.tm.streak_handler.return_to_streak_monitoring()
@@ -361,20 +361,27 @@ class GameProcessor:
         except Exception as e:
             self.logger.error(f"승리 처리 오류: {e}")
 
-    def _handle_lose_result(self):
-        """패배 결과 처리"""
+    def _handle_lose_result_tracked(self):
+        """패배 결과 처리 (추적 버전)"""
         try:
             self.logger.info("❌ 패배 처리")
+            
+            # 추적 상태 초기화
+            self.betting_tracker.reset_tracking()
             
             # 위젯 카운터 증가
             if hasattr(self.tm.main_window, 'betting_widget'):
                 current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
+                self.tm.main_window.betting_widget.set_step_marker(current_pos, "X")  # 패배 마커
                 self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
-                self.tm.main_window.betting_widget.set_step_marker(current_pos, "X")
             
-            # 연패 확인
-            if self._check_consecutive_losses():
-                self.logger.info("연패 조건 달성 - 새로운 방 검색")
+            # Excel Trading Service에 패배 기록
+            if hasattr(self.tm, 'excel_trading_service'):
+                self.tm.excel_trading_service.record_betting_result(False)
+            
+            # 연패 확인 (베팅 추적기 사용)
+            if self.betting_tracker.should_change_room():
+                self.logger.info("3연패 조건 달성 - 새로운 방 검색")
                 # 상태 초기화
                 self.betting_cooldown = False
                 self.consecutive_requests = 0
@@ -385,10 +392,13 @@ class GameProcessor:
         except Exception as e:
             self.logger.error(f"패배 처리 오류: {e}")
 
-    def _handle_tie_result(self):
-        """무승부 결과 처리"""
+    def _handle_tie_result_tracked(self):
+        """무승부 결과 처리 (추적 버전)"""
         try:
             self.logger.info("🤝 무승부 처리")
+            
+            # 추적 상태 초기화 (무승부는 베팅이 유지되므로 다시 베팅 가능)
+            self.betting_tracker.reset_tracking()
             
             # 베팅 상태 초기화
             self.tm.betting_service.has_bet_current_round = False
@@ -397,8 +407,25 @@ class GameProcessor:
             # 타이 후에는 쿨다운 해제 (바로 다시 베팅 가능)
             self.betting_cooldown = False
             
+            # 위젯에 타이 마커 표시
+            if hasattr(self.tm.main_window, 'betting_widget'):
+                current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
+                self.tm.main_window.betting_widget.set_step_marker(current_pos, "T")
+            
         except Exception as e:
             self.logger.error(f"무승부 처리 오류: {e}")
+
+    def _handle_win_result(self):
+        """승리 결과 처리 (기존 호환성 유지)"""
+        self._handle_win_result_tracked()
+
+    def _handle_lose_result(self):
+        """패배 결과 처리 (기존 호환성 유지)"""
+        self._handle_lose_result_tracked()
+
+    def _handle_tie_result(self):
+        """무승부 결과 처리 (기존 호환성 유지)"""
+        self._handle_tie_result_tracked()
 
     def _check_consecutive_losses(self) -> bool:
         """연패 확인"""
@@ -410,6 +437,33 @@ class GameProcessor:
             self.logger.error(f"연패 확인 오류: {e}")
             return False
 
+    def get_betting_statistics(self) -> dict:
+        """베팅 통계 정보 반환"""
+        try:
+            recent_10_results = self.betting_tracker.get_recent_results(10)
+            recent_5_results = self.betting_tracker.get_recent_results(5)
+            
+            return {
+                'total_games': len(self.betting_tracker.betting_history),
+                'win_rate_10': self.betting_tracker.get_win_rate(10),
+                'win_rate_5': self.betting_tracker.get_win_rate(5),
+                'consecutive_results': self.betting_tracker.get_consecutive_results(),
+                'total_profit_loss_10': self.betting_tracker.get_total_profit_loss(10),
+                'total_profit_loss_5': self.betting_tracker.get_total_profit_loss(5),
+                'current_bet_info': self.betting_tracker.get_current_bet_info(),
+                'is_waiting_result': self.betting_tracker.is_waiting_for_result()
+            }
+        except Exception as e:
+            self.logger.error(f"베팅 통계 조회 오류: {e}")
+            return {}
+
+    def debug_betting_tracker_status(self):
+        """베팅 추적기 상태 디버그"""
+        try:
+            self.betting_tracker.debug_status()
+        except Exception as e:
+            self.logger.error(f"베팅 추적기 디버그 오류: {e}")
+
     def cleanup(self):
         """리소스 정리"""
         try:
@@ -420,6 +474,9 @@ class GameProcessor:
             self.is_processing_result = False
             self.betting_cooldown = False
             self.consecutive_requests = 0
+            
+            # 베팅 추적기 초기화
+            self.betting_tracker.reset_tracking()
             
         except Exception as e:
             self.logger.error(f"GameProcessor 정리 오류: {e}")
