@@ -32,18 +32,7 @@ class BettingExecutor:
             widget_pos = get_widget_position(self.tm.main_window)
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
             
-            # 베팅 추적 시작 - 정확한 라운드 매칭
-            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
-                if not self.tm.game_processor.betting_tracker.is_waiting_for_result():
-                    self.tm.game_processor.betting_tracker.start_betting_tracking(
-                        bet_type=pick,
-                        round_number=actual_betting_round,  # 베팅이 적용될 정확한 라운드
-                        bet_amount=bet_amount,
-                        room_name=self.tm.current_room_name
-                    )
-                    self.logger.info(f"🎯 베팅 추적 설정: {actual_betting_round}번째 게임 결과 대기")
-            
-            # 베팅 실행 - 표시 라운드 사용 (베팅 서비스에서 최적화 처리됨)
+            # 🔥 먼저 베팅 실행 - 성공 후에만 추적 시작
             bet_success = self.tm.betting_service.place_bet(
                 pick,
                 self.tm.current_room_name,
@@ -51,6 +40,9 @@ class BettingExecutor:
                 self.tm.is_trading_active,
                 bet_amount
             )
+            
+            # 🔥 베팅 성공 시에만 추적 시작 (베팅 서비스에서 이미 처리되므로 중복 제거)
+            # betting_service.place_bet() 내부에서 이미 추적을 시작하므로 여기서는 제거
             
             if bet_success:
                 self.logger.info(f"✅ 베팅 성공: {pick}, 금액: {bet_amount:,}원 (적용 라운드: {actual_betting_round}){streak_info}")

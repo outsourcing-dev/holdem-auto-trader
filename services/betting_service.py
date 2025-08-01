@@ -122,7 +122,24 @@ class BettingService:
 
             if bet_success:
                 # 🔥 베팅 결과 추적 시작 (최신 라운드 번호 사용)
+                actual_bet_round = latest_round_number + 1  # 실제 베팅 적용 라운드
+                
+                # 기존 pending_bet 시스템
                 self._start_result_tracking(bet_type, latest_round_number, bet_amount, current_room_name)
+                
+                # 🔥 새로운 BettingResultTracker도 시작 (게임 프로세서용)
+                if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
+                    if hasattr(self.main_window.trading_manager.game_processor, 'betting_tracker'):
+                        betting_tracker = self.main_window.trading_manager.game_processor.betting_tracker
+                        if not betting_tracker.is_waiting_for_result():
+                            betting_tracker.start_betting_tracking(
+                                bet_type=bet_type,
+                                round_number=actual_bet_round,  # 실제 베팅 적용 라운드
+                                bet_amount=bet_amount,
+                                room_name=current_room_name
+                            )
+                            self.logger.info(f"🎯 BettingResultTracker 추적 시작: {actual_bet_round}번째 게임 결과 대기")
+                
                 self._handle_successful_bet(bet_type, latest_round_number, current_room_name)
                 self.has_bet_current_round = True
                 return True

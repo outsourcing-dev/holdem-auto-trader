@@ -104,6 +104,21 @@ class GameProcessor:
                 # 베팅한 라운드 확인
                 bet_round = self.betting_tracker.get_bet_round()
                 
+                # 🔥 베팅 직후 즉시 결과 비교 방지 - 라운드 진행 확인
+                current_time = time.time()
+                bet_time = self.betting_tracker.bet_info.get('bet_time', 0)
+                time_since_bet = current_time - bet_time
+                
+                # 베팅 후 최소 3초 대기 또는 라운드가 실제로 진행되었는지 확인
+                if time_since_bet < 3.0:  # 3초 미만이면 대기
+                    self.logger.info(f"⏳ 베팅 직후 대기 중: {time_since_bet:.1f}초 경과 (최소 3초 대기)")
+                    return
+                    
+                # 추가: 베팅한 라운드보다 작거나 같은 라운드 결과는 무시 (과거 결과)
+                if round_number <= bet_round - 1:  # 베팅 전 라운드 결과는 무시
+                    self.logger.info(f"📋 과거 라운드 결과 무시: 현재={round_number}, 베팅 대상={bet_round}")
+                    return
+                
                 # 디버깅 로그 추가 - INFO 레벨로 변경
                 self.logger.info(f"🔍 베팅 추적: 베팅 라운드={bet_round}, 현재 라운드={round_number}")
                 
