@@ -73,6 +73,8 @@ class GameMonitoringService:
             
             return None
 
+    # services/game_monitoring_service.py - _parse_game_results_from_iframe 메서드 수정
+
     def _parse_game_results_from_iframe(self, desired_count=15):
         """
         iframe에서 직접 게임 결과 파싱 (P,B만 수집)
@@ -86,25 +88,40 @@ class GameMonitoringService:
         try:
             self.logger.info(f"🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 {desired_count}개)")
             
-            # 1. 라운드 번호 찾기
+            # 1. 라운드 번호 찾기 (마지막으로 완료된 게임 번호)
             round_number = self._find_round_number()
             
-            # 2. 게임 결과 목록 찾기 (P,B만)
-            game_results = self._find_game_results(desired_count)
+            # 2. 게임 결과 목록 찾기 (P,B만) - 전체 결과를 먼저 가져옴
+            game_results = self._find_game_results(desired_count=None)
             
             # 3. 최신 결과 찾기 (P,B만)
             latest_result = self._find_latest_result()
             
+            # 4. desired_count에 맞게 조정 (UI 표시용)
+            display_results = game_results
+            if desired_count and len(game_results) > desired_count:
+                display_results = game_results[-desired_count:]
+            
+            # 🔥 현재 진행 중인 게임 번호 계산
+            current_game_number = round_number + 1 if round_number > 0 else 1
+            
             # 결과 정리
             if game_results or latest_result or round_number:
                 game_state = {
-                    'round': round_number or 0,
-                    'filtered_results': game_results or [],
+                    'round': round_number,  # 마지막 완료된 게임 번호
+                    'current_game': current_game_number,  # 🔥 현재 진행 중인 게임 번호
+                    'filtered_results': display_results,
+                    'all_results': game_results,
                     'latest_result': latest_result or '',
                     'total_results': len(game_results) if game_results else 0
                 }
                 
-                self.logger.info(f"📊 iframe 파싱 결과: 라운드={round_number}, P,B 결과={len(game_results or [])}개, 최신={latest_result}")
+                self.logger.info(f"📊 iframe 파싱 결과:")
+                self.logger.info(f"  - 마지막 완료 게임: {round_number}")
+                self.logger.info(f"  - 현재 진행 게임: {current_game_number}")
+                self.logger.info(f"  - 전체 P,B 결과: {len(game_results)}개")
+                self.logger.info(f"  - 최신 결과: {latest_result}")
+                
                 return game_state
             else:
                 self.logger.warning("❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다")
@@ -113,18 +130,52 @@ class GameMonitoringService:
         except Exception as e:
             self.logger.error(f"iframe P,B 게임 결과 파싱 오류: {e}")
             return None
+        
+    # services/game_monitoring_service.py - _find_round_number 메서드 수정
 
     def _find_round_number(self):
-        """iframe에서 라운드 번호 찾기"""
+        """iframe에서 라운드 번호 찾기 - 개선된 버전"""
         try:
-            # 일반적인 라운드 표시 선택자들
+            # 🔥 우선순위 1: data-role="gameCount" 직접 찾기
+            try:
+                game_count_element = self.devtools.driver.find_element(
+                    By.CSS_SELECTOR, 
+                    'div[data-role="gameCount"]'
+                )
+                if game_count_element:
+                    text = game_count_element.text.strip()
+                    if text.isdigit():
+                        round_num = int(text)
+                        self.logger.info(f"✅ 라운드 번호 발견: {round_num} (data-role='gameCount')")
+                        return round_num
+            except:
+                pass
+            
+            # 🔥 우선순위 2: count 클래스와 함께 있는 경우
+            try:
+                count_elements = self.devtools.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    'div.count--ae30a div[data-role="gameCount"], div[class*="count"] div[data-role="gameCount"]'
+                )
+                for element in count_elements:
+                    text = element.text.strip()
+                    if text.isdigit():
+                        round_num = int(text)
+                        self.logger.info(f"✅ 라운드 번호 발견: {round_num} (count 클래스 내부)")
+                        return round_num
+            except:
+                pass
+            
+            # 우선순위 3: 일반적인 라운드 표시 선택자들
             round_selectors = [
-                "[class*='round']",
-                "[class*='Round']",
-                "[class*='game']",
-                "[class*='Game']",
-                "div[data-role*='round']",
-                "span[data-role*='round']"
+                "[data-role='gameCount']",
+                "[data-role='game-count']",
+                "[data-role='round']",
+                "[data-role='roundNumber']",
+                "div[class*='round'] span",
+                "div[class*='Round'] span",
+                "div[class*='game'] span",
+                "div[class*='Game'] span"
             ]
             
             for selector in round_selectors:
@@ -136,26 +187,57 @@ class GameMonitoringService:
                         import re
                         numbers = re.findall(r'\d+', text)
                         if numbers:
-                            round_num = int(numbers[-1])  # 마지막 숫자 사용
-                            if 1 <= round_num <= 100:  # 합리적인 범위
-                                self.logger.debug(f"라운드 번호 발견: {round_num} (텍스트: {text})")
-                                return round_num
+                            # 여러 숫자가 있으면 가장 큰 수를 라운드로 간주
+                            for num_str in sorted(numbers, key=lambda x: int(x), reverse=True):
+                                round_num = int(num_str)
+                                if 1 <= round_num <= 200:  # 합리적인 범위
+                                    self.logger.debug(f"라운드 번호 발견: {round_num} (선택자: {selector})")
+                                    return round_num
                 except:
                     continue
             
-            self.logger.warning("라운드 번호를 찾을 수 없습니다")
+            # 우선순위 4: JavaScript로 직접 찾기
+            try:
+                js_script = """
+                // gameCount 찾기
+                var gameCountEl = document.querySelector('[data-role="gameCount"]');
+                if (gameCountEl) return gameCountEl.textContent.trim();
+                
+                // 다른 가능한 요소들
+                var elements = document.querySelectorAll('[class*="round"], [class*="Round"], [class*="game"], [class*="Game"]');
+                for (var el of elements) {
+                    var text = el.textContent.trim();
+                    if (/^\d+$/.test(text)) {
+                        var num = parseInt(text);
+                        if (num >= 1 && num <= 200) return text;
+                    }
+                }
+                return null;
+                """
+                
+                result = self.devtools.driver.execute_script(js_script)
+                if result and result.isdigit():
+                    round_num = int(result)
+                    self.logger.info(f"✅ 라운드 번호 발견: {round_num} (JavaScript)")
+                    return round_num
+            except:
+                pass
+            
+            self.logger.warning("❌ 라운드 번호를 찾을 수 없습니다")
             return 0
             
         except Exception as e:
             self.logger.error(f"라운드 번호 찾기 오류: {e}")
             return 0
+        
+    # services/game_monitoring_service.py - _find_game_results 메서드 전체
 
     def _find_game_results(self, desired_count=None):
         """iframe에서 Bead Road의 SVG 좌표를 이용한 게임 결과 목록 찾기 (P,B만 수집)"""
         try:
             self.logger.info(f"🎯 Bead Road P,B 게임 결과 파싱 시작" + (f" (최대 {desired_count}개)" if desired_count else " (제한 없음)"))
             
-            # Bead Road 컨테이너 안에서만 coordinates 요소들 찾기 (핵심 수정!)
+            # Bead Road 컨테이너 안에서만 coordinates 요소들 찾기
             svg_elements = self.devtools.driver.find_elements(
                 By.CSS_SELECTOR, 
                 'svg[data-role="Bead-road"] svg[data-type="coordinates"]'
@@ -173,8 +255,8 @@ class GameMonitoringService:
             for svg in svg_elements:
                 try:
                     # 직접 좌표 정보 가져오기
-                    data_x = svg.get_attribute("data-x")  # X 좌표 읽기
-                    data_y = svg.get_attribute("data-y")  # Y 좌표 읽기
+                    data_x = svg.get_attribute("data-x")
+                    data_y = svg.get_attribute("data-y")
                     
                     if data_x is None or data_y is None:
                         continue
@@ -199,7 +281,6 @@ class GameMonitoringService:
                             road_item = svg.find_element(By.CSS_SELECTOR, 'svg[data-type="roadItem"]')
                             name = road_item.get_attribute("name")
                             if name:
-                                # "Player", "Player Player" → "Player", "Banker" → "Banker" 등 처리
                                 if "Player" in name:
                                     result = "P"
                                 elif "Banker" in name:
@@ -219,11 +300,11 @@ class GameMonitoringService:
                             fill_color = path_element.get_attribute("fill")
                             if fill_color:
                                 if "#2E83FF" in fill_color or "blue" in fill_color.lower():
-                                    result = "P"  # Player는 보통 파란색
+                                    result = "P"
                                 elif "#EC2024" in fill_color or "red" in fill_color.lower():
-                                    result = "B"  # Banker는 보통 빨간색
+                                    result = "B"
                                 elif "#159252" in fill_color or "green" in fill_color.lower():
-                                    result = "T"  # Tie는 보통 녹색
+                                    result = "T"
                                 
                                 if result:
                                     self.logger.debug(f"좌표 ({x}, {y}): {result} (색상: {fill_color})")
@@ -231,7 +312,6 @@ class GameMonitoringService:
                             pass
                     
                     if result:
-                        # 좌표별로 저장 (x, y) -> result
                         coordinate_key = (x, y)
                         if coordinate_key in coordinate_results:
                             self.logger.warning(f"중복된 좌표 발견: {coordinate_key}, 기존: {coordinate_results[coordinate_key]}, 새로운: {result}")
@@ -253,29 +333,26 @@ class GameMonitoringService:
             # 좌표를 올바른 게임 순서대로 정렬
             sorted_results = self._sort_coordinates_to_game_sequence(coordinate_results)
             
-            # P, B만 필터링 (T 제외) - 새로 추가된 부분
+            # P, B만 필터링 (T 제외)
             filtered_pb_only = [result for result in sorted_results if result in ['P', 'B']]
             
-            # 전체 데이터 로그 출력 (필터링 전후 모두 표시)
+            # 전체 데이터 로그 출력
             self.logger.info(f"📊 Bead Road 전체 게임 결과: {len(sorted_results)}개 - {sorted_results}")
             self.logger.info(f"🎯 P,B만 필터링된 결과: {len(filtered_pb_only)}개 - {filtered_pb_only}")
             
-            # desired_count가 지정된 경우에만 제한 적용
+            # desired_count가 지정된 경우 최근 N개만 반환
             if desired_count is not None and len(filtered_pb_only) > desired_count:
+                # 🔥 수정: 최근 N개를 가져올 때는 끝에서부터 (가장 최신 결과가 끝에 있음)
                 filtered_pb_only = filtered_pb_only[-desired_count:]
                 self.logger.info(f"🔍 최근 {desired_count}개 P,B 결과: {filtered_pb_only}")
-            else:
-                if desired_count is not None:
-                    self.logger.info(f"🔍 P,B 결과 개수가 {desired_count}개 이하이므로 모든 결과 사용")
-                else:
-                    self.logger.info(f"🔍 제한 없이 모든 P,B 결과 사용: {len(filtered_pb_only)}개")
             
             return filtered_pb_only
-                
+            
         except Exception as e:
             self.logger.error(f"SVG P,B 게임 결과 찾기 오류: {e}")
             return []
-
+        
+        
     def _sort_coordinates_to_game_sequence(self, coordinate_results):
         """
         좌표를 게임 순서대로 정렬

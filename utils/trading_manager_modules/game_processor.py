@@ -36,6 +36,16 @@ class GameProcessor:
         try:
             current_time = time.time()
             
+            # 🔥 베팅 직후 너무 빠른 처리 방지
+            if hasattr(self.tm, '_is_waiting_for_next_game') and self.tm._is_waiting_for_next_game:
+                # 베팅 후 최소 3초는 대기
+                if hasattr(self.tm, 'betting_service') and hasattr(self.tm.betting_service, 'last_bet_time'):
+                    time_since_bet = current_time - self.tm.betting_service.last_bet_time
+                    if time_since_bet < 3.0:
+                        self.logger.debug(f"⏳ 베팅 후 대기 중... ({time_since_bet:.1f}초)")
+                        return
+                self.tm._is_waiting_for_next_game = False
+            
             # 너무 빠른 연속 처리 방지
             if current_time - self.last_processed_time < self.min_process_interval:
                 self.logger.debug(f"처리 간격 부족 - 무시 ({current_time - self.last_processed_time:.1f}초)")
@@ -68,7 +78,7 @@ class GameProcessor:
         except Exception as e:
             self.logger.error(f"게임 데이터 수신 처리 오류: {e}")
             self.is_processing_result = False
-
+            
     def _process_current_room_game_data(self, game_data: dict):
         """현재 방의 게임 데이터 처리 - 무한루프 방지"""
         try:
@@ -90,40 +100,75 @@ class GameProcessor:
         except Exception as e:
             self.logger.error(f"현재 방 게임 데이터 처리 오류: {e}")
 
+    # utils/trading_manager_modules/game_processor.py - _handle_game_result 메서드 수정
     def _handle_game_result(self, game_data: dict):
         """게임 결과 처리 - 베팅 결과 추적 통합"""
         try:
             latest_result = game_data.get('latest_result', '')
             round_number = game_data.get('round_number', 0)
             
+            # 🔥 라운드 번호 검증
+            if round_number == 0:
+                self.logger.warning("⚠️ 라운드 번호가 0입니다. 게임 상태 재확인 필요")
+                try:
+                    actual_round = self.tm.game_monitoring_service._find_round_number()
+                    if actual_round > 0:
+                        round_number = actual_round
+                        self.logger.info(f"✅ 실제 라운드 번호 확인: {round_number}")
+                except:
+                    pass
+            
             # 중복 결과 방지
             result_id = f"{round_number}_{latest_result}"
             if result_id in self.tm.processed_rounds:
+                self.logger.debug(f"이미 처리된 결과: {result_id}")
                 return
             
-            self.tm.processed_rounds.add(result_id)
-            self.tm.result_count += 1
-            
-            self.logger.info(f"🎯 새로운 게임 결과: 라운드 {round_number}, 결과 {latest_result}")
-            
-            # 베팅 결과 추적기로 결과 확인
+            # 🔥 베팅 대기 중인 경우에만 결과 확인
             if self.betting_tracker.is_waiting_for_result():
-                betting_result = self.betting_tracker.check_result(round_number, latest_result)
-                
-                if betting_result:
-                    self.logger.info(f"🎲 베팅 결과 확정: {betting_result.value}")
+                bet_info = self.betting_tracker.get_pending_bet_info()
+                if bet_info:
+                    bet_round = bet_info.get('bet_round', 0)
                     
-                    # 결과에 따른 처리
-                    if betting_result == BettingResult.WIN:
-                        self._handle_win_result_tracked()
-                    elif betting_result == BettingResult.LOSE:
-                        self._handle_lose_result_tracked()
-                    elif betting_result == BettingResult.TIE:
-                        self._handle_tie_result_tracked()
+                    # 베팅한 라운드와 현재 라운드 비교
+                    if round_number == bet_round:
+                        self.logger.info(f"🎯 베팅한 라운드의 결과 도착: 라운드 {round_number}, 결과 {latest_result}")
+                        
+                        # 결과 처리 전 약간의 지연 (안정성)
+                        time.sleep(0.5)
+                        
+                        self.tm.processed_rounds.add(result_id)
+                        self.tm.result_count += 1
+                        
+                        # 베팅 결과 확인
+                        betting_result = self.betting_tracker.check_result(round_number, latest_result)
+                        
+                        if betting_result:
+                            self.logger.info(f"🎲 베팅 결과 확정: {betting_result.value}")
+                            
+                            # 결과에 따른 처리
+                            if betting_result == BettingResult.WIN:
+                                self._handle_win_result_tracked()
+                            elif betting_result == BettingResult.LOSE:
+                                self._handle_lose_result_tracked()
+                            elif betting_result == BettingResult.TIE:
+                                self._handle_tie_result_tracked()
+                            
+                            # 베팅 서비스 상태 초기화
+                            if hasattr(self.tm.betting_service, 'has_bet_current_round'):
+                                self.tm.betting_service.has_bet_current_round = False
+                        
+                        return  # 베팅 결과 처리 후 종료
                     
-                    # 베팅 서비스 상태 초기화
-                    if hasattr(self.tm.betting_service, 'has_bet_current_round'):
-                        self.tm.betting_service.has_bet_current_round = False
+                    elif round_number < bet_round:
+                        self.logger.debug(f"⏳ 베팅 라운드 대기 중: 현재={round_number}, 베팅={bet_round}")
+                        return
+                    else:
+                        self.logger.warning(f"⚠️ 베팅 라운드를 놓침: 현재={round_number}, 베팅={bet_round}")
+            
+            # 베팅과 무관한 결과는 기록만
+            self.tm.processed_rounds.add(result_id)
+            self.logger.debug(f"게임 결과 기록: 라운드 {round_number}, 결과 {latest_result}")
             
             # ExcelTradingService에 결과 추가
             if hasattr(self.tm.excel_trading_service, 'choice_pick_system'):
@@ -132,7 +177,7 @@ class GameProcessor:
                     
         except Exception as e:
             self.logger.error(f"게임 결과 처리 오류: {e}")
-
+            
     def _check_betting_opportunity_with_cooldown(self, game_data: dict):
         """베팅 기회 확인 - 쿨다운 적용으로 무한루프 방지"""
         try:
@@ -243,6 +288,8 @@ class GameProcessor:
         self.consecutive_requests = 0
         self.logger.debug("연속 요청 카운터 초기화")
 
+    # utils/trading_manager_modules/game_processor.py - _request_betting_with_latest_data 메서드 수정
+
     def _request_betting_with_latest_data(self):
         """베팅 가능 상태에서 실시간 최신 데이터로 예측값 요청 - 개선된 버전"""
         try:
@@ -259,36 +306,31 @@ class GameProcessor:
                 
                 self.logger.info(f"🔍 베팅 가능 상태 - 최신 데이터로 예측값 요청: {room_name}")
                 
-                # iframe에서 최신 게임 상태 가져오기
-                latest_game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
-                    room_id=room_id,
-                    room_name=room_name,
-                    log_always=True,
-                    desired_pb_count=15
-                )
+                # 🔥 핵심 수정: 전체 결과를 가져와서 서버에 전달
+                latest_game_state = self.tm.game_monitoring_service._parse_game_results_from_iframe(desired_count=None)
                 
                 if not latest_game_state:
                     self.logger.warning("❌ 최신 게임 상태를 가져올 수 없습니다")
                     return
                 
-                # 최신 결과 리스트 (P, B만)
-                current_results = latest_game_state.get('filtered_results', [])
+                # 전체 P,B 결과 리스트
+                all_pb_results = latest_game_state.get('filtered_results', [])
+                round_number = latest_game_state.get('round', self.tm.game_count + 1)
                 
-                if len(current_results) < 5:
-                    self.logger.info(f"⏳ 데이터 부족 (현재 {len(current_results)}개) - 베팅 보류")
+                self.logger.info(f"📊 베팅 시점 전체 {len(all_pb_results)}개 P,B 결과: {all_pb_results}")
+                self.logger.info(f"🎯 현재 라운드: {round_number}")
+                
+                if len(all_pb_results) < 5:
+                    self.logger.info(f"⏳ 데이터 부족 (현재 {len(all_pb_results)}개) - 베팅 보류")
                     return
                 
-                self.logger.info(f"📊 베팅 가능 시점 최신 {len(current_results)}개 P,B 결과로 예측 요청: {current_results}")
-                
-                # 서버에 최신 데이터로 예측값 요청
-                next_pick = self.tm.server_client.get_next_prediction(room_id, current_results)
+                # 서버에 전체 데이터로 예측값 요청
+                next_pick = self.tm.server_client.get_next_prediction(room_id, all_pb_results)
                 self.logger.info(f"🎯 [베팅 가능 시점 예측] 서버 예측 결과: {next_pick}")
                 
                 # 유효한 예측값이면 베팅 실행
                 if next_pick in ['P', 'B']:
                     # 베팅 라운드 중복 확인
-                    round_number = latest_game_state.get('round', self.tm.game_count + 1)
-                    
                     if round_number <= self.last_bet_round:
                         self.logger.info(f"이미 처리된 라운드 - 베팅 생략: {round_number}")
                         return
@@ -298,7 +340,7 @@ class GameProcessor:
                     # 잠시 대기 후 베팅 (게임 전환 시간 고려)
                     time.sleep(1)
                     
-                    self.logger.info(f"🎯 [베팅 가능 시점 예측] 베팅 실행: {next_pick} (라운드 {round_number}) - 최신 데이터 기반")
+                    self.logger.info(f"🎯 [베팅 가능 시점 예측] 베팅 실행: {next_pick} (라운드 {round_number}) - 전체 {len(all_pb_results)}개 데이터 기반")
                     
                     # 베팅 실행 및 추적 시작
                     bet_amount = self.tm.excel_trading_service.get_current_bet_amount()

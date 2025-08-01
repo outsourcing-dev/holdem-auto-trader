@@ -288,3 +288,15 @@ class BettingResultTracker:
             
         except Exception as e:
             self.logger.error(f"디버그 상태 출력 오류: {e}")
+            
+    def get_pending_bet_info(self):
+        """현재 대기 중인 베팅 정보 반환"""
+        if self.pending_bet:
+            return {
+                'type': self.pending_bet['type'],
+                'round': self.pending_bet['round'], 
+                'amount': self.pending_bet['amount'],
+                'waiting_time': time.time() - self.pending_bet['timestamp'],
+                'bet_round': self.pending_bet['round']  # 호환성을 위해 추가
+            }
+        return None

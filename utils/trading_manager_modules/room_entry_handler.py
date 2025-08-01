@@ -11,19 +11,21 @@ class RoomEntryHandler:
         self.tm = trading_manager
         self.logger = trading_manager.logger
 
+    # utils/trading_manager_modules/room_entry_handler.py - execute_room_entry 메서드 수정
+
     def execute_room_entry(self, streak_data: dict):
-        """방 입장 후 서버 검증 및 베팅 시작 - 베팅 추적 통합"""
+        """방 입장 후 서버 검증 및 베팅 시작"""
         try:
             room_name = streak_data.get('room_name', '')
             room_id = streak_data.get('room_id', '')
             expected_streak = streak_data.get('streak_count', 0)
             
-            self.logger.info(f"🎯 방 입장 실행: {room_name} ({room_id})")
+            self.logger.info(f"🚪 방 입장 실행: {room_name} ({room_id})")
             
-            # 방 입장 전 베팅 추적기 초기화
-            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
-                self.tm.game_processor.betting_tracker.reset_tracking()
-                self.logger.info("방 입장 전 베팅 추적기 초기화")
+            # 🔥 방 입장 전 웹소켓 상태 확인
+            if hasattr(self.tm, 'websocket_manager') and hasattr(self.tm.websocket_manager, 'websocket_service'):
+                ws_status = self.tm.websocket_manager.get_interceptor_status()
+                self.logger.info(f"📡 방 입장 전 웹소켓 상태: 연결={ws_status.get('is_intercepting', False)}")
             
             # 1. 방 입장 시도
             if hasattr(self.tm.room_entry_service, 'enter_room_by_name'):
@@ -33,6 +35,11 @@ class RoomEntryHandler:
             
             if success:
                 self.logger.info(f"✅ 방 입장 성공: {room_name}")
+                
+                # 🔥 방 입장 후 웹소켓을 일시 정지 (로비 데이터 수신 중단)
+                if hasattr(self.tm, 'websocket_manager') and hasattr(self.tm.websocket_manager, 'websocket_service'):
+                    self.logger.info("🔄 방 입장 - 로비 웹소켓 일시 정지")
+                    self.tm.websocket_manager.websocket_service._pause_lobby_monitoring = True
                 
                 # 2. iframe에서 현재 방 상태 확인
                 time.sleep(3)  # 방 로딩 대기
@@ -46,9 +53,6 @@ class RoomEntryHandler:
                 )
                 
                 if server_data:
-                    # 서버 예측값 기반 베팅 로직
-                    self.logger.info(f"🎯 서버 예측값 기반 베팅 로직 시작: {room_name}")
-                    
                     # 현재 방 정보 설정
                     self.tm.current_room_name = room_name
                     self.tm.current_target_room = streak_data
@@ -65,44 +69,23 @@ class RoomEntryHandler:
                         status=f"서버 예측값 기반 베팅 모드 시작"
                     )
                     
-                    self.logger.info(f"🎯 [서버 예측] 게임 모니터링 준비 완료: {room_name}")
-                    
                     # 서버에서 다음 예측값 요청
                     current_results = server_data.get('all_results', [])
                     filtered_results = [r for r in current_results if r in ('P', 'B')]
                     next_pick = self.tm.server_client.get_next_prediction(room_id, filtered_results)
-                    self.logger.info(f"🎯 [서버 예측] 서버 예측 결과: {next_pick}")
+                    self.logger.info(f"🎯 서버 예측 결과: {next_pick}")
                     
                     if next_pick in ['P', 'B']:
-                        # 베팅 실행 전 추적 시작
-                        round_number = server_data.get('round_number', self.tm.game_count)
-                        bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
-                        
-                        # 베팅 추적 시작
-                        if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
-                            self.tm.game_processor.betting_tracker.start_betting_tracking(
-                                bet_type=next_pick,
-                                round_number=round_number,
-                                bet_amount=bet_amount,
-                                room_name=room_name
-                            )
-                            self.logger.info(f"🎯 베팅 추적 시작: {next_pick} 라운드{round_number}")
-                        
-                        # 베팅 실행
-                        self.logger.info(f"🎯 [서버 예측] 베팅 실행: {next_pick}")
-                        self.tm.betting_executor.execute_betting(next_pick, round_number)
+                        self.logger.info(f"🎯 베팅 실행: {next_pick}")
+                        self.tm.betting_executor.execute_betting(next_pick, server_data['round_number'])
                     else:
-                        self.logger.info(f"🎯 [서버 예측] 베팅 안함: {next_pick}")
-                    
-                    # 방 입장 성공 후 게임 모니터링 시작
-                    self._start_game_monitoring_after_entry(streak_data)
+                        self.logger.info(f"🎯 베팅 안함: {next_pick}")
                     
                     return True
                 else:
                     self.logger.error(f"❌ 게임 상태 분석 실패: {room_name}")
-                    # 실패 시 추적기 초기화
-                    if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
-                        self.tm.game_processor.betting_tracker.reset_tracking()
+                    # 실패 시 로비 모니터링 재개
+                    self._resume_lobby_monitoring()
                     
             else:
                 self.logger.warning(f"❌ 방 입장 실패: {room_name}")
@@ -115,11 +98,17 @@ class RoomEntryHandler:
             self.logger.error(f"방 입장 실행 오류: {e}")
             self.tm.room_entry_in_progress = False
             self.tm.is_entering_room = False
-            
-            # 오류 시 추적기 초기화
-            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
-                self.tm.game_processor.betting_tracker.reset_tracking()
+            self._resume_lobby_monitoring()
 
+    def _resume_lobby_monitoring(self):
+        """로비 모니터링 재개"""
+        try:
+            if hasattr(self.tm, 'websocket_manager') and hasattr(self.tm.websocket_manager, 'websocket_service'):
+                self.logger.info("🔄 로비 웹소켓 모니터링 재개")
+                self.tm.websocket_manager.websocket_service._pause_lobby_monitoring = False
+        except Exception as e:
+            self.logger.error(f"로비 모니터링 재개 오류: {e}")
+            
     def _fallback_room_entry(self, room_name: str) -> bool:
         """폴백 방 입장 로직"""
         try:

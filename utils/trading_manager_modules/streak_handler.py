@@ -98,6 +98,8 @@ class StreakHandler:
                                       if room['room_id'] != room_id]
         self.logger.info(f"방 {room_id} 제거 완료")
 
+    # utils/trading_manager_modules/streak_handler.py - return_to_streak_monitoring 메서드 수정
+
     def return_to_streak_monitoring(self):
         """연패 모니터링 모드로 복귀"""
         try:
@@ -126,11 +128,16 @@ class StreakHandler:
             except Exception as e:
                 self.logger.debug(f"방 나가기 중 오류 (무시): {e}")
             
+            # 🔥 로비 웹소켓 모니터링 재개
+            if hasattr(self.tm, 'websocket_manager') and hasattr(self.tm.websocket_manager, 'websocket_service'):
+                self.logger.info("📡 로비 웹소켓 모니터링 재개")
+                self.tm.websocket_manager.websocket_service.resume_lobby_monitoring()
+            
             self.logger.info("✅ 연패 모니터링 모드 복귀 완료")
             
         except Exception as e:
-            self.logger.error(f"연페 모니터링 복귀 오류: {e}")
-
+            self.logger.error(f"연패 모니터링 복귀 오류: {e}")
+            
     def get_streak_room_info(self):
         """연패 방 정보 반환"""
         try:

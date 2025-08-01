@@ -58,6 +58,10 @@ class WebSocketHybridService(QObject):
         # 내부 연패 캐시
         self.internal_streak_cache = {}
         
+        # 🔥 추가: 로비 모니터링 일시정지 플래그
+        self._pause_lobby_monitoring = False
+        self._in_game_room = False
+    
         self.logger.info("🔍 WebSocketHybridService 연패 감지 및 자동 방 입장 모드 초기화")
         
     def _load_filtered_room_mappings(self):
@@ -348,9 +352,15 @@ class WebSocketHybridService(QObject):
         except Exception as e:
             self.logger.error(f"메시지 수집 시작 오류: {e}")
 
+
     def _collect_and_process_messages(self):
         """메시지 수집 및 처리"""
         try:
+            # 🔥 게임방에 있을 때는 로비 데이터 처리 중단
+            if self._pause_lobby_monitoring:
+                self.logger.debug("🚫 게임방 모드 - 로비 데이터 처리 중단")
+                return
+            
             collection_script = """
             if (window.lastServerAnalysisData && window.lastServerAnalysisTimestamp) {
                 const data = window.lastServerAnalysisData;
@@ -372,6 +382,18 @@ class WebSocketHybridService(QObject):
         except Exception as e:
             self.logger.debug(f"메시지 수집 중 오류: {e}")
 
+    def pause_lobby_monitoring(self):
+        """로비 모니터링 일시정지"""
+        self._pause_lobby_monitoring = True
+        self._in_game_room = True
+        self.logger.info("⏸️ 로비 모니터링 일시정지 - 게임방 모드")
+
+    def resume_lobby_monitoring(self):
+        """로비 모니터링 재개"""
+        self._pause_lobby_monitoring = False
+        self._in_game_room = False
+        self.logger.info("▶️ 로비 모니터링 재개")
+        
     def _process_analysis_data(self, analysis_data):
         """분석 데이터 처리 - 필터링된 방만 서버로 전송"""
         try:
@@ -724,13 +746,14 @@ class WebSocketHybridService(QObject):
                 'total_filtered_rooms': len(self.filtered_room_ids),
                 'streak_threshold': self.user_streak_threshold,
                 'auto_room_entry': self.auto_room_entry,
-                'cached_streak_rooms': len(self.internal_streak_cache)
+                'cached_streak_rooms': len(self.internal_streak_cache),
+                'paused': self._pause_lobby_monitoring,  # 🔥 추가
+                'in_game_room': self._in_game_room  # 🔥 추가
             }
-            
         except Exception as e:
             self.logger.error(f"연결 상태 확인 오류: {e}")
             return {'active': self.is_active, 'connected': False, 'error': str(e)}
-
+        
     def force_reconnect(self) -> bool:
         """강제 재연결"""
         try:
