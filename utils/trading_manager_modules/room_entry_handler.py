@@ -1,3 +1,4 @@
+# utils/trading_manager_modules/room_entry_handler.py
 import time
 import logging
 from PyQt6.QtCore import QTimer
@@ -127,9 +128,16 @@ class RoomEntryHandler:
             if current_round > self.tm.game_count:
                 self.logger.info(f"🎮 새 라운드 감지: {current_round}")
                 
-                # 베팅 결과 확인
-                if hasattr(self.tm.betting_service, 'has_pending_bet') and self.tm.betting_service.has_pending_bet():
-                    self._check_betting_result(latest_result, current_round)
+                # 게임 결과 처리 (GameProcessor의 _handle_game_result 호출)
+                if latest_result and latest_result in ['P', 'B', 'T']:
+                    game_data = {
+                        'round_number': current_round,
+                        'latest_result': latest_result
+                    }
+                    
+                    # GameProcessor의 결과 처리 메서드 호출
+                    if hasattr(self.tm, 'game_processor'):
+                        self.tm.game_processor._handle_game_result(game_data)
                 
                 # 게임 카운트 업데이트
                 self.tm.game_count = current_round
@@ -140,39 +148,6 @@ class RoomEntryHandler:
                     
         except Exception as e:
             self.logger.error(f"iframe 모니터링 오류: {e}")
-
-    def _check_betting_result(self, latest_result: str, current_round: int):
-        """베팅 결과 확인 및 처리"""
-        try:
-            if not latest_result:
-                return
-                
-            # 베팅 서비스에서 대기 중인 베팅 정보 가져오기
-            pending_bet_info = self.tm.betting_service.get_pending_bet_info()
-            if not pending_bet_info:
-                return
-                
-            bet_type = pending_bet_info['type']
-            bet_round = pending_bet_info['round']
-            
-            # 베팅한 라운드의 결과인지 확인
-            if current_round > bet_round:
-                # 베팅 결과 확인
-                result = self.tm.betting_service.check_pending_bet_result(current_round, latest_result)
-                
-                if result:
-                    result_status = result['status']
-                    self.logger.info(f"🎲 베팅 결과: {result_status}")
-                    
-                    if result_status == 'win':
-                        self._handle_win_result()
-                    elif result_status == 'lose':
-                        self._handle_lose_result()
-                    elif result_status == 'tie':
-                        self._handle_tie_result()
-                        
-        except Exception as e:
-            self.logger.error(f"베팅 결과 확인 오류: {e}")
 
     def _check_betting_opportunity(self, filtered_results: list, room_id: str, current_round: int):
         """베팅 기회 확인 및 실행"""
@@ -187,71 +162,12 @@ class RoomEntryHandler:
                 self.logger.info(f"🎯 서버 예측값: {next_pick}")
                 
                 # 베팅 실행
-                bet_amount = self.tm.excel_trading_service.get_current_bet_amount()
                 self.tm.betting_executor.execute_betting(next_pick, current_round)
             else:
                 self.logger.info(f"⏭️ 베팅 스킵: {next_pick}")
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
-
-    def _handle_win_result(self):
-        """승리 처리 - 방 나가고 웹소켓 재개"""
-        try:
-            self.logger.info("🎉 베팅 승리 - 방 나가기")
-            
-            # iframe 모니터링 중지
-            self._stop_iframe_monitoring()
-            
-            # 위젯 초기화
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                self.tm.main_window.betting_widget.room_position_counter = 0
-                self.tm.main_window.betting_widget.reset_step_markers()
-            
-            # 방 나가기
-            self.tm.game_monitoring_service.close_current_room()
-            
-            # 상태 초기화
-            self.tm.current_target_room = None
-            self.tm.current_room_name = ""
-            
-            # 웹소켓 모니터링 재개
-            self._resume_websocket_monitoring()
-            
-            # 연패 모니터링 모드로 복귀
-            self.tm.streak_handler.return_to_streak_monitoring()
-            
-        except Exception as e:
-            self.logger.error(f"승리 처리 오류: {e}")
-
-    def _handle_lose_result(self):
-        """패배 처리 - 마틴 단계 확인"""
-        try:
-            self.logger.info("❌ 베팅 패배")
-            
-            # 위젯 카운터 증가
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                current_pos = self.tm.main_window.betting_widget.room_position_counter
-                self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
-                
-                # 마틴 단계 확인
-                martin_stages = len(self.tm.martin_service.martin_amounts)
-                if current_pos + 1 >= martin_stages:
-                    self.logger.info("📈 마틴 단계 한계 도달 - 방 나가기")
-                    self._handle_martin_limit_reached()
-                    
-        except Exception as e:
-            self.logger.error(f"패배 처리 오류: {e}")
-
-    def _handle_tie_result(self):
-        """무승부 처리"""
-        try:
-            self.logger.info("🤝 무승부 - 동일 베팅 유지")
-            # 베팅 상태만 초기화
-            self.tm.betting_service.has_bet_current_round = False
-            
-        except Exception as e:
-            self.logger.error(f"무승부 처리 오류: {e}")
 
     def _handle_martin_limit_reached(self):
         """마틴 한계 도달 처리"""
@@ -315,12 +231,41 @@ class RoomEntryHandler:
         except Exception as e:
             self.logger.error(f"게임 모니터링 시작 오류: {e}")
 
+    def handle_room_exit(self):
+        """방 나가기 처리"""
+        try:
+            self.logger.info("🚪 방 나가기 처리")
+            
+            # iframe 모니터링 중지
+            self._stop_iframe_monitoring()
+            
+            # 현재 방에서 나가기
+            if hasattr(self.tm, 'game_monitoring_service'):
+                self.tm.game_monitoring_service.close_current_room()
+            
+            # 상태 초기화
+            self.tm.current_target_room = None
+            self.tm.current_room_name = ""
+            self.tm.room_entry_in_progress = False
+            self.tm.is_entering_room = False
+            
+            # 웹소켓 모니터링 재개
+            self._resume_websocket_monitoring()
+            
+            self.logger.info("✅ 방 나가기 완료")
+            
+        except Exception as e:
+            self.logger.error(f"방 나가기 처리 오류: {e}")
+
     def debug_current_room_status(self):
         """현재 방 상태 디버그"""
         try:
-            self.logger.info("🔍 현재 방 상태:")
-            self.logger.info(f"  - 현재 방: {self.tm.current_room_name}")
-            self.logger.info(f"  - 게임 카운트: {self.tm.game_count}")
+            self.logger.info("=" * 50)
+            self.logger.info("현재 방 상태")
+            self.logger.info(f"현재 방: {self.tm.current_room_name}")
+            self.logger.info(f"게임 카운트: {self.tm.game_count}")
+            self.logger.info(f"iframe 모니터링: {'활성' if self.iframe_timer else '비활성'}")
+            self.logger.info("=" * 50)
             
         except Exception as e:
             self.logger.error(f"방 상태 디버그 오류: {e}")

@@ -651,11 +651,11 @@ class BettingService:
         self.last_bet_type = bet_type
         self.last_bet_time = time.time()
         
-        # 🔥 실제 베팅이 적용되는 라운드 계산
+        # 🔥 실제 베팅이 적용되는 라운드 계산        
         actual_bet_round = game_count + 1
-        
-        self.logger.info(f"[베팅완료] 라운드: {game_count}, 베팅타입: {bet_type}")
-        self.logger.info(f"📍 베팅 적용 라운드: {actual_bet_round}")
+        self.logger.info(f"[베팅완료] 표시 라운드: {game_count}, 베팅타입: {bet_type}")
+        self.logger.info(f"📍 실제 베팅 적용 라운드: {actual_bet_round}")
+        self.logger.info(f"⏳ 라운드 {actual_bet_round}의 결과를 대기합니다")
         
         display_room_name = current_room_name.split('\n')[0] if '\n' in current_room_name else current_room_name
         

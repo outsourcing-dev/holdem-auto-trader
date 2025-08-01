@@ -1,4 +1,4 @@
-# utils/trading_manager_modules/betting_executor.py - 베팅 추적 통합
+# utils/trading_manager_modules/betting_executor.py
 import logging
 from utils.trading_manager_helpers import get_widget_position
 
@@ -10,8 +10,6 @@ class BettingExecutor:
         self.tm = trading_manager
         self.logger = trading_manager.logger
 
-    # utils/trading_manager_modules/betting_executor.py - execute_betting 메서드 수정
-
     def execute_betting(self, pick: str, round_number: int):
         """베팅 실행 - 추적 통합"""
         try:
@@ -20,45 +18,42 @@ class BettingExecutor:
                 streak_count = self.tm.current_target_room.get('streak_count', 0)
                 streak_info = f" (연패: {streak_count})"
             
-            # 🔥 실제 현재 라운드 확인
-            try:
-                actual_round = self.tm.game_monitoring_service._find_round_number()
-                if actual_round > round_number:
-                    self.logger.info(f"🔄 라운드 번호 업데이트: {round_number} → {actual_round}")
-                    round_number = actual_round
-            except:
-                pass
+            # 현재 표시된 라운드에서 베팅하면 다음 라운드에 적용됨
+            display_round = round_number  # 현재 표시된 라운드
+            actual_betting_round = round_number + 1  # 실제 베팅이 적용될 라운드
             
-            # 🔥 다음 라운드에 베팅 (현재 게임이 진행 중이므로)
-            betting_round = round_number + 1
-            
-            self.logger.info(f"🎯 베팅 실행: {pick} (라운드 {betting_round}){streak_info}")
+            self.logger.info(f"🎯 베팅 실행: {pick} (표시 라운드: {display_round}, 적용 라운드: {actual_betting_round}){streak_info}")
             
             # 베팅 금액 계산
             widget_pos = get_widget_position(self.tm.main_window)
             bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
             
-            # 베팅 추적 시작 - 다음 라운드로 설정
+            # 베팅 추적 시작 - 실제 적용될 라운드로 설정
             if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
                 if not self.tm.game_processor.betting_tracker.is_waiting_for_result():
                     self.tm.game_processor.betting_tracker.start_betting_tracking(
                         bet_type=pick,
-                        round_number=betting_round,  # 🔥 다음 라운드로 설정
+                        round_number=actual_betting_round,  # 실제 베팅이 적용될 라운드
                         bet_amount=bet_amount,
                         room_name=self.tm.current_room_name
                     )
             
-            # 베팅 실행 - 현재 게임 카운트 사용
+            # 베팅 실행
             bet_success = self.tm.betting_service.place_bet(
                 pick,
                 self.tm.current_room_name,
-                round_number,  # 현재 게임 카운트
+                display_round,  # 현재 표시된 라운드 사용
                 self.tm.is_trading_active,
                 bet_amount
             )
             
             if bet_success:
-                self.logger.info(f"✅ 베팅 성공: {pick}, 금액: {bet_amount:,}원 (라운드 {betting_round}){streak_info}")
+                self.logger.info(f"✅ 베팅 성공: {pick}, 금액: {bet_amount:,}원 (적용 라운드: {actual_betting_round}){streak_info}")
+                
+                # 베팅 서비스에도 실제 적용 라운드 정보 저장
+                if hasattr(self.tm.betting_service, 'last_bet_round'):
+                    self.tm.betting_service.last_bet_round = actual_betting_round
+                
                 self.tm.main_window.update_betting_status(
                     pick=pick, 
                     bet_amount=bet_amount,

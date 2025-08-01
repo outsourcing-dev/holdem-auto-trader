@@ -1,4 +1,4 @@
-# utils/betting_result_tracker.py - 새로운 파일
+# utils/betting_result_tracker.py
 import logging
 import time
 from typing import Optional, Dict, Any
@@ -32,7 +32,7 @@ class BettingResultTracker:
         self.betting_history = []
         self.max_history = 50  # 최대 50개까지 기록
         
-        self.logger.info("베팅 결과 추적기 초기화 완료")
+        self.logger.info("베팅 추적기 초기화 완료")
 
     def start_betting_tracking(self, bet_type: str, round_number: int, bet_amount: int, room_name: str):
         """베팅 추적 시작"""
@@ -62,9 +62,15 @@ class BettingResultTracker:
             if self.status != BettingStatus.WAITING_RESULT:
                 return None
             
-            # 베팅한 라운드 이후의 결과인지 확인
-            if round_number <= self.bet_info.get('round_number', 0):
+            # 베팅한 라운드 확인
+            bet_round = self.bet_info.get('round_number', 0)
+            
+            # 베팅 라운드와 현재 라운드 비교
+            if round_number != bet_round:
+                self.logger.info(f"🔍 라운드 확인: 베팅={bet_round}, 현재={round_number} - 대기 중")
                 return None
+            
+            self.logger.info(f"✅ 베팅 라운드 일치! 결과 처리 시작")
             
             bet_type = self.bet_info.get('bet_type')
             
@@ -87,7 +93,7 @@ class BettingResultTracker:
             
             self.status = BettingStatus.RESULT_CONFIRMED
             
-            self.logger.info(f"🎲 베팅 결과 확인: {bet_type} vs {game_result} = {result.value}")
+            self.logger.info(f"🎲 베팅 결과: {bet_type} vs {game_result} = {result.value}")
             
             # 히스토리에 추가
             self._add_to_history()
@@ -145,8 +151,6 @@ class BettingResultTracker:
             if len(self.betting_history) > self.max_history:
                 self.betting_history = self.betting_history[-self.max_history:]
             
-            self.logger.debug(f"베팅 히스토리 추가: 총 {len(self.betting_history)}개 기록")
-            
         except Exception as e:
             self.logger.error(f"히스토리 추가 오류: {e}")
 
@@ -157,14 +161,11 @@ class BettingResultTracker:
             result = self.result_info.get('betting_result')
             
             if result == BettingResult.WIN:
-                # 승리 시 배당 (일반적으로 1:1)
-                return bet_amount
+                return bet_amount  # 승리 시 배당
             elif result == BettingResult.LOSE:
-                # 패배 시 베팅 금액 손실
-                return -bet_amount
+                return -bet_amount  # 패배 시 손실
             else:  # TIE
-                # 무승부 시 손익 없음
-                return 0
+                return 0  # 무승부 시 손익 없음
                 
         except Exception as e:
             self.logger.error(f"손익 계산 오류: {e}")
@@ -270,33 +271,34 @@ class BettingResultTracker:
     def debug_status(self):
         """디버그용 상태 출력"""
         try:
-            self.logger.info("🔍 베팅 추적기 상태:")
-            self.logger.info(f"  - 현재 상태: {self.status.value}")
-            self.logger.info(f"  - 베팅 정보: {self.bet_info}")
-            self.logger.info(f"  - 결과 정보: {self.result_info}")
-            self.logger.info(f"  - 히스토리 개수: {len(self.betting_history)}")
+            self.logger.info("=" * 50)
+            self.logger.info("베팅 추적기 상태")
+            self.logger.info(f"현재 상태: {self.status.value}")
+            
+            if self.bet_info:
+                self.logger.info(f"베팅 정보: {self.bet_info.get('bet_type')} 라운드{self.bet_info.get('round_number')}")
+            
+            if self.result_info:
+                self.logger.info(f"결과 정보: {self.result_info.get('betting_result')}")
             
             if self.betting_history:
-                win_rate = self.get_win_rate(10)
-                consecutive = self.get_consecutive_results()
-                total_pnl = self.get_total_profit_loss(10)
-                
-                self.logger.info(f"  - 최근 10게임 승률: {win_rate}%")
-                self.logger.info(f"  - 연속 승리: {consecutive['consecutive_wins']}")
-                self.logger.info(f"  - 연속 패배: {consecutive['consecutive_losses']}")
-                self.logger.info(f"  - 최근 10게임 손익: {total_pnl:,}원")
+                stats = self.get_consecutive_results()
+                self.logger.info(f"최근 승률: {self.get_win_rate(10)}%")
+                self.logger.info(f"연속 승/패: 승{stats['consecutive_wins']}/패{stats['consecutive_losses']}")
+            
+            self.logger.info("=" * 50)
             
         except Exception as e:
             self.logger.error(f"디버그 상태 출력 오류: {e}")
             
     def get_pending_bet_info(self):
         """현재 대기 중인 베팅 정보 반환"""
-        if self.pending_bet:
+        if self.is_waiting_for_result():
             return {
-                'type': self.pending_bet['type'],
-                'round': self.pending_bet['round'], 
-                'amount': self.pending_bet['amount'],
-                'waiting_time': time.time() - self.pending_bet['timestamp'],
-                'bet_round': self.pending_bet['round']  # 호환성을 위해 추가
+                'type': self.bet_info.get('bet_type'),
+                'round': self.bet_info.get('round_number'), 
+                'amount': self.bet_info.get('bet_amount'),
+                'waiting_time': time.time() - self.bet_info.get('bet_time', time.time()),
+                'bet_round': self.bet_info.get('round_number')
             }
         return None
