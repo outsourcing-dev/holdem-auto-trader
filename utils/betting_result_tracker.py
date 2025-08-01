@@ -67,7 +67,10 @@ class BettingResultTracker:
             
             # 베팅 라운드와 현재 라운드 비교
             if round_number != bet_round:
-                self.logger.info(f"🔍 라운드 확인: 베팅={bet_round}, 현재={round_number} - 대기 중")
+                if round_number < bet_round:
+                    self.logger.info(f"⏳ 베팅 라운드 아직 미도달: 베팅 대상={bet_round}, 현재 완료={round_number} - 대기 중")
+                else:
+                    self.logger.warning(f"⚠️ 베팅 라운드 놓침: 베팅 대상={bet_round}, 현재 완료={round_number}")
                 return None
             
             self.logger.info(f"✅ 베팅 라운드 일치! 결과 처리 시작")

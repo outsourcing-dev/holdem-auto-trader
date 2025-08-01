@@ -8,6 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.iframe_utils import IframeManager, switch_to_iframe_with_retry
 from utils.unified_server_client import get_server_client
+from utils.common_iframe import IframeNavigator
 
 class RoomEntryService:
     def __init__(self, devtools, main_window, room_manager, logger=None):
@@ -32,8 +33,8 @@ class RoomEntryService:
         # 서버 클라이언트 초기화
         self.server_client = get_server_client()
         
-        # iframe 매니저 초기화
-        self.iframe_manager = None
+        # iframe 네비게이터 초기화 (지연 초기화)
+        self.iframe_navigator = None
         
         # 새로고침 관련 상태 변수
         self.last_refresh_time = 0
@@ -66,8 +67,8 @@ class RoomEntryService:
             
         self.logger.info(f"특정 방 '{room_name}' 입장 시도 시작")
         
-        # iframe 매니저 초기화
-        self.iframe_manager = IframeManager(self.devtools.driver)
+        # iframe 네비게이터 초기화
+        self.iframe_navigator = IframeNavigator(self.devtools.driver, self.logger)
         
         # 카지노 로비로 이동 및 준비
         if not self._prepare_casino_lobby():
@@ -94,13 +95,17 @@ class RoomEntryService:
                 
                 # 재시도 전 대기 및 페이지 상태 복구
                 if attempt < max_retries - 1:
-                    time.sleep(2)
+                    WebDriverWait(self.devtools.driver, 2).until(
+                        lambda d: d.execute_script("return document.readyState") == "complete"
+                    )
                     self._prepare_casino_lobby()
                     
             except Exception as e:
                 self.logger.error(f"방 '{room_name}' 입장 시도 중 오류: {e}", exc_info=True)
                 if attempt < max_retries - 1:
-                    time.sleep(2)
+                    WebDriverWait(self.devtools.driver, 2).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
                     self._prepare_casino_lobby()
         
         self.logger.error(f"방 '{room_name}' 입장 최종 실패 (최대 재시도 횟수 초과)")
@@ -194,8 +199,8 @@ class RoomEntryService:
         max_attempts = 10
         attempts = 0
         
-        # iframe 매니저 초기화
-        self.iframe_manager = IframeManager(self.devtools.driver)
+        # iframe 네비게이터 초기화
+        self.iframe_navigator = IframeNavigator(self.devtools.driver, self.logger)
         self.consecutive_failures = 0
         
         while attempts < max_attempts:
@@ -249,7 +254,9 @@ class RoomEntryService:
                     )
                     return None
                 
-                time.sleep(2)
+                WebDriverWait(self.devtools.driver, 2).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
                 continue
                     
         return None
@@ -279,7 +286,9 @@ class RoomEntryService:
             if len(window_handles) >= 2:
                 # 카지노 로비 창으로 전환
                 self.devtools.driver.switch_to.window(window_handles[1])
-                time.sleep(1)
+                WebDriverWait(self.devtools.driver, 1).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
                 
                 # 새로고침 필요성 판단
                 current_time = time.time()
@@ -291,7 +300,9 @@ class RoomEntryService:
                 if should_refresh:
                     self.logger.info("카지노 로비 페이지 새로고침")
                     self.devtools.driver.refresh()
-                    time.sleep(3)
+                    WebDriverWait(self.devtools.driver, 3).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
                     self.last_refresh_time = current_time
                     self.consecutive_failures = 0
                 
@@ -319,10 +330,14 @@ class RoomEntryService:
                         game_state = self.main_window.trading_manager.game_monitoring_service.get_current_game_state()
                         if game_state:
                             break
-                    time.sleep(1)
+                    WebDriverWait(self.devtools.driver, 1).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
                 except Exception as e:
                     self.logger.warning(f"게임 상태 확인 {i+1}번째 시도 실패: {e}")
-                    time.sleep(1)
+                    WebDriverWait(self.devtools.driver, 1).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
             
             if not game_state:
                 self.logger.warning("게임 상태를 확인할 수 없습니다.")
@@ -417,7 +432,9 @@ class RoomEntryService:
                 self.logger.error(f"방 검색 및 입장 중 오류: {e}")
                 refresh_needed = True
                 if retry_count < max_retries - 1:
-                    time.sleep(2)
+                    WebDriverWait(self.devtools.driver, 2).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
                 else:
                     self.logger.warning(f"최대 시도 횟수 초과로 방 '{room_name}' 입장 실패")
                     return False
@@ -430,35 +447,25 @@ class RoomEntryService:
             current_time = time.time()
             if current_time - self.last_refresh_time > self.refresh_interval:
                 self.devtools.driver.refresh()
-                time.sleep(3)
+                WebDriverWait(self.devtools.driver, 3).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
                 self.last_refresh_time = current_time
         except Exception as e:
             self.logger.warning(f"페이지 새로고침 중 오류: {e}")
 
     def _handle_iframe_navigation(self):
-        """iframe 탐색 및 전환 처리"""
+        """iframe 탐색 및 전환 처리 - IframeNavigator 사용"""
         try:
-            # 기본 프레임으로 전환
-            self.devtools.driver.switch_to.default_content()
+            if not self.iframe_navigator:
+                self.iframe_navigator = IframeNavigator(self.devtools.driver, self.logger)
             
-            # iframe 처리
-            iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
-            
-            if len(iframes) > 0:
-                # 첫 번째 iframe으로 전환
-                self.devtools.driver.switch_to.frame(iframes[0])
-                
-                # 중첩된 iframe 확인
-                nested_iframes = self.devtools.driver.find_elements(By.TAG_NAME, "iframe")
-                
-                if len(nested_iframes) > 0:
-                    # 첫 번째 중첩 iframe으로 전환
-                    self.devtools.driver.switch_to.frame(nested_iframes[0])
-                
+            # 게임 iframe으로 전환 시도
+            if self.iframe_navigator.switch_to_game_iframe():
                 return True
-            else:
-                # 유틸리티 함수 사용
-                return switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2)
+            
+            # 중첩 iframe 시도
+            return self.iframe_navigator.switch_to_nested_iframe("iframe", "iframe")
                 
         except Exception as e:
             self.logger.warning(f"iframe 탐색 중 오류: {e}")
@@ -542,12 +549,16 @@ class RoomEntryService:
     def _switch_to_new_window(self):
         """새 창으로 전환"""
         try:
-            time.sleep(3)  # 새 창 로드 대기
+            WebDriverWait(self.devtools.driver, 3).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )  # 새 창 로드 대기
             new_window_handles = self.devtools.driver.window_handles
             
             if len(new_window_handles) > 1:
                 self.devtools.driver.switch_to.window(new_window_handles[-1])
-                time.sleep(1)
+                WebDriverWait(self.devtools.driver, 1).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
                 return True
             else:
                 self.logger.warning("새 창이 열리지 않았습니다.")

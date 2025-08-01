@@ -9,6 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.iframe_utils import switch_to_iframe_with_retry, find_element_in_iframes
 from utils.trading_manager_helpers import get_widget_position
+from utils.common_iframe import IframeNavigator
 
 class BettingService:
     def __init__(self, devtools, main_window, logger=None):
@@ -17,6 +18,13 @@ class BettingService:
 
         self.devtools = devtools
         self.main_window = main_window
+        
+        # iframe 네비게이터 초기화 (안전한 초기화)
+        try:
+            self.iframe_navigator = IframeNavigator(devtools.driver, self.logger)
+        except Exception as e:
+            self.logger.error(f"IframeNavigator 초기화 실패: {e}")
+            self.iframe_navigator = None
         
         # 베팅 상태 관리
         self.has_bet_current_round = False
@@ -45,36 +53,55 @@ class BettingService:
             self.current_bet_round = game_count
             gc.collect()
 
-            if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=5, max_depth=3):
-                self.logger.error("베팅: iframe 전환 실패, 베팅 진행 불가")
-                return False
+            # IframeNavigator를 사용한 iframe 전환 (fallback 포함)
+            iframe_success = False
+            
+            if self.iframe_navigator:
+                # 메인 iframe 전환 시도
+                if self.iframe_navigator.switch_to_game_iframe():
+                    iframe_success = True
+                else:
+                    # 중첩 iframe 시도
+                    if self.iframe_navigator.switch_to_nested_iframe("iframe", "iframe"):
+                        iframe_success = True
+            
+            # IframeNavigator 실패 시 기존 방식으로 fallback
+            if not iframe_success:
+                self.logger.warning("IframeNavigator 실패, 기존 방식으로 시도")
+                if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2):
+                    self.logger.error("베팅: 모든 iframe 전환 실패, 베팅 진행 불가")
+                    return False
 
             # 베팅 가능한 상태까지 대기
             if not self._wait_for_betting_available():
                 self.logger.warning("베팅 가능 상태 대기 실패")
                 return False
 
-            # 🔥 핵심 수정: 베팅 직전에 최신 게임 상태 확인 및 예측값 재계산
-            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_monitoring_service'):
-                self.logger.info("🔄 베팅 가능 상태에서 최신 게임 데이터 확인")
-                
-                # 현재 게임 상태 다시 파싱 (iframe에서 직접)
-                game_state = self.main_window.trading_manager.game_monitoring_service._parse_game_results_from_iframe(desired_count=None)
-                
-                if game_state:
-                    all_results = game_state.get('filtered_results', [])
-                    self.logger.info(f"📊 베팅 직전 전체 P,B 결과: {len(all_results)}개 - {all_results}")
-                    
-                    # 서버에 최신 데이터로 예측값 재요청
-                    if hasattr(self.main_window.trading_manager, 'server_client'):
-                        room_id = getattr(self.main_window.trading_manager.current_target_room, 'room_id', None) if hasattr(self.main_window.trading_manager, 'current_target_room') else None
-                        
-                        if room_id and all_results:
-                            new_prediction = self.main_window.trading_manager.server_client.get_next_prediction(room_id, all_results)
-                            
-                            if new_prediction and new_prediction in ['P', 'B'] and new_prediction != bet_type:
-                                self.logger.info(f"🔄 예측값 업데이트: {bet_type} → {new_prediction} (베팅 직전 최신 데이터 기반)")
-                                bet_type = new_prediction
+            # 🔥 최적화된 로직: 베팅 가능 상태 즉시 → iframe 파싱 → 서버 요청 → 베팅 실행
+            start_time = time.time()
+            
+            # 1단계: 베팅 가능 상태에서 즉시 iframe에서 15개 결과 추출
+            latest_round_number, latest_results = self._extract_latest_results_fast()
+            
+            if latest_round_number is None or not latest_results:
+                self.logger.warning("빠른 결과 추출 실패 - 기존 정보 사용")
+                latest_round_number = game_count
+                latest_results = []
+            else:
+                if latest_round_number != game_count:
+                    self.logger.info(f"⚡ 라운드 업데이트: {game_count} → {latest_round_number}")
+            
+            # 2단계: 서버에 빠른 예측값 요청 (결과가 충분한 경우만)
+            if len(latest_results) >= 5:
+                room_id = getattr(self.main_window.trading_manager.current_target_room, 'room_id', None) if hasattr(self.main_window.trading_manager, 'current_target_room') else None
+                if room_id and hasattr(self.main_window.trading_manager, 'server_client'):
+                    new_prediction = self.main_window.trading_manager.server_client.get_next_prediction(room_id, latest_results)
+                    if new_prediction and new_prediction in ['P', 'B'] and new_prediction != bet_type:
+                        self.logger.info(f"⚡ 예측값 업데이트: {bet_type} → {new_prediction}")
+                        bet_type = new_prediction
+            
+            elapsed = time.time() - start_time
+            self.logger.info(f"⚡ 베팅 전 처리 완료: {elapsed:.3f}초 (라운드: {latest_round_number}, 결과: {len(latest_results)}개)")
             
             # 위젯 마커 초기화 로직
             if hasattr(self.main_window, 'betting_widget'):
@@ -94,9 +121,9 @@ class BettingService:
             bet_success = self._execute_betting_placement(bet_type, bet_amount)
 
             if bet_success:
-                # 🔥 베팅 결과 추적 시작 (게임 결과 대기)
-                self._start_result_tracking(bet_type, game_count, bet_amount, current_room_name)
-                self._handle_successful_bet(bet_type, game_count, current_room_name)
+                # 🔥 베팅 결과 추적 시작 (최신 라운드 번호 사용)
+                self._start_result_tracking(bet_type, latest_round_number, bet_amount, current_room_name)
+                self._handle_successful_bet(bet_type, latest_round_number, current_room_name)
                 self.has_bet_current_round = True
                 return True
             else:
@@ -171,7 +198,8 @@ class BettingService:
             # 칩 클릭 (선택)
             try:
                 self._safe_click(chip_element, f"{chip_value}원 칩")
-                time.sleep(0.2)
+                # 짧은 대기는 더 효율적인 대기로 교체
+                self.iframe_navigator.wait_for_element(By.TAG_NAME, "body", timeout=0.2)
             except Exception as e:
                 self.logger.error(f"{chip_value}원 칩 클릭 실패: {e}")
                 continue
@@ -194,7 +222,10 @@ class BettingService:
         
         for attempt in range(max_attempts):
             try:
-                time.sleep(1.0)  # 🔥 충분한 대기 시간
+                # 베팅 처리 대기
+                WebDriverWait(self.devtools.driver, 1).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
                 
                 # 방법 1: 베팅 금액 확인
                 current_amount = self._get_current_bet_amount()
@@ -263,12 +294,12 @@ class BettingService:
 
     def _start_result_tracking(self, bet_type, round_number, bet_amount, room_name):
         """베팅 결과 추적 시작 (게임 결과 대기)"""
-        # 🔥 실제 베팅은 다음 라운드에 적용됨
+        # 🔥 올바른 로직: 표시된 라운드는 완료된 라운드, 베팅은 다음 라운드에 적용됨
         actual_bet_round = round_number + 1
         
         self.pending_bet = {
             'type': bet_type,
-            'round': actual_bet_round,  # 🔥 다음 라운드로 설정
+            'round': actual_bet_round,  # 🔥 다음 라운드로 설정 (베팅 대상)
             'amount': bet_amount,
             'room_name': room_name,
             'timestamp': time.time()
@@ -276,8 +307,8 @@ class BettingService:
         self.bet_result_confirmed = False
         self.last_bet_result = None
         
-        self.logger.info(f"🎯 베팅 결과 추적 시작: {bet_type} 라운드 {actual_bet_round} (금액: {bet_amount:,}원)")
-        self.logger.info(f"📍 현재 게임: {round_number}, 베팅 적용: {actual_bet_round}")
+        self.logger.info(f"🎯 베팅 결과 추적 시작: {bet_type} → 라운드 {actual_bet_round} (금액: {bet_amount:,}원)")
+        self.logger.info(f"📍 iframe 표시: {round_number}번째 결과 완료, 베팅 적용: {actual_bet_round}번째 게임")
 
     def check_pending_bet_result(self, current_round, game_result):
         """🔥 대기 중인 베팅의 결과 확인 - 핵심 메서드"""
@@ -317,8 +348,8 @@ class BettingService:
         self.bet_result_confirmed = True
         self.last_bet_result = result_status
         
-        self.logger.info(f"🎲 베팅 결과 확인: {bet_type} vs {game_result} = {result_text}")
-        self.logger.info(f"📍 라운드 {current_round} 결과 확인 완료")
+        self.logger.info(f"🎲 베팅 결과 확정: {bet_type} vs {game_result} = {result_text}")
+        self.logger.info(f"✅ {current_round}번째 게임 결과 매칭 완료")
         
         # UI 업데이트
         if hasattr(self.main_window, 'betting_widget'):
@@ -651,9 +682,9 @@ class BettingService:
         self.last_bet_type = bet_type
         self.last_bet_time = time.time()
         
-        # 🔥 실제 베팅이 적용되는 라운드 계산        
+        # 🔥 올바른 로직: 표시된 라운드는 완료된 라운드, 베팅은 다음 라운드에 적용됨       
         actual_bet_round = game_count + 1
-        self.logger.info(f"[베팅완료] 표시 라운드: {game_count}, 베팅타입: {bet_type}")
+        self.logger.info(f"[베팅완료] 표시된 완료 라운드: {game_count}, 베팅타입: {bet_type}")
         self.logger.info(f"📍 실제 베팅 적용 라운드: {actual_bet_round}")
         self.logger.info(f"⏳ 라운드 {actual_bet_round}의 결과를 대기합니다")
         
@@ -675,7 +706,7 @@ class BettingService:
         # 🔥 베팅 후 대기 상태 설정
         if hasattr(self.main_window, 'trading_manager'):
             self.main_window.trading_manager._is_waiting_for_next_game = True
-            self.logger.info(f"⏳ 다음 게임 결과 대기 모드 설정 (라운드 {actual_bet_round})")
+            self.logger.info(f"⏳ 게임 결과 대기 모드 설정 (라운드 {actual_bet_round})")
             
     def _wait_for_active_chips(self, max_wait=60, interval=1):
         """활성화된 칩이 나타날 때까지 대기"""
@@ -801,3 +832,144 @@ class BettingService:
         self.has_bet_current_round = False
         self.current_bet_round = new_round if new_round is not None else 0
         self.is_betting_in_progress = False  # 🔥 추가
+
+    def _extract_latest_results_fast(self):
+        """⚡ 베팅 가능 상태에서 즉시 iframe에서 최신 결과 추출 (속도 최적화)"""
+        try:
+            start_time = time.time()
+            
+            # 이미 iframe 상태이므로 별도 전환 불필요
+            # 1. 라운드 번호 빠른 추출
+            round_number = self._find_round_number_fast()
+            
+            # 2. P,B 결과 빠른 추출 (15개)
+            results = self._find_game_results_fast(15)
+            
+            elapsed = time.time() - start_time
+            self.logger.info(f"⚡ iframe 빠른 추출: {elapsed:.3f}초 (라운드: {round_number}, 결과: {len(results)}개)")
+            
+            return round_number, results
+            
+        except Exception as e:
+            self.logger.error(f"빠른 결과 추출 오류: {e}")
+            return None, []
+
+    def _find_round_number_fast(self):
+        """⚡ 라운드 번호 빠른 추출"""
+        try:
+            # 우선순위 1: data-role="gameCount" 직접 찾기
+            try:
+                game_count_element = self.devtools.driver.find_element(
+                    By.CSS_SELECTOR, 
+                    'div[data-role="gameCount"]'
+                )
+                if game_count_element:
+                    text = game_count_element.text.strip()
+                    if text.isdigit():
+                        return int(text)
+            except:
+                pass
+            
+            # 우선순위 2: JavaScript로 빠른 찾기
+            try:
+                js_script = """
+                var gameCountEl = document.querySelector('[data-role="gameCount"]');
+                if (gameCountEl && gameCountEl.textContent.trim()) {
+                    var num = parseInt(gameCountEl.textContent.trim());
+                    if (num >= 1 && num <= 200) return num;
+                }
+                return 0;
+                """
+                result = self.devtools.driver.execute_script(js_script)
+                if result and result > 0:
+                    return result
+            except:
+                pass
+            
+            return 0
+            
+        except Exception as e:
+            self.logger.debug(f"빠른 라운드 번호 찾기 오류: {e}")
+            return 0
+
+    def _find_game_results_fast(self, max_count=15):
+        """⚡ P,B 게임 결과 빠른 추출 (Bead Road SVG 최적화)"""
+        try:
+            # JavaScript를 이용한 빠른 SVG 데이터 추출
+            js_script = f"""
+            try {{
+                var results = [];
+                var coordinates = {{}};
+                
+                // Bead Road SVG coordinates 요소들 찾기
+                var svgElements = document.querySelectorAll('svg[data-role="Bead-road"] svg[data-type="coordinates"]');
+                
+                for (var i = 0; i < svgElements.length && results.length < {max_count + 10}; i++) {{
+                    var svg = svgElements[i];
+                    var x = parseInt(svg.getAttribute('data-x'));
+                    var y = parseInt(svg.getAttribute('data-y'));
+                    
+                    if (isNaN(x) || isNaN(y)) continue;
+                    
+                    var result = null;
+                    
+                    // 방법 1: text 요소에서 직접 가져오기
+                    var textEl = svg.querySelector('text');
+                    if (textEl && textEl.textContent.trim()) {{
+                        var text = textEl.textContent.trim().toUpperCase();
+                        if (text === 'P' || text === 'B' || text === 'T') {{
+                            result = text;
+                        }}
+                    }}
+                    
+                    // 방법 2: roadItem name 속성
+                    if (!result) {{
+                        var roadItem = svg.querySelector('svg[data-type="roadItem"]');
+                        if (roadItem) {{
+                            var name = roadItem.getAttribute('name');
+                            if (name) {{
+                                if (name.includes('Player')) result = 'P';
+                                else if (name.includes('Banker')) result = 'B';
+                                else if (name.includes('Tie')) result = 'T';
+                            }}
+                        }}
+                    }}
+                    
+                    if (result) {{
+                        coordinates[x + '_' + y] = {{x: x, y: y, result: result}};
+                    }}
+                }}
+                
+                // 좌표 정렬 후 P,B만 필터링
+                var sortedCoords = Object.values(coordinates).sort((a, b) => {{
+                    if (a.x !== b.x) return a.x - b.x;
+                    return a.y - b.y;
+                }});
+                
+                var pbResults = [];
+                for (var i = 0; i < sortedCoords.length; i++) {{
+                    if (sortedCoords[i].result === 'P' || sortedCoords[i].result === 'B') {{
+                        pbResults.push(sortedCoords[i].result);
+                    }}
+                }}
+                
+                return pbResults.slice(-{max_count}); // 최근 N개만
+                
+            }} catch (e) {{
+                return [];
+            }}
+            """
+            
+            results = self.devtools.driver.execute_script(js_script)
+            
+            if results and isinstance(results, list):
+                pb_results = [r for r in results if r in ['P', 'B']]
+                self.logger.debug(f"⚡ JS 빠른 추출: {len(pb_results)}개 P,B 결과")
+                return pb_results
+            else:
+                self.logger.debug("JS 빠른 추출 실패 - 빈 결과")
+                return []
+                
+        except Exception as e:
+            self.logger.debug(f"빠른 게임 결과 추출 오류: {e}")
+            return []

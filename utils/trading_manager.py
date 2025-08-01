@@ -96,8 +96,28 @@ class TradingManager:
         self._should_move_to_next_room = False
         
     def _init_services(self):
-        """서비스 객체들을 초기화"""
+        """서비스 객체들을 초기화 (지연 초기화로 변경)"""
+        # 서비스들을 None으로 초기화
+        self.betting_service = None
+        self.game_monitoring_service = None
+        self.balance_service = None
+        self.room_entry_service = None
+        self.excel_trading_service = None
+        self.martin_service = None
+        
+        # devtools가 있지만 driver가 없는 경우는 정상적인 초기 상태
+        if self.devtools and hasattr(self.devtools, 'driver') and self.devtools.driver:
+            self._create_services()
+        else:
+            self.logger.info("DevTools driver가 아직 초기화되지 않음 - 서비스 생성 지연")
+    
+    def _create_services(self):
+        """실제 서비스 객체 생성"""
         try:
+            if not self.devtools or not self.devtools.driver:
+                self.logger.warning("DevTools driver가 여전히 None입니다")
+                return False
+                
             self.betting_service = BettingService(
                 devtools=self.devtools, main_window=self.main_window, logger=self.logger)
             self.game_monitoring_service = GameMonitoringService(
@@ -112,20 +132,30 @@ class TradingManager:
             self.martin_service = MartinBettingService(
                 main_window=self.main_window, logger=self.logger)
             
-            self.logger.info("모든 서비스 초기화 완료")
+            self.logger.info(f"모든 서비스 초기화 완료 (driver: {type(self.devtools.driver)})")
+            return True
         except Exception as e:
-            self.logger.error(f"서비스 초기화 오류: {e}", exc_info=True)
+            self.logger.error(f"서비스 생성 오류: {e}", exc_info=True)
+            return False
 
     def start_trading(self):
         """자동 매매 시작 - 핵심 로직만 유지"""
         try:
             self.logger.info("🚀 연패 감지 자동 매매 시작")
             
+            # 서비스가 아직 생성되지 않았다면 생성 시도
+            if self.betting_service is None:
+                self.logger.info("서비스가 아직 초기화되지 않음 - 생성 시도")
+                if not self._create_services():
+                    self.logger.error("서비스 생성 실패 - 자동매매 불가")
+                    QMessageBox.critical(self.main_window, "오류", "서비스 초기화 실패\n브라우저가 실행되었는지 확인하세요.")
+                    return
+            
             if not self.helpers.validate_trading_prerequisites():
                 return
             
             self.refresh_settings()
-            if hasattr(self.balance_service, '_target_amount_reached'):
+            if self.balance_service and hasattr(self.balance_service, '_target_amount_reached'):
                 del self.balance_service._target_amount_reached
             
             self.stop_all_processes = False

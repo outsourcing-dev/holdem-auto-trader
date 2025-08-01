@@ -1,13 +1,11 @@
 import sys
 import os
+import logging
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
-import urllib3
-import logging
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 
 # 로깅 설정
 logging.basicConfig(
@@ -17,10 +15,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
-# 전역 변수
-# temp_excel_path = None
-# backup_path = None
 
 def get_default_style():
     """기본 스타일시트 반환"""
@@ -114,9 +108,6 @@ if __name__ == "__main__":
         sys.stderr = None  # ✅ 에러 메시지도 숨김
 
     try:
-        # 네트워크 풀 설정
-        urllib3.PoolManager(maxsize=10)
-        
         # 애플리케이션 시작
         logging.info("애플리케이션 시작")
         app = MainApp(sys.argv)
@@ -124,5 +115,4 @@ if __name__ == "__main__":
         
     except Exception as e:
         logging.critical(f"애플리케이션 실행 중 치명적 오류: {e}", exc_info=True)
-
         QMessageBox.critical(None, "치명적 오류", f"프로그램 실행 중 오류가 발생했습니다: {str(e)}")

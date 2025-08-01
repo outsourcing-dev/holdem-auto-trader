@@ -4,6 +4,11 @@ from selenium.webdriver.common.by import By
 from modules.game_detector import GameDetector
 import time
 from utils.iframe_utils import switch_to_iframe_with_retry
+from utils.common_iframe import IframeNavigator
+from selenium.webdriver.support.ui import WebDriverWait
+# 분할된 모듈들 import
+from services.game_monitoring.game_state_parser import GameStateParser
+from services.game_monitoring.room_navigation import RoomNavigationManager
 
 class GameMonitoringService:
     """
@@ -19,7 +24,25 @@ class GameMonitoringService:
         self.main_window = main_window
         self.game_detector = GameDetector()
         
-        self.logger.info("GameMonitoringService 초기화 완료")
+        # iframe 네비게이터 초기화 (안전한 초기화)
+        try:
+            if devtools and devtools.driver:
+                self.iframe_navigator = IframeNavigator(devtools.driver, self.logger)
+                # 분할된 모듈들 초기화
+                self.game_state_parser = GameStateParser(devtools, self.logger)
+                self.room_navigation = RoomNavigationManager(devtools, self.logger)
+            else:
+                self.logger.warning("DevTools driver가 None - iframe 네비게이터 초기화 지연")
+                self.iframe_navigator = None
+                self.game_state_parser = None
+                self.room_navigation = None
+        except Exception as e:
+            self.logger.error(f"네비게이터 초기화 실패: {e}")
+            self.iframe_navigator = None
+            self.game_state_parser = None
+            self.room_navigation = None
+        
+        self.logger.info("GameMonitoringService 초기화 완료 (모듈화된 구조)")
 
     def get_current_game_state_with_server_format(self, room_id=None, room_name=None, log_always=True, desired_pb_count=15):
         """
@@ -38,13 +61,12 @@ class GameMonitoringService:
             if log_always:
                 self.logger.info("📊 iframe에서 현재 게임 상태 분석 중...")
             
-            # 기본 프레임으로 전환
-            self.devtools.driver.switch_to.default_content()
-            
-            # iframe 전환 시도
-            if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2):
-                self.logger.warning("iframe 전환 실패")
-                return None
+            # IframeNavigator를 사용한 iframe 전환
+            if not self.iframe_navigator.switch_to_game_iframe():
+                # 중첩 iframe 시도
+                if not self.iframe_navigator.switch_to_nested_iframe("iframe", "iframe"):
+                    self.logger.warning("iframe 전환 실패")
+                    return None
             
             # 직접 iframe에서 게임 결과 파싱
             game_state = self._parse_game_results_from_iframe(desired_pb_count)
@@ -102,14 +124,14 @@ class GameMonitoringService:
             if desired_count and len(game_results) > desired_count:
                 display_results = game_results[-desired_count:]
             
-            # 🔥 현재 진행 중인 게임 번호 계산
+            # 🔥 올바른 로직: round_number는 마지막 완료된 게임 번호, 다음 게임이 베팅 대상
             current_game_number = round_number + 1 if round_number > 0 else 1
             
             # 결과 정리
             if game_results or latest_result or round_number:
                 game_state = {
                     'round': round_number,  # 마지막 완료된 게임 번호
-                    'current_game': current_game_number,  # 🔥 현재 진행 중인 게임 번호
+                    'current_game': current_game_number,  # 🔥 현재 진행 중인 게임 번호 (베팅 대상)
                     'filtered_results': display_results,
                     'all_results': game_results,
                     'latest_result': latest_result or '',
@@ -117,8 +139,8 @@ class GameMonitoringService:
                 }
                 
                 self.logger.info(f"📊 iframe 파싱 결과:")
-                self.logger.info(f"  - 마지막 완료 게임: {round_number}")
-                self.logger.info(f"  - 현재 진행 게임: {current_game_number}")
+                self.logger.info(f"  - 마지막 완료된 게임: {round_number}")
+                self.logger.info(f"  - 현재 진행 중인 게임 (베팅 대상): {current_game_number}")
                 self.logger.info(f"  - 전체 P,B 결과: {len(game_results)}개")
                 self.logger.info(f"  - 최신 결과: {latest_result}")
                 
@@ -697,13 +719,12 @@ class GameMonitoringService:
             if log_always:
                 self.logger.debug("현재 게임 상태 분석 중...")
             
-            # 기본 프레임으로 전환
-            self.devtools.driver.switch_to.default_content()
-            
-            # iframe 전환 시도
-            if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2):
-                self.logger.warning("iframe 전환 실패")
-                return None
+            # IframeNavigator를 사용한 iframe 전환
+            if not self.iframe_navigator.switch_to_game_iframe():
+                # 중첩 iframe 시도
+                if not self.iframe_navigator.switch_to_nested_iframe("iframe", "iframe"):
+                    self.logger.warning("iframe 전환 실패")
+                    return None
             
             # 페이지 소스 가져오기
             try:
@@ -747,7 +768,10 @@ class GameMonitoringService:
             # 종료 버튼 찾기 시도
             if self._try_close_room():
                 self.logger.info("방 종료 버튼 클릭 완료")
-                time.sleep(2)  # 종료 대기
+                # 종료 대기 - 효율적인 대기로 교체
+                WebDriverWait(self.devtools.driver, 2).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
             else:
                 self.logger.warning("방 종료 버튼을 찾을 수 없음")
             

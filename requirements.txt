@@ -4,7 +4,6 @@ undetected-chromedriver  # 자동화 탐지 우회 가능
 websockets  # CDP 프로토콜 통신
 setuptools
 beautifulsoup4
-pandas
 openpyxl
 pywin32
 psutil  # 프로세스 관리에 필요한 라이브러리
@@ -12,4 +11,3 @@ pyinstaller  # exe 파일로 변환
 pycryptodome
 PyQt6-Qt6>=6.6.0
 PyQt6-sip>=13.6.0
-playwright==1.40.0

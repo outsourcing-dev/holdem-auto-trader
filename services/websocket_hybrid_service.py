@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from datetime import datetime
 from utils.unified_server_client import get_server_client
+from utils.common_iframe import IframeNavigator
 
 
 class WebSocketHybridService(QObject):
