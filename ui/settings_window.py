@@ -33,6 +33,7 @@ class SettingsWindow(QWidget):
         site1, site2, site3 = self.settings_manager.get_sites()
         martin_count, martin_amounts = self.settings_manager.get_martin_settings()
         target_amount = self.settings_manager.get_target_amount()
+        min_streak = self.settings_manager.get_min_streak()  # 🔥 최소 연패 조건 로드
         
         # Load Double & Half settings for backward compatibility (but we won't display them)
         double_half_start, double_half_stop = self.settings_manager.get_double_half_settings()
@@ -98,6 +99,35 @@ class SettingsWindow(QWidget):
         
         target_group.setLayout(target_layout)
         main_layout.addWidget(target_group)
+        
+        # 🔥 연패 조건 설정 그룹 추가
+        streak_group = QGroupBox("연패 조건 설정")
+        streak_group.setFont(label_font)
+        streak_layout = QVBoxLayout()
+        
+        # 연패 조건 설명 레이블
+        streak_info_label = QLabel("설정한 연패 수 이상인 방만 검색합니다. (기본값: 3)")
+        streak_info_label.setStyleSheet("color: #555; font-size: 10pt;")
+        streak_layout.addWidget(streak_info_label)
+        
+        # 연패 조건 입력 필드
+        streak_layout_horizontal = QHBoxLayout()
+        self.min_streak_label = QLabel("최소 연패 수:")
+        self.min_streak_label.setFont(label_font)
+        
+        self.min_streak_input = QLineEdit(str(min_streak))
+        self.min_streak_input.setPlaceholderText("예: 3")
+        
+        # 숫자만 입력되도록 설정 (1-10 범위)
+        int_validator = QIntValidator(1, 10)
+        self.min_streak_input.setValidator(int_validator)
+        
+        streak_layout_horizontal.addWidget(self.min_streak_label)
+        streak_layout_horizontal.addWidget(self.min_streak_input)
+        streak_layout.addLayout(streak_layout_horizontal)
+        
+        streak_group.setLayout(streak_layout)
+        main_layout.addWidget(streak_group)
         
         # 마틴 설정 그룹
         martin_group = QGroupBox("마틴 설정")
@@ -387,9 +417,24 @@ class SettingsWindow(QWidget):
             return 0  # 빈 값은 0으로 처리 (비활성화)
         except ValueError:
             return 0  # 변환 오류 시 0으로 처리 (비활성화)
+    
+    def get_min_streak(self):
+        """최소 연패 조건 입력값 가져오기"""
+        try:
+            text = self.min_streak_input.text().strip()
+            if text:
+                value = int(text)
+                # 범위 검증 (1-10)
+                if 1 <= value <= 10:
+                    return value
+                else:
+                    return 3  # 범위 벗어나면 기본값
+            return 3  # 빈 값은 기본값
+        except ValueError:
+            return 3  # 변환 오류 시 기본값
 
     def save_settings(self):
-        """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장하고 다시 로드"""
+        """입력된 사이트 정보와 마틴 설정, 목표 금액, 연패 조건을 JSON 파일에 저장하고 다시 로드"""
         site1 = self.site1_input.text()
         site2 = self.site2_input.text()
         site3 = self.site3_input.text()
@@ -399,6 +444,9 @@ class SettingsWindow(QWidget):
         
         # 목표 금액 가져오기
         target_amount = self.get_target_amount()
+        
+        # 🔥 연패 조건 가져오기
+        min_streak = self.get_min_streak()
         
         # 기존 Double & Half 설정 유지 (for backward compatibility)
         double_half_start, double_half_stop = self.settings_manager.get_double_half_settings()
@@ -410,13 +458,14 @@ class SettingsWindow(QWidget):
             martin_amounts=martin_amounts,
             target_amount=target_amount,
             double_half_start=double_half_start,
-            double_half_stop=double_half_stop
+            double_half_stop=double_half_stop,
+            min_streak=min_streak  # 🔥 연패 조건 저장
         )
         
         # 설정 파일을 명시적으로 다시 로드
         self.settings_manager.load_settings()
         
-        print(f"[INFO] 설정 저장 및 재로드 완료 - 목표 금액: {target_amount:,}원")
+        print(f"[INFO] 설정 저장 및 재로드 완료 - 목표 금액: {target_amount:,}원, 최소 연패: {min_streak}회")
         
         # 부모 창에 있는 설정 관련 클래스들도 새로운 설정 로드
         try:

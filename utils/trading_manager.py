@@ -291,10 +291,13 @@ class TradingManager:
                 self.excel_trading_service.set_martin_amounts(martin_amounts)
             
             if hasattr(self.websocket_manager, 'websocket_service') and self.websocket_manager.websocket_service:
-                streak_threshold = getattr(self.settings_manager, 'streak_threshold', 3)
-                self.websocket_manager.websocket_service.update_streak_threshold(streak_threshold)
+                # 🔥 설정에서 최소 연패 조건 가져오기
+                min_streak = self.settings_manager.get_min_streak()
+                self.websocket_manager.websocket_service.update_streak_threshold(min_streak)
                     
-            self.logger.info(f"설정 새로고침 완료 - 마틴: {martin_count}단계, {martin_amounts}")
+            # 🔥 연패 조건도 로그에 출력
+            min_streak = self.settings_manager.get_min_streak()
+            self.logger.info(f"설정 새로고침 완료 - 마틴: {martin_count}단계, {martin_amounts}, 최소 연패: {min_streak}회")
             return True
         except Exception as e:
             self.logger.error(f"설정 새로고침 오류: {e}")

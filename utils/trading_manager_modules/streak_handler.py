@@ -265,8 +265,9 @@ class StreakHandler:
             
             self.logger.info("🏠 서버에 새로운 연패 방 리스트 요청 중...")
             
-            # 서버에 연패 방 요청 (올바른 메서드명 사용)
-            server_response = self.tm.server_client.find_streak_rooms(user_id="default", min_streak=3)
+            # 서버에 연패 방 요청 (설정된 연패 조건 사용)
+            min_streak = self.tm.settings_manager.get_min_streak() if hasattr(self.tm, 'settings_manager') else 3
+            server_response = self.tm.server_client.find_streak_rooms(user_id="default", min_streak=min_streak)
             
             if server_response and server_response.get('success'):
                 new_streak_rooms = server_response.get('data', {}).get('rooms', [])
@@ -297,8 +298,9 @@ class StreakHandler:
                     
                     for room_data in new_streak_rooms:
                         room_id = room_data.get('room_id')
-                        # 🔥 제외 리스트에 없고 3연패 이상인 방만 추가
-                        if (room_data.get('streak_count', 0) >= 3 and 
+                        # 🔥 제외 리스트에 없고 설정된 연패 이상인 방만 추가
+                        min_streak = self.tm.settings_manager.get_min_streak() if hasattr(self.tm, 'settings_manager') else 3
+                        if (room_data.get('streak_count', 0) >= min_streak and 
                             room_id not in self.tm.excluded_rooms):
                             self.tm.target_streak_rooms.append(room_data)
                         elif room_id in self.tm.excluded_rooms:

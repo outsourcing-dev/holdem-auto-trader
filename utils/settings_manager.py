@@ -41,7 +41,8 @@ class SettingsManager:
                 "martin_amounts": [1000, 2000, 4000],
                 "target_amount": 0,
                 "double_half_start": 20,
-                "double_half_stop": 8
+                "double_half_stop": 8,
+                "min_streak": 3  # 🔥 최소 연패 조건 추가
             }
             return self.settings
         
@@ -61,6 +62,8 @@ class SettingsManager:
                     settings["double_half_start"] = 20
                 if "double_half_stop" not in settings:
                     settings["double_half_stop"] = 8
+                if "min_streak" not in settings:  # 🔥 최소 연패 조건 체크 추가
+                    settings["min_streak"] = 3
                     
                 # 설정 업데이트
                 self.settings = settings
@@ -82,13 +85,14 @@ class SettingsManager:
                 "martin_amounts": [1000, 2000, 4000],
                 "target_amount": 0,
                 "double_half_start": 20,
-                "double_half_stop": 8
+                "double_half_stop": 8,
+                "min_streak": 3  # 🔥 최소 연패 조건 추가
             }
             return self.settings
         
     # 기존 save_settings 메서드 수정
     def save_settings(self, site1, site2, site3, martin_count=3, martin_amounts=None, target_amount=0, 
-                    double_half_start=20, double_half_stop=8):
+                    double_half_start=20, double_half_stop=8, min_streak=3):
         """입력된 사이트 정보와 마틴 설정, 목표 금액을 JSON 파일에 저장"""
         if martin_amounts is None:
             martin_amounts = [1000, 2000, 4000]
@@ -101,7 +105,8 @@ class SettingsManager:
             "martin_amounts": martin_amounts,
             "target_amount": target_amount,
             "double_half_start": double_half_start,
-            "double_half_stop": double_half_stop
+            "double_half_stop": double_half_stop,
+            "min_streak": min_streak  # 🔥 최소 연패 조건 저장
         }
         
         settings_file = get_settings_file_path()
@@ -142,6 +147,10 @@ class SettingsManager:
         print(f"[DEBUG] 최신 목표 금액 설정 로드: {target_amount:,}원")
         
         return target_amount
+    
+    def get_min_streak(self):
+        """최소 연패 조건 반환"""
+        return self.settings.get("min_streak", 3)
     
     # settings_manager.py에 추가할 메서드
     def get_double_half_settings(self):
