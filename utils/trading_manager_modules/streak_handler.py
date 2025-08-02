@@ -1,4 +1,6 @@
 import logging
+import time
+from PyQt6.QtCore import QTimer
 
 
 class StreakHandler:
@@ -111,6 +113,23 @@ class StreakHandler:
                 self.tm.stop_trading()
                 return
             
+            # 🔥 현재 방 정보 즉시 초기화 (모든 베팅 로직 중지를 위해 가장 먼저)
+            self.tm.current_target_room = None
+            self.tm.current_room_name = ""
+            self.logger.info("🔄 방 정보 즉시 초기화 - 모든 베팅 로직 중지")
+            
+            # 🔥 iframe 모니터링 완전 중지 (중요!)
+            if hasattr(self.tm, 'room_entry_handler'):
+                # iframe 타이머 완전 중지
+                if hasattr(self.tm.room_entry_handler, 'iframe_timer') and self.tm.room_entry_handler.iframe_timer:
+                    self.tm.room_entry_handler.iframe_timer.stop()
+                    self.tm.room_entry_handler.iframe_timer = None
+                    self.logger.info("🛑 iframe 타이머 완전 중지")
+                
+                # 추가 안전장치
+                self.tm.room_entry_handler._stop_iframe_monitoring()
+                self.logger.info("🛑 iframe 모니터링 중지")
+            
             # 현재 방에서 나가기
             try:
                 if hasattr(self.tm, 'game_monitoring_service'):
@@ -119,26 +138,74 @@ class StreakHandler:
             except Exception as e:
                 self.logger.debug(f"방 나가기 중 오류 (무시): {e}")
             
-            # 현재 방 정보만 초기화 (연패 방 리스트는 유지)
-            self.tm.current_target_room = None
-            self.tm.current_room_name = ""
+            # 🔥 마틴 실패한 방이면 제외 리스트에 추가
+            current_target_room_backup = self.tm.current_target_room
+            if current_target_room_backup and hasattr(self.tm.main_window, 'betting_widget'):
+                current_pos = self.tm.main_window.betting_widget.room_position_counter
+                martin_stages = len(self.tm.martin_service.martin_amounts) if hasattr(self.tm, 'martin_service') else 7
+                
+                # 마지막 마틴 단계에서 실패한 경우
+                if current_pos >= martin_stages:
+                    room_id = current_target_room_backup.get('room_id')
+                    if room_id:
+                        self.tm.excluded_rooms[room_id] = {
+                            'timestamp': time.time(),
+                            'reason': 'martin_fail'
+                        }
+                        self.logger.info(f"🚫 마틴 실패한 방 제외 리스트에 추가: {room_id} (10분간)")
+            
             
             # 상태 초기화 - 베팅 관련 상태도 모두 초기화
             self.tm.room_entry_in_progress = False
             self.tm.is_entering_room = False
             self.tm.wait_first_result = False
             
-            # 🔥 베팅 상태 완전 초기화
+            # 🔥 위젯 카운터 초기화 (1단계로 리셋)
+            if hasattr(self.tm.main_window, 'betting_widget'):
+                self.tm.main_window.betting_widget.room_position_counter = 0
+                self.tm.main_window.betting_widget.reset_step_markers()
+                self.logger.info("📊 베팅 위젯 1단계로 초기화")
+            
+            # 🔥 마틴 서비스 초기화
+            if hasattr(self.tm, 'martin_service'):
+                self.tm.martin_service.reset()
+                self.logger.info("🎰 마틴 서비스 초기화")
+            
+            # 🔥 베팅 상태 완전 초기화 및 진행 중인 베팅 강제 중지
             if hasattr(self.tm, 'betting_service'):
                 self.tm.betting_service.has_bet_current_round = False
                 self.tm.betting_service.current_bet_round = 0
                 self.tm.betting_service.is_betting_in_progress = False
+                
+                # 🔥 진행 중인 베팅 요청들 강제 취소
+                if hasattr(self.tm.betting_service, '_cancel_all_requests'):
+                    self.tm.betting_service._cancel_all_requests()
+                    self.logger.info("🛑 진행 중인 베팅 요청 모두 취소")
                 
             # 🔥 게임 프로세서 상태 초기화
             if hasattr(self.tm, 'game_processor'):
                 self.tm.game_processor.betting_cooldown = False
                 self.tm.game_processor.consecutive_requests = 0
                 self.tm.game_processor.last_bet_round = 0
+                
+                # 🔥 베팅 타이머 중지
+                if hasattr(self.tm.game_processor, 'betting_timer') and self.tm.game_processor.betting_timer:
+                    self.tm.game_processor.betting_timer.stop()
+                    self.tm.game_processor.betting_timer = None
+                    self.logger.info("🛑 베팅 타이머 중지")
+                
+                # 🔥 요청 상태 초기화
+                if hasattr(self.tm.game_processor, '_is_requesting'):
+                    self.tm.game_processor._is_requesting = False
+                
+                # 🔥 모든 QTimer 강제 중지
+                self._stop_all_qtimers()
+                
+                # 🔥 서버 요청 중단
+                if hasattr(self.tm, 'server_client'):
+                    # 진행 중인 요청이 있으면 중단시킬 수 있는 플래그 설정
+                    self.tm.server_client._cancel_current_requests = True
+                    self.logger.info("🛑 서버 요청 중단 플래그 설정")
                 
                 # 베팅 추적기도 완전 초기화
                 if hasattr(self.tm.game_processor, 'betting_tracker'):
@@ -155,6 +222,11 @@ class StreakHandler:
             if hasattr(self.tm, 'websocket_manager') and hasattr(self.tm.websocket_manager, 'websocket_service'):
                 self.logger.info("📡 로비 웹소켓 모니터링 재개")
                 self.tm.websocket_manager.websocket_service.resume_lobby_monitoring()
+            
+            # 🔥 서버 요청 중단 플래그 해제
+            if hasattr(self.tm, 'server_client'):
+                self.tm.server_client._cancel_current_requests = False
+                self.logger.info("✅ 서버 요청 중단 플래그 해제")
             
             # 🔥 서버에서 새로운 연패 방 즉시 요청 (웹소켓 재개 후)
             self._request_new_streak_rooms()
@@ -200,12 +272,39 @@ class StreakHandler:
                 new_streak_rooms = server_response.get('data', {}).get('rooms', [])
                 
                 if new_streak_rooms and isinstance(new_streak_rooms, list):
-                    # 기존 리스트 초기화 후 새로운 방들 추가
+                    # 🔥 기존 리스트 완전 초기화 후 새로운 방들 추가
                     self.tm.target_streak_rooms = []
+                    self.logger.info("🗑️ 기존 연패 방 리스트 초기화")
+                    
+                    # 🔥 제외 시간 경과한 방들은 제외 리스트에서 제거
+                    current_time = time.time()
+                    expired_rooms = []
+                    for room_id, room_info in self.tm.excluded_rooms.items():
+                        timestamp = room_info.get('timestamp', 0)
+                        reason = room_info.get('reason', 'unknown')
+                        
+                        # 마틴 실패: 10분, 조건 미충족: 5분
+                        timeout = 600 if reason == 'martin_fail' else 300
+                        
+                        if current_time - timestamp > timeout:
+                            expired_rooms.append(room_id)
+                    
+                    for room_id in expired_rooms:
+                        reason = self.tm.excluded_rooms[room_id].get('reason', 'unknown')
+                        del self.tm.excluded_rooms[room_id]
+                        timeout_min = 10 if reason == 'martin_fail' else 5
+                        self.logger.info(f"✅ 제외 시간 경과한 방 복구: {room_id} ({reason}, {timeout_min}분)")
                     
                     for room_data in new_streak_rooms:
-                        if room_data.get('streak_count', 0) >= 3:  # 최소 3연패
+                        room_id = room_data.get('room_id')
+                        # 🔥 제외 리스트에 없고 3연패 이상인 방만 추가
+                        if (room_data.get('streak_count', 0) >= 3 and 
+                            room_id not in self.tm.excluded_rooms):
                             self.tm.target_streak_rooms.append(room_data)
+                        elif room_id in self.tm.excluded_rooms:
+                            reason = self.tm.excluded_rooms[room_id].get('reason', 'unknown')
+                            reason_text = "마틴 실패" if reason == 'martin_fail' else "조건 미충족"
+                            self.logger.info(f"🚫 제외된 방 스킵: {room_data.get('room_name')} ({room_id}, {reason_text})")
                     
                     # 연패 수가 높은 순으로 정렬
                     self.tm.target_streak_rooms.sort(key=lambda x: x.get('streak_count', 0), reverse=True)
@@ -222,13 +321,19 @@ class StreakHandler:
                         self._fallback_to_websocket_monitoring()
                 else:
                     self.logger.warning("서버 응답에 연패 방 데이터 없음")
+                    # 🔥 빈 응답 시에도 기존 리스트 초기화
+                    self.tm.target_streak_rooms = []
                     self._fallback_to_websocket_monitoring()
             else:
-                self.logger.warning("서버 요청 실패 - 웹소켓 모니터링으로 대기")  
+                self.logger.warning("서버 요청 실패 - 웹소켓 모니터링으로 대기")
+                # 🔥 실패 시에도 기존 리스트 초기화
+                self.tm.target_streak_rooms = []
                 self._fallback_to_websocket_monitoring()
                 
         except Exception as e:
             self.logger.error(f"새로운 연패 방 요청 오류: {e}")
+            # 🔥 예외 발생 시에도 기존 리스트 초기화
+            self.tm.target_streak_rooms = []
             # 서버 요청 실패 시 웹소켓 모니터링으로 대체
             self._fallback_to_websocket_monitoring()
 
@@ -237,23 +342,53 @@ class StreakHandler:
         try:
             self.logger.info("🔄 서버 요청 실패 - 웹소켓 모니터링으로 연패 방 감지")
             
-            # 기존 연패 방 리스트 유지 (있는 경우)
-            if self.tm.target_streak_rooms:
-                self.logger.info(f"📋 기존 연패 방 {len(self.tm.target_streak_rooms)}개 유지")
-                
-                # 첫 번째 방으로 입장 시도
-                best_room = self.tm.target_streak_rooms[0]
-                self.logger.info(f"🎯 기존 연패 방으로 입장 시도: {best_room.get('room_name')} ({best_room.get('streak_count')}연패)")
-                self.on_room_entry_requested(best_room)
-            else:
-                # 새로운 연패 방을 웹소켓으로 대기
-                self.tm.main_window.update_betting_status(
-                    room_name="연패 방 웹소켓 감지 중...",
-                    status="서버 연결 대기"
-                )
+            # 🔥 기존 연패 방 리스트 완전 초기화 (방금 나간 방이 포함되어 있을 수 있음)
+            self.tm.target_streak_rooms = []
+            self.logger.info("🗑️ 기존 연패 방 리스트 초기화 - 새로운 방만 감지")
+            
+            # 새로운 연패 방을 웹소켓으로 대기
+            self.tm.main_window.update_betting_status(
+                room_name="연패 방 웹소켓 감지 중...",
+                status="서버 연결 대기"
+            )
                 
         except Exception as e:
             self.logger.error(f"대체 모니터링 설정 오류: {e}")
+    
+    def _stop_all_qtimers(self):
+        """모든 QTimer 강제 중지"""
+        try:
+            # QTimer.singleShot으로 실행된 타이머들은 직접 중지할 수 없지만
+            # 실행될 때 current_target_room이 None이면 실행되지 않도록 이미 처리됨
+            
+            # 혹시 남아있는 타이머들 확인
+            timer_stopped_count = 0
+            
+            # 게임 프로세서의 모든 타이머 중지
+            if hasattr(self.tm, 'game_processor'):
+                for attr_name in dir(self.tm.game_processor):
+                    attr = getattr(self.tm.game_processor, attr_name)
+                    if isinstance(attr, QTimer) and attr.isActive():
+                        attr.stop()
+                        timer_stopped_count += 1
+                        self.logger.info(f"🛑 {attr_name} 타이머 중지")
+            
+            # room_entry_handler의 모든 타이머 중지
+            if hasattr(self.tm, 'room_entry_handler'):
+                for attr_name in dir(self.tm.room_entry_handler):
+                    attr = getattr(self.tm.room_entry_handler, attr_name)
+                    if isinstance(attr, QTimer) and attr.isActive():
+                        attr.stop()
+                        timer_stopped_count += 1
+                        self.logger.info(f"🛑 {attr_name} 타이머 중지")
+            
+            if timer_stopped_count > 0:
+                self.logger.info(f"🛑 총 {timer_stopped_count}개 활성 타이머 중지")
+            else:
+                self.logger.debug("활성화된 타이머 없음")
+                
+        except Exception as e:
+            self.logger.error(f"QTimer 중지 오류: {e}")
             
     def get_streak_room_info(self):
         """연패 방 정보 반환"""

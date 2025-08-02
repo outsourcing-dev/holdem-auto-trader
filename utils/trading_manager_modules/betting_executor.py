@@ -10,7 +10,7 @@ class BettingExecutor:
         self.tm = trading_manager
         self.logger = trading_manager.logger
 
-    def execute_betting(self, pick: str, round_number: int):
+    def execute_betting(self, pick: str, round_number: int, current_game: int = None):
         """베팅 실행 - 최신 상태 재확인 및 추적 통합"""
         try:
             streak_info = ""
@@ -20,12 +20,11 @@ class BettingExecutor:
             
             self.logger.info(f"⚡ 베팅 실행 전 빠른 상태 확인...")
             
-            # 🔥 베팅 서비스의 빠른 추출 로직과 동일하게 처리
-            # (베팅 서비스에서 이미 최적화된 로직을 사용하므로 중복 방지)
-            display_round = round_number  # 전달받은 라운드 번호 사용
-            actual_betting_round = round_number + 1  # 실제 베팅이 적용될 라운드
+            # 🔥 정확한 베팅 라운드 계산
+            display_round = round_number  # 마지막 완료된 라운드
+            actual_betting_round = current_game if current_game else round_number + 1  # 현재 진행 중인 게임 번호 사용
             
-            self.logger.info(f"🎯 베팅 실행: {pick} (표시 라운드: {display_round}, 적용 라운드: {actual_betting_round}){streak_info}")
+            self.logger.info(f"🎯 베팅 실행: {pick} (완료된 라운드: {display_round}, 베팅 대상 라운드: {actual_betting_round}){streak_info}")
             self.logger.info(f"📍 {display_round}번째 결과 완료 → {actual_betting_round}번째 게임에 베팅")
             
             # 베팅 금액 계산

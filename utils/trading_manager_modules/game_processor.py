@@ -88,6 +88,7 @@ class GameProcessor:
         try:
             latest_result = game_data.get('latest_result', '')
             round_number = game_data.get('round_number', 0)
+            current_game = game_data.get('current_game', 0)  # 🔥 현재 진행 중인 게임 번호
             
             # 중복 결과 방지
             result_id = f"{round_number}_{latest_result}"
@@ -97,7 +98,7 @@ class GameProcessor:
             self.tm.processed_rounds.add(result_id)
             self.tm.result_count += 1
             
-            self.logger.info(f"🎯 새로운 게임 결과: 라운드 {round_number}, 결과 {latest_result}")
+            self.logger.info(f"🎯 새로운 게임 결과: 완료된 라운드 {round_number}, 진행 중인 라운드 {current_game}, 결과 {latest_result}")
             
             # 베팅 결과 추적기로 결과 확인
             if self.betting_tracker.is_waiting_for_result():
@@ -114,13 +115,18 @@ class GameProcessor:
                     self.logger.info(f"⏳ 베팅 직후 대기 중: {time_since_bet:.1f}초 경과 (최소 3초 대기)")
                     return
                     
-                # 추가: 베팅한 라운드보다 작거나 같은 라운드 결과는 무시 (과거 결과)
-                if round_number <= bet_round - 1:  # 베팅 전 라운드 결과는 무시
+                # 🔥 베팅한 라운드보다 작은 라운드 결과는 무시 (과거 결과)
+                if round_number < bet_round:
                     self.logger.info(f"📋 과거 라운드 결과 무시: 현재={round_number}, 베팅 대상={bet_round}")
                     return
                 
+                # 🔥 입장 직후 상황 체크 - 베팅 라운드가 현재 진행 중인 게임과 일치하는지 확인
+                if current_game > 0 and bet_round == current_game and round_number == current_game - 1:
+                    self.logger.info(f"⏳ 베팅한 게임({bet_round})이 아직 진행 중 - 다음 결과 대기")
+                    return
+                
                 # 디버깅 로그 추가 - INFO 레벨로 변경
-                self.logger.info(f"🔍 베팅 추적: 베팅 라운드={bet_round}, 현재 라운드={round_number}")
+                self.logger.info(f"🔍 베팅 추적: 베팅 라운드={bet_round}, 완료된 라운드={round_number}, 진행 중인 라운드={current_game}")
                 
                 # 베팅한 라운드의 결과인지 확인
                 if round_number == bet_round:
@@ -185,12 +191,8 @@ class GameProcessor:
                     self.tm.wait_first_result = False
                     self.logger.info(f"첫 결과 수신 - 대기 모드 해제: {latest_result}")
                     
-                    # 타이가 아닌 경우에만 다음 베팅 진행
-                    if latest_result in ['P', 'B']:
-                        # 베팅 쿨다운 적용
-                        self.betting_cooldown = True
-                        QTimer.singleShot(3000, self._reset_betting_cooldown)  # 3초 쿨다운
-                        self._schedule_delayed_betting(game_data)
+                    # 🔥 입장 직후는 추가 대기 (first_bet_after_entry 플래그가 처리함)
+                    self.logger.info("🕐 입장 직후 - 다음 라운드까지 대기")
                 return
             
             # 현재 타겟 방이 없으면 베팅 안함
@@ -262,6 +264,11 @@ class GameProcessor:
     def _request_betting_with_latest_data(self):
         """베팅 가능 상태에서 실시간 최신 데이터로 예측값 요청"""
         try:
+            # 🔥 로비 상태에서는 베팅 로직 실행 안함
+            if not self.tm.current_target_room:
+                self.logger.debug("로비 상태 - 베팅 로직 실행 안함")
+                return
+                
             # 중복 요청 방지
             if hasattr(self, '_is_requesting') and self._is_requesting:
                 return
@@ -378,23 +385,37 @@ class GameProcessor:
             if hasattr(self.tm, 'excel_trading_service'):
                 self.tm.excel_trading_service.record_betting_result(False)
             
-            # 연패 확인
-            if self.betting_tracker.should_change_room():
-                self.logger.info("3연패 감지 - 방 이동")
-                # 상태 초기화
-                self.betting_cooldown = False
-                self.consecutive_requests = 0
-                self.last_bet_round = 0
-                # 새로운 방 검색
-                self.tm.streak_handler.return_to_streak_monitoring()
+            # 🔥 마틴 한계 도달 확인 (마지막 단계 베팅 후 실패)
+            if hasattr(self.tm.main_window, 'betting_widget') and hasattr(self.tm, 'martin_service'):
+                current_pos = self.tm.main_window.betting_widget.room_position_counter
+                martin_stages = len(self.tm.martin_service.martin_amounts)
+                
+                # 현재 위치가 마틴 단계 수에 도달했다면 (마지막 단계 베팅 실패)
+                if current_pos >= martin_stages:
+                    self.logger.info(f"🚨 마틴게일 한계 도달! ({current_pos}/{martin_stages}단계)")
+                    self.logger.info("💸 마지막 마틴 베팅 실패 - 1단계로 초기화하고 방 나가기")
+                    
+                    # 베팅 추적기 초기화
+                    self.betting_tracker.reset_tracking()
+                    
+                    # 상태 초기화
+                    self.betting_cooldown = False
+                    self.consecutive_requests = 0
+                    self.last_bet_round = 0
+                    
+                    # 방 나가고 새로운 방 검색
+                    self.tm.streak_handler.return_to_streak_monitoring()
+                    return
+            
+            # 🔥 마틴게일 전략에서는 연패 확인하지 않음 (마지막 단계에서만 방 이동)
                 
         except Exception as e:
             self.logger.error(f"패배 처리 오류: {e}")
 
     def _handle_tie_result_tracked(self):
-        """무승부 결과 처리"""
+        """무승부 결과 처리 - 마틴 단계 유지"""
         try:
-            self.logger.info("🤝 무승부")
+            self.logger.info("🤝 무승부 - 마틴 단계 유지하고 재베팅")
             
             # 추적 상태 초기화
             self.betting_tracker.reset_tracking()
@@ -403,13 +424,14 @@ class GameProcessor:
             self.tm.betting_service.has_bet_current_round = False
             self.tm.had_tie_last_round = True
             
-            # 타이 후에는 쿨다운 해제
+            # 타이 후에는 쿨다운 해제 (즉시 재베팅 가능)
             self.betting_cooldown = False
             
-            # 위젯에 타이 마커 표시
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
-                self.tm.main_window.betting_widget.set_step_marker(current_pos, "T")
+            # 🔥 마틴게일 단계 유지 (승/패가 아니므로 단계 변경 없음)
+            # excel_trading_service에서 마틴 단계를 유지하도록 별도 처리 불필요
+            
+            # UI에는 승/패가 아니므로 표시하지 않음
+            self.logger.info("📊 TIE - UI 표시 생략 (승/패 아님)")
             
         except Exception as e:
             self.logger.error(f"무승부 처리 오류: {e}")
@@ -425,14 +447,10 @@ class GameProcessor:
         self._handle_tie_result_tracked()
 
     def _check_consecutive_losses(self) -> bool:
-        """연패 확인"""
-        try:
-            if hasattr(self.tm, 'excel_trading_service'):
-                return self.tm.excel_trading_service.should_change_room()
-            return False
-        except Exception as e:
-            self.logger.error(f"연패 확인 오류: {e}")
-            return False
+        """연패 확인 - 마틴게일 전략에서는 사용하지 않음"""
+        # 🔥 마틴게일 전략에서는 연패로 방 이동하지 않음
+        # 마지막 마틴 단계 실패 시에만 방 이동
+        return False
 
     def get_betting_statistics(self) -> dict:
         """베팅 통계 정보 반환"""

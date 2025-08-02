@@ -87,6 +87,8 @@ class TradingManager:
         self.current_target_room = None
         self.is_entering_room = False
         self.room_entry_in_progress = False
+        self.excluded_rooms = {}  # 🔥 제외된 방 리스트 {room_id: {'timestamp': time, 'reason': 'martin_fail|condition_fail'}}
+        self.first_bet_after_entry = False  # 🔥 입장 직후 첫 베팅 플래그
         
         # 기타 상태
         self.wait_first_result = False

@@ -224,19 +224,9 @@ class MartinBettingService:
         Returns:
             bool: 방 이동 필요 여부
         """
-
-        # ✅ 3연패 조건 (2연패에서 3연패로 변경)
-        if hasattr(self, 'recent_results') and len(self.recent_results) >= 3:
-            # 최근 3개 결과가 모두 False(패배)인지 확인
-            recent_three = self.recent_results[-3:]
-            if len(recent_three) == 3 and all(not result for result in recent_three):
-                self.logger.info(f"[마틴] 3연패로 인한 방 이동 필요: {recent_three}")
-                return True
         
-        # 현재 방에서 이미 배팅했는지 확인
-        if self.has_bet_in_current_room:
-            self.logger.info(f"[마틴] 현재 방에서 이미 배팅했으므로 방 이동 필요")
-            return True
+        # 🔥 마틴게일 전략에서는 3연패 조건을 사용하지 않음
+        # 마지막 마틴 단계 실패 시 game_processor에서 직접 처리
         
         # 방 이동 플래그 확인
         if self.need_room_change:

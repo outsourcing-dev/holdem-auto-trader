@@ -102,6 +102,11 @@ class ServerClient:
 
     def get_next_prediction(self, room_id: str, current_results: List[str]) -> Optional[str]:
         """다음 예측값만 반환"""
+        # 🔥 로비 상태에서는 예측값 요청 안함
+        if hasattr(self, '_cancel_current_requests') and self._cancel_current_requests:
+            self.logger.debug("🚫 요청 중단 플래그 설정됨 - 예측값 요청 취소")
+            return None
+        
         payload = {
             "room_id": room_id,
             "current_results": current_results
