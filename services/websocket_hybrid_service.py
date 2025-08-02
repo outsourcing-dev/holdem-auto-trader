@@ -47,7 +47,7 @@ class WebSocketHybridService(QObject):
         self.processed_room_results = set()
         
         # 사용자 설정 연패 기준
-        self.user_streak_threshold = 1  # 기본값
+        self.user_streak_threshold = 3  # 🔥 기본값 3으로 수정
         self.auto_room_entry = True
         self._load_user_settings()
         
@@ -111,8 +111,8 @@ class WebSocketHybridService(QObject):
             from utils.settings_manager import SettingsManager
             settings = SettingsManager()
             
-            # 연패 기준 설정 로드 (기본값 3)
-            self.user_streak_threshold = getattr(settings, 'streak_threshold', 1)
+            # 🔥 연패 기준 설정 로드 - 올바른 메서드 사용
+            self.user_streak_threshold = settings.get_min_streak() if hasattr(settings, 'get_min_streak') else 3
             self.auto_room_entry = getattr(settings, 'auto_room_entry', True)
             
             self.logger.info(f"📋 사용자 설정: 연패 기준 {self.user_streak_threshold}, 자동 입장 {self.auto_room_entry}")
@@ -134,7 +134,7 @@ class WebSocketHybridService(QObject):
         """JavaScript 웹소켓 연결 시작"""
         try:
             self.logger.info(f"🔌 연패 감지 웹소켓 연결 시작")
-            self.logger.info(f"📍 URL: {websocket_url[:100]}...")
+            self.logger.debug(f"📍 URL: {websocket_url[:100]}...")
             
             if not self.devtools or not self.devtools.driver:
                 self.logger.error("DevTools 연결이 없습니다")
@@ -153,13 +153,16 @@ class WebSocketHybridService(QObject):
             
             self.status_check_timer.start(5000)
             self.is_active = True
+            self.is_connected = True  # 🔥 연결 상태 설정
             self.connection_status_changed.emit(True)
             
-            self.logger.info("✅ 연패 감지 웹소켓 연결 성공")
+            # 🔥 통일된 연결 성공 로그
+            self.logger.info(f"🔗 Evolution WebSocket 연결 성공: {websocket_url[:50]}...")
+            self.logger.info(f"📊 연패 감지 시스템 활성화")
             return True
             
         except Exception as e:
-            self.logger.error(f"웹소켓 연결 실패: {e}")
+            self.logger.error(f"❌ 웹소켓 연결 실패: {e}")
             self.error_occurred.emit(f"연결 실패: {str(e)}")
             return False
 
@@ -448,7 +451,7 @@ class WebSocketHybridService(QObject):
     def _send_room_data_to_server(self, room_id: str, room_name: str, game_results: list, round_number: int):
         """서버로 데이터 전송 및 연패 감지 - 통합 클라이언트 사용"""
         try:
-            self.logger.info(f"📡 서버로 데이터 전송: {room_name} ({room_id})")
+            self.logger.debug(f"📡 서버로 데이터 전송: {room_name} ({room_id})")
             
             # 🔥 통합 서버 클라이언트 사용
             result = self.server_client.calculate_streak(room_id, room_name, game_results)
@@ -457,13 +460,13 @@ class WebSocketHybridService(QObject):
                 current_streak = result.get("current_streak", 0)
                 self.sent_to_server_count += 1
                 
-                self.logger.info(f"✅ 서버 전송 성공: {room_name} - {current_streak}연패")
+                self.logger.debug(f"✅ 서버 전송 성공: {room_name} - {current_streak}연패")
                 
                 # 연패 정보 즉시 처리
                 self._process_streak_response(room_id, room_name, current_streak, game_results)
                 
             else:
-                self.logger.warning(f"❌ 서버 전송 실패: {room_name}")
+                self.logger.debug(f"❌ 서버 전송 실패: {room_name}")
                         
         except Exception as e:
             self.logger.error(f"서버 데이터 전송 오류: {e}")
@@ -671,26 +674,51 @@ class WebSocketHybridService(QObject):
             return False
 
     def _check_connection_status(self):
-        """주기적 연결 상태 체크"""
+        """주기적 연결 상태 체크 - 웹소켓 + 서버 통합 체크"""
         try:
+            # 1. 웹소켓 연결 상태 체크
             status_script = """
             const stats = window.wsServerAnalysis || {};
             return {
                 connected: window.gameWebSocket ? window.gameWebSocket.readyState === 1 : false,
                 totalMessages: stats.totalMessages || 0,
                 filteredMessages: stats.filteredMessages || 0,
-                sentToServer: stats.sentToServer || 0
+                sentToServer: stats.sentToServer || 0,
+                url: window.gameWebSocket ? window.gameWebSocket.url : null
             };
             """
             
-            status = self.devtools.driver.execute_script(status_script)
+            ws_status = self.devtools.driver.execute_script(status_script)
             
-            if status:
+            # 2. 서버 연결 상태 체크
+            server_connected = False
+            if self.server_client:
+                try:
+                    server_connected = self.server_client.get_server_status()
+                except Exception as e:
+                    self.logger.debug(f"서버 상태 체크 오류: {e}")
+            
+            if ws_status:
                 was_connected = self.is_connected
-                self.is_connected = status.get('connected', False)
+                ws_connected = ws_status.get('connected', False)
+                self.is_connected = ws_connected
                 
+                # 🔥 상태 변화 시 통일된 로그 출력
                 if was_connected != self.is_connected:
+                    if self.is_connected:
+                        ws_url = ws_status.get('url', 'unknown')
+                        self.logger.info(f"🔗 Evolution WebSocket 연결 성공: {ws_url[:50]}...")
+                        self.logger.info(f"📊 연패 감지 시스템 활성화")
+                    else:
+                        self.logger.warning(f"⚠️ WebSocket 연결 끊어짐")
+                    
                     self.connection_status_changed.emit(self.is_connected)
+                
+                # 🔥 주기적 상태 로그 (디버그 시만)
+                total_msgs = ws_status.get('totalMessages', 0)
+                if total_msgs > 0 and total_msgs % 100 == 0:  # 100개마다
+                    self.logger.debug(f"📊 웹소켓: {'✓' if ws_connected else '✗'}, 서버: {'✓' if server_connected else '✗'}, "
+                                    f"메시지: {total_msgs}, 필터링: {ws_status.get('filteredMessages', 0)}")
                 
         except Exception as e:
             self.logger.debug(f"연결 상태 체크 오류: {e}")

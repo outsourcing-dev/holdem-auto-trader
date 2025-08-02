@@ -50,6 +50,9 @@ class TradingManager:
         
         # 서비스 클래스 초기화
         self._init_services()
+        
+        # 🔥 헬스 체크 타이머
+        self.health_check_timer = None
 
         # 기존 헬퍼 클래스들
         from utils.trading_manager_helpers import TradingManagerHelpers
@@ -177,6 +180,10 @@ class TradingManager:
             self.main_window.update_button_styles()
             
             self.streak_handler.start_streak_monitoring()
+            
+            # 🔥 주기적인 상태 체크 타이머 시작 (30초마다)
+            self._start_health_check_timer()
+            
             self.logger.info("🎯 연패 감지 자동 매매 시작 완료")
 
         except Exception as e:
@@ -190,6 +197,9 @@ class TradingManager:
             return
             
         self.logger.info("🛑 연패 감지 자동 매매 중지 중...")
+        
+        # 🔥 헬스 체크 타이머 중지
+        self._stop_health_check_timer()
         
         self.websocket_manager.stop_websocket_service()
         self._reset_all_states()
@@ -763,6 +773,63 @@ class TradingManager:
         except Exception as e:
             self.logger.error(f"베팅 추적기 초기화 오류: {e}")
             return False
+    
+    def _start_health_check_timer(self):
+        """🔥 헬스 체크 타이머 시작"""
+        try:
+            self.health_check_timer = QTimer()
+            self.health_check_timer.timeout.connect(self._perform_health_check)
+            self.health_check_timer.start(30000)  # 30초마다 체크
+            self.logger.info("🏥 헬스 체크 타이머 시작 (30초 간격)")
+        except Exception as e:
+            self.logger.error(f"헬스 체크 타이머 시작 오류: {e}")
+    
+    def _stop_health_check_timer(self):
+        """🔥 헬스 체크 타이머 중지"""
+        try:
+            if hasattr(self, 'health_check_timer') and self.health_check_timer:
+                self.health_check_timer.stop()
+                self.health_check_timer = None
+                self.logger.info("🏥 헬스 체크 타이머 중지")
+        except Exception as e:
+            self.logger.error(f"헬스 체크 타이머 중지 오류: {e}")
+    
+    def _perform_health_check(self):
+        """🔥 시스템 헬스 체크 수행"""
+        try:
+            if not self.is_trading_active:
+                self._stop_health_check_timer()
+                return
+            
+            # 1. 웹소켓 연결 상태 체크
+            websocket_status = self.get_interceptor_status()
+            if not websocket_status.get('is_intercepting', False):
+                self.logger.warning("⚠️ 웹소켓 연결 끊김 감지 - 재연결 시도")
+                self.websocket_manager.force_reconnect_websocket()
+                return
+            
+            # 2. 서버 연결 상태 체크
+            if not self.server_client.get_server_status():
+                self.logger.warning("⚠️ 서버 연결 끊김 감지")
+                # 서버 연결이 끊겨도 웹소켓 모니터링으로 계속 진행
+            
+            # 3. 장시간 대기 상태 체크 (연패 방이 없는 경우)
+            if (not self.current_target_room and 
+                not self.room_entry_in_progress and 
+                len(self.target_streak_rooms) == 0):
+                
+                self.logger.info("📡 연패 방 대기 중 - 서버 재요청")
+                # 서버에 연패 방 재요청
+                if hasattr(self.streak_handler, '_request_new_streak_rooms'):
+                    self.streak_handler._request_new_streak_rooms()
+            
+            # 4. 현재 상태 로그
+            self.logger.debug(f"🏥 헬스 체크 완료 - 웹소켓: {websocket_status.get('is_intercepting')}, "
+                            f"타겟방: {len(self.target_streak_rooms)}, "
+                            f"현재방: {self.current_room_name or 'None'}")
+            
+        except Exception as e:
+            self.logger.error(f"헬스 체크 오류: {e}")
 
     def __del__(self):
         try:

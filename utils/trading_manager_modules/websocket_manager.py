@@ -144,6 +144,12 @@ class WebSocketManager:
             
             if connected:
                 self.logger.info("✅ 실시간 연패 감지 시작")
+                
+                # 🔥 연결 성공 후 현재 설정값으로 연패 기준 업데이트
+                if hasattr(self.tm, 'settings_manager') and self.websocket_service:
+                    min_streak = self.tm.settings_manager.get_min_streak()
+                    self.websocket_service.update_streak_threshold(min_streak)
+                    self.logger.info(f"🎯 웹소켓 서비스 연패 기준 설정: {min_streak}")
             else:
                 if self.tm.is_trading_active:
                     self.logger.warning("⚠️ 자동 매매 중 연결 끊김")
@@ -157,8 +163,10 @@ class WebSocketManager:
             self.logger.error(f"🚨 연패 감지 웹소켓 오류: {error_message}")
             
             if "connection" in error_message.lower() or "timeout" in error_message.lower():
-                self.logger.warning("심각한 웹소켓 오류로 인한 자동 매매 중지")
-                self.tm.stop_trading()
+                self.logger.warning("🔄 웹소켓 연결 문제 - 재연결 시도")
+                # 🔥 자동 매매 중지 대신 재연결 시도
+                if self.tm.is_trading_active:
+                    self.force_reconnect_websocket()
                 
         except Exception as e:
             self.logger.error(f"웹소켓 오류 처리 중 오류: {e}")
@@ -217,16 +225,52 @@ class WebSocketManager:
             return False
 
     def force_reconnect_websocket(self):
-        """웹소켓 강제 재연결"""
+        """웹소켓 강제 재연결 - URL 재추출 포함"""
         try:
+            self.logger.info("🔄 웹소켓 재연결 및 URL 재추출 시작")
+            
+            # 🔥 기존 연결 완전 정리
             if self.websocket_service:
-                self.logger.info("🔄 웹소켓 강제 재연결 시도")
-                return self.websocket_service.force_reconnect()
-            else:
-                self.logger.warning("재연결할 웹소켓 서비스가 없습니다")
+                self.websocket_service.stop_websocket_connection()
+                self.websocket_service = None
+                self.tm.websocket_interceptor = None
+                self.logger.info("🗑️ 기존 웹소켓 서비스 정리 완료")
+            
+            # 🔥 로비 복귀 확인 대기 (3초)
+            import time
+            time.sleep(3)
+            self.logger.info("⏰ 로비 안정화 대기 완료")
+            
+            # 🔥 새로운 웹소켓 URL 추출
+            new_websocket_urls = self._extract_websocket_urls_for_logging()
+            
+            if not new_websocket_urls:
+                self.logger.error("❌ 새로운 웹소켓 URL 추출 실패")
+                if self.tm.is_trading_active:
+                    from PyQt6.QtCore import QTimer
+                    QTimer.singleShot(10000, self.force_reconnect_websocket)
+                    self.logger.info("⏰ 10초 후 웹소켓 재연결 재시도")
                 return False
+                
+            new_websocket_url = new_websocket_urls[0]
+            self.logger.info(f"📡 새로운 웹소켓 URL 추출 성공: {new_websocket_url[:50]}...")
+            
+            # 🔥 새로운 서비스로 재시작
+            success = self.start_websocket_service()
+            
+            if not success and self.tm.is_trading_active:
+                from PyQt6.QtCore import QTimer
+                QTimer.singleShot(10000, self.force_reconnect_websocket)
+                self.logger.info("⏰ 10초 후 웹소켓 재연결 재시도")
+                
+            return success
+                
         except Exception as e:
-            self.logger.error(f"강제 재연결 오류: {e}")
+            self.logger.error(f"웹소켓 재연결 오류: {e}")
+            if self.tm.is_trading_active:
+                from PyQt6.QtCore import QTimer
+                QTimer.singleShot(10000, self.force_reconnect_websocket)
+                self.logger.info("⏰ 10초 후 웹소켓 재연결 재시도 (오류 발생)")
             return False
 
     def debug_service_status(self):

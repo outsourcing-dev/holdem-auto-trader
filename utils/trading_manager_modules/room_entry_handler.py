@@ -114,24 +114,31 @@ class RoomEntryHandler:
             
             # iframe 모니터링 타이머 생성
             self.iframe_timer = QTimer()
-            self.iframe_timer.timeout.connect(lambda: self._monitor_game_from_iframe(streak_data))
+            self.iframe_timer.timeout.connect(self._monitor_game_from_iframe)  # 🔥 streak_data 제거
             self.iframe_timer.start(2000)  # 2초마다 확인
             
             self.logger.info("📊 iframe 기반 게임 모니터링 시작")
             
             # 첫 번째 체크 즉시 실행
-            QTimer.singleShot(500, lambda: self._monitor_game_from_iframe(streak_data))
+            QTimer.singleShot(500, self._monitor_game_from_iframe)  # 🔥 streak_data 제거
             
         except Exception as e:
             self.logger.error(f"iframe 모니터링 시작 오류: {e}")
 
-    def _monitor_game_from_iframe(self, streak_data: dict):
+    def _monitor_game_from_iframe(self):
         """iframe에서 게임 상태 모니터링 및 베팅 처리"""
         try:
             if not self.tm.is_trading_active or not self.tm.current_target_room:
                 self._stop_iframe_monitoring()
                 return
             
+            # 🔥 현재 타겟 방 정보에서 가져오기
+            streak_data = self.tm.current_target_room
+            if not streak_data:
+                self.logger.debug("현재 타겟 방 정보 없음 - iframe 모니터링 중지")
+                self._stop_iframe_monitoring()
+                return
+                
             room_id = streak_data.get('room_id', '')
             room_name = streak_data.get('room_name', '')
             
@@ -181,6 +188,11 @@ class RoomEntryHandler:
         """베팅 기회 확인 및 실행"""
         try:
             if len(filtered_results) < 10:
+                return
+            
+            # 🔥 현재 타겟 방이 맞는지 다시 확인
+            if not self.tm.current_target_room or self.tm.current_target_room.get('room_id') != room_id:
+                self.logger.debug(f"타겟 방 불일치 - 베팅 취소 (요청: {room_id}, 현재: {self.tm.current_target_room})")
                 return
                 
             # 🔥 입장 직후 첫 베팅인 경우 추가 대기
@@ -234,8 +246,14 @@ class RoomEntryHandler:
         try:
             if hasattr(self, 'iframe_timer') and self.iframe_timer:
                 self.iframe_timer.stop()
+                self.iframe_timer.deleteLater()  # 🔥 타이머 객체 완전 삭제
                 self.iframe_timer = None
                 self.logger.info("🛑 iframe 모니터링 중지")
+                
+            # 🔥 추가 안전장치 - 현재 타겟 방 정보도 클리어
+            if hasattr(self.tm, 'current_target_room'):
+                self.tm.current_target_room = None
+                
         except Exception as e:
             self.logger.error(f"iframe 모니터링 중지 오류: {e}")
 

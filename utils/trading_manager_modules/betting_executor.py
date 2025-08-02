@@ -13,6 +13,11 @@ class BettingExecutor:
     def execute_betting(self, pick: str, round_number: int, current_game: int = None):
         """베팅 실행 - 최신 상태 재확인 및 추적 통합"""
         try:
+            # 🔥 현재 타겟 방이 있는지 먼저 확인
+            if not self.tm.current_target_room:
+                self.logger.debug("현재 타겟 방이 없음 - 베팅 취소")
+                return
+                
             streak_info = ""
             if self.tm.current_target_room:
                 streak_count = self.tm.current_target_room.get('streak_count', 0)

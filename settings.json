@@ -5,10 +5,11 @@
     "martin_count": 3,
     "martin_amounts": [
         10000,
-        15000,
-        20000
+        20000,
+        40000
     ],
     "target_amount": 5000000,
     "double_half_start": 20,
-    "double_half_stop": 8
+    "double_half_stop": 8,
+    "min_streak": 1
 }

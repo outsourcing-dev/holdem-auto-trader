@@ -479,6 +479,16 @@ class SettingsWindow(QWidget):
                     # 추가로 settings_manager 내부의 설정 업데이트
                     if hasattr(obj, 'update_settings') and callable(getattr(obj, 'update_settings')):
                         obj.update_settings()
+            
+            # 🔥 웹소켓 서비스 연패 기준 업데이트
+            if hasattr(self.parent(), 'trading_manager'):
+                tm = getattr(self.parent(), 'trading_manager')
+                if hasattr(tm, 'websocket_manager') and hasattr(tm.websocket_manager, 'websocket_service'):
+                    websocket_service = tm.websocket_manager.websocket_service
+                    if websocket_service and hasattr(websocket_service, 'update_streak_threshold'):
+                        websocket_service.update_streak_threshold(min_streak)
+                        print(f"[INFO] 웹소켓 서비스 연패 기준 업데이트: {min_streak}")
+                        
         except Exception as e:
             print(f"[WARNING] 부모 창 설정 업데이트 오류: {e}")
         

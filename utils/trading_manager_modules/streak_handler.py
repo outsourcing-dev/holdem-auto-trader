@@ -14,8 +14,8 @@ class StreakHandler:
         """연패 모니터링 시작"""
         try:
             self.logger.info("🏠 연패 모니터링 시작")
-            self.tm.main_window.update_betting_status(room_name="연패 방 감지 중...")
-            self.logger.info("✅ 연패 모니터링 활성화")
+            self.tm.main_window.update_betting_status(room_name="연패 방 감지 중...")  # 🔥 통일된 메시지
+            self.logger.info("📡 WebSocket 연결 확인 및 연패 데이터 체크 시작")
         except Exception as e:
             self.logger.error(f"연패 모니터링 시작 오류: {e}")
 
@@ -49,6 +49,11 @@ class StreakHandler:
     def on_room_entry_requested(self, streak_data: dict):
         """방 입장 요청 처리"""
         try:
+            # 🔥 자동 매매가 비활성화되었으면 무시
+            if not self.tm.is_trading_active:
+                self.logger.debug("자동 매매 비활성 - 방 입장 요청 무시")
+                return
+                
             if self.tm.room_entry_in_progress or self.tm.is_entering_room:
                 self.logger.info(f"방 입장이 이미 진행 중입니다. 요청 무시: {streak_data.get('room_name', '')}")
                 return
@@ -140,12 +145,14 @@ class StreakHandler:
             
             # 🔥 마틴 실패한 방이면 제외 리스트에 추가
             current_target_room_backup = self.tm.current_target_room
+            is_martin_fail = False
             if current_target_room_backup and hasattr(self.tm.main_window, 'betting_widget'):
                 current_pos = self.tm.main_window.betting_widget.room_position_counter
                 martin_stages = len(self.tm.martin_service.martin_amounts) if hasattr(self.tm, 'martin_service') else 7
                 
                 # 마지막 마틴 단계에서 실패한 경우
                 if current_pos >= martin_stages:
+                    is_martin_fail = True
                     room_id = current_target_room_backup.get('room_id')
                     if room_id:
                         self.tm.excluded_rooms[room_id] = {
@@ -160,11 +167,16 @@ class StreakHandler:
             self.tm.is_entering_room = False
             self.tm.wait_first_result = False
             
-            # 🔥 위젯 카운터 초기화 (1단계로 리셋)
+            # 🔥 위젯 카운터 초기화 - 마틴 실패 시에만!
             if hasattr(self.tm.main_window, 'betting_widget'):
-                self.tm.main_window.betting_widget.room_position_counter = 0
-                self.tm.main_window.betting_widget.reset_step_markers()
-                self.logger.info("📊 베팅 위젯 1단계로 초기화")
+                if is_martin_fail:
+                    # 마틴 한계 도달로 실패한 경우만 1단계로 리셋
+                    self.tm.main_window.betting_widget.room_position_counter = 0
+                    self.tm.main_window.betting_widget.reset_step_markers()
+                    self.logger.info("📊 베팅 위젯 1단계로 초기화 (마틴 한계 도달)")
+                else:
+                    # 그 외의 경우 (예: 성공)는 현재 상태 유지
+                    self.logger.info("📊 베팅 위젯 현재 상태 유지 (연패 중)")
             
             # 🔥 마틴 서비스 초기화
             if hasattr(self.tm, 'martin_service'):
@@ -214,7 +226,7 @@ class StreakHandler:
             
             # UI 업데이트
             self.tm.main_window.update_betting_status(
-                room_name="새 연패 방 검색 중...",
+                room_name="연패 방 검색 중...",  # 🔥 통일된 메시지
                 status="연속 자동 매매 진행 중"
             )
             
@@ -222,6 +234,12 @@ class StreakHandler:
             if hasattr(self.tm, 'websocket_manager') and hasattr(self.tm.websocket_manager, 'websocket_service'):
                 self.logger.info("📡 로비 웹소켓 모니터링 재개")
                 self.tm.websocket_manager.websocket_service.resume_lobby_monitoring()
+                
+                # 🔥 웹소켓 서비스 연패 기준도 최신 설정으로 업데이트
+                if hasattr(self.tm, 'settings_manager'):
+                    min_streak = self.tm.settings_manager.get_min_streak()
+                    self.tm.websocket_manager.websocket_service.update_streak_threshold(min_streak)
+                    self.logger.info(f"🎯 웹소켓 서비스 연패 기준 업데이트: {min_streak}")
             
             # 🔥 서버 요청 중단 플래그 해제
             if hasattr(self.tm, 'server_client'):
@@ -263,10 +281,14 @@ class StreakHandler:
                 self.logger.warning("서버 클라이언트가 없음 - 연패 방 요청 불가")
                 return
             
+            # 🔥 웹소켓 연결 상태 먼저 체크
+            self._check_websocket_status_before_request()
+            
             self.logger.info("🏠 서버에 새로운 연패 방 리스트 요청 중...")
             
             # 서버에 연패 방 요청 (설정된 연패 조건 사용)
             min_streak = self.tm.settings_manager.get_min_streak() if hasattr(self.tm, 'settings_manager') else 3
+            self.logger.debug(f"📊 연패 조건: {min_streak}연패 이상 방 검색")
             server_response = self.tm.server_client.find_streak_rooms(user_id="default", min_streak=min_streak)
             
             if server_response and server_response.get('success'):
@@ -321,16 +343,22 @@ class StreakHandler:
                     else:
                         self.logger.warning("서버에서 연패 방 없음 - 웹소켓 모니터링으로 대기")
                         self._fallback_to_websocket_monitoring()
+                        # 🔥 5초 후 다시 서버 요청 시도
+                        QTimer.singleShot(5000, self._retry_server_request)
                 else:
                     self.logger.warning("서버 응답에 연패 방 데이터 없음")
                     # 🔥 빈 응답 시에도 기존 리스트 초기화
                     self.tm.target_streak_rooms = []
                     self._fallback_to_websocket_monitoring()
+                    # 🔥 10초 후 다시 서버 요청
+                    QTimer.singleShot(10000, self._retry_server_request)
             else:
                 self.logger.warning("서버 요청 실패 - 웹소켓 모니터링으로 대기")
                 # 🔥 실패 시에도 기존 리스트 초기화
                 self.tm.target_streak_rooms = []
                 self._fallback_to_websocket_monitoring()
+                # 🔥 10초 후 다시 서버 요청
+                QTimer.singleShot(10000, self._retry_server_request)
                 
         except Exception as e:
             self.logger.error(f"새로운 연패 방 요청 오류: {e}")
@@ -338,6 +366,8 @@ class StreakHandler:
             self.tm.target_streak_rooms = []
             # 서버 요청 실패 시 웹소켓 모니터링으로 대체
             self._fallback_to_websocket_monitoring()
+            # 🔥 10초 후 다시 서버 요청
+            QTimer.singleShot(10000, self._retry_server_request)
 
     def _fallback_to_websocket_monitoring(self):
         """서버 요청 실패 시 웹소켓 모니터링으로 대체"""
@@ -348,11 +378,16 @@ class StreakHandler:
             self.tm.target_streak_rooms = []
             self.logger.info("🗑️ 기존 연패 방 리스트 초기화 - 새로운 방만 감지")
             
-            # 새로운 연패 방을 웹소켓으로 대기
+            # 새로운 연패 방을 웹소켓으로 대기 (🔥 통일된 메시지)
             self.tm.main_window.update_betting_status(
-                room_name="연패 방 웹소켓 감지 중...",
+                room_name="연패 방 감지 중...",
                 status="서버 연결 대기"
             )
+            
+            # 🔥 5초 후 다시 서버 요청 예약
+            if self.tm.is_trading_active:
+                QTimer.singleShot(5000, self._retry_server_request)
+                self.logger.info("⏰ 5초 후 서버 재요청 예약")
                 
         except Exception as e:
             self.logger.error(f"대체 모니터링 설정 오류: {e}")
@@ -391,6 +426,38 @@ class StreakHandler:
                 
         except Exception as e:
             self.logger.error(f"QTimer 중지 오류: {e}")
+    
+    def _check_websocket_status_before_request(self):
+        """🔥 서버 요청 전 웹소켓 연결 상태 체크"""
+        try:
+            if hasattr(self.tm, 'websocket_manager') and self.tm.websocket_manager:
+                ws_status = self.tm.websocket_manager.get_interceptor_status()
+                
+                if ws_status.get('is_intercepting', False):
+                    self.logger.debug("📡 WebSocket 연결 상태: 활성")
+                else:
+                    self.logger.warning("⚠️ WebSocket 연결 끊김 - 재연결 시도")
+                    # 웹소켓 재연결 시도
+                    self.tm.websocket_manager.force_reconnect_websocket()
+                    
+        except Exception as e:
+            self.logger.debug(f"웹소켓 상태 체크 오류: {e}")
+    
+    def _retry_server_request(self):
+        """🔥 서버 재요청 시도"""
+        try:
+            if not self.tm.is_trading_active:
+                return
+            
+            # 현재 방에 있지 않은 경우에만 재요청
+            if not self.tm.current_target_room:
+                self.logger.info("🔄 서버 연패 방 재요청 시도")
+                self._request_new_streak_rooms()
+            else:
+                self.logger.debug("현재 방에 있으므로 서버 재요청 건너뛰기")
+                
+        except Exception as e:
+            self.logger.error(f"서버 재요청 오류: {e}")
             
     def get_streak_room_info(self):
         """연패 방 정보 반환"""
