@@ -20,9 +20,9 @@ class GameProcessor:
         self.last_processed_time = 0
         self.min_process_interval = 2.0  # 최소 처리 간격 (초)
         self.last_request_time = 0
-        self.min_request_interval = 5.0  # 최소 요청 간격 (초)
+        self.min_request_interval = 2.0  # 최소 요청 간격 단축 (5초→2초)
         self.consecutive_requests = 0
-        self.max_consecutive_requests = 3  # 최대 연속 요청 수
+        self.max_consecutive_requests = 5  # 최대 연속 요청 증가 (3→5)
         
         # 베팅 관련 상태 추적
         self.last_bet_round = 0
@@ -342,15 +342,13 @@ class GameProcessor:
             self.consecutive_requests = 0
             self.last_bet_round = 0
             
-            # 위젯 초기화
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                self.tm.main_window.betting_widget.room_position_counter = 0
-                self.tm.main_window.betting_widget.reset_step_markers()
-                self.tm.main_window.betting_widget.set_step_marker(0, "O")  # 승리 마커
-            
-            # 마틴 서비스 초기화
+            # 마틴 서비스 승리 후 초기화 (위젯 초기화 포함)
             if hasattr(self.tm, 'martin_service'):
-                self.tm.martin_service.reset()
+                self.tm.martin_service.reset_after_win()
+            
+            # 위젯에 승리 마커 설정 (이미 위에서 초기화됨)
+            if hasattr(self.tm.main_window, 'betting_widget'):
+                self.tm.main_window.betting_widget.set_step_marker(0, "O")  # 승리 마커
             
             # Excel Trading Service에 승리 기록
             if hasattr(self.tm, 'excel_trading_service'):
@@ -395,6 +393,11 @@ class GameProcessor:
                     self.logger.info(f"🚨 마틴게일 한계 도달! ({current_pos}/{martin_stages}단계)")
                     self.logger.info("💸 마지막 마틴 베팅 실패 - 1단계로 초기화하고 방 나가기")
                     
+                    # 🔥 마틴 서비스 완전 초기화 (다음 방에서 1단계부터 시작)
+                    if hasattr(self.tm, 'martin_service'):
+                        self.tm.martin_service.reset()
+                        self.logger.info("✅ 마틴 한계 도달로 마틴 상태 완전 초기화")
+                    
                     # 베팅 추적기 초기화
                     self.betting_tracker.reset_tracking()
                     
@@ -413,25 +416,35 @@ class GameProcessor:
             self.logger.error(f"패배 처리 오류: {e}")
 
     def _handle_tie_result_tracked(self):
-        """무승부 결과 처리 - 마틴 단계 유지"""
+        """무승부 결과 처리 - 마틴 단계 유지하고 재베팅"""
         try:
-            self.logger.info("🤝 무승부 - 마틴 단계 유지하고 재베팅")
+            self.logger.info("🤝 무승부 - 마틴 단계 유지하고 같은 방에서 재베팅")
             
-            # 추적 상태 초기화
+            # 현재 마틴 단계 확인
+            if hasattr(self.tm.main_window, 'betting_widget'):
+                current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
+                self.logger.info(f"🎯 TIE - 현재 마틴 단계 {current_pos + 1}단계 유지")
+            
+            # 추적 상태 초기화 (새로운 베팅을 위해)
             self.betting_tracker.reset_tracking()
             
-            # 베팅 상태 초기화
+            # 베팅 상태 초기화 (재베팅 가능하도록)
             self.tm.betting_service.has_bet_current_round = False
             self.tm.had_tie_last_round = True
             
             # 타이 후에는 쿨다운 해제 (즉시 재베팅 가능)
             self.betting_cooldown = False
             
-            # 🔥 마틴게일 단계 유지 (승/패가 아니므로 단계 변경 없음)
-            # excel_trading_service에서 마틴 단계를 유지하도록 별도 처리 불필요
+            # 🔥 중요: 마틴 단계는 변경하지 않음 (위젯 카운터 유지)
+            # 🔥 같은 방에서 같은 금액, 같은 픽으로 재베팅
+            self.logger.info("📊 TIE - 마틴 단계 유지, 위젯 카운터 변경 없음")
+            self.logger.info("🔄 같은 방에서 같은 금액으로 재베팅 준비")
             
-            # UI에는 승/패가 아니므로 표시하지 않음
-            self.logger.info("📊 TIE - UI 표시 생략 (승/패 아님)")
+            # 마틴 서비스에 TIE 알림 (단계 유지)
+            if hasattr(self.tm, 'martin_service'):
+                self.tm.martin_service.tie_count += 1
+                self.tm.martin_service.need_room_change = False  # 같은 방에서 계속
+                self.logger.info(f"📈 TIE 횟수: {self.tm.martin_service.tie_count}")
             
         except Exception as e:
             self.logger.error(f"무승부 처리 오류: {e}")

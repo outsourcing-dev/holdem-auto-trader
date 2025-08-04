@@ -177,6 +177,21 @@ class ExcelTradingService:
             self.logger.error(f"방 이동 확인 중 오류: {e}")
             return False
     
+    def record_room_final_stats(self, room_name: str, stats: dict):
+        """방 퇴장 시 최종 통계 기록"""
+        try:
+            self.logger.info(f"📊 방 '{room_name}' 최종 통계 기록:")
+            self.logger.info(f"  - 총 베팅: {stats.get('total_bets', 0)}회")
+            self.logger.info(f"  - 승률: {stats.get('win_rate', 0):.1f}%")
+            self.logger.info(f"  - 최대 연승: {stats.get('max_win_streak', 0)}회")
+            self.logger.info(f"  - 최대 연패: {stats.get('max_lose_streak', 0)}회")
+            
+            # 향후 파일 저장 기능 확장 가능
+            # CSV나 Excel 파일로 저장하는 로직을 여기에 추가할 수 있음
+            
+        except Exception as e:
+            self.logger.error(f"방 최종 통계 기록 오류: {e}")
+    
     def reset_after_room_change(self, preserve_martin=False):
         """방 이동 후 초기화"""
         try:

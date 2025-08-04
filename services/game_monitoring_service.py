@@ -108,16 +108,26 @@ class GameMonitoringService:
             dict: 게임 상태 정보
         """
         try:
+            import time
+            total_start = time.time()
             self.logger.info(f"🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 {desired_count}개)")
             
             # 1. 라운드 번호 찾기 (마지막으로 완료된 게임 번호)
+            round_start = time.time()
             round_number = self._find_round_number()
+            self.logger.debug(f"⏱️ 라운드 번호 찾기: {time.time() - round_start:.2f}초")
             
-            # 2. 게임 결과 목록 찾기 (P,B만) - 전체 결과를 먼저 가져옴
-            game_results = self._find_game_results(desired_count=None)
+            # 2. 게임 결과 목록 찾기 (P,B만) - 필요한 개수만 가져오도록 최적화
+            results_start = time.time()
+            # 베팅을 위해서는 최소 10개, UI 표시를 위해서는 desired_count개 필요
+            fetch_count = max(desired_count or 15, 10)
+            game_results = self._find_game_results(desired_count=fetch_count)
+            self.logger.debug(f"⏱️ 게임 결과 찾기: {time.time() - results_start:.2f}초")
             
             # 3. 최신 결과 찾기 (P,B만)
+            latest_start = time.time()
             latest_result = self._find_latest_result()
+            self.logger.debug(f"⏱️ 최신 결과 찾기: {time.time() - latest_start:.2f}초")
             
             # 4. desired_count에 맞게 조정 (UI 표시용)
             display_results = game_results
@@ -138,7 +148,8 @@ class GameMonitoringService:
                     'total_results': len(game_results) if game_results else 0
                 }
                 
-                self.logger.info(f"📊 iframe 파싱 결과:")
+                total_time = time.time() - total_start
+                self.logger.info(f"📊 iframe 파싱 결과 (소요시간: {total_time:.2f}초):")
                 self.logger.info(f"  - 마지막 완료된 게임: {round_number}")
                 self.logger.info(f"  - 현재 진행 중인 게임 (베팅 대상): {current_game_number}")
                 self.logger.info(f"  - 전체 P,B 결과: {len(game_results)}개")

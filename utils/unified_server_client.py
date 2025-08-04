@@ -48,17 +48,32 @@ class ServerClient:
         """공통 요청 처리"""
         url = f"{self.base_url}{endpoint}"
         
+        # timeout 설정 (기본 10초)
+        kwargs.setdefault('timeout', 10)
+        
+        self.logger.info(f"🌐 서버 요청: {method} {url}")
+        if kwargs.get('json'):
+            self.logger.debug(f"📤 요청 데이터: {kwargs.get('json')}")
+        
         try:
             response = self.session.request(method, url, **kwargs)
             
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                self.logger.info(f"✅ 서버 응답 성공: {endpoint}")
+                return result
             else:
-                self.logger.error(f"서버 요청 실패: {response.status_code} - {response.text}")
+                self.logger.error(f"❌ 서버 요청 실패: {response.status_code} - {response.text}")
                 return None
                 
+        except requests.exceptions.Timeout as e:
+            self.logger.error(f"⏱️ 서버 요청 타임아웃: {endpoint} - {e}")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            self.logger.error(f"🔌 서버 연결 실패: {endpoint} - {e}")
+            return None
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"서버 연결 오류: {e}")
+            self.logger.error(f"❌ 서버 요청 오류: {endpoint} - {e}")
             return None
 
     # 기존 서버 API 메서드들 통합
@@ -123,11 +138,30 @@ class ServerClient:
 
     def find_streak_rooms(self, user_id: str = "default", min_streak: int = 3) -> Optional[Dict]:
         """연패 방 검색"""
+        self.logger.info(f"🔍 연패 방 검색 시작 (min_streak={min_streak})")
+        
         response = self._make_request("POST", f"/api/rooms/find-streak?min_streak={min_streak}")
         
-        if response and response.get("status") == "success":
-            rooms = response.get("streak_rooms", [])
+        if response:
+            # 응답 구조 로깅
+            self.logger.info(f"📥 find_streak_rooms 원본 응답: {response}")
+            
+            # 서버가 직접 방 목록을 반환하는 경우
+            if isinstance(response, list):
+                self.logger.info(f"🏠 연패 방 검색 완료: {len(response)}개 발견 (리스트 형태)")
+                # 리스트를 표준 응답 형식으로 변환
+                return {
+                    "success": True,
+                    "data": {
+                        "rooms": response
+                    }
+                }
+            
+            # 표준 응답 형식인 경우
+            rooms = response.get("data", {}).get("rooms", [])
             self.logger.info(f"🏠 연패 방 검색 완료: {len(rooms)}개 발견")
+        else:
+            self.logger.warning("❌ 연패 방 검색 응답 없음")
             
         return response
 

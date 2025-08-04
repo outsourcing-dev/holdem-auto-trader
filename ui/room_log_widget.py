@@ -139,19 +139,25 @@ class RoomLogWidget(QWidget):
             is_win (bool): 승리 여부
             is_tie (bool): 무승부 여부
         """
-        # 마지막으로 기록된 결과 시간 확인 (중복 방지)
+        # 마지막으로 기록된 결과 시간 확인 (중복 방지 - 완화됨)
         current_time = time.time()
-        if hasattr(self, 'last_recorded_time') and current_time - self.last_recorded_time < 1.0:
-            # 1초 이내에 중복 호출되면 무시
+        if hasattr(self, 'last_recorded_time') and current_time - self.last_recorded_time < 0.3:
+            # 0.3초 이내에 중복 호출되면 무시 (기존 1초에서 단축)
             if hasattr(self, 'logger'):
-                self.logger.debug("1초 이내 중복 호출 무시")
+                self.logger.debug("0.3초 이내 중복 호출 무시")
             else:
-                #print("[DEBUG] 1초 이내 중복 호출 무시")
-                pass
+                print("[DEBUG] 0.3초 이내 중복 호출 무시")
             return
             
         # 결과 시간 기록
         self.last_recorded_time = current_time
+        
+        # 🔥 베팅 결과 기록 시작 로그
+        result_type = "승리" if is_win else ("무승부" if is_tie else "패배")
+        if hasattr(self, 'logger'):
+            self.logger.info(f"📝 방 로그 기록 시작: {room_name} - {result_type}")
+        else:
+            print(f"[LOG] 방 로그 기록 시작: {room_name} - {result_type}")
         
         # 현재 로그 항목 없으면 생성 (중요: 항상 확인하고 필요시 생성)
         if not hasattr(self, 'current_room_name') or self.current_room_name != room_name:
@@ -276,6 +282,20 @@ class RoomLogWidget(QWidget):
             self.log_table.setItem(row, 4, success_rate_item)
         
         self.log_table.setVerticalHeaderLabels([str(i) for i in range(total_rooms, 0, -1)])
+        
+        # 🔥 강제 UI 업데이트 및 새로고침
+        self.log_table.repaint()
+        self.log_table.update()
+        
+        # 애플리케이션 이벤트 처리
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+        
+        # 디버깅 로그
+        if hasattr(self, 'logger'):
+            self.logger.debug(f"방 로그 테이블 업데이트 완료: {total_rooms}개 방")
+        else:
+            print(f"[DEBUG] 방 로그 테이블 업데이트 완료: {total_rooms}개 방")
 
     def get_room_log(self, visit_id):
         """특정 방문의 로그 데이터 반환"""
@@ -363,8 +383,28 @@ class RoomLogWidget(QWidget):
             self.win_count_label.setText(str(self.total_win_count))
             self.lose_count_label.setText(str(self.total_lose_count))
             
-            # 테이블 업데이트
-            self.update_table()
+            # 🔥 스레드 안전한 테이블 업데이트
+            from PyQt6.QtCore import QMetaObject, Qt
+            from PyQt6.QtWidgets import QApplication
+            
+            def update_ui():
+                try:
+                    self.update_table()
+                    # 추가 강제 새로고침
+                    self.repaint()
+                    self.update()
+                    QApplication.processEvents()
+                except Exception as e:
+                    if hasattr(self, 'logger'):
+                        self.logger.error(f"테이블 UI 업데이트 오류: {e}")
+                    else:
+                        print(f"[ERROR] 테이블 UI 업데이트 오류: {e}")
+            
+            # 메인 스레드에서 실행되도록 보장
+            if hasattr(self, 'parent') and self.parent():
+                QMetaObject.invokeMethod(self.parent(), update_ui, Qt.ConnectionType.QueuedConnection)
+            else:
+                update_ui()  # 직접 호출
             
             # 디버그 로그
             new_win = self.room_logs[self.current_visit_id]['win']
@@ -417,3 +457,35 @@ class RoomLogWidget(QWidget):
             return False
             
         return True
+
+    def update_room_stats(self, room_name: str, stats: dict):
+        """방 퇴장 시 최종 통계 업데이트"""
+        try:
+            if hasattr(self, 'logger'):
+                self.logger.info(f"📊 방 로그 위젯에 '{room_name}' 최종 통계 업데이트")
+            
+            visit_id = self.create_new_visit_id(room_name)
+            
+            if visit_id in self.room_logs:
+                # 기존 데이터 업데이트
+                self.room_logs[visit_id].update({
+                    'wins': stats.get('wins', 0),
+                    'losses': stats.get('losses', 0),
+                    'ties': stats.get('ties', 0),
+                    'win_rate': stats.get('win_rate', 0.0),
+                    'max_win_streak': stats.get('max_win_streak', 0),
+                    'max_lose_streak': stats.get('max_lose_streak', 0)
+                })
+                
+                # UI 테이블 업데이트
+                if hasattr(self, 'update_table'):
+                    self.update_table()
+                
+                if hasattr(self, 'logger'):
+                    self.logger.info(f"✅ 방 '{room_name}' 최종 통계 UI 업데이트 완료")
+            
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.error(f"방 통계 업데이트 오류: {e}")
+            else:
+                print(f"방 통계 업데이트 오류: {e}")

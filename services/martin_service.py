@@ -245,7 +245,13 @@ class MartinBettingService:
             self.recent_results = []
             self.logger.info("[마틴] 새 방 입장으로 recent_results 초기화")
         
-        self.logger.info("[마틴] 새 방 입장으로 방 배팅 상태 초기화")
+        # 🔥 새 방 입장 시 위젯 카운터도 0으로 초기화 (마틴 1단계부터 시작)
+        if hasattr(self.main_window, 'betting_widget'):
+            self.main_window.betting_widget.room_position_counter = 0
+            self.main_window.betting_widget.reset_step_markers()
+            self.logger.info("[마틴] 새 방 입장으로 위젯 카운터도 0으로 초기화")
+        
+        self.logger.info("[마틴] 새 방 입장으로 방 배팅 상태 초기화 - 1단계부터 시작")
 
     def reset(self):
         """마틴 베팅 상태를 완전히 초기화합니다."""
@@ -341,3 +347,52 @@ class MartinBettingService:
 
                 if hasattr(self.main_window.betting_widget, 'update_reverse_mode'):
                     self.main_window.betting_widget.update_reverse_mode(self.current_direction == 'reverse')
+
+    def reset_after_win(self):
+        """승리 후 마틴 상태 초기화 - 검증 로직 포함"""
+        try:
+            self.logger.info("[마틴] 승리 후 마틴 상태 초기화 시작")
+            
+            # 마틴 상태 초기화
+            self.consecutive_losses = 0
+            self.current_step = 0
+            self.need_room_change = True
+            self.has_bet_in_current_room = True
+            
+            # 위젯 카운터 강제 0으로 초기화 (검증 포함)
+            if hasattr(self.main_window, 'betting_widget'):
+                widget = self.main_window.betting_widget
+                
+                # prevent_reset 플래그 해제
+                widget.prevent_reset = False
+                
+                # 위젯 카운터 초기화
+                widget.room_position_counter = 0
+                widget.reset_step_markers()
+                
+                # 초기화 검증
+                if widget.room_position_counter != 0:
+                    self.logger.error(f"🚨 위젯 카운터 초기화 실패! 현재 값: {widget.room_position_counter}")
+                    widget.room_position_counter = 0  # 재시도
+                    self.logger.info("🔄 위젯 카운터 재초기화 완료")
+                else:
+                    self.logger.info("✅ 위젯 카운터 정상 초기화 (0)")
+            
+            # 현재 베팅 금액 확인 (디버깅용)
+            current_bet = self.get_current_bet_amount()
+            self.logger.info(f"🎯 초기화 후 다음 베팅 금액: {current_bet:,}원 (1단계)")
+            
+            self.logger.info("[마틴] 승리 후 마틴 상태 완전 초기화 완료 - 다음 방에서 1단계부터 시작")
+            
+        except Exception as e:
+            self.logger.error(f"승리 후 마틴 초기화 오류: {e}")
+            # 강제로라도 위젯 카운터는 0으로 설정
+            if hasattr(self.main_window, 'betting_widget'):
+                self.main_window.betting_widget.room_position_counter = 0
+                self.logger.info("🚨 예외 발생으로 위젯 카운터 강제 초기화")
+
+    def record_loss(self):
+        """패배 기록"""
+        self.consecutive_losses += 1
+        self.lose_count += 1
+        self.logger.info(f"[마틴] 패배 기록 - 연속 패배: {self.consecutive_losses}회")

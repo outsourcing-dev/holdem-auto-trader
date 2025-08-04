@@ -33,6 +33,11 @@ class RoomEntryHandler:
             if success:
                 self.logger.info(f"✅ 방 입장 성공: {room_name}")
                 
+                # 🔥 새 방 입장 시 마틴 상태 초기화 (1단계부터 시작)
+                if hasattr(self.tm, 'martin_service'):
+                    self.tm.martin_service.reset_room_bet_status()
+                    self.logger.info("✅ 새 방 입장으로 마틴 상태 초기화 - 1단계부터 시작")
+                
                 # 3. 방 로딩 대기
                 time.sleep(3)
                 
@@ -115,7 +120,7 @@ class RoomEntryHandler:
             # iframe 모니터링 타이머 생성
             self.iframe_timer = QTimer()
             self.iframe_timer.timeout.connect(self._monitor_game_from_iframe)  # 🔥 streak_data 제거
-            self.iframe_timer.start(2000)  # 2초마다 확인
+            self.iframe_timer.start(1000)  # 1초마다 확인 (베팅 타이밍 개선)
             
             self.logger.info("📊 iframe 기반 게임 모니터링 시작")
             
@@ -157,6 +162,20 @@ class RoomEntryHandler:
             current_game = game_state.get('current_game', 0)  # 🔥 현재 진행 중인 게임 번호
             latest_result = game_state.get('latest_result', '')
             filtered_results = game_state.get('filtered_results', [])
+            
+            # 🚨 게임수 0 초기화 감지 및 처리
+            if hasattr(self.tm, 'game_count') and self.tm.game_count > 0 and current_round == 0:
+                self.logger.warning(f"🚨 게임수 초기화 감지! 이전 게임수: {self.tm.game_count} → 현재: {current_round}")
+                self.logger.warning(f"🚨 방 '{room_name}' 데이터 오류로 인한 방 나가기 처리")
+                
+                # 방 로그에 기록
+                if hasattr(self.tm.main_window, 'room_log_widget'):
+                    self.tm.main_window.room_log_widget.add_bet_result(room_name, False, False)
+                    self.logger.info(f"📝 방 '{room_name}' 게임수 초기화 오류를 방 로그에 기록")
+                
+                # 방 나가기 처리
+                self.tm.streak_handler.return_to_streak_monitoring()
+                return
             
             # 새로운 라운드 감지
             if current_round > self.tm.game_count:
@@ -202,8 +221,16 @@ class RoomEntryHandler:
                     self.tm.first_bet_after_entry = False
                     return
                     
+            # 🚀 베팅 가능 상태 빠른 확인
+            start_time = time.time()
+            self.logger.debug(f"⚡ 베팅 기회 확인 시작")
+                    
             # 서버에 예측값 요청
             next_pick = self.tm.server_client.get_next_prediction(room_id, filtered_results)
+            
+            # 예측값 요청 소요 시간 측정
+            elapsed_time = time.time() - start_time
+            self.logger.info(f"⏱️ 예측값 요청 소요 시간: {elapsed_time:.2f}초")
             
             if next_pick in ['P', 'B']:
                 self.logger.info(f"🎯 서버 예측값: {next_pick}")
@@ -213,6 +240,10 @@ class RoomEntryHandler:
                 
                 # 베팅 실행
                 self.tm.betting_executor.execute_betting(next_pick, current_round, betting_round)
+                
+                # 전체 베팅 프로세스 소요 시간
+                total_time = time.time() - start_time
+                self.logger.info(f"⏱️ 전체 베팅 프로세스 소요 시간: {total_time:.2f}초")
             else:
                 self.logger.info(f"⏭️ 베팅 스킵: {next_pick}")
                 
