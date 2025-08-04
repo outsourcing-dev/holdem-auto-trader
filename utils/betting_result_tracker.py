@@ -32,6 +32,15 @@ class BettingResultTracker:
         self.betting_history = []
         self.max_history = 50  # 최대 50개까지 기록
         
+        # 통계 속성 추가
+        self.total_bets = 0
+        self.wins = 0
+        self.losses = 0
+        self.ties = 0
+        self.current_streak = 0  # 현재 연승/연패 (양수: 연승, 음수: 연패)
+        self.max_win_streak = 0
+        self.max_lose_streak = 0
+        
         self.logger.info("베팅 추적기 초기화 완료")
 
     def start_betting_tracking(self, bet_type: str, round_number: int, bet_amount: int, room_name: str):
@@ -49,6 +58,9 @@ class BettingResultTracker:
             
             self.status = BettingStatus.WAITING_RESULT
             self.result_info = {}
+            
+            # 총 베팅 수 증가
+            self.total_bets += 1
             
             self.logger.info(f"🎯 베팅 추적 시작: {bet_type} 라운드{round_number} {bet_amount:,}원")
             
@@ -84,6 +96,9 @@ class BettingResultTracker:
                 result = BettingResult.WIN
             else:
                 result = BettingResult.LOSE
+            
+            # 통계 업데이트
+            self._update_statistics(result)
             
             # 결과 정보 저장
             self.result_info = {
@@ -126,6 +141,34 @@ class BettingResultTracker:
     def get_bet_type(self) -> Optional[str]:
         """베팅한 타입 반환"""
         return self.bet_info.get('bet_type')
+
+    def _update_statistics(self, result: BettingResult):
+        """통계 업데이트"""
+        try:
+            if result == BettingResult.WIN:
+                self.wins += 1
+                # 연승 업데이트
+                if self.current_streak >= 0:
+                    self.current_streak += 1
+                else:
+                    self.current_streak = 1  # 연패에서 연승으로 전환
+                self.max_win_streak = max(self.max_win_streak, self.current_streak)
+                
+            elif result == BettingResult.LOSE:
+                self.losses += 1
+                # 연패 업데이트
+                if self.current_streak <= 0:
+                    self.current_streak -= 1
+                else:
+                    self.current_streak = -1  # 연승에서 연패로 전환
+                self.max_lose_streak = max(self.max_lose_streak, abs(self.current_streak))
+                
+            elif result == BettingResult.TIE:
+                self.ties += 1
+                # TIE는 연승/연패 카운트에 영향 없음
+                
+        except Exception as e:
+            self.logger.error(f"통계 업데이트 오류: {e}")
 
     def reset_tracking(self):
         """추적 상태 초기화"""
@@ -293,6 +336,22 @@ class BettingResultTracker:
             
         except Exception as e:
             self.logger.error(f"디버그 상태 출력 오류: {e}")
+            
+    def reset_room_statistics(self):
+        """새 방 입장 시 방별 통계 초기화"""
+        try:
+            self.total_bets = 0
+            self.wins = 0
+            self.losses = 0
+            self.ties = 0
+            self.current_streak = 0
+            self.max_win_streak = 0
+            self.max_lose_streak = 0
+            
+            self.logger.info("방별 통계 초기화 완료")
+            
+        except Exception as e:
+            self.logger.error(f"방별 통계 초기화 오류: {e}")
             
     def get_pending_bet_info(self):
         """현재 대기 중인 베팅 정보 반환"""

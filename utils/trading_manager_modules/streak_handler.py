@@ -363,8 +363,13 @@ class StreakHandler:
                         timestamp = room_info.get('timestamp', 0)
                         reason = room_info.get('reason', 'unknown')
                         
-                        # 마틴 실패: 10분, 조건 미충족: 5분
-                        timeout = 600 if reason == 'martin_fail' else 300
+                        # 마틴 실패: 10분, 입장 실패: 10분, 조건 미충족: 5분
+                        if reason == 'martin_fail':
+                            timeout = 600  # 10분
+                        elif reason == 'entry_fail':
+                            timeout = 600  # 10분
+                        else:  # condition_fail
+                            timeout = 300  # 5분
                         
                         if current_time - timestamp > timeout:
                             expired_rooms.append(room_id)
@@ -372,7 +377,12 @@ class StreakHandler:
                     for room_id in expired_rooms:
                         reason = self.tm.excluded_rooms[room_id].get('reason', 'unknown')
                         del self.tm.excluded_rooms[room_id]
-                        timeout_min = 10 if reason == 'martin_fail' else 5
+                        if reason == 'martin_fail':
+                            timeout_min = 10
+                        elif reason == 'entry_fail':
+                            timeout_min = 10
+                        else:  # condition_fail
+                            timeout_min = 5
                         self.logger.info(f"✅ 제외 시간 경과한 방 복구: {room_id} ({reason}, {timeout_min}분)")
                     
                     for room_data in new_streak_rooms:
@@ -384,7 +394,12 @@ class StreakHandler:
                             self.tm.target_streak_rooms.append(room_data)
                         elif room_id in self.tm.excluded_rooms:
                             reason = self.tm.excluded_rooms[room_id].get('reason', 'unknown')
-                            reason_text = "마틴 실패" if reason == 'martin_fail' else "조건 미충족"
+                            if reason == 'martin_fail':
+                                reason_text = "마틴 실패"
+                            elif reason == 'entry_fail':
+                                reason_text = "입장 실패"
+                            else:  # condition_fail
+                                reason_text = "조건 미충족"
                             self.logger.info(f"🚫 제외된 방 스킵: {room_data.get('room_name')} ({room_id}, {reason_text})")
                     
                     # 연패 수가 높은 순으로 정렬

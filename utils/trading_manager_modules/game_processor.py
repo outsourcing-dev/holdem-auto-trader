@@ -20,7 +20,7 @@ class GameProcessor:
         self.last_processed_time = 0
         self.min_process_interval = 2.0  # 최소 처리 간격 (초)
         self.last_request_time = 0
-        self.min_request_interval = 2.0  # 최소 요청 간격 단축 (5초→2초)
+        self.min_request_interval = 1.0  # 최소 요청 간격 단축 (2초→1초)
         self.consecutive_requests = 0
         self.max_consecutive_requests = 5  # 최대 연속 요청 증가 (3→5)
         
@@ -178,10 +178,12 @@ class GameProcessor:
             
             # 이미 베팅했으면 베팅 안함
             if hasattr(self.tm.betting_service, 'has_bet_current_round') and self.tm.betting_service.has_bet_current_round:
+                self.logger.debug("🎯 이미 현재 라운드 베팅함 - 건너뜀")
                 return
             
             # 베팅 추적기가 결과 대기 중이면 베팅 안함
             if self.betting_tracker.is_waiting_for_result():
+                self.logger.debug("⏳ 베팅 결과 대기 중 - 건너뜀")
                 return
             
             # 첫 결과 대기 중 처리
@@ -208,7 +210,7 @@ class GameProcessor:
             self._schedule_delayed_betting(game_data)
             
             # 쿨다운 해제 타이머
-            QTimer.singleShot(8000, self._reset_betting_cooldown)  # 8초 쿨다운
+            QTimer.singleShot(3000, self._reset_betting_cooldown)  # 8초→3초로 단축
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
@@ -224,7 +226,7 @@ class GameProcessor:
             self.betting_timer = QTimer()
             self.betting_timer.setSingleShot(True)
             self.betting_timer.timeout.connect(lambda: self._execute_delayed_betting(game_data))
-            self.betting_timer.start(2000)  # 2초 후 실행
+            self.betting_timer.start(500)  # 2초→0.5초로 단축
             
         except Exception as e:
             self.logger.error(f"지연 베팅 스케줄링 오류: {e}")
@@ -301,8 +303,13 @@ class GameProcessor:
                     return
                 
                 # 서버에 예측값 요청
+                self.logger.info(f"🔮 게임프로세서 예측값 요청:")
+                self.logger.info(f"  - 방 ID: {room_id}")
+                self.logger.info(f"  - 결과 개수: {len(current_results)}개") 
+                self.logger.info(f"  - 현재 결과: {current_results}")
+                
                 next_pick = self.tm.server_client.get_next_prediction(room_id, current_results)
-                self.logger.info(f"🎯 서버 예측 결과: {next_pick}")
+                self.logger.info(f"🎯 게임프로세서 서버 예측 결과: {next_pick}")
                 
                 # 유효한 예측값이면 베팅 실행
                 if next_pick in ['P', 'B']:
@@ -314,10 +321,7 @@ class GameProcessor:
                     
                     self.last_bet_round = round_number
                     
-                    # 잠시 대기 후 베팅
-                    time.sleep(1)
-                    
-                    # 베팅 실행
+                    # ⚡ 즉시 베팅 실행 (대기 시간 제거)
                     self.tm.betting_executor.execute_betting(next_pick, round_number)
                 else:
                     self.logger.info(f"베팅 안함: {next_pick}")
@@ -353,6 +357,17 @@ class GameProcessor:
             # Excel Trading Service에 승리 기록
             if hasattr(self.tm, 'excel_trading_service'):
                 self.tm.excel_trading_service.record_betting_result(True)
+            
+            # 방 로그에 승리 기록 (오류가 있어도 방 나가기는 계속 진행)
+            try:
+                if hasattr(self.tm.main_window, 'room_log_widget') and self.tm.current_room_name:
+                    self.tm.main_window.room_log_widget.add_bet_result(self.tm.current_room_name, True, False)
+                    self.logger.info(f"📝 방 로그에 승리 기록: {self.tm.current_room_name}")
+            except Exception as log_error:
+                self.logger.error(f"방 로그 기록 중 오류 (계속 진행): {log_error}")
+            
+            # 🔥 승리 시에만 방 나가기 (TIE는 방을 나가지 않음)
+            self.logger.info("✅ 승리로 인한 방 나가기 - 새로운 연패방 검색")
             
             # 현재 방 정보 초기화
             self.tm.current_target_room = None
@@ -393,6 +408,14 @@ class GameProcessor:
                     self.logger.info(f"🚨 마틴게일 한계 도달! ({current_pos}/{martin_stages}단계)")
                     self.logger.info("💸 마지막 마틴 베팅 실패 - 1단계로 초기화하고 방 나가기")
                     
+                    # 방 로그에 패배 기록 (마틴 한계 도달)
+                    try:
+                        if hasattr(self.tm.main_window, 'room_log_widget') and self.tm.current_room_name:
+                            self.tm.main_window.room_log_widget.add_bet_result(self.tm.current_room_name, False, False)
+                            self.logger.info(f"📝 방 로그에 마틴 한계 패배 기록: {self.tm.current_room_name}")
+                    except Exception as log_error:
+                        self.logger.error(f"방 로그 기록 중 오류 (계속 진행): {log_error}")
+                    
                     # 🔥 마틴 서비스 완전 초기화 (다음 방에서 1단계부터 시작)
                     if hasattr(self.tm, 'martin_service'):
                         self.tm.martin_service.reset()
@@ -418,12 +441,12 @@ class GameProcessor:
     def _handle_tie_result_tracked(self):
         """무승부 결과 처리 - 마틴 단계 유지하고 재베팅"""
         try:
-            self.logger.info("🤝 무승부 - 마틴 단계 유지하고 같은 방에서 재베팅")
+            self.logger.info("🤝 TIE 무승부 - 같은 방에서 같은 단계로 재베팅")
             
             # 현재 마틴 단계 확인
             if hasattr(self.tm.main_window, 'betting_widget'):
                 current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
-                self.logger.info(f"🎯 TIE - 현재 마틴 단계 {current_pos + 1}단계 유지")
+                self.logger.info(f"🎯 TIE - 마틴 {current_pos + 1}단계 유지, 방 나가지 않음")
             
             # 추적 상태 초기화 (새로운 베팅을 위해)
             self.betting_tracker.reset_tracking()
@@ -435,16 +458,16 @@ class GameProcessor:
             # 타이 후에는 쿨다운 해제 (즉시 재베팅 가능)
             self.betting_cooldown = False
             
-            # 🔥 중요: 마틴 단계는 변경하지 않음 (위젯 카운터 유지)
-            # 🔥 같은 방에서 같은 금액, 같은 픽으로 재베팅
-            self.logger.info("📊 TIE - 마틴 단계 유지, 위젯 카운터 변경 없음")
-            self.logger.info("🔄 같은 방에서 같은 금액으로 재베팅 준비")
+            # 🔥 중요: 방을 나가지 않고 마틴 단계 유지
+            # 🔥 current_target_room과 target_streak_rooms는 그대로 유지
+            self.logger.info("🏠 TIE - 현재 방 유지, 방 나가지 않음")
+            self.logger.info("🔄 다음 라운드에서 같은 금액으로 재베팅 준비")
             
             # 마틴 서비스에 TIE 알림 (단계 유지)
             if hasattr(self.tm, 'martin_service'):
                 self.tm.martin_service.tie_count += 1
                 self.tm.martin_service.need_room_change = False  # 같은 방에서 계속
-                self.logger.info(f"📈 TIE 횟수: {self.tm.martin_service.tie_count}")
+                self.logger.info(f"📈 누적 TIE 횟수: {self.tm.martin_service.tie_count}")
             
         except Exception as e:
             self.logger.error(f"무승부 처리 오류: {e}")

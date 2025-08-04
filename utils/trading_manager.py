@@ -70,6 +70,48 @@ class TradingManager:
         self.betting_executor = BettingExecutor(self)
         self.room_manager_handler = RoomEntryHandler(self)
         
+        # 🧵 멀티쓰레드 시그널 연결
+        self._connect_multithreaded_signals()
+    
+    def _connect_multithreaded_signals(self):
+        """🧵 멀티쓰레드 시그널 연결"""
+        try:
+            # RoomEntryHandler 시그널 연결
+            if hasattr(self.room_manager_handler, 'room_entered'):
+                self.room_manager_handler.room_entered.connect(self._on_room_entered)
+            if hasattr(self.room_manager_handler, 'room_exited'):
+                self.room_manager_handler.room_exited.connect(self._on_room_exited)
+                
+            self.logger.info("🔗 멀티쓰레드 시그널 연결 완료")
+            
+        except Exception as e:
+            self.logger.error(f"멀티쓰레드 시그널 연결 오류: {e}")
+    
+    def _on_room_entered(self, room_data: dict):
+        """방 입장 완료 처리"""
+        try:
+            room_name = room_data.get('room_name', '')
+            self.logger.info(f"🏠 방 입장 완료: {room_name}")
+            
+            # UI 업데이트
+            if hasattr(self.main_window, 'update_room_status'):
+                self.main_window.update_room_status(f"방 입장: {room_name}")
+                
+        except Exception as e:
+            self.logger.error(f"방 입장 완료 처리 오류: {e}")
+    
+    def _on_room_exited(self, reason: str):
+        """방 나가기 완료 처리"""
+        try:
+            self.logger.info(f"🚪 방 나가기 완료: {reason}")
+            
+            # UI 업데이트
+            if hasattr(self.main_window, 'update_room_status'):
+                self.main_window.update_room_status("로비 대기")
+                
+        except Exception as e:
+            self.logger.error(f"방 나가기 완료 처리 오류: {e}")
+        
     def _init_state_variables(self):
         """상태 변수들 초기화"""
         # 기본 상태

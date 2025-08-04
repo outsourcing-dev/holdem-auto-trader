@@ -44,11 +44,16 @@ class BettingService:
 
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         """베팅 실행 - 접수 확인에만 집중, 결과는 나중에 확인"""
-        self.logger.info(f"베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
+        self.logger.info(f"🎯 베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
+        self.logger.info(f"🏠 방: {current_room_name}, 거래활성: {is_trading_active}")
 
         try:
+            self.logger.info("🔍 베팅 조건 검증 시작...")
             if not self._validate_bet_conditions(bet_type, is_trading_active):
+                self.logger.warning("❌ 베팅 조건 검증 실패")
                 return False
+            
+            self.logger.info("✅ 베팅 조건 검증 통과")
 
             self.current_bet_round = game_count
             gc.collect()
@@ -426,8 +431,8 @@ class BettingService:
         """베팅 전 조건 검증"""
         if hasattr(self, 'last_bet_time'):
             elapsed = time.time() - self.last_bet_time
-            if elapsed < 5.0:
-                self.logger.warning(f"마지막 배팅 후 {elapsed:.1f}초밖에 지나지 않았습니다. 최소 5초 대기 필요.")
+            if elapsed < 3.0:  # 5초 → 3초로 완화
+                self.logger.warning(f"마지막 배팅 후 {elapsed:.1f}초밖에 지나지 않았습니다. 최소 3초 대기 필요.")
                 return False
         
         if not is_trading_active:
@@ -435,7 +440,7 @@ class BettingService:
             return False
         
         if self.has_bet_current_round:
-            self.logger.info("이미 현재 라운드에 베팅했습니다.")
+            self.logger.info(f"이미 현재 라운드에 베팅했습니다. (라운드: {self.current_bet_round})")
             return False
         
         if bet_type not in ['P', 'B']:

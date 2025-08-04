@@ -401,10 +401,8 @@ class RoomLogWidget(QWidget):
                         print(f"[ERROR] 테이블 UI 업데이트 오류: {e}")
             
             # 메인 스레드에서 실행되도록 보장
-            if hasattr(self, 'parent') and self.parent():
-                QMetaObject.invokeMethod(self.parent(), update_ui, Qt.ConnectionType.QueuedConnection)
-            else:
-                update_ui()  # 직접 호출
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, update_ui)
             
             # 디버그 로그
             new_win = self.room_logs[self.current_visit_id]['win']
@@ -489,3 +487,13 @@ class RoomLogWidget(QWidget):
                 self.logger.error(f"방 통계 업데이트 오류: {e}")
             else:
                 print(f"방 통계 업데이트 오류: {e}")
+    
+    def update_ui_wrapper(self):
+        """UI 업데이트 래퍼 메서드"""
+        try:
+            self._update_table_display()
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.error(f"UI 업데이트 래퍼 오류: {e}")
+            else:
+                print(f"UI 업데이트 래퍼 오류: {e}")
