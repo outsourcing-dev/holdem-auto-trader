@@ -264,11 +264,10 @@ class RoomEntryHandler(QObject):
             
             if success:
                 self.logger.info(f"✅ 베팅 요청 접수: {pick}")
-                # 워커에게 베팅 완료 알림 (성공)
-                self.game_monitoring_worker.on_betting_completed(True, f"베팅 접수 성공: {pick}")
+                # 🔥 중요: 베팅 요청만 접수한 상태, 실제 베팅 성공은 betting_completed 시그널로 처리됨
             else:
                 self.logger.warning(f"❌ 베팅 요청 실패: {pick}")
-                # 워커에게 베팅 완료 알림 (실패)
+                # 요청 자체가 실패한 경우에만 워커에게 알림
                 self.game_monitoring_worker.on_betting_completed(False, f"베팅 요청 실패: {pick}")
                 
         except Exception as e:

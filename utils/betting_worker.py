@@ -245,6 +245,11 @@ class AsyncBettingManager:
         """베팅 완료 처리"""
         self.logger.info(f"베팅 완료: {message}")
         
+        # 🔥 게임 모니터링 워커에게 베팅 완료 알림
+        if (hasattr(self.tm, 'room_entry_handler') and 
+            hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
+            self.tm.room_entry_handler.game_monitoring_worker.on_betting_completed(success, message)
+        
         if success:
             # 베팅 성공 - 결과 대기 타이머 시작 (60초)
             self.result_timeout_timer.start(60000)
@@ -288,7 +293,12 @@ class AsyncBettingManager:
         """베팅 실패 처리"""
         self.logger.warning(f"베팅 실패 처리: {message}")
         
-        # 베팅 추적기 초기화
+        # "이미 베팅했습니다" 메시지는 정상 상황이므로 추적기를 리셋하지 않음
+        if "이미 현재 라운드에 베팅했습니다" in message or "게임이 이미 진행 중" in message:
+            self.logger.info("🔄 이미 베팅한 상태 - 추적기 유지")
+            return
+        
+        # 실제 베팅 실패 시에만 추적기 초기화
         if (hasattr(self.tm, 'game_processor') and 
             hasattr(self.tm.game_processor, 'betting_tracker')):
             self.tm.game_processor.betting_tracker.reset_tracking()
