@@ -124,8 +124,8 @@ class BettingWorker(QThread):
                 self._start_result_tracking(pick, betting_round, bet_amount)
                 
             else:
-                self.betting_completed.emit(False, f"베팅 실패: {pick}", {})
-                self.logger.warning(f"❌ 베팅 실패: {pick}")
+                self.betting_completed.emit(False, f"베팅 실패: {pick} - 게임 진행 중", {})
+                self.logger.warning(f"❌ 베팅 실패: {pick} - 게임이 이미 진행 중입니다. 다음 라운드를 기다립니다.")
                 
         except Exception as e:
             self.logger.error(f"베팅 실행 오류: {e}")

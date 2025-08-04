@@ -264,9 +264,11 @@ class RoomEntryHandler(QObject):
             
             if success:
                 self.logger.info(f"✅ 베팅 요청 접수: {pick}")
+                # 워커에게 베팅 완료 알림 (성공)
+                self.game_monitoring_worker.on_betting_completed(True, f"베팅 접수 성공: {pick}")
             else:
                 self.logger.warning(f"❌ 베팅 요청 실패: {pick}")
-                # 워커에게 베팅 완료 알림
+                # 워커에게 베팅 완료 알림 (실패)
                 self.game_monitoring_worker.on_betting_completed(False, f"베팅 요청 실패: {pick}")
                 
         except Exception as e:
@@ -275,8 +277,11 @@ class RoomEntryHandler(QObject):
     def _on_game_result_received(self, result_data: dict):
         """게임 결과 수신 처리 (메인 쓰레드)"""
         try:
+            self.logger.info(f"🎲 [RoomEntryHandler] 게임 결과 수신: 라운드 {result_data.get('round_number')}, 결과 {result_data.get('latest_result')}")
             if hasattr(self.tm, 'game_processor'):
                 self.tm.game_processor._handle_game_result(result_data)
+            else:
+                self.logger.error("게임 프로세서가 없음 - 결과 처리 불가")
                 
         except Exception as e:
             self.logger.error(f"게임 결과 처리 오류: {e}")

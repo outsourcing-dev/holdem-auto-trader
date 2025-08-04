@@ -134,8 +134,9 @@ class GameMonitoringService:
             if desired_count and len(game_results) > desired_count:
                 display_results = game_results[-desired_count:]
             
-            # 🔥 올바른 로직: round_number는 마지막 완료된 게임 번호, 다음 게임이 베팅 대상
-            current_game_number = round_number + 1 if round_number > 0 else 1
+            # 🔥 현재 진행 중인 게임 번호 계산 - 베팅 상태 확인
+            # 베팅 가능 상태인지 체크하여 current_game 결정
+            current_game_number = self._detect_current_game_number(round_number)
             
             # 결과 정리
             if game_results or latest_result or round_number:
@@ -262,6 +263,61 @@ class GameMonitoringService:
         except Exception as e:
             self.logger.error(f"라운드 번호 찾기 오류: {e}")
             return 0
+    
+    def _detect_current_game_number(self, last_completed_round):
+        """현재 진행 중인 게임 번호를 감지 (베팅 가능 상태 확인)"""
+        try:
+            # 베팅 페이즈 상태 확인
+            betting_phase_selectors = [
+                "[data-phase='betting']",
+                "[data-betting-phase='open']",
+                "[class*='betting-open']",
+                "[class*='bettingOpen']",
+                ".betting-timer",
+                ".timer--"
+            ]
+            
+            is_betting_open = False
+            for selector in betting_phase_selectors:
+                try:
+                    elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if elements and elements[0].is_displayed():
+                        is_betting_open = True
+                        self.logger.debug(f"베팅 페이즈 감지: {selector}")
+                        break
+                except:
+                    continue
+            
+            # 타이머나 카운트다운 확인
+            if not is_betting_open:
+                try:
+                    timer_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, 
+                        "[class*='timer'], [class*='countdown'], [data-role='timer']")
+                    for timer in timer_elements:
+                        if timer.is_displayed() and timer.text.strip():
+                            is_betting_open = True
+                            self.logger.debug(f"타이머 감지: {timer.text}")
+                            break
+                except:
+                    pass
+            
+            # 현재 게임 번호 결정
+            if is_betting_open:
+                # 베팅이 열려있으면 다음 게임이 진행 중
+                current_game = last_completed_round + 1
+                self.logger.debug(f"베팅 열림 - 현재 게임: {current_game}")
+            else:
+                # 베팅이 닫혀있으면 게임이 진행 중이거나 결과 대기 중
+                # 보수적으로 현재 게임은 마지막 완료된 게임 + 1로 설정
+                current_game = last_completed_round + 1
+                self.logger.debug(f"베팅 닫힘 - 현재 게임: {current_game} (추정)")
+            
+            return current_game if current_game > 0 else 1
+            
+        except Exception as e:
+            self.logger.error(f"현재 게임 번호 감지 오류: {e}")
+            # 오류 시 기본값 반환
+            return last_completed_round + 1 if last_completed_round > 0 else 1
         
     # services/game_monitoring_service.py - _find_game_results 메서드 전체
 

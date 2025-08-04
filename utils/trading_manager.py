@@ -843,6 +843,13 @@ class TradingManager:
                 self._stop_health_check_timer()
                 return
             
+            # 🔥 베팅 결과 대기 중이면 헬스 체크 건너뛰기
+            if (hasattr(self, 'game_processor') and 
+                hasattr(self.game_processor, 'betting_tracker') and 
+                self.game_processor.betting_tracker.is_waiting_for_result()):
+                self.logger.debug("베팅 결과 대기 중 - 헬스 체크 건너뛰기")
+                return
+            
             # 1. 웹소켓 연결 상태 체크
             websocket_status = self.get_interceptor_status()
             if not websocket_status.get('is_intercepting', False):
@@ -850,7 +857,8 @@ class TradingManager:
                 self.websocket_manager.force_reconnect_websocket()
                 return
             
-            # 2. 서버 연결 상태 체크
+            # 2. 서버 연결 상태 체크 (로그 레벨을 DEBUG로 낮춤)
+            self.logger.debug("서버 상태 체크 중...")
             if not self.server_client.get_server_status():
                 self.logger.warning("⚠️ 서버 연결 끊김 감지")
                 # 서버 연결이 끊겨도 웹소켓 모니터링으로 계속 진행

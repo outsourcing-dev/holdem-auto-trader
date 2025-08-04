@@ -90,40 +90,61 @@ class GameProcessor:
             round_number = game_data.get('round_number', 0)
             current_game = game_data.get('current_game', 0)  # 🔥 현재 진행 중인 게임 번호
             
+            self.logger.info(f"🎲 [GameProcessor] 게임 결과 처리 시작:")
+            self.logger.info(f"  - 완료된 라운드: {round_number}")
+            self.logger.info(f"  - 진행 중인 게임: {current_game}")
+            self.logger.info(f"  - 결과: {latest_result}")
+            
             # 중복 결과 방지
             result_id = f"{round_number}_{latest_result}"
             if result_id in self.tm.processed_rounds:
+                self.logger.debug(f"  - 이미 처리된 결과, 건너뜀: {result_id}")
                 return
             
             self.tm.processed_rounds.add(result_id)
             self.tm.result_count += 1
             
-            self.logger.info(f"🎯 새로운 게임 결과: 완료된 라운드 {round_number}, 진행 중인 라운드 {current_game}, 결과 {latest_result}")
+            self.logger.info(f"🎯 새로운 게임 결과 등록: #{self.tm.result_count}")
             
             # 베팅 결과 추적기로 결과 확인
             if self.betting_tracker.is_waiting_for_result():
+                self.logger.info("📊 베팅 결과 대기 중 - 결과 체크 시작")
                 # 베팅한 라운드 확인
                 bet_round = self.betting_tracker.get_bet_round()
+                bet_type = self.betting_tracker.get_bet_type()
+                self.logger.info(f"  - 베팅 라운드: {bet_round}")
+                self.logger.info(f"  - 베팅 타입: {bet_type}")
                 
                 # 🔥 베팅 직후 즉시 결과 비교 방지 - 라운드 진행 확인
                 current_time = time.time()
                 bet_time = self.betting_tracker.bet_info.get('bet_time', 0)
                 time_since_bet = current_time - bet_time
                 
-                # 베팅 후 최소 3초 대기 또는 라운드가 실제로 진행되었는지 확인
-                if time_since_bet < 3.0:  # 3초 미만이면 대기
-                    self.logger.info(f"⏳ 베팅 직후 대기 중: {time_since_bet:.1f}초 경과 (최소 3초 대기)")
+                # 베팅 후 최소 5초 대기 (결과가 나올 시간 확보)
+                if time_since_bet < 5.0:  # 5초 미만이면 대기
+                    self.logger.info(f"⏳ 베팅 직후 대기 중: {time_since_bet:.1f}초 경과 (최소 5초 대기)")
                     return
                     
                 # 🔥 베팅한 라운드보다 작은 라운드 결과는 무시 (과거 결과)
                 if round_number < bet_round:
-                    self.logger.info(f"📋 과거 라운드 결과 무시: 현재={round_number}, 베팅 대상={bet_round}")
+                    self.logger.info(f"📋 과거 라운드 결과 무시: 완료된 라운드={round_number}, 베팅 대상={bet_round}")
                     return
                 
-                # 🔥 입장 직후 상황 체크 - 베팅 라운드가 현재 진행 중인 게임과 일치하는지 확인
-                if current_game > 0 and bet_round == current_game and round_number == current_game - 1:
-                    self.logger.info(f"⏳ 베팅한 게임({bet_round})이 아직 진행 중 - 다음 결과 대기")
-                    return
+                # 🔥 중요: current_game을 활용한 정확한 체크
+                # 베팅 라운드가 아직 진행 중인지 확인
+                if current_game > 0:
+                    # 베팅한 라운드가 현재 진행 중인 게임인 경우
+                    if bet_round == current_game:
+                        # 완료된 라운드가 베팅 라운드보다 하나 작으면 아직 진행 중
+                        if round_number < current_game:
+                            self.logger.info(f"⏳ 베팅한 게임({bet_round})이 아직 진행 중 (current_game={current_game}) - 다음 결과 대기")
+                            return
+                    # 베팅한 라운드가 이미 완료되어야 하는 경우
+                    elif bet_round < current_game:
+                        # 완료된 라운드가 베팅 라운드와 일치해야 함
+                        if round_number < bet_round:
+                            self.logger.info(f"⏳ 베팅 라운드({bet_round}) 결과 아직 미완료 - 대기 중")
+                            return
                 
                 # 디버깅 로그 추가 - INFO 레벨로 변경
                 self.logger.info(f"🔍 베팅 추적: 베팅 라운드={bet_round}, 완료된 라운드={round_number}, 진행 중인 라운드={current_game}")
@@ -315,14 +336,19 @@ class GameProcessor:
                 if next_pick in ['P', 'B']:
                     # 베팅 라운드 중복 확인
                     round_number = latest_game_state.get('round', self.tm.game_count + 1)
+                    current_game = latest_game_state.get('current_game', 0)
                     
-                    if round_number <= self.last_bet_round:
+                    # 실제 베팅 대상 라운드 계산
+                    target_betting_round = current_game if current_game > 0 else round_number + 1
+                    
+                    if target_betting_round <= self.last_bet_round:
+                        self.logger.info(f"이미 베팅한 라운드: {target_betting_round} <= {self.last_bet_round}")
                         return
                     
-                    self.last_bet_round = round_number
+                    self.last_bet_round = target_betting_round
                     
-                    # ⚡ 즉시 베팅 실행 (대기 시간 제거)
-                    self.tm.betting_executor.execute_betting(next_pick, round_number)
+                    # ⚡ 즉시 베팅 실행 (current_game 전달)
+                    self.tm.betting_executor.execute_betting(next_pick, round_number, current_game)
                 else:
                     self.logger.info(f"베팅 안함: {next_pick}")
                     
@@ -457,6 +483,12 @@ class GameProcessor:
             
             # 타이 후에는 쿨다운 해제 (즉시 재베팅 가능)
             self.betting_cooldown = False
+            
+            # 🔥 중요: 게임 모니터링 워커의 betting_in_progress 플래그도 리셋
+            if (hasattr(self.tm, 'room_entry_handler') and 
+                hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
+                self.tm.room_entry_handler.game_monitoring_worker.betting_in_progress = False
+                self.logger.info("✅ 게임 모니터링 워커의 betting_in_progress 플래그 리셋")
             
             # 🔥 중요: 방을 나가지 않고 마틴 단계 유지
             # 🔥 current_target_room과 target_streak_rooms는 그대로 유지

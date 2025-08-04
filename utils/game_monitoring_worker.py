@@ -30,7 +30,7 @@ class GameMonitoringWorker(QThread):
         # 쓰레드 제어 변수
         self._is_running = False
         self._is_paused = False
-        self.monitoring_interval = 0.25  # 250ms 간격
+        self.monitoring_interval = 5.0  # 5초 간격 (게임 진행 시간 고려)
         
         # 쓰레드 동기화
         self.mutex = QMutex()
@@ -45,6 +45,11 @@ class GameMonitoringWorker(QThread):
         # 베팅 관련 플래그
         self.betting_in_progress = False
         self.first_check_after_entry = True
+        
+        # 캐싱 변수 (중복 파싱 방지)
+        self.last_game_state = None
+        self.last_game_state_time = 0
+        self.cache_timeout = 3.0  # 3초간 캐시 유지
         
     def start_monitoring(self, room_data: dict):
         """모니터링 시작"""
@@ -176,29 +181,34 @@ class GameMonitoringWorker(QThread):
             latest_result = game_state.get('latest_result', '')
             filtered_results = game_state.get('filtered_results', [])
             
-            # 🔍 디버깅: 게임 상태 값 확인
-            self.logger.info(f"🎯 게임 상태 확인:")
-            self.logger.info(f"  - current_round: {current_round}")
-            self.logger.info(f"  - current_game: {current_game}")
-            self.logger.info(f"  - last_game_count: {self.last_game_count}")
-            self.logger.info(f"  - latest_result: {latest_result}")
+            # 🔍 디버깅: 게임 상태 값 확인 (매번 로그 기록)
+            self.logger.info(f"🎯 [워커] 게임 상태 체크 #{self.last_check_time:.0f}:")
+            self.logger.info(f"  - 방 이름: {self.current_room_name}")
+            self.logger.info(f"  - 완료된 라운드: {current_round}")
+            self.logger.info(f"  - 진행 중인 게임: {current_game}")
+            self.logger.info(f"  - 마지막 체크 라운드: {self.last_game_count}")
+            self.logger.info(f"  - 최신 결과: {latest_result}")
+            self.logger.info(f"  - 베팅 진행 중: {self.betting_in_progress}")
+            self.logger.info(f"  - 베팅 추적기 대기 중: {self.tm.game_processor.betting_tracker.is_waiting_for_result() if hasattr(self.tm.game_processor, 'betting_tracker') else 'N/A'}")
             
             # 새로운 라운드 감지 (또는 current_game이 있으면 베팅 시도)
             if current_round > self.last_game_count or (current_game > 0 and not self.betting_in_progress):
                 if current_round > self.last_game_count:
                     self.logger.info(f"🆕 새로운 라운드 감지: {self.last_game_count} → {current_round}")
+                    
+                    # 게임 결과 처리 - 라운드가 변경되었을 때만
+                    if latest_result and latest_result in ['P', 'B', 'T']:
+                        result_data = {
+                            'round_number': current_round,
+                            'latest_result': latest_result,
+                            'current_game': current_game
+                        }
+                        self.logger.info(f"🎲 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
+                        self.game_result_received.emit(result_data)
+                    
                     self.last_game_count = current_round
                 elif current_game > 0:
                     self.logger.info(f"🎯 current_game 기반 베팅 기회: {current_game}")
-                
-                # 게임 결과 처리
-                if latest_result and latest_result in ['P', 'B', 'T']:
-                    result_data = {
-                        'round_number': current_round,
-                        'latest_result': latest_result,
-                        'current_game': current_game
-                    }
-                    self.game_result_received.emit(result_data)
                 
                 # 베팅 기회 확인 (current_game 우선 사용)
                 betting_round = current_game if current_game > 0 else current_round
@@ -209,8 +219,17 @@ class GameMonitoringWorker(QThread):
             self.error_occurred.emit(f"게임 모니터링 오류: {e}")
     
     def _get_game_state_safe(self) -> Optional[Dict[str, Any]]:
-        """쓰레드 안전한 게임 상태 조회"""
+        """쓰레드 안전한 게임 상태 조회 (캐싱 포함)"""
         try:
+            current_time = time.time()
+            
+            # 캐시가 유효한 경우 캐시된 데이터 반환
+            if (self.last_game_state and 
+                self.last_game_state_time and 
+                current_time - self.last_game_state_time < self.cache_timeout):
+                self.logger.debug(f"캐시된 게임 상태 사용 (경과: {current_time - self.last_game_state_time:.1f}초)")
+                return self.last_game_state
+            
             if not hasattr(self.tm, 'game_monitoring_service') or not self.tm.game_monitoring_service:
                 return None
             
@@ -221,6 +240,11 @@ class GameMonitoringWorker(QThread):
                 log_always=False,
                 desired_pb_count=15  # 서버 요구사항: 15개 데이터 필요
             )
+            
+            # 캐시 업데이트
+            if game_state:
+                self.last_game_state = game_state
+                self.last_game_state_time = current_time
             
             return game_state
             

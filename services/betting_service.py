@@ -54,8 +54,10 @@ class BettingService:
                 return False
             
             self.logger.info("✅ 베팅 조건 검증 통과")
-
-            self.current_bet_round = game_count
+            
+            # 현재 라운드에 대한 베팅 상태 확인 및 업데이트
+            self.check_is_bet_for_current_round(game_count)
+            
             gc.collect()
 
             # IframeNavigator를 사용한 iframe 전환 (fallback 포함)
@@ -143,12 +145,21 @@ class BettingService:
                                 bet_amount=bet_amount,
                                 room_name=current_room_name
                             )
-                            self.logger.info(f"🎯 BettingResultTracker 추적 시작: {actual_bet_round}번째 게임 결과 대기")
+                            self.logger.info(f"🎯 [BettingService] 베팅 추적 시작:")
+                            self.logger.info(f"  - 베팅 타입: {bet_type}")
+                            self.logger.info(f"  - 적용 라운드: {actual_bet_round}")
+                            self.logger.info(f"  - 베팅 금액: {bet_amount:,}원")
+                            self.logger.info(f"  - 방 이름: {current_room_name}")
+                        else:
+                            self.logger.warning("⚠️ 이미 베팅 결과 대기 중 - 추적 시작 건너뜀")
                 
                 self._handle_successful_bet(bet_type, latest_round_number, current_room_name)
                 self.has_bet_current_round = True
                 return True
             else:
+                self.logger.error(f"❌ 베팅 실패 - 다음 라운드를 기다립니다")
+                # 베팅 실패 시 상태 초기화
+                self.has_bet_current_round = False
                 return False
 
         except Exception as e:
@@ -590,7 +601,11 @@ class BettingService:
             chip_selectors = [
                 "div.chip--29b81[data-role='chip']",
                 "div[data-role='chip']",
-                "div.chip[data-value]"
+                "div.chip[data-value]",
+                # 추가 선택자
+                "div[class*='chip'][data-value]",
+                "div.chipStack[data-value]",
+                "div[class*='chipStack'][data-value]"
             ]
             
             available_chips = []
@@ -598,24 +613,38 @@ class BettingService:
             for selector in chip_selectors:
                 chip_elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
                 
+                if chip_elements:
+                    self.logger.debug(f"선택자 {selector}로 {len(chip_elements)}개 칩 발견")
+                
                 for chip_element in chip_elements:
                     if chip_element.is_displayed():
                         chip_class = chip_element.get_attribute("class") or ""
                         chip_value = chip_element.get_attribute("data-value")
                         
+                        # 디버깅 로그
+                        self.logger.debug(f"칩 정보 - 클래스: {chip_class}, 값: {chip_value}")
+                        
                         if "disabled" not in chip_class.lower() and chip_value:
                             try:
-                                available_chips.append(int(chip_value))
+                                value = int(chip_value)
+                                if value > 0:  # 0보다 큰 값만 추가
+                                    available_chips.append(value)
                             except ValueError:
                                 continue
             
             available_chips = sorted(list(set(available_chips)), reverse=True)
-            self.logger.info(f"사용 가능한 칙 값들: {available_chips}")
+            self.logger.info(f"사용 가능한 칩 값들: {available_chips}")
+            
+            # 칩이 없으면 게임 진행 중 (베팅 불가)
+            if not available_chips:
+                self.logger.warning("활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)")
+                return []  # 빈 리스트 반환
+                
             return available_chips
             
         except Exception as e:
             self.logger.warning(f"사용 가능한 칩 값 조회 실패: {e}")
-            return [500000, 100000, 50000, 25000, 10000, 5000, 1000]
+            return [10000, 5000, 1000]  # 기본 칩 값
 
     def _find_betting_area(self, bet_type):
         """베팅 영역 찾기"""
@@ -700,7 +729,8 @@ class BettingService:
     def _handle_successful_bet(self, bet_type, game_count, current_room_name):
         """성공한 베팅 처리"""
         self.has_bet_current_round = True
-        self.current_bet_round = game_count
+        # 현재 표시된 라운드는 완료된 라운드, 실제 베팅은 다음 라운드에 적용
+        self.current_bet_round = game_count + 1  # 실제 베팅이 적용되는 라운드
         self.last_bet_type = bet_type
         self.last_bet_time = time.time()
         
@@ -754,11 +784,15 @@ class BettingService:
 
     def check_is_bet_for_current_round(self, current_round):
         """현재 라운드에 베팅했는지 확인"""
-        if self.has_bet_current_round == False and self.current_bet_round != current_round:
+        # 새로운 라운드가 시작되었는지 확인
+        if current_round > self.current_bet_round:
+            # 새 라운드 시작 - 베팅 상태 초기화
             self.logger.info(f"새 라운드({current_round}) 감지, 이전 베팅 기록({self.current_bet_round}) 초기화")
+            self.has_bet_current_round = False
             self.current_bet_round = current_round
             return False
             
+        # 현재 라운드에 이미 베팅했는지 확인
         return self.has_bet_current_round and self.current_bet_round == current_round
 
     def check_betting_result(self, bet_type, latest_result, current_room_name, result_count, step=None):

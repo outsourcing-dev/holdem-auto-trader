@@ -26,11 +26,18 @@ class BettingExecutor:
             self.logger.info(f"⚡ 베팅 실행 전 빠른 상태 확인...")
             
             # 🔥 정확한 베팅 라운드 계산
-            display_round = round_number  # 마지막 완료된 라운드
-            actual_betting_round = current_game if current_game else round_number + 1  # 현재 진행 중인 게임 번호 사용
+            # round_number: 마지막 완료된 라운드
+            # current_game: 현재 진행 중인 게임 번호 (베팅이 적용될 라운드)
+            display_round = round_number  # 표시용 (마지막 완료된 라운드)
+            
+            # 실제 베팅이 적용될 라운드 계산
+            if current_game and current_game > 0:
+                actual_betting_round = current_game  # 현재 진행 중인 게임에 베팅
+            else:
+                actual_betting_round = round_number + 1  # current_game이 없으면 다음 라운드
             
             self.logger.info(f"🎯 베팅 실행: {pick} (완료된 라운드: {display_round}, 베팅 대상 라운드: {actual_betting_round}){streak_info}")
-            self.logger.info(f"📍 {display_round}번째 결과 완료 → {actual_betting_round}번째 게임에 베팅")
+            self.logger.info(f"📍 {display_round}번째 결과 확인 → {actual_betting_round}번째 게임에 베팅")
             
             # 베팅 금액 계산
             widget_pos = get_widget_position(self.tm.main_window)

@@ -70,12 +70,20 @@ class BettingResultTracker:
     def check_result(self, round_number: int, game_result: str) -> Optional[BettingResult]:
         """베팅 결과 확인"""
         try:
+            self.logger.info(f"🔍 [BettingResultTracker] 결과 체크 시작:")
+            self.logger.info(f"  - 현재 상태: {self.status.value}")
+            self.logger.info(f"  - 완료된 라운드: {round_number}")
+            self.logger.info(f"  - 게임 결과: {game_result}")
+            
             # 베팅 결과 대기 중이 아니면 무시
             if self.status != BettingStatus.WAITING_RESULT:
+                self.logger.info("  - 결과: 대기 상태가 아님, 건너뜀")
                 return None
             
             # 베팅한 라운드 확인
             bet_round = self.bet_info.get('round_number', 0)
+            
+            self.logger.info(f"  - 베팅 라운드: {bet_round}")
             
             # 베팅 라운드와 현재 라운드 비교
             if round_number != bet_round:

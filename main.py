@@ -1,20 +1,43 @@
 import sys
 import os
 import logging
+from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from ui.login_window import LoginWindow
 from ui.main_window import MainWindow
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+# 로그 파일 설정
+def setup_logging():
+    """로깅 설정 - log.txt에 실시간으로 기록"""
+    # 기존 로그 파일 백업 (선택사항)
+    log_file = 'log.txt'
+    if os.path.exists(log_file):
+        # 기존 로그를 백업 (최대 10MB까지만 유지)
+        if os.path.getsize(log_file) > 10 * 1024 * 1024:  # 10MB
+            backup_name = f'log_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt'
+            os.rename(log_file, backup_name)
+    
+    # 로깅 설정
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            # 콘솔 출력
+            logging.StreamHandler(),
+            # 파일 출력 (log.txt에 추가 모드로 기록)
+            logging.FileHandler(log_file, mode='a', encoding='utf-8')
+        ]
+    )
+    
+    # 프로그램 시작 로그
+    logging.info("=" * 80)
+    logging.info(f"프로그램 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logging.info("=" * 80)
+
+# 로깅 설정 실행
+setup_logging()
 
 def get_default_style():
     """기본 스타일시트 반환"""
@@ -111,8 +134,19 @@ if __name__ == "__main__":
         # 애플리케이션 시작
         logging.info("애플리케이션 시작")
         app = MainApp(sys.argv)
-        sys.exit(app.exec())
+        exit_code = app.exec()
+        
+        # 프로그램 종료 로그
+        logging.info("=" * 80)
+        logging.info(f"프로그램 정상 종료: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logging.info(f"종료 코드: {exit_code}")
+        logging.info("=" * 80)
+        
+        sys.exit(exit_code)
         
     except Exception as e:
         logging.critical(f"애플리케이션 실행 중 치명적 오류: {e}", exc_info=True)
+        logging.info("=" * 80)
+        logging.info(f"프로그램 비정상 종료: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logging.info("=" * 80)
         QMessageBox.critical(None, "치명적 오류", f"프로그램 실행 중 오류가 발생했습니다: {str(e)}")
