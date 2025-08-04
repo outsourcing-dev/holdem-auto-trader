@@ -155,8 +155,12 @@ class GameMonitoringWorker(QThread):
             if not self.tm.current_target_room or not self.tm.is_trading_active:
                 return
             
-            # 베팅 진행 중이면 건너뜀
-            if self.betting_in_progress:
+            # 베팅 진행 중이면 건너뜀 (단, 베팅 결과 대기 중인 경우는 계속 모니터링)
+            betting_tracker_waiting = (hasattr(self.tm.game_processor, 'betting_tracker') and 
+                                     self.tm.game_processor.betting_tracker.is_waiting_for_result())
+            
+            if self.betting_in_progress and not betting_tracker_waiting:
+                self.logger.debug("베팅 진행 중 - 모니터링 건너뜀")
                 return
             
             current_time = time.time()
@@ -191,27 +195,45 @@ class GameMonitoringWorker(QThread):
             self.logger.info(f"  - 베팅 진행 중: {self.betting_in_progress}")
             self.logger.info(f"  - 베팅 추적기 대기 중: {self.tm.game_processor.betting_tracker.is_waiting_for_result() if hasattr(self.tm.game_processor, 'betting_tracker') else 'N/A'}")
             
-            # 새로운 라운드 감지 (또는 current_game이 있으면 베팅 시도)
-            if current_round > self.last_game_count or (current_game > 0 and not self.betting_in_progress):
-                if current_round > self.last_game_count:
-                    self.logger.info(f"🆕 새로운 라운드 감지: {self.last_game_count} → {current_round}")
-                    
-                    # 게임 결과 처리 - 라운드가 변경되었을 때만
-                    if latest_result and latest_result in ['P', 'B', 'T']:
-                        result_data = {
-                            'round_number': current_round,
-                            'latest_result': latest_result,
-                            'current_game': current_game
-                        }
-                        self.logger.info(f"🎲 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
-                        self.game_result_received.emit(result_data)
-                    
-                    self.last_game_count = current_round
-                elif current_game > 0:
-                    self.logger.info(f"🎯 current_game 기반 베팅 기회: {current_game}")
+            # 🔥 게임 결과 처리와 베팅 기회 분리
+            # 1. 새로운 라운드 결과 처리 (베팅 결과 추적을 위해)
+            if current_round > self.last_game_count:
+                self.logger.info(f"🆕 새로운 라운드 감지: {self.last_game_count} → {current_round}")
                 
-                # 베팅 기회 확인 (current_game 우선 사용)
-                betting_round = current_game if current_game > 0 else current_round
+                # 게임 결과 처리 - 베팅 추적기가 대기 중일 수 있으므로 항상 발송
+                if latest_result and latest_result in ['P', 'B', 'T']:
+                    result_data = {
+                        'round_number': current_round,
+                        'latest_result': latest_result,
+                        'current_game': current_game
+                    }
+                    self.logger.info(f"🎲 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
+                    self.game_result_received.emit(result_data)
+                
+                self.last_game_count = current_round
+            
+            # 2. 베팅 추적기 대기 중인 결과도 추가로 발송
+            elif (latest_result and latest_result in ['P', 'B', 'T'] and 
+                  hasattr(self.tm.game_processor, 'betting_tracker') and 
+                  self.tm.game_processor.betting_tracker.is_waiting_for_result()):
+                
+                # 베팅 대기 중이면 현재 라운드 결과도 처리
+                result_data = {
+                    'round_number': current_round,
+                    'latest_result': latest_result,
+                    'current_game': current_game
+                }
+                self.logger.info(f"🎯 베팅 대기 중 - 현재 라운드 결과 재발송: 라운드 {current_round}, 결과 {latest_result}")
+                self.game_result_received.emit(result_data)
+            
+            # 3. 베팅 기회 확인 (current_game 기반)
+            if current_game > 0 and not self.betting_in_progress:
+                self.logger.info(f"🎯 current_game 기반 베팅 기회: {current_game}")
+                betting_round = current_game
+                self._check_betting_opportunity_async(filtered_results, current_round, betting_round)
+            elif current_round > 0 and not self.betting_in_progress and current_game == 0:
+                # current_game이 없으면 다음 라운드 베팅 시도
+                betting_round = current_round + 1
                 self._check_betting_opportunity_async(filtered_results, current_round, betting_round)
             
         except Exception as e:

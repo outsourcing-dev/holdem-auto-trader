@@ -731,26 +731,48 @@ class WebSocketHybridService(QObject):
                 
             self.logger.info("🛑 연패 감지 웹소켓 연결 중지")
             
-            if hasattr(self, 'status_check_timer'):
+            # 🔥 타이머 완전 정리
+            if hasattr(self, 'status_check_timer') and self.status_check_timer:
                 self.status_check_timer.stop()
+                self.status_check_timer.deleteLater()
+                self.status_check_timer = None
             
-            if hasattr(self, 'message_collection_timer'):
+            if hasattr(self, 'message_collection_timer') and self.message_collection_timer:
                 self.message_collection_timer.stop()
+                self.message_collection_timer.deleteLater()
+                self.message_collection_timer = None
             
             self.logger.info(f"📊 최종 통계: 총 메시지 {self.message_count}개, 필터링된 방 {self.filtered_room_count}개, 서버 전송 {self.sent_to_server_count}개")
             
+            # 🔥 JavaScript 환경 완전 정리
             cleanup_script = """
             if (window.gameWebSocket) {
                 try {
                     window.gameWebSocket.close();
+                    window.gameWebSocket = null;
                 } catch(e) {
                     console.log('WebSocket 정리 중 오류:', e);
                 }
             }
+            if (window.wsServerAnalysis) {
+                window.wsServerAnalysis = null;
+            }
+            if (window.sendServerAnalysisResultToPython) {
+                window.sendServerAnalysisResultToPython = null;
+            }
+            if (window.lastServerAnalysisData) {
+                window.lastServerAnalysisData = null;
+            }
+            if (window.processedServerAnalysisTimestamp) {
+                window.processedServerAnalysisTimestamp = null;
+            }
             console.log('🛑 연패 감지 WebSocket 정리 완료');
             """
             
-            self.devtools.driver.execute_script(cleanup_script)
+            try:
+                self.devtools.driver.execute_script(cleanup_script)
+            except Exception as e:
+                self.logger.debug(f"JavaScript 정리 오류 (무시): {e}")
             
             self.is_active = False
             self.is_connected = False

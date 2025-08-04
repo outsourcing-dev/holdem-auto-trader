@@ -124,10 +124,15 @@ class GameMonitoringService:
             game_results = self._find_game_results(desired_count=fetch_count)
             self.logger.debug(f"⏱️ 게임 결과 찾기: {time.time() - results_start:.2f}초")
             
-            # 3. 최신 결과 찾기 (P,B만)
+            # 3. 최신 결과 찾기 (P,B만) - 서버 전송용
             latest_start = time.time()
-            latest_result = self._find_latest_result()
-            self.logger.debug(f"⏱️ 최신 결과 찾기: {time.time() - latest_start:.2f}초")
+            latest_result_pb_only = self._find_latest_result()
+            self.logger.debug(f"⏱️ 최신 P,B 결과 찾기: {time.time() - latest_start:.2f}초")
+            
+            # 3-1. 최신 결과 찾기 (T 포함) - 게임 결과 확인용
+            latest_result_with_tie = self._find_latest_result_including_tie()
+            if latest_result_with_tie:
+                self.logger.debug(f"🎯 최신 결과 (TIE 포함): {latest_result_with_tie}")
             
             # 4. desired_count에 맞게 조정 (UI 표시용)
             display_results = game_results
@@ -139,13 +144,13 @@ class GameMonitoringService:
             current_game_number = self._detect_current_game_number(round_number)
             
             # 결과 정리
-            if game_results or latest_result or round_number:
+            if game_results or latest_result_with_tie or round_number:
                 game_state = {
                     'round': round_number,  # 마지막 완료된 게임 번호
                     'current_game': current_game_number,  # 🔥 현재 진행 중인 게임 번호 (베팅 대상)
-                    'filtered_results': display_results,
-                    'all_results': game_results,
-                    'latest_result': latest_result or '',
+                    'filtered_results': display_results,  # P,B만 (서버 전송용)
+                    'all_results': game_results,  # P,B만 (서버 전송용)
+                    'latest_result': latest_result_with_tie or '',  # T 포함 (게임 결과 확인용)
                     'total_results': len(game_results) if game_results else 0
                 }
                 
@@ -508,6 +513,49 @@ class GameMonitoringService:
         except Exception as e:
             self.logger.error(f"최신 P,B 결과 찾기 오류: {e}")
             return ''
+    
+    def _find_latest_result_including_tie(self):
+        """iframe에서 최신 게임 결과 찾기 (P, B, T 모두 포함)"""
+        try:
+            # 1. 최신 결과 표시 선택자들
+            latest_selectors = [
+                "[class*='latest']",
+                "[class*='Last']", 
+                "[class*='current']",
+                "[class*='winner']",
+                "[class*='outcome']"
+            ]
+            
+            for selector in latest_selectors:
+                try:
+                    elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        result = self._extract_single_result_from_element(element)
+                        # P, B, T 모두 허용
+                        if result and result in ['P', 'B', 'T']:
+                            self.logger.debug(f"최신 결과 발견 (TIE 포함): {result}")
+                            return result
+                except:
+                    continue
+            
+            # 2. Bead Road에서 최신 결과 찾기
+            try:
+                # Bead Road에서 전체 결과 가져오기 (T 포함)
+                all_results = self._find_all_game_results_with_tie()
+                if all_results:
+                    # 가장 최신 결과 반환
+                    latest = all_results[-1]
+                    self.logger.debug(f"Bead Road에서 최신 결과 (TIE 포함): {latest}")
+                    return latest
+            except:
+                pass
+            
+            self.logger.warning("최신 게임 결과를 찾을 수 없습니다 (TIE 포함)")
+            return ''
+            
+        except Exception as e:
+            self.logger.error(f"최신 결과 찾기 오류 (TIE 포함): {e}")
+            return ''
 
     def _extract_pb_from_element(self, element):
         """요소에서 P, B 패턴 추출 (T 제외)"""
@@ -565,6 +613,100 @@ class GameMonitoringService:
             
         except Exception as e:
             self.logger.debug(f"텍스트에서 P,B 추출 오류: {e}")
+            return []
+    
+    def _extract_single_result_from_element(self, element):
+        """요소에서 단일 게임 결과 추출 (P, B, T 모두 포함)"""
+        try:
+            results = self._extract_results_from_element_with_tie(element)
+            return results[-1] if results else None
+        except:
+            return None
+    
+    def _extract_results_from_element_with_tie(self, element):
+        """요소에서 게임 결과 패턴 추출 (P, B, T 모두 포함)"""
+        try:
+            # 요소의 텍스트 내용
+            text = element.text.strip()
+            
+            # 클래스명에서도 확인
+            class_name = element.get_attribute('class') or ''
+            
+            # data 속성에서도 확인  
+            data_attrs = []
+            try:
+                for attr in ['data-result', 'data-outcome', 'data-winner', 'data-value']:
+                    value = element.get_attribute(attr)
+                    if value:
+                        data_attrs.append(value)
+            except:
+                pass
+            
+            # 모든 텍스트 합치기
+            all_text = ' '.join([text, class_name] + data_attrs)
+            
+            return self._extract_results_from_text_with_tie(all_text)
+            
+        except Exception as e:
+            self.logger.debug(f"요소에서 결과 추출 오류 (TIE 포함): {e}")
+            return []
+    
+    def _extract_results_from_text_with_tie(self, text, max_count=15):
+        """텍스트에서 P, B, T 패턴 추출"""
+        try:
+            import re
+            
+            # P, B, T 패턴 찾기
+            pattern = r'\b[PBTpbt]\b'
+            matches = re.findall(pattern, text)
+            
+            # 대문자로 변환하고 P, B, T만 허용
+            results = [match.upper() for match in matches if match.upper() in ['P', 'B', 'T']]
+            
+            # 최대 개수 제한
+            if len(results) > max_count:
+                results = results[-max_count:]
+            
+            return results
+            
+        except Exception as e:
+            self.logger.debug(f"텍스트에서 결과 추출 오류 (TIE 포함): {e}")
+            return []
+    
+    def _find_all_game_results_with_tie(self):
+        """iframe에서 모든 게임 결과 찾기 (P, B, T 모두 포함)"""
+        try:
+            # Bead Road SVG 찾기
+            bead_road = self.devtools.driver.find_element(By.CSS_SELECTOR, "svg[data-role='Bead-road']")
+            
+            # coordinates 요소들 찾기
+            coord_elements = bead_road.find_elements(By.CSS_SELECTOR, "svg[data-type='coordinates']")
+            
+            results = []
+            for coord_elem in coord_elements:
+                try:
+                    # 이미지나 사용 요소 찾기
+                    use_elem = coord_elem.find_element(By.CSS_SELECTOR, "use")
+                    if use_elem:
+                        href = use_elem.get_attribute("xlink:href") or use_elem.get_attribute("href")
+                        if href:
+                            if "Player" in href or "player" in href:
+                                results.append('P')
+                            elif "Banker" in href or "banker" in href:
+                                results.append('B')
+                            elif "Tie" in href or "tie" in href:
+                                results.append('T')
+                except:
+                    # 개별 요소 처리 실패 시 계속 진행
+                    continue
+            
+            if results:
+                self.logger.debug(f"전체 게임 결과 (TIE 포함): {len(results)}개 - {results[-10:]}")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.debug(f"전체 게임 결과 찾기 오류 (TIE 포함): {e}")
             return []
 
     def _log_in_websocket_hybrid_format(self, game_state, room_id=None, room_name=None):

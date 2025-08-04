@@ -68,7 +68,7 @@ class BettingResultTracker:
             self.logger.error(f"베팅 추적 시작 오류: {e}")
 
     def check_result(self, round_number: int, game_result: str) -> Optional[BettingResult]:
-        """베팅 결과 확인"""
+        """베팅 결과 확인 - 타임아웃 및 유연한 매칭 개선"""
         try:
             self.logger.info(f"🔍 [BettingResultTracker] 결과 체크 시작:")
             self.logger.info(f"  - 현재 상태: {self.status.value}")
@@ -80,20 +80,49 @@ class BettingResultTracker:
                 self.logger.info("  - 결과: 대기 상태가 아님, 건너뜀")
                 return None
             
+            # 타임아웃 체크
+            current_time = time.time()
+            bet_time = self.bet_info.get('bet_time', 0)
+            waiting_time = current_time - bet_time
+            
+            # 120초 이상 대기 시 타임아웃 처리
+            if waiting_time > 120.0:
+                self.logger.warning(f"⏰ 베팅 결과 타임아웃 ({waiting_time:.1f}초) - 추적 초기화")
+                self.reset_tracking()
+                return None
+            
             # 베팅한 라운드 확인
             bet_round = self.bet_info.get('round_number', 0)
             
             self.logger.info(f"  - 베팅 라운드: {bet_round}")
+            self.logger.info(f"  - 대기 시간: {waiting_time:.1f}초")
             
-            # 베팅 라운드와 현재 라운드 비교
-            if round_number != bet_round:
-                if round_number < bet_round:
-                    self.logger.info(f"⏳ 베팅 라운드 아직 미도달: 베팅 대상={bet_round}, 현재 완료={round_number} - 대기 중")
+            # 베팅 라운드와 현재 라운드 비교 - 더 유연한 매칭
+            round_match = False
+            
+            if round_number == bet_round:
+                round_match = True
+                self.logger.info(f"✅ 정확한 라운드 매칭: {round_number}")
+            elif abs(round_number - bet_round) == 1 and waiting_time > 15.0:
+                # 15초 이상 대기했고 라운드 차이가 1이면 허용
+                round_match = True
+                self.logger.info(f"⚡ 유연한 라운드 매칭: {round_number} ≈ {bet_round} (대기: {waiting_time:.1f}s)")
+            elif round_number < bet_round:
+                self.logger.info(f"⏳ 베팅 라운드 아직 미도달: 베팅 대상={bet_round}, 현재 완료={round_number}")
+                return None
+            else:
+                # 라운드를 놓친 경우 - 60초 이상 대기했으면 마지막 결과로 처리
+                if waiting_time > 60.0:
+                    round_match = True
+                    self.logger.warning(f"⚠️ 베팅 라운드 놓침, 하지만 타임아웃으로 마지막 결과 처리: 베팅={bet_round}, 현재={round_number}")
                 else:
                     self.logger.warning(f"⚠️ 베팅 라운드 놓침: 베팅 대상={bet_round}, 현재 완료={round_number}")
+                    return None
+            
+            if not round_match:
                 return None
             
-            self.logger.info(f"✅ 베팅 라운드 일치! 결과 처리 시작")
+            self.logger.info(f"✅ 베팅 결과 처리 시작!")
             
             bet_type = self.bet_info.get('bet_type')
             
@@ -113,13 +142,14 @@ class BettingResultTracker:
                 'game_result': game_result,
                 'betting_result': result,
                 'result_round': round_number,
-                'result_time': time.time(),
-                'result_timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+                'result_time': current_time,
+                'result_timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+                'waiting_duration': waiting_time
             }
             
             self.status = BettingStatus.RESULT_CONFIRMED
             
-            self.logger.info(f"🎲 베팅 결과: {bet_type} vs {game_result} = {result.value}")
+            self.logger.info(f"🎲 베팅 결과: {bet_type} vs {game_result} = {result.value} (대기: {waiting_time:.1f}s)")
             
             # 히스토리에 추가
             self._add_to_history()

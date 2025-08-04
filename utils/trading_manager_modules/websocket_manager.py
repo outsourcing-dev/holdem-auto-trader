@@ -100,11 +100,31 @@ class WebSocketManager:
             self.logger.error(f"웹소켓 URL 추출 오류: {e}")
             return []
 
+    def _disconnect_websocket_signals(self):
+        """기존 웹소켓 시그널 연결 해제"""
+        try:
+            if self.websocket_service:
+                # 🔥 모든 시그널 연결 해제
+                try:
+                    self.websocket_service.game_data_received.disconnect()
+                    self.websocket_service.connection_status_changed.disconnect()
+                    self.websocket_service.error_occurred.disconnect()
+                    self.websocket_service.streak_room_found.disconnect()
+                    self.websocket_service.room_entry_requested.disconnect()
+                    self.logger.info("🔌 기존 웹소켓 시그널 연결 해제 완료")
+                except Exception as e:
+                    self.logger.debug(f"시그널 해제 중 오류 (무시): {e}")
+        except Exception as e:
+            self.logger.debug(f"시그널 해제 오류: {e}")
+
     def _connect_websocket_signals(self):
         """웹소켓 서비스 시그널 연결"""
         try:
             if not self.websocket_service:
                 return
+                
+            # 🔥 기존 시그널 먼저 해제
+            self._disconnect_websocket_signals()
                 
             # 게임 데이터 수신 시그널
             self.websocket_service.game_data_received.connect(
@@ -131,7 +151,7 @@ class WebSocketManager:
                 self.tm.streak_handler.on_room_entry_requested
             )
             
-            self.logger.info("연패 감지 웹소켓 시그널 연결 완료")
+            self.logger.info("✅ 연패 감지 웹소켓 시그널 연결 완료")
             
         except Exception as e:
             self.logger.error(f"웹소켓 시그널 연결 오류: {e}")
@@ -224,10 +244,32 @@ class WebSocketManager:
             self.logger.error(f"수동 데이터 수집 오류: {e}")
             return False
 
+    def _verify_devtools_session(self) -> bool:
+        """DevTools 세션 유효성 검증"""
+        try:
+            if not self.tm.devtools or not self.tm.devtools.driver:
+                return False
+            
+            # 간단한 JavaScript 실행으로 세션 확인
+            result = self.tm.devtools.driver.execute_script("return document.readyState")
+            self.logger.debug(f"🔍 DevTools 세션 상태: {result}")
+            return result in ["complete", "interactive"]
+        except Exception as e:
+            self.logger.warning(f"⚠️ DevTools 세션 확인 실패: {e}")
+            return False
+
     def force_reconnect_websocket(self):
         """웹소켓 강제 재연결 - URL 재추출 포함"""
         try:
             self.logger.info("🔄 웹소켓 재연결 및 URL 재추출 시작")
+            
+            # 🔥 DevTools 세션 유효성 먼저 확인
+            if not self._verify_devtools_session():
+                self.logger.error("❌ DevTools 세션이 유효하지 않음 - 재연결 중단")
+                return False
+            
+            # 🔥 기존 시그널 연결 해제
+            self._disconnect_websocket_signals()
             
             # 🔥 기존 연결 완전 정리
             if self.websocket_service:
@@ -235,6 +277,9 @@ class WebSocketManager:
                 self.websocket_service = None
                 self.tm.websocket_interceptor = None
                 self.logger.info("🗑️ 기존 웹소켓 서비스 정리 완료")
+            
+            # 🔥 JavaScript 환경 정리
+            self._cleanup_javascript_environment()
             
             # 🔥 로비 복귀 확인 대기 (3초)
             import time
@@ -272,6 +317,32 @@ class WebSocketManager:
                 QTimer.singleShot(10000, self.force_reconnect_websocket)
                 self.logger.info("⏰ 10초 후 웹소켓 재연결 재시도 (오류 발생)")
             return False
+
+    def _cleanup_javascript_environment(self):
+        """JavaScript 환경 정리"""
+        try:
+            cleanup_script = """
+            // 기존 웹소켓 및 인터셉터 정리
+            if (window.gameWebSocket) {
+                try {
+                    window.gameWebSocket.close();
+                    window.gameWebSocket = null;
+                } catch(e) {}
+            }
+            if (window.wsServerAnalysis) {
+                window.wsServerAnalysis = null;
+            }
+            if (window.sendServerAnalysisResultToPython) {
+                window.sendServerAnalysisResultToPython = null;
+            }
+            console.log('🧹 JavaScript 환경 정리 완료');
+            """
+            
+            self.tm.devtools.driver.execute_script(cleanup_script)
+            self.logger.info("🧹 JavaScript 환경 정리 완료")
+            
+        except Exception as e:
+            self.logger.debug(f"JavaScript 정리 오류 (무시): {e}")
 
     def debug_service_status(self):
         """디버그용 서비스 상태 출력"""

@@ -120,38 +120,62 @@ class GameProcessor:
                 bet_time = self.betting_tracker.bet_info.get('bet_time', 0)
                 time_since_bet = current_time - bet_time
                 
-                # 베팅 후 최소 5초 대기 (결과가 나올 시간 확보)
-                if time_since_bet < 5.0:  # 5초 미만이면 대기
-                    self.logger.info(f"⏳ 베팅 직후 대기 중: {time_since_bet:.1f}초 경과 (최소 5초 대기)")
+                # 베팅 후 최소 3초 대기로 단축 (빠른 반응)
+                if time_since_bet < 3.0:  # 3초 미만이면 대기
+                    self.logger.info(f"⏳ 베팅 직후 대기 중: {time_since_bet:.1f}초 경과 (최소 3초 대기)")
                     return
+                
+                # 🔥 추가: 대기 시간이 길어지면 더 적극적으로 결과 매칭
+                urgent_processing = time_since_bet > 30.0
+                if urgent_processing:
+                    self.logger.info(f"⚡ 긴급 처리 모드: {time_since_bet:.1f}초 대기 - 더 유연한 매칭 적용")
                     
-                # 🔥 베팅한 라운드보다 작은 라운드 결과는 무시 (과거 결과)
-                if round_number < bet_round:
+                # 🔥 베팅한 라운드보다 작은 라운드 결과는 무시 (과거 결과) - 단, 긴급 상황 제외
+                if round_number < bet_round and not urgent_processing:
                     self.logger.info(f"📋 과거 라운드 결과 무시: 완료된 라운드={round_number}, 베팅 대상={bet_round}")
                     return
                 
-                # 🔥 중요: current_game을 활용한 정확한 체크
-                # 베팅 라운드가 아직 진행 중인지 확인
-                if current_game > 0:
+                # 🔥 개선: 라운드 진행 상황에 따른 유연한 처리
+                should_wait = False
+                
+                if current_game > 0 and not urgent_processing:
                     # 베팅한 라운드가 현재 진행 중인 게임인 경우
                     if bet_round == current_game:
                         # 완료된 라운드가 베팅 라운드보다 하나 작으면 아직 진행 중
                         if round_number < current_game:
+                            should_wait = True
                             self.logger.info(f"⏳ 베팅한 게임({bet_round})이 아직 진행 중 (current_game={current_game}) - 다음 결과 대기")
-                            return
-                    # 베팅한 라운드가 이미 완료되어야 하는 경우
+                    # 베팅한 라운드가 이미 완료되어야 하는 경우 - 더 유연한 처리
                     elif bet_round < current_game:
-                        # 완료된 라운드가 베팅 라운드와 일치해야 함
+                        # 완료된 라운드가 베팅 라운드보다 작으면 대기
                         if round_number < bet_round:
+                            should_wait = True
                             self.logger.info(f"⏳ 베팅 라운드({bet_round}) 결과 아직 미완료 - 대기 중")
-                            return
+                    # 베팅한 라운드가 현재 게임보다 크면 미래 베팅 - 일단 대기
+                    elif bet_round > current_game:
+                        should_wait = True
+                        self.logger.info(f"🔮 미래 라운드 베팅({bet_round}) 대기 중 (current_game={current_game})")
+                
+                if should_wait:
+                    return
                 
                 # 디버깅 로그 추가 - INFO 레벨로 변경
                 self.logger.info(f"🔍 베팅 추적: 베팅 라운드={bet_round}, 완료된 라운드={round_number}, 진행 중인 라운드={current_game}")
                 
-                # 베팅한 라운드의 결과인지 확인
+                # 🔥 베팅한 라운드의 결과인지 확인 - 더 유연한 매칭
+                is_bet_result = False
+                
+                # 정확한 라운드 매칭
                 if round_number == bet_round:
-                    betting_result = self.betting_tracker.check_result(round_number, latest_result)
+                    is_bet_result = True
+                    self.logger.info(f"✅ 정확한 라운드 매칭: {round_number} == {bet_round}")
+                # 라운드 차이가 1 이내이고 시간이 충분히 지났으면 허용
+                elif abs(round_number - bet_round) == 1 and time_since_bet > 10.0:
+                    is_bet_result = True
+                    self.logger.info(f"⚡ 유연한 라운드 매칭: {round_number} ≈ {bet_round} (시간: {time_since_bet:.1f}s)")
+                
+                if is_bet_result:
+                    betting_result = self.betting_tracker.check_result(bet_round, latest_result)
                     
                     if betting_result:
                         self.logger.info(f"🎲 베팅 결과 확정: {betting_result.value}")
@@ -170,7 +194,14 @@ class GameProcessor:
                     else:
                         self.logger.info(f"라운드 {round_number}의 결과를 처리하지 않음")
                 else:
-                    self.logger.info(f"베팅 라운드({bet_round})를 대기 중 - 현재 라운드({round_number})")
+                    # 타임아웃 체크 추가
+                    if time_since_bet > 90.0:  # 90초 이상 대기 시 타임아웃
+                        self.logger.warning(f"⚠️ 베팅 결과 타임아웃 ({time_since_bet:.1f}s) - 추적 초기화")
+                        self.betting_tracker.reset_tracking()
+                        if hasattr(self.tm.betting_service, 'has_bet_current_round'):
+                            self.tm.betting_service.has_bet_current_round = False
+                    else:
+                        self.logger.info(f"베팅 라운드({bet_round})를 대기 중 - 현재 라운드({round_number}) (대기시간: {time_since_bet:.1f}s)")
             else:
                 self.logger.debug("베팅 결과 추적기가 대기 상태가 아님")
             
@@ -395,6 +426,16 @@ class GameProcessor:
             # 🔥 승리 시에만 방 나가기 (TIE는 방을 나가지 않음)
             self.logger.info("✅ 승리로 인한 방 나가기 - 새로운 연패방 검색")
             
+            # 게임 모니터링 워커 베팅 플래그 리셋
+            if (hasattr(self.tm, 'room_entry_handler') and 
+                hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
+                self.tm.room_entry_handler.game_monitoring_worker.betting_in_progress = False
+                self.logger.info("✅ 승리 후 게임 모니터링 워커 베팅 플래그 리셋")
+            
+            # 베팅 서비스 상태 초기화
+            if hasattr(self.tm.betting_service, 'has_bet_current_round'):
+                self.tm.betting_service.has_bet_current_round = False
+            
             # 현재 방 정보 초기화
             self.tm.current_target_room = None
             self.tm.target_streak_rooms = []
@@ -459,7 +500,35 @@ class GameProcessor:
                     self.tm.streak_handler.return_to_streak_monitoring()
                     return
             
-            # 🔥 마틴게일 전략에서는 연패 확인하지 않음 (마지막 단계에서만 방 이동)
+            # 🔥 마틴 한계 미도달 시 - 다음 마틴 단계로 베팅 계속
+            else:
+                self.logger.info(f"📈 마틴 단계 진행: {current_pos}/{martin_stages} - 다음 베팅 대기")
+                
+                # 베팅 상태 초기화 (다음 베팅을 위해)
+                self.betting_cooldown = False
+                self.consecutive_requests = 0
+                self.last_bet_round = 0
+                
+                # 게임 모니터링 워커의 베팅 플래그도 리셋
+                if (hasattr(self.tm, 'room_entry_handler') and 
+                    hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
+                    self.tm.room_entry_handler.game_monitoring_worker.betting_in_progress = False
+                    self.logger.info("✅ 게임 모니터링 워커의 betting_in_progress 플래그 리셋")
+                
+                # 베팅 서비스 상태 초기화
+                if hasattr(self.tm.betting_service, 'has_bet_current_round'):
+                    self.tm.betting_service.has_bet_current_round = False
+                
+                self.logger.info("🔄 다음 마틴 단계 베팅 준비 완료 - 모니터링 재개")
+                
+                # 즉시 다음 베팅 기회를 찾기 위해 짧은 딜레이 후 베팅 시도
+                from PyQt6.QtCore import QTimer
+                def trigger_next_betting():
+                    if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, '_request_betting_with_latest_data'):
+                        self.logger.info("⚡ 패배 후 즉시 다음 베팅 기회 탐색")
+                        self.tm.game_processor._request_betting_with_latest_data()
+                
+                QTimer.singleShot(2000, trigger_next_betting)  # 2초 후 다음 베팅 시도
                 
         except Exception as e:
             self.logger.error(f"패배 처리 오류: {e}")
@@ -500,6 +569,15 @@ class GameProcessor:
                 self.tm.martin_service.tie_count += 1
                 self.tm.martin_service.need_room_change = False  # 같은 방에서 계속
                 self.logger.info(f"📈 누적 TIE 횟수: {self.tm.martin_service.tie_count}")
+            
+            # TIE 후 빠른 재베팅을 위한 트리거
+            from PyQt6.QtCore import QTimer
+            def trigger_tie_rebetting():
+                if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, '_request_betting_with_latest_data'):
+                    self.logger.info("⚡ TIE 후 즉시 재베팅 기회 탐색")
+                    self.tm.game_processor._request_betting_with_latest_data()
+            
+            QTimer.singleShot(3000, trigger_tie_rebetting)  # 3초 후 재베팅 시도
             
         except Exception as e:
             self.logger.error(f"무승부 처리 오류: {e}")
