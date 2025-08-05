@@ -97,27 +97,26 @@ class BettingResultTracker:
             self.logger.info(f"  - 베팅 라운드: {bet_round}")
             self.logger.info(f"  - 대기 시간: {waiting_time:.1f}초")
             
-            # 베팅 라운드와 현재 라운드 비교 - 더 유연한 매칭
+            # 🔥 베팅 라운드와 현재 라운드 비교 - 엄격한 매칭
             round_match = False
             
             if round_number == bet_round:
                 round_match = True
                 self.logger.info(f"✅ 정확한 라운드 매칭: {round_number}")
-            elif abs(round_number - bet_round) == 1 and waiting_time > 15.0:
-                # 15초 이상 대기했고 라운드 차이가 1이면 허용
-                round_match = True
-                self.logger.info(f"⚡ 유연한 라운드 매칭: {round_number} ≈ {bet_round} (대기: {waiting_time:.1f}s)")
             elif round_number < bet_round:
                 self.logger.info(f"⏳ 베팅 라운드 아직 미도달: 베팅 대상={bet_round}, 현재 완료={round_number}")
                 return None
-            else:
-                # 라운드를 놓친 경우 - 60초 이상 대기했으면 마지막 결과로 처리
-                if waiting_time > 60.0:
-                    round_match = True
-                    self.logger.warning(f"⚠️ 베팅 라운드 놓침, 하지만 타임아웃으로 마지막 결과 처리: 베팅={bet_round}, 현재={round_number}")
-                else:
-                    self.logger.warning(f"⚠️ 베팅 라운드 놓침: 베팅 대상={bet_round}, 현재 완료={round_number}")
-                    return None
+            elif round_number > bet_round:
+                # 라운드를 놓친 경우
+                self.logger.error(f"❌ 베팅 라운드 놓침: 베팅={bet_round}, 현재={round_number}")
+                self.logger.error(f"❌ 결과 확인 불가 - 추적 초기화")
+                self.reset_tracking()
+                return None
+            
+            # 결과가 비어있는지 확인
+            if not game_result or game_result not in ['P', 'B', 'T']:
+                self.logger.warning(f"⚠️ 유효하지 않은 게임 결과: '{game_result}'")
+                return None
             
             if not round_match:
                 return None

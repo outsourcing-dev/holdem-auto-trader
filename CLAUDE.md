@@ -12,6 +12,7 @@ Holdem Auto Trader is a Python-based automated trading bot for online Holdem pok
 1. **Login System** → **Main Window** → **Trading Manager** → **Automated Trading**
 2. Entry point: `main.py` creates `MainApp` which handles login flow and shows `MainWindow`
 3. Main trading logic is orchestrated by `TradingManager` class
+4. Comprehensive logging to `log.txt` with file rotation
 
 ### Key Components
 
@@ -31,11 +32,13 @@ Holdem Auto Trader is a Python-based automated trading bot for online Holdem pok
 - `MartinBettingService`: Martingale betting strategy implementation
 - `ExcelTradingService`: Excel-based trading strategy integration
 - `RoomEntryService`: Room navigation and entry logic
+- `WebSocketHybridService`: JavaScript-based WebSocket communication
 
 #### DevTools Integration (utils/devtools.py)
 - **DevToolsController**: Chrome DevTools Protocol wrapper
 - Controls browser automation via CDP (not Selenium)
 - Handles iframe switching and DOM manipulation
+- Uses `undetected-chromedriver` for stealth operation
 
 #### Settings Management
 - `SettingsManager`: JSON-based configuration (sites, martin amounts, target amount, min_streak)
@@ -72,13 +75,17 @@ pip install -r requirements.txt
 python main.py
 
 # Build executable
-pyinstaller JD\ Soft.spec
+pyinstaller "JD Soft.spec"
+
+# Or use automated build script
+build_encrypted_excel.bat
 ```
 
 ### Testing and Debugging
 - No automated test suite - manual testing via UI
-- Debugging: Check logs in console output (logging configured in main.py)
+- Debugging: Check logs in `log.txt` and console output
 - Trading debug: Use emergency stop button or force room exit
+- Logging configured with rotation in `main.py`
 
 ## Key Configuration Files
 
@@ -99,6 +106,11 @@ pyinstaller JD\ Soft.spec
 - Room filtering and targeting preferences
 - Managed by `RoomManager`
 
+### JD Soft.spec
+- PyInstaller build configuration
+- Includes all necessary data files and hidden imports
+- Configures proper icon and metadata
+
 ## Architecture Patterns
 
 ### Modular Design
@@ -115,6 +127,7 @@ pyinstaller JD\ Soft.spec
 - **Graceful degradation**: Continue operation on non-critical failures
 - **Automatic recovery**: Return to lobby and restart room search on errors
 - **User feedback**: UI status updates and error messaging
+- **Comprehensive logging**: All operations logged to file with rotation
 
 ## Critical Implementation Details
 
@@ -155,3 +168,12 @@ pyinstaller JD\ Soft.spec
 - **Responsive layout**: Fixed window size with dynamic content
 - **Real-time updates**: Timer-based UI refresh for trading status
 - **Settings integration**: Live configuration updates without restart
+
+## Dependencies
+Key packages from requirements.txt:
+- PyQt6: UI framework
+- undetected-chromedriver: Browser automation
+- websockets: WebSocket communication
+- beautifulsoup4: HTML parsing
+- openpyxl: Excel file handling
+- pyinstaller: Executable building

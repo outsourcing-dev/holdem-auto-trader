@@ -200,6 +200,16 @@ class GameProcessor:
                         self.betting_tracker.reset_tracking()
                         if hasattr(self.tm.betting_service, 'has_bet_current_round'):
                             self.tm.betting_service.has_bet_current_round = False
+                        
+                        # 게임 모니터링 워커의 베팅 플래그도 리셋
+                        if (hasattr(self.tm, 'room_entry_handler') and 
+                            hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
+                            self.tm.room_entry_handler.game_monitoring_worker.reset_betting_flag()
+                            self.logger.info("✅ 타임아웃으로 게임 모니터링 워커 베팅 플래그 리셋")
+                        
+                        # 타임아웃 발생 시 패배로 처리하여 Martin 진행
+                        self.logger.info("⚠️ 타임아웃 발생 - 패배로 처리하여 다음 마틴 단계 진행")
+                        self._handle_lose_result_tracked()
                     else:
                         self.logger.info(f"베팅 라운드({bet_round})를 대기 중 - 현재 라운드({round_number}) (대기시간: {time_since_bet:.1f}s)")
             else:
@@ -398,6 +408,12 @@ class GameProcessor:
             # 추적 상태 초기화
             self.betting_tracker.reset_tracking()
             
+            # Martin 서비스에 승리 결과 처리
+            if hasattr(self.tm, 'martin_service'):
+                current_round = self.tm.game_count
+                self.tm.martin_service.process_bet_result("win", current_round)
+                self.logger.info(f"✅ Martin 서비스에 승리 결과 처리 완료 (라운드: {current_round})")
+            
             # 상태 초기화
             self.betting_cooldown = False
             self.consecutive_requests = 0
@@ -455,11 +471,19 @@ class GameProcessor:
             # 추적 상태 초기화
             self.betting_tracker.reset_tracking()
             
-            # 위젯 카운터 증가
+            # Martin 서비스에 패배 결과 처리
+            if hasattr(self.tm, 'martin_service'):
+                current_round = self.tm.game_count
+                self.tm.martin_service.process_bet_result("lose", current_round)
+                self.logger.info(f"✅ Martin 서비스에 패배 결과 처리 완료 (라운드: {current_round})")
+            
+            # 위젯 카운터 증가 (Martin service process_bet_result에서도 처리하지만 중복 방지 체크)
             if hasattr(self.tm.main_window, 'betting_widget'):
                 current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
                 self.tm.main_window.betting_widget.set_step_marker(current_pos, "X")  # 패배 마커
-                self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
+                # Martin service에서 이미 증가시켰을 수 있으므로 확인
+                if self.tm.main_window.betting_widget.room_position_counter == current_pos:
+                    self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
             
             # Excel Trading Service에 패배 기록
             if hasattr(self.tm, 'excel_trading_service'):
@@ -542,6 +566,12 @@ class GameProcessor:
             if hasattr(self.tm.main_window, 'betting_widget'):
                 current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
                 self.logger.info(f"🎯 TIE - 마틴 {current_pos + 1}단계 유지, 방 나가지 않음")
+            
+            # Martin 서비스에 무승부 결과 처리
+            if hasattr(self.tm, 'martin_service'):
+                current_round = self.tm.game_count
+                self.tm.martin_service.process_bet_result("tie", current_round)
+                self.logger.info(f"✅ Martin 서비스에 무승부 결과 처리 완료 (라운드: {current_round})")
             
             # 추적 상태 초기화 (새로운 베팅을 위해)
             self.betting_tracker.reset_tracking()

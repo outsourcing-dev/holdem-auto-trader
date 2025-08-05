@@ -11,13 +11,16 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # 로그 파일 설정
 def setup_logging():
     """로깅 설정 - log.txt에 실시간으로 기록"""
-    # 기존 로그 파일 백업 (선택사항)
     log_file = 'log.txt'
+    
+    # 🔥 프로그램 시작 시 log.txt 초기화 (이전 내용 삭제)
     if os.path.exists(log_file):
-        # 기존 로그를 백업 (최대 10MB까지만 유지)
-        if os.path.getsize(log_file) > 10 * 1024 * 1024:  # 10MB
-            backup_name = f'log_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt'
-            os.rename(log_file, backup_name)
+        try:
+            # 기존 로그 파일 삭제
+            os.remove(log_file)
+            print(f"기존 log.txt 파일 초기화 완료")
+        except Exception as e:
+            print(f"log.txt 초기화 실패: {e}")
     
     # 로깅 설정
     logging.basicConfig(
@@ -26,8 +29,8 @@ def setup_logging():
         handlers=[
             # 콘솔 출력
             logging.StreamHandler(),
-            # 파일 출력 (log.txt에 추가 모드로 기록)
-            logging.FileHandler(log_file, mode='a', encoding='utf-8')
+            # 파일 출력 (log.txt에 새로 생성)
+            logging.FileHandler(log_file, mode='w', encoding='utf-8')  # 'a' → 'w'로 변경
         ]
     )
     

@@ -62,6 +62,10 @@ class GameMonitoringWorker(QThread):
             self.first_check_after_entry = True
             self.betting_in_progress = False
             
+            # 방 입장 시간 기록 (안정화 대기용)
+            self.room_entry_time = time.time()
+            self.min_stabilization_time = 10.0  # 최소 10초 대기
+            
             self._is_running = True
             self._is_paused = False
             
@@ -186,14 +190,14 @@ class GameMonitoringWorker(QThread):
             filtered_results = game_state.get('filtered_results', [])
             
             # 🔍 디버깅: 게임 상태 값 확인 (매번 로그 기록)
-            self.logger.info(f"🎯 [워커] 게임 상태 체크 #{self.last_check_time:.0f}:")
-            self.logger.info(f"  - 방 이름: {self.current_room_name}")
-            self.logger.info(f"  - 완료된 라운드: {current_round}")
-            self.logger.info(f"  - 진행 중인 게임: {current_game}")
-            self.logger.info(f"  - 마지막 체크 라운드: {self.last_game_count}")
-            self.logger.info(f"  - 최신 결과: {latest_result}")
-            self.logger.info(f"  - 베팅 진행 중: {self.betting_in_progress}")
-            self.logger.info(f"  - 베팅 추적기 대기 중: {self.tm.game_processor.betting_tracker.is_waiting_for_result() if hasattr(self.tm.game_processor, 'betting_tracker') else 'N/A'}")
+            self.logger.debug(f"🎯 [워커] 게임 상태 체크 #{self.last_check_time:.0f}:")
+            self.logger.debug(f"  - 방 이름: {self.current_room_name}")
+            self.logger.debug(f"  - 완료된 라운드: {current_round}")
+            self.logger.debug(f"  - 진행 중인 게임: {current_game}")
+            self.logger.debug(f"  - 마지막 체크 라운드: {self.last_game_count}")
+            self.logger.debug(f"  - 최신 결과: {latest_result}")
+            self.logger.debug(f"  - 베팅 진행 중: {self.betting_in_progress}")
+            self.logger.debug(f"  - 베팅 추적기 대기 중: {self.tm.game_processor.betting_tracker.is_waiting_for_result() if hasattr(self.tm.game_processor, 'betting_tracker') else 'N/A'}")
             
             # 🔥 게임 결과 처리와 베팅 기회 분리
             # 1. 새로운 라운드 결과 처리 (베팅 결과 추적을 위해)
@@ -209,6 +213,28 @@ class GameMonitoringWorker(QThread):
                     }
                     self.logger.info(f"🎲 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
                     self.game_result_received.emit(result_data)
+                # 🔥 베팅 추적기가 대기 중이고 결과가 없는 경우
+                elif (hasattr(self.tm.game_processor, 'betting_tracker') and 
+                      self.tm.game_processor.betting_tracker.is_waiting_for_result()):
+                    # 베팅한 라운드 확인
+                    bet_round = self.tm.game_processor.betting_tracker.get_bet_round()
+                    
+                    # 현재 라운드가 베팅한 라운드와 일치하는지 확인
+                    if bet_round and current_round == bet_round:
+                        # latest_result가 없으면 결과 처리 보류
+                        self.logger.warning(f"⚠️ 라운드 {current_round} 결과 없음 - 다음 체크 대기")
+                        # 결과가 없는 상태로는 처리하지 않음
+                        return
+                    elif bet_round and current_round > bet_round:
+                        # 베팅한 라운드를 지나쳤으면 타임아웃으로 처리
+                        self.logger.error(f"❌ 베팅 라운드 {bet_round} 결과 누락 - 현재 {current_round}")
+                        # 빈 결과로 처리하여 타임아웃 유도
+                        result_data = {
+                            'round_number': bet_round,
+                            'latest_result': '',  # 빈 결과
+                            'current_game': current_game
+                        }
+                        self.game_result_received.emit(result_data)
                 
                 self.last_game_count = current_round
             
@@ -290,6 +316,15 @@ class GameMonitoringWorker(QThread):
                 self.logger.info(f"❌ 베팅 조건 미충족: 결과 데이터 부족 ({len(filtered_results)}/15)")
                 return
             
+            # 방 입장 후 안정화 시간 체크
+            if hasattr(self, 'room_entry_time'):
+                time_since_entry = current_time - self.room_entry_time
+                if time_since_entry < self.min_stabilization_time:
+                    remaining = self.min_stabilization_time - time_since_entry
+                    self.status_updated.emit(f"방 안정화 대기 중... ({remaining:.1f}초)")
+                    self.logger.info(f"❌ 베팅 조건 미충족: 방 입장 후 안정화 대기 ({time_since_entry:.1f}/{self.min_stabilization_time}초)")
+                    return
+            
             if self.first_check_after_entry:
                 self.first_check_after_entry = False
                 self.status_updated.emit("방 입장 직후 - 다음 라운드 대기")
@@ -351,6 +386,16 @@ class GameMonitoringWorker(QThread):
         
         if not success:
             self.logger.warning(f"베팅 실패: {message}")
+        
+        # 베팅 플래그 리셋 확인 로그
+        self.logger.info(f"✅ betting_in_progress 플래그 리셋 완료: {self.betting_in_progress}")
+    
+    def reset_betting_flag(self):
+        """베팅 플래그 강제 리셋 (타임아웃 등의 경우)"""
+        was_in_progress = self.betting_in_progress
+        self.betting_in_progress = False
+        if was_in_progress:
+            self.logger.info("🔄 betting_in_progress 플래그 강제 리셋")
     
     def update_room_info(self, room_data: dict):
         """방 정보 업데이트"""

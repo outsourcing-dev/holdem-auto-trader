@@ -25,6 +25,22 @@ class BettingExecutor:
             
             self.logger.info(f"⚡ 베팅 실행 전 빠른 상태 확인...")
             
+            # 🔥 베팅 직전 최신 게임 상태 재확인
+            latest_state = self._get_latest_game_state()
+            if latest_state:
+                latest_round = latest_state.get('round', 0)
+                latest_current_game = latest_state.get('current_game', 0)
+                
+                # 라운드가 변경되었는지 확인
+                if latest_round != round_number:
+                    self.logger.warning(f"⚠️ 라운드 변경 감지: {round_number} → {latest_round}")
+                    self.logger.warning(f"⚠️ 베팅 취소 - 라운드 동기화 필요")
+                    return
+                
+                # current_game 업데이트
+                if latest_current_game > 0:
+                    current_game = latest_current_game
+            
             # 🔥 정확한 베팅 라운드 계산
             # round_number: 마지막 완료된 라운드
             # current_game: 현재 진행 중인 게임 번호 (베팅이 적용될 라운드)
@@ -69,15 +85,39 @@ class BettingExecutor:
                 )
             else:
                 self.logger.warning(f"❌ 베팅 실패: {pick}")
-                # 베팅 실패 시 추적 취소
-                if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
-                    self.tm.game_processor.betting_tracker.reset_tracking()
+                # 베팅 실패 시 상태 복구
+                self._recover_betting_state()
                     
         except Exception as e:
             self.logger.error(f"베팅 실행 오류: {e}")
-            # 오류 시 추적 취소
+            # 오류 시 상태 복구
+            self._recover_betting_state()
+    
+    def _recover_betting_state(self):
+        """베팅 실패 또는 오류 시 상태 복구"""
+        try:
+            # 베팅 추적기 초기화
             if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
                 self.tm.game_processor.betting_tracker.reset_tracking()
+            
+            # 베팅 서비스 상태 초기화
+            if hasattr(self.tm, 'betting_service'):
+                self.tm.betting_service.has_bet_current_round = False
+            
+            # 게임 모니터링 워커 베팅 플래그 리셋
+            if (hasattr(self.tm, 'room_entry_handler') and 
+                hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
+                self.tm.room_entry_handler.game_monitoring_worker.reset_betting_flag()
+            
+            # 게임 프로세서 쿨다운 리셋
+            if hasattr(self.tm, 'game_processor'):
+                self.tm.game_processor.betting_cooldown = False
+                self.tm.game_processor.consecutive_requests = 0
+            
+            self.logger.info("✅ 베팅 상태 복구 완료 - 다음 베팅 가능")
+            
+        except Exception as e:
+            self.logger.error(f"베팅 상태 복구 오류: {e}")
                 
     def generate_pick_for_streak_room(self) -> str:
         """연패 방을 위한 픽 생성"""

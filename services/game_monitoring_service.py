@@ -159,7 +159,7 @@ class GameMonitoringService:
                 self.logger.info(f"  - 마지막 완료된 게임: {round_number}")
                 self.logger.info(f"  - 현재 진행 중인 게임 (베팅 대상): {current_game_number}")
                 self.logger.info(f"  - 전체 P,B 결과: {len(game_results)}개")
-                self.logger.info(f"  - 최신 결과: {latest_result}")
+                self.logger.info(f"  - 최신 결과: {latest_result_with_tie}")
                 
                 return game_state
             else:
@@ -341,7 +341,7 @@ class GameMonitoringService:
                 self.logger.warning("Bead Road coordinates 요소를 찾을 수 없습니다")
                 return []
             
-            self.logger.info(f"🔍 Bead Road에서 발견된 coordinates 요소: {len(svg_elements)}개")
+            self.logger.debug(f"🔍 Bead Road에서 발견된 coordinates 요소: {len(svg_elements)}개")
             
             # 좌표별로 결과 정리
             coordinate_results = {}
@@ -422,7 +422,7 @@ class GameMonitoringService:
                 self.logger.warning("Bead Road에서 게임 결과를 찾을 수 없습니다")
                 return []
             
-            self.logger.info(f"🎯 Bead Road 유효한 좌표 결과: {len(coordinate_results)}개")
+            self.logger.debug(f"🎯 Bead Road 유효한 좌표 결과: {len(coordinate_results)}개")
             
             # 좌표를 올바른 게임 순서대로 정렬
             sorted_results = self._sort_coordinates_to_game_sequence(coordinate_results)
@@ -431,7 +431,8 @@ class GameMonitoringService:
             filtered_pb_only = [result for result in sorted_results if result in ['P', 'B']]
             
             # 전체 데이터 로그 출력
-            self.logger.info(f"📊 Bead Road 전체 게임 결과: {len(sorted_results)}개 - {sorted_results}")
+            self.logger.info(f"📊 Bead Road 전체 게임 결과: {len(sorted_results)}개")
+            self.logger.debug(f"📊 Bead Road 상세 결과: {sorted_results}")
             self.logger.info(f"🎯 P,B만 필터링된 결과: {len(filtered_pb_only)}개 - {filtered_pb_only}")
             
             # desired_count가 지정된 경우 최근 N개만 반환
@@ -477,7 +478,19 @@ class GameMonitoringService:
     def _find_latest_result(self):
         """iframe에서 최신 게임 결과 찾기 (P, B만)"""
         try:
-            # 1. 최신 결과 표시 선택자들
+            # 1. Bead Road에서 전체 결과를 먼저 가져오기 (가장 신뢰할 수 있는 소스)
+            try:
+                all_results = self._find_all_game_results_with_tie()
+                if all_results and len(all_results) > 0:
+                    # P 또는 B인 마지막 결과 찾기 (T 제외)
+                    for result in reversed(all_results):
+                        if result in ['P', 'B']:
+                            self.logger.debug(f"Bead Road에서 최신 P,B 결과: {result}")
+                            return result
+            except Exception as e:
+                self.logger.debug(f"Bead Road 파싱 실패: {e}")
+            
+            # 2. Bead Road가 실패한 경우에만 다른 방법 시도
             latest_selectors = [
                 "[class*='latest']",
                 "[class*='Last']", 
@@ -493,12 +506,12 @@ class GameMonitoringService:
                         result = self._extract_single_pb_from_element(element)
                         # P 또는 B만 허용 (T 제외)
                         if result and result in ['P', 'B']:
-                            self.logger.debug(f"최신 P,B 결과 발견: {result}")
+                            self.logger.debug(f"선택자에서 최신 P,B 결과: {result}")
                             return result
                 except:
                     continue
             
-            # 2. 일반적인 결과에서 마지막 P 또는 B 사용
+            # 3. 일반적인 결과에서 마지막 P 또는 B 사용
             results = self._find_game_results(10)  # 더 많이 가져와서 P,B 찾기
             if results:
                 # P 또는 B인 마지막 결과 찾기
@@ -517,7 +530,18 @@ class GameMonitoringService:
     def _find_latest_result_including_tie(self):
         """iframe에서 최신 게임 결과 찾기 (P, B, T 모두 포함)"""
         try:
-            # 1. 최신 결과 표시 선택자들
+            # 1. Bead Road에서 전체 결과를 먼저 가져오기 (가장 신뢰할 수 있는 소스)
+            try:
+                all_results = self._find_all_game_results_with_tie()
+                if all_results and len(all_results) > 0:
+                    # 가장 최신 결과 반환
+                    latest = all_results[-1]
+                    self.logger.debug(f"Bead Road에서 최신 결과 (TIE 포함): {latest}")
+                    return latest
+            except Exception as e:
+                self.logger.debug(f"Bead Road 파싱 실패: {e}")
+            
+            # 2. Bead Road가 실패한 경우에만 다른 선택자 시도
             latest_selectors = [
                 "[class*='latest']",
                 "[class*='Last']", 
@@ -533,22 +557,10 @@ class GameMonitoringService:
                         result = self._extract_single_result_from_element(element)
                         # P, B, T 모두 허용
                         if result and result in ['P', 'B', 'T']:
-                            self.logger.debug(f"최신 결과 발견 (TIE 포함): {result}")
+                            self.logger.debug(f"선택자에서 최신 결과 발견 (TIE 포함): {result}")
                             return result
                 except:
                     continue
-            
-            # 2. Bead Road에서 최신 결과 찾기
-            try:
-                # Bead Road에서 전체 결과 가져오기 (T 포함)
-                all_results = self._find_all_game_results_with_tie()
-                if all_results:
-                    # 가장 최신 결과 반환
-                    latest = all_results[-1]
-                    self.logger.debug(f"Bead Road에서 최신 결과 (TIE 포함): {latest}")
-                    return latest
-            except:
-                pass
             
             self.logger.warning("최신 게임 결과를 찾을 수 없습니다 (TIE 포함)")
             return ''
@@ -725,8 +737,11 @@ class GameMonitoringService:
             latest_result = game_state.get('latest_result', '')
             
             # 서버 전송 양식과 동일하게 로거 출력
-            self.logger.info(f"📡 iframe에서 데이터 추출: {room_name or 'Unknown'} ({room_id or 'Unknown'})")
-            self.logger.info(f"📊 최근 {len(filtered_results)}개 P,B 결과: {filtered_results}")
+            self.logger.debug(f"📡 iframe에서 데이터 추출: {room_name or 'Unknown'} ({room_id or 'Unknown'})")
+            if log_always:
+                self.logger.info(f"📊 최근 {len(filtered_results)}개 P,B 결과: {filtered_results}")
+            else:
+                self.logger.debug(f"📊 최근 {len(filtered_results)}개 P,B 결과: {filtered_results}")
             
             if latest_result:
                 self.logger.info(f"🎮 최신 게임 결과: 라운드 {round_number}, 결과 {latest_result}")

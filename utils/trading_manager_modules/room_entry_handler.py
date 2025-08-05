@@ -566,7 +566,7 @@ class RoomEntryHandler(QObject):
             self.logger.error(f"iframe 모니터링 중지 오류: {e}")
 
     def _check_game_count_condition(self, room_id: str, room_name: str) -> bool:
-        """게임 수 조건 확인 (15게임 이상 65게임 미만)"""
+        """게임 수 조건 확인 (15게임 이상 64게임 미만)"""
         try:
             # iframe에서 현재 게임 상태 가져오기
             game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
@@ -584,8 +584,8 @@ class RoomEntryHandler(QObject):
             current_round = game_state.get('round', 0)
             game_count = current_round if current_round > 0 else total_results
             
-            # 조건 체크: 15게임 이상 65게임 미만
-            if game_count < 15 or game_count >= 65:
+            # 조건 체크: 15게임 이상 64게임 미만
+            if game_count < 15 or game_count >= 64:
                 self.logger.info(f"📊 게임 수 조건 미충족: {game_count}회")
                 return False
             else:
@@ -609,13 +609,23 @@ class RoomEntryHandler(QObject):
                 )
                 
                 if game_state:
-                    return True
+                    # 게임 상태가 정상적으로 파싱되었는지 확인
+                    round_number = game_state.get('round', 0)
+                    filtered_results = game_state.get('filtered_results', [])
+                    
+                    # 라운드 번호가 있거나 결과가 있으면 입장 성공
+                    if round_number > 0 or len(filtered_results) > 0:
+                        self.logger.info(f"✅ iframe 검증 성공: 라운드 {round_number}, 결과 {len(filtered_results)}개")
+                        return True
+                    else:
+                        self.logger.warning(f"⚠️ iframe 검증 시도 {verification_attempt}/3: 게임 데이터 불완전")
                 
-                # 다음 시도 전 잠시 대기 (비동기)
+                # 다음 시도 전 잠시 대기
                 if verification_attempt < 3:
-                    # 동기적 대기 유지 (검증 로직의 단순성을 위해)
-                    time.sleep(1)
+                    self.logger.info(f"⏳ iframe 검증 재시도 대기 중... ({verification_attempt}/3)")
+                    time.sleep(2)  # 1초에서 2초로 늘림
             
+            self.logger.warning("❌ iframe 검증 실패: 게임 상태를 확인할 수 없음")
             return False
             
         except Exception as e:
