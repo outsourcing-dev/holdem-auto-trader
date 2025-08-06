@@ -114,19 +114,20 @@ class DevToolsController:
         try:
             self.logger.info("🔄 Chrome 시작 중...")
             
+            # ChromeOptions를 매번 새로 생성 (재사용 방지)
             options = uc.ChromeOptions()
             
             # 검증된 기본 옵션만 사용
-            basic_options = [
-                '--disable-blink-features=AutomationControlled',
-                '--user-data-dir=' + self._get_temp_user_data_dir()
-            ]
+            options.add_argument('--disable-blink-features=AutomationControlled')
             
-            for option in basic_options:
-                options.add_argument(option)
+            # 임시 사용자 데이터 디렉토리 생성
+            user_data_dir = self._get_temp_user_data_dir()
+            if user_data_dir:
+                options.add_argument(f'--user-data-dir={user_data_dir}')
             
-            # undetected_chromedriver로 시작
-            self.driver = uc.Chrome(options=options)
+            # Chrome 138 버전 명시적 지정 (현재 환경)
+            self.logger.info("Chrome 138 버전 드라이버로 시작")
+            self.driver = uc.Chrome(options=options, version_main=138)
             
             # 연결 테스트
             self.driver.get("about:blank")
@@ -345,8 +346,9 @@ class DevToolsController:
             self.close_browser()
             time.sleep(3)
             
-            # 재시작
-            return self.start_browser()
+            # 재시작 - 무한 루프 방지를 위해 False 반환
+            self.logger.info("비상 재시작 완료 - 다음 작업 시 브라우저가 자동으로 시작됩니다")
+            return False  # start_browser 호출 제거로 무한 루프 방지
             
         except Exception as e:
             self.logger.error(f"비상 재시작 실패: {e}")

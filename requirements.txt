@@ -1,6 +1,6 @@
 ﻿PyQt6
 pymysql  # MariaDB(MySQL) 연결용 라이브러리
-undetected-chromedriver  # 자동화 탐지 우회 가능
+undetected-chromedriver==3.5.5  # 자동화 탐지 우회 가능 (버그 수정 버전)
 websockets  # CDP 프로토콜 통신
 setuptools
 beautifulsoup4
