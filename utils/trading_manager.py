@@ -36,10 +36,8 @@ class TradingManager:
         # DevTools 설정
         if hasattr(main_window, 'devtools') and main_window.devtools:
             self.devtools = main_window.devtools
-            self.logger.info("✅ 메인 윈도우의 기존 DevTools 인스턴스 사용")
         else:
             self.devtools = DevToolsController(logger=self.logger)
-            self.logger.info("⚠️ 새로운 DevTools 인스턴스 생성")
         
         self.room_manager = main_window.room_manager
         self.settings_manager = SettingsManager()
@@ -81,8 +79,6 @@ class TradingManager:
                 self.room_manager_handler.room_entered.connect(self._on_room_entered)
             if hasattr(self.room_manager_handler, 'room_exited'):
                 self.room_manager_handler.room_exited.connect(self._on_room_exited)
-                
-            self.logger.info("🔗 멀티쓰레드 시그널 연결 완료")
             
         except Exception as e:
             self.logger.error(f"멀티쓰레드 시그널 연결 오류: {e}")

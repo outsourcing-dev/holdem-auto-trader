@@ -6,7 +6,13 @@
       "Bash(python:*)",
       "Bash(git add:*)",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git pull:*)",
+      "Bash(rmdir:*)",
+      "Bash(rm:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(pip show:*)",
+      "Bash(del test_chrome_fix.py test_site_click.py)"
     ],
     "deny": []
   }

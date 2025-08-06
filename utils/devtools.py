@@ -32,19 +32,13 @@ class DevToolsController:
             # 기존 Chrome 프로세스 정리
             self._cleanup_chrome_processes()
             
-            # Basic 모드로 여러 번 시도
+            # Chrome 시작 시도
             for attempt in range(self.max_start_retries):
                 try:
-                    self.logger.info(f"Chrome 브라우저 시작 시도 {attempt + 1}/{self.max_start_retries}")
-                    
                     if self._start_chrome_basic():
-                        self.logger.info("✅ Chrome 브라우저 시작 성공")
                         return True
                         
                 except Exception as e:
-                    self.logger.warning(f"시도 {attempt + 1} 실패: {e}")
-                    
-                    # 실패한 경우 정리 후 재시도
                     if self.driver:
                         try:
                             self.driver.quit()
@@ -53,11 +47,9 @@ class DevToolsController:
                         self.driver = None
                     
                     if attempt < self.max_start_retries - 1:
-                        self.logger.info(f"{self.retry_delay}초 후 재시도...")
                         time.sleep(self.retry_delay)
                         self._cleanup_chrome_processes()
             
-            self.logger.error("모든 Chrome 시작 시도 실패")
             return False
             
         except Exception as e:
@@ -67,7 +59,6 @@ class DevToolsController:
     def _cleanup_chrome_processes(self):
         """기존 Chrome 프로세스 정리"""
         try:
-            self.logger.info("기존 Chrome 프로세스 정리 중...")
             
             chrome_processes = []
             for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
@@ -87,7 +78,6 @@ class DevToolsController:
             for proc in chrome_processes:
                 try:
                     proc.terminate()
-                    self.logger.debug(f"Chrome 프로세스 종료: PID {proc.pid}")
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
             
@@ -100,19 +90,15 @@ class DevToolsController:
                     try:
                         if proc.is_running():
                             proc.kill()
-                            self.logger.debug(f"Chrome 프로세스 강제 종료: PID {proc.pid}")
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         continue
-                        
-                self.logger.info(f"기존 Chrome 프로세스 {len(chrome_processes)}개 정리 완료")
             
-        except Exception as e:
-            self.logger.warning(f"Chrome 프로세스 정리 중 오류: {e}")
+        except Exception:
+            pass
 
     def _start_chrome_basic(self):
         """검증된 Basic 모드로 Chrome 시작"""
         try:
-            self.logger.info("🔄 Chrome 시작 중...")
             
             # ChromeOptions를 매번 새로 생성 (재사용 방지)
             options = uc.ChromeOptions()
@@ -125,19 +111,16 @@ class DevToolsController:
             if user_data_dir:
                 options.add_argument(f'--user-data-dir={user_data_dir}')
             
-            # Chrome 138 버전 명시적 지정 (현재 환경)
-            self.logger.info("Chrome 138 버전 드라이버로 시작")
+            # Chrome 138 버전 명시적 지정
             self.driver = uc.Chrome(options=options, version_main=138)
             
             # 연결 테스트
             self.driver.get("about:blank")
             time.sleep(1)
             
-            self.logger.info("✅ Chrome 시작 성공")
             return True
             
-        except Exception as e:
-            self.logger.warning(f"Chrome 시작 실패: {e}")
+        except Exception:
             return False
 
     def _get_temp_user_data_dir(self):
@@ -153,15 +136,13 @@ class DevToolsController:
             os.makedirs(user_data_dir, exist_ok=True)
             return user_data_dir
             
-        except Exception as e:
-            self.logger.warning(f"임시 디렉토리 생성 실패: {e}")
+        except Exception:
             return ""
 
     def close_browser(self):
         """브라우저 안전하게 종료"""
         try:
             if self.driver:
-                self.logger.info("브라우저 종료 중...")
                 
                 try:
                     # 모든 창 닫기
@@ -175,8 +156,6 @@ class DevToolsController:
                 # 잔여 프로세스 정리
                 time.sleep(1)
                 self._cleanup_chrome_processes()
-                
-                self.logger.info("브라우저 종료 완료")
                 
         except Exception as e:
             self.logger.error(f"브라우저 종료 중 오류: {e}")

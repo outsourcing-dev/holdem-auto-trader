@@ -13,14 +13,12 @@ def setup_logging():
     """로깅 설정 - log.txt에 실시간으로 기록"""
     log_file = 'log.txt'
     
-    # 🔥 프로그램 시작 시 log.txt 초기화 (이전 내용 삭제)
+    # 프로그램 시작 시 log.txt 초기화
     if os.path.exists(log_file):
         try:
-            # 기존 로그 파일 삭제
             os.remove(log_file)
-            print(f"기존 log.txt 파일 초기화 완료")
-        except Exception as e:
-            print(f"log.txt 초기화 실패: {e}")
+        except:
+            pass
     
     # 로깅 설정
     logging.basicConfig(
@@ -34,10 +32,8 @@ def setup_logging():
         ]
     )
     
-    # 프로그램 시작 로그
-    logging.info("=" * 80)
+    # 프로그램 시작 로그 (간단히)
     logging.info(f"프로그램 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    logging.info("=" * 80)
 
 # 로깅 설정 실행
 setup_logging()
@@ -78,10 +74,7 @@ def get_style_path():
     # 존재하는 첫 번째 경로 반환
     for path in paths:
         if os.path.exists(path):
-            logging.info(f"스타일시트 파일 발견: {path}")
             return path
-    
-    logging.warning("스타일시트 파일을 찾을 수 없습니다.")
     return None
 
 class MainApp(QApplication):
@@ -135,21 +128,14 @@ if __name__ == "__main__":
 
     try:
         # 애플리케이션 시작
-        logging.info("애플리케이션 시작")
         app = MainApp(sys.argv)
         exit_code = app.exec()
         
-        # 프로그램 종료 로그
-        logging.info("=" * 80)
-        logging.info(f"프로그램 정상 종료: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        logging.info(f"종료 코드: {exit_code}")
-        logging.info("=" * 80)
+        # 프로그램 종료
+        logging.info(f"프로그램 종료")
         
         sys.exit(exit_code)
         
     except Exception as e:
-        logging.critical(f"애플리케이션 실행 중 치명적 오류: {e}", exc_info=True)
-        logging.info("=" * 80)
-        logging.info(f"프로그램 비정상 종료: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        logging.info("=" * 80)
+        logging.error(f"프로그램 오류: {e}")
         QMessageBox.critical(None, "치명적 오류", f"프로그램 실행 중 오류가 발생했습니다: {str(e)}")
