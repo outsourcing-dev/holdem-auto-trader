@@ -530,23 +530,53 @@ class GameMonitoringService:
     def _find_latest_result_including_tie(self):
         """iframe에서 최신 게임 결과 찾기 (P, B, T 모두 포함)"""
         try:
-            # 1. Bead Road에서 전체 결과를 먼저 가져오기 (가장 신뢰할 수 있는 소스)
+            # 🔥 개선: 다양한 방법으로 최신 결과 찾기
+            
+            # 1. 먼저 결과 패널이나 결과 표시 영역에서 찾기
+            result_panel_selectors = [
+                "[class*='result-panel']",
+                "[class*='game-result']", 
+                "[class*='current-result']",
+                "[class*='last-result']",
+                "[class*='winner']",
+                "[class*='outcome']"
+            ]
+            
+            for selector in result_panel_selectors:
+                try:
+                    elements = self.devtools.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        text = element.text.strip().upper()
+                        # P, B, T 찾기
+                        if 'PLAYER' in text or 'P' == text:
+                            self.logger.debug(f"🎲 결과 패널에서 최신 결과: P")
+                            return 'P'
+                        elif 'BANKER' in text or 'B' == text:
+                            self.logger.debug(f"🎲 결과 패널에서 최신 결과: B")
+                            return 'B'
+                        elif 'TIE' in text or 'T' == text:
+                            self.logger.debug(f"🎲 결과 패널에서 최신 결과: T")
+                            return 'T'
+                except:
+                    continue
+            
+            # 2. Bead Road에서 전체 결과를 가져오기
             try:
                 all_results = self._find_all_game_results_with_tie()
                 if all_results and len(all_results) > 0:
                     # 가장 최신 결과 반환
                     latest = all_results[-1]
-                    self.logger.debug(f"Bead Road에서 최신 결과 (TIE 포함): {latest}")
+                    self.logger.debug(f"🎲 Bead Road에서 최신 결과 (TIE 포함): {latest}")
                     return latest
             except Exception as e:
                 self.logger.debug(f"Bead Road 파싱 실패: {e}")
             
-            # 2. Bead Road가 실패한 경우에만 다른 선택자 시도
+            # 3. SVG 결과에서 최신 결과 찾기
             latest_selectors = [
                 "[class*='latest']",
                 "[class*='Last']", 
                 "[class*='current']",
-                "[class*='winner']",
+                "[class*='winner']"
                 "[class*='outcome']"
             ]
             
@@ -721,7 +751,7 @@ class GameMonitoringService:
             self.logger.debug(f"전체 게임 결과 찾기 오류 (TIE 포함): {e}")
             return []
 
-    def _log_in_websocket_hybrid_format(self, game_state, room_id=None, room_name=None):
+    def _log_in_websocket_hybrid_format(self, game_state, room_id=None, room_name=None, log_always=True):
         """
         웹소켓 하이브리드 서비스와 동일한 양식으로 로거 출력
         
@@ -729,6 +759,7 @@ class GameMonitoringService:
             game_state (dict): 게임 상태 정보
             room_id (str): 방 ID
             room_name (str): 방 이름
+            log_always (bool): 항상 로그 출력 여부
         """
         try:
             # 웹소켓 하이브리드에서 서버로 보내는 데이터와 동일한 양식 생성
@@ -780,7 +811,8 @@ class GameMonitoringService:
                     self.logger.info("📊 현재 연패 상태 없음")
             
         except Exception as e:
-            self.logger.error(f"웹소켓 하이브리드 양식 로거 출력 오류: {e}")
+            # log_always가 정의되지 않은 경우 등의 오류 무시
+            pass
 
     def _calculate_streak_from_results(self, results):
         """

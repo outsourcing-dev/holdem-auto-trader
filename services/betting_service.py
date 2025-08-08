@@ -160,6 +160,20 @@ class BettingService:
                 self.logger.error(f"❌ 베팅 실패 - 다음 라운드를 기다립니다")
                 # 베팅 실패 시 상태 초기화
                 self.has_bet_current_round = False
+                
+                # 🔥 베팅 추적기 리셋
+                if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
+                    game_processor = self.main_window.trading_manager.game_processor
+                    if hasattr(game_processor, 'betting_tracker'):
+                        game_processor.betting_tracker.reset_tracking()
+                        self.logger.info("🔄 베팅 실패로 베팅 추적기 리셋")
+                    
+                    # 게임 모니터링 워커의 베팅 플래그도 리셋
+                    if hasattr(game_processor.tm, 'room_entry_handler') and \
+                       hasattr(game_processor.tm.room_entry_handler, 'game_monitoring_worker'):
+                        game_processor.tm.room_entry_handler.game_monitoring_worker.reset_betting_flag()
+                        self.logger.info("🔄 게임 모니터링 워커 베팅 플래그 리셋")
+                
                 return False
 
         except Exception as e:
@@ -194,7 +208,25 @@ class BettingService:
         
         if placement_success:
             # 🔥 베팅 접수 확인 (충분한 대기 + 다양한 확인 방법)
-            return self._verify_betting_placement(bet_amount, bet_type)
+            bet_verified = self._verify_betting_placement(bet_amount, bet_type)
+            
+            # 🔥 베팅 실패 시 상태 초기화
+            if not bet_verified:
+                self.logger.error(f"❌ 베팅 클릭은 했으나 접수 확인 실패")
+                # 베팅 추적기 즉시 리셋
+                if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
+                    game_processor = self.main_window.trading_manager.game_processor
+                    if hasattr(game_processor, 'betting_tracker'):
+                        game_processor.betting_tracker.reset_tracking()
+                        self.logger.info("🔄 베팅 실패로 베팅 추적기 즉시 리셋")
+                    
+                    # 게임 모니터링 워커의 베팅 플래그도 리셋
+                    if hasattr(game_processor.tm, 'room_entry_handler') and \
+                       hasattr(game_processor.tm.room_entry_handler, 'game_monitoring_worker'):
+                        game_processor.tm.room_entry_handler.game_monitoring_worker.reset_betting_flag()
+                        self.logger.info("🔄 게임 모니터링 워커 베팅 플래그 리셋")
+            
+            return bet_verified
         
         return False
 

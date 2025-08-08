@@ -272,7 +272,7 @@ class GameProcessor:
             self._schedule_delayed_betting(game_data)
             
             # 쿨다운 해제 타이머
-            QTimer.singleShot(3000, self._reset_betting_cooldown)  # 8초→3초로 단축
+            QTimer.singleShot(2000, self._reset_betting_cooldown)  # 3초→2초로 더 단축 (빠른 재베팅)
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
@@ -288,7 +288,7 @@ class GameProcessor:
             self.betting_timer = QTimer()
             self.betting_timer.setSingleShot(True)
             self.betting_timer.timeout.connect(lambda: self._execute_delayed_betting(game_data))
-            self.betting_timer.start(500)  # 2초→0.5초로 단축
+            self.betting_timer.start(200)  # 0.5초→0.2초로 더 단축 (빠른 베팅)
             
         except Exception as e:
             self.logger.error(f"지연 베팅 스케줄링 오류: {e}")
@@ -364,14 +364,59 @@ class GameProcessor:
                     self.logger.info(f"데이터 부족 ({len(current_results)}개) - 베팅 보류")
                     return
                 
-                # 서버에 예측값 요청
-                self.logger.info(f"🔮 게임프로세서 예측값 요청:")
-                self.logger.info(f"  - 방 ID: {room_id}")
-                self.logger.info(f"  - 결과 개수: {len(current_results)}개") 
-                self.logger.info(f"  - 현재 결과: {current_results}")
+                # 🔥 연패 검증 + 예측값 요청 (verify_and_predict 사용)
+                expected_streak = self.tm.current_target_room.get('streak_count', 3)
                 
-                next_pick = self.tm.server_client.get_next_prediction(room_id, current_results)
-                self.logger.info(f"🎯 게임프로세서 서버 예측 결과: {next_pick}")
+                self.logger.info(f"🔮 연패 검증 및 예측값 요청:")
+                self.logger.info(f"  - 방 ID: {room_id}")
+                self.logger.info(f"  - 예상 연패: {expected_streak}")
+                self.logger.info(f"  - 결과 개수: {len(current_results)}개")
+                self.logger.info(f"  - 현재 결과: {current_results[-10:] if len(current_results) >= 10 else current_results}")
+                
+                # verify_and_predict API 호출 (연패 검증 + 예측값 동시)
+                response = self.tm.server_client.verify_and_predict(
+                    room_id=room_id,
+                    current_results=current_results,
+                    expected_streak=expected_streak
+                )
+                
+                if not response:
+                    self.logger.error("❌ 서버 응답 없음")
+                    return
+                
+                # 연패 상태 확인
+                status = response.get('status')
+                current_streak = response.get('current_streak', 0)
+                next_pick = response.get('next_prediction')
+                
+                self.logger.info(f"📊 서버 응답:")
+                self.logger.info(f"  - 상태: {status}")
+                self.logger.info(f"  - 현재 연패: {current_streak}")
+                self.logger.info(f"  - 예측값: {next_pick}")
+                
+                # 연패 검증 실패 시 방 나가기
+                if status != 'streak_valid':
+                    self.logger.warning(f"❌ 연패 검증 실패!")
+                    self.logger.warning(f"  - 현재 연패: {current_streak}")
+                    self.logger.warning(f"  - 예상 연패: {expected_streak}")
+                    self.logger.warning(f"  - 메시지: {response.get('message', '연패가 깨졌습니다')}")
+                    
+                    # 베팅 추적기 초기화
+                    self.betting_tracker.reset_tracking()
+                    
+                    # Worker 중지 (있으면)
+                    if hasattr(self.tm, 'game_monitoring_worker'):
+                        try:
+                            self.tm.game_monitoring_worker.stop()
+                        except:
+                            pass
+                    
+                    # 방 나가기
+                    self.tm.streak_handler.return_to_streak_monitoring()
+                    return
+                
+                # 연패 유지 확인 - 베팅 진행
+                self.logger.info(f"✅ 연패 유지 확인: {current_streak}연패 >= {expected_streak}연패")
                 
                 # 유효한 예측값이면 베팅 실행
                 if next_pick in ['P', 'B']:
@@ -389,9 +434,10 @@ class GameProcessor:
                     self.last_bet_round = target_betting_round
                     
                     # ⚡ 즉시 베팅 실행 (current_game 전달)
+                    self.logger.info(f"💰 베팅 실행: {next_pick} (라운드 {target_betting_round})")
                     self.tm.betting_executor.execute_betting(next_pick, round_number, current_game)
                 else:
-                    self.logger.info(f"베팅 안함: {next_pick}")
+                    self.logger.warning(f"⚠️ 유효하지 않은 예측값: {next_pick}")
                     
             finally:
                 self._is_requesting = False
@@ -562,6 +608,11 @@ class GameProcessor:
         try:
             self.logger.info("🤝 TIE 무승부 - 같은 방에서 같은 단계로 재베팅")
             
+            # 🔥 이전 베팅 정보 저장 (TIE 재베팅용)
+            last_bet_pick = self.betting_tracker.get_bet_type()
+            self.last_tie_bet_pick = last_bet_pick  # TIE 시 마지막 베팅값 저장
+            self.logger.info(f"📝 TIE 발생 - 이전 베팅값 저장: {last_bet_pick}")
+            
             # 현재 마틴 단계 확인
             if hasattr(self.tm.main_window, 'betting_widget'):
                 current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
@@ -592,7 +643,7 @@ class GameProcessor:
             # 🔥 중요: 방을 나가지 않고 마틴 단계 유지
             # 🔥 current_target_room과 target_streak_rooms는 그대로 유지
             self.logger.info("🏠 TIE - 현재 방 유지, 방 나가지 않음")
-            self.logger.info("🔄 다음 라운드에서 같은 금액으로 재베팅 준비")
+            self.logger.info(f"🔄 다음 라운드에서 같은 금액, 같은 값({last_bet_pick})으로 재베팅 준비")
             
             # 마틴 서비스에 TIE 알림 (단계 유지)
             if hasattr(self.tm, 'martin_service'):
@@ -603,9 +654,28 @@ class GameProcessor:
             # TIE 후 빠른 재베팅을 위한 트리거
             from PyQt6.QtCore import QTimer
             def trigger_tie_rebetting():
-                if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, '_request_betting_with_latest_data'):
-                    self.logger.info("⚡ TIE 후 즉시 재베팅 기회 탐색")
-                    self.tm.game_processor._request_betting_with_latest_data()
+                if hasattr(self, 'last_tie_bet_pick') and self.last_tie_bet_pick:
+                    self.logger.info(f"⚡ TIE 후 즉시 같은 값({self.last_tie_bet_pick})으로 재베팅")
+                    # 서버 요청 없이 바로 베팅
+                    if hasattr(self.tm, 'betting_executor'):
+                        # 현재 게임 상태 확인 후 베팅
+                        room_id = self.tm.current_target_room.get('room_id', '') if self.tm.current_target_room else ''
+                        room_name = self.tm.current_target_room.get('room_name', '') if self.tm.current_target_room else ''
+                        
+                        if room_id and room_name:
+                            # iframe에서 현재 상태 확인
+                            game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
+                                room_id=room_id,
+                                room_name=room_name,
+                                log_always=False,
+                                desired_pb_count=5
+                            )
+                            if game_state:
+                                current_round = game_state.get('round', 0)
+                                current_game = game_state.get('current_game', 0)
+                                betting_round = current_game if current_game > 0 else current_round + 1
+                                self.tm.betting_executor.execute_betting(self.last_tie_bet_pick, current_round, betting_round)
+                                self.last_tie_bet_pick = None  # 사용 후 초기화
             
             QTimer.singleShot(3000, trigger_tie_rebetting)  # 3초 후 재베팅 시도
             

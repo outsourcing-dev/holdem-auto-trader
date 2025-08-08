@@ -51,6 +51,9 @@ class GameMonitoringWorker(QThread):
         self.last_game_state_time = 0
         self.cache_timeout = 3.0  # 3초간 캐시 유지
         
+        # 🔥 방 입장 시점의 초기 결과 데이터 저장
+        self.initial_room_results = []  # 방 입장 시 서버에 보낸 초기 데이터
+        
     def start_monitoring(self, room_data: dict):
         """모니터링 시작"""
         try:
@@ -59,12 +62,30 @@ class GameMonitoringWorker(QThread):
             self.current_room_id = room_data.get('room_id')
             self.current_room_name = room_data.get('room_name')
             self.last_game_count = 0
-            self.first_check_after_entry = True
+            self.first_check_after_entry = False  # False로 초기화하여 첫 베팅 기회 놓치지 않음
             self.betting_in_progress = False
             
             # 방 입장 시간 기록 (안정화 대기용)
             self.room_entry_time = time.time()
-            self.min_stabilization_time = 10.0  # 최소 10초 대기
+            self.min_stabilization_time = 5.0  # 최소 5초 대기로 단축
+            
+            # 🔥 방 입장 후 첫 라운드 대기 플래그
+            self.wait_for_first_new_result = True
+            self.entry_round_number = 0  # 입장 시점의 라운드 번호 저장
+            self.expected_streak = room_data.get('streak_count', 0)  # 예상 연패 수
+            
+            # 🔥 방 입장 시점의 초기 결과 데이터 저장 (서버에서 받은 원본 데이터)
+            if 'recent_results' in room_data:
+                # R/B를 P/B로 변환 (서버 형식과 동일하게)
+                self.initial_room_results = []
+                for result in room_data['recent_results']:
+                    if result == 'R':  # Banker
+                        self.initial_room_results.append('B')
+                    elif result == 'B':  # Player
+                        self.initial_room_results.append('P')
+                self.logger.info(f"📝 초기 결과 데이터 저장: {len(self.initial_room_results)}개")
+            else:
+                self.initial_room_results = []
             
             self._is_running = True
             self._is_paused = False
@@ -199,6 +220,37 @@ class GameMonitoringWorker(QThread):
             self.logger.debug(f"  - 베팅 진행 중: {self.betting_in_progress}")
             self.logger.debug(f"  - 베팅 추적기 대기 중: {self.tm.game_processor.betting_tracker.is_waiting_for_result() if hasattr(self.tm.game_processor, 'betting_tracker') else 'N/A'}")
             
+            # 🔥 방 입장 후 첫 라운드 대기 처리
+            if self.wait_for_first_new_result:
+                if self.entry_round_number == 0:
+                    # 입장 시점 라운드 번호 저장
+                    self.entry_round_number = current_round
+                    self.logger.info(f"📝 방 입장 시점 라운드: {self.entry_round_number}")
+                    self.logger.info(f"📝 예상 연패 수: {self.expected_streak}")
+                    self.logger.info(f"📝 현재 결과 데이터: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
+                    
+                    # 🔥 초기 데이터가 없으면 현재 데이터 저장 (추가 안전장치)
+                    if not self.initial_room_results and filtered_results:
+                        self.initial_room_results = filtered_results.copy()
+                        self.logger.info(f"🔥 방 입장 시점 데이터 저장: {len(self.initial_room_results)}개")
+                    
+                    return
+                elif current_round > self.entry_round_number:
+                    # 새로운 라운드 발생 - 연패 체크 시작
+                    self.logger.info(f"🆕 방 입장 후 첫 새로운 라운드 감지: {self.entry_round_number} → {current_round}")
+                    self.logger.info(f"📊 연패 체크 시작 - 예상: {self.expected_streak}연패")
+                    self.logger.info(f"📊 현재 결과: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
+                    self.wait_for_first_new_result = False
+                    
+                    # 🔥 연패 체크는 GameProcessor의 베팅 전에 수행
+                    # 여기서는 체크하지 않고 베팅 기회로 넘어감
+                    self.logger.info(f"✅ 새 라운드 시작 - 연패 검증은 베팅 시점에 GameProcessor에서 수행")
+                    self.logger.info(f"📊 예상 연패: {self.expected_streak}, 현재 결과: {len(filtered_results)}개")
+                else:
+                    # 아직 새 라운드 안 나옴 - 대기
+                    self.logger.debug(f"⏳ 새 라운드 대기 중... (현재: {current_round}, 입장: {self.entry_round_number})")
+                    return
+            
             # 🔥 게임 결과 처리와 베팅 기회 분리
             # 1. 새로운 라운드 결과 처리 (베팅 결과 추적을 위해)
             if current_round > self.last_game_count:
@@ -221,10 +273,25 @@ class GameMonitoringWorker(QThread):
                     
                     # 현재 라운드가 베팅한 라운드와 일치하는지 확인
                     if bet_round and current_round == bet_round:
-                        # latest_result가 없으면 결과 처리 보류
-                        self.logger.warning(f"⚠️ 라운드 {current_round} 결과 없음 - 다음 체크 대기")
-                        # 결과가 없는 상태로는 처리하지 않음
-                        return
+                        # latest_result가 없으면 다시 파싱 시도
+                        if not latest_result:
+                            self.logger.warning(f"⚠️ 라운드 {current_round} 결과 없음 - 재파싱 시도")
+                            # 게임 상태 다시 가져오기 (캐시 무시)
+                            self.last_game_state = None
+                            self.last_game_state_time = 0
+                            refreshed_state = self._get_game_state_safe()
+                            if refreshed_state:
+                                latest_result = refreshed_state.get('latest_result', '')
+                                if latest_result and latest_result in ['P', 'B', 'T']:
+                                    result_data = {
+                                        'round_number': current_round,
+                                        'latest_result': latest_result,
+                                        'current_game': current_game
+                                    }
+                                    self.logger.info(f"🎲 재파싱 성공 - 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
+                                    self.game_result_received.emit(result_data)
+                                    return
+                        return  # 결과 대기
                     elif bet_round and current_round > bet_round:
                         # 베팅한 라운드를 지나쳤으면 타임아웃으로 처리
                         self.logger.error(f"❌ 베팅 라운드 {bet_round} 결과 누락 - 현재 {current_round}")
@@ -281,12 +348,13 @@ class GameMonitoringWorker(QThread):
             if not hasattr(self.tm, 'game_monitoring_service') or not self.tm.game_monitoring_service:
                 return None
             
-            # 메인 쓰레드가 아닌 곳에서 안전하게 호출 - 서버 요구사항: 최소 15개 데이터
+            # 메인 쓰레드가 아닌 곳에서 안전하게 호출
+            # 🔥 더 많은 데이터 요청 (연패 추적을 위해)
             game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
                 room_id=self.current_room_id,
                 room_name=self.current_room_name,
                 log_always=False,
-                desired_pb_count=15  # 서버 요구사항: 15개 데이터 필요
+                desired_pb_count=None  # 🔥 전체 데이터 요청 (None = 모든 데이터)
             )
             
             # 캐시 업데이트
@@ -316,20 +384,18 @@ class GameMonitoringWorker(QThread):
                 self.logger.info(f"❌ 베팅 조건 미충족: 결과 데이터 부족 ({len(filtered_results)}/15)")
                 return
             
-            # 방 입장 후 안정화 시간 체크
+            # 방 입장 후 안정화 시간 체크 (5초로 단축)
             if hasattr(self, 'room_entry_time'):
-                time_since_entry = current_time - self.room_entry_time
-                if time_since_entry < self.min_stabilization_time:
-                    remaining = self.min_stabilization_time - time_since_entry
+                time_since_entry = time.time() - self.room_entry_time
+                min_wait_time = 5.0  # 10초에서 5초로 단축
+                if time_since_entry < min_wait_time:
+                    remaining = min_wait_time - time_since_entry
                     self.status_updated.emit(f"방 안정화 대기 중... ({remaining:.1f}초)")
-                    self.logger.info(f"❌ 베팅 조건 미충족: 방 입장 후 안정화 대기 ({time_since_entry:.1f}/{self.min_stabilization_time}초)")
+                    self.logger.info(f"⏳ 방 입장 후 안정화 대기 ({time_since_entry:.1f}/{min_wait_time}초)")
                     return
             
-            if self.first_check_after_entry:
-                self.first_check_after_entry = False
-                self.status_updated.emit("방 입장 직후 - 다음 라운드 대기")
-                self.logger.info("❌ 베팅 조건 미충족: 방 입장 직후")
-                return
+            # first_check_after_entry 플래그 제거 - 첫 베팅 기회를 놓치지 않도록
+            # 대신 방 입장 후 최소 대기 시간만 체크
             
             if betting_round <= 0:
                 self.logger.info(f"❌ 베팅 조건 미충족: betting_round가 0 이하 ({betting_round})")
@@ -410,3 +476,80 @@ class GameMonitoringWorker(QThread):
         result = self._is_running and not self._is_paused
         self.mutex.unlock()
         return result
+    
+    def _check_streak_maintenance(self, filtered_results: list) -> bool:
+        """초이스픽 예측 시스템 기반 연패 유지 여부 체크"""
+        try:
+            # 🔥 초기 데이터와 현재 데이터 합치기
+            combined_results = []
+            if self.initial_room_results:
+                # 초기 데이터가 있으면 사용
+                combined_results = self.initial_room_results.copy()
+                # 새로운 결과가 있으면 추가 (중복 제거)
+                current_data_start = len(self.initial_room_results)
+                if len(filtered_results) > 15:  # 현재 데이터가 15개보다 많으면
+                    # 초기 데이터 이후의 새 결과만 추가
+                    new_results = filtered_results[current_data_start:]
+                    if new_results:
+                        combined_results.extend(new_results)
+                        self.logger.info(f"🔄 초기 {len(self.initial_room_results)}개 + 새 결과 {len(new_results)}개 = 총 {len(combined_results)}개")
+                    else:
+                        # 새 결과가 없으면 현재 데이터 사용
+                        combined_results = filtered_results
+                else:
+                    # 현재 데이터가 15개 이하면 초기 데이터만 사용
+                    self.logger.info(f"📝 초기 데이터 {len(combined_results)}개 사용")
+            else:
+                # 초기 데이터가 없으면 현재 데이터만 사용
+                combined_results = filtered_results
+                self.logger.info(f"⚠️ 초기 데이터 없음, 현재 데이터 {len(combined_results)}개만 사용")
+            
+            self.logger.info("🔍 초이스픽 연패 체크 시작:")
+            self.logger.info(f"  - 예상 연패: {self.expected_streak}")
+            self.logger.info(f"  - 전체 결과 데이터 수: {len(combined_results)}")
+            self.logger.info(f"  - 최근 10개 결과: {combined_results[-10:] if len(combined_results) >= 10 else combined_results}")
+            
+            # 초이스픽 예측을 위해 최소 15개 데이터 필요
+            if not combined_results or len(combined_results) < 15:
+                self.logger.warning(f"초이스픽 연패 체크 불가: 데이터 부족 ({len(combined_results)}개, 최소 15개 필요)")
+                return True  # 데이터 부족 시 일단 유지로 간주
+            
+            # 서버의 초이스픽 연패 체크 사용
+            if hasattr(self.tm, 'server_client'):
+                self.logger.info(f"📤 서버 초이스픽 연패 계산 요청:")
+                self.logger.info(f"  - room_id: {self.current_room_id}")
+                self.logger.info(f"  - room_name: {self.current_room_name}")
+                self.logger.info(f"  - 전체 결과 개수: {len(combined_results)}")
+                
+                streak_data = self.tm.server_client.calculate_streak(
+                    self.current_room_id,
+                    self.current_room_name,
+                    combined_results  # 합쳐진 전체 데이터 전송
+                )
+                
+                if streak_data:
+                    server_streak = streak_data.get('current_streak', 0)
+                    self.logger.info(f"📊 초이스픽 예측 실패 연패: {server_streak}회")
+                    
+                    # 서버가 0을 반환 = 예측 성공 = 연패 끊김
+                    if server_streak == 0:
+                        self.logger.warning(f"❌ 초이스픽 예측 성공 - 연패 끊김 (방 나가기)")
+                        return False  # 방 나가기
+                    
+                    # 연패가 유지되는지 확인
+                    if server_streak >= self.expected_streak:
+                        self.logger.info(f"✅ 초이스픽 연패 유지 중: {server_streak}연패 >= {self.expected_streak}연패")
+                        return True
+                    else:
+                        self.logger.warning(f"❌ 초이스픽 연패 부족: {server_streak}연패 < {self.expected_streak}연패")
+                        return False
+                else:
+                    self.logger.warning("서버 응답 없음 - 일단 유지")
+                    return True
+            else:
+                self.logger.warning("서버 클라이언트 없음 - 일단 유지")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"초이스픽 연패 체크 오류: {e}")
+            return True  # 오류 시 일단 유지로 간주
