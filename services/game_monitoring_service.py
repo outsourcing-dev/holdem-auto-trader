@@ -143,15 +143,29 @@ class GameMonitoringService:
             # 베팅 가능 상태인지 체크하여 current_game 결정
             current_game_number = self._detect_current_game_number(round_number)
             
+            # 🔥 P,B,T 모든 결과 가져오기 - _find_game_results에서 이미 정렬된 데이터 사용
+            # sorted_results가 있으면 그것을 사용 (이미 정렬되어 있음)
+            all_results_with_tie = []
+            try:
+                # _find_game_results 내부에서 사용하는 것과 동일한 방식으로 전체 결과 가져오기
+                all_game_results = self._find_game_results(desired_count=None)  # 전체 데이터
+                if all_game_results:
+                    # 원본 Bead Road 데이터를 다시 파싱 (타이 포함)
+                    all_results_with_tie = self._get_sorted_results_with_tie()
+            except:
+                all_results_with_tie = []
+            
             # 결과 정리
             if game_results or latest_result_with_tie or round_number:
                 game_state = {
                     'round': round_number,  # 마지막 완료된 게임 번호
                     'current_game': current_game_number,  # 🔥 현재 진행 중인 게임 번호 (베팅 대상)
-                    'filtered_results': display_results,  # P,B만 (서버 전송용)
+                    'filtered_results': display_results,  # P,B만 (서버 예측용)
                     'all_results': game_results,  # P,B만 (서버 전송용)
+                    'all_results_with_tie': all_results_with_tie,  # 🔥 P,B,T 모두 (결과 확인용)
                     'latest_result': latest_result_with_tie or '',  # T 포함 (게임 결과 확인용)
-                    'total_results': len(game_results) if game_results else 0
+                    'total_results': len(game_results) if game_results else 0,
+                    'total_results_with_tie': len(all_results_with_tie) if all_results_with_tie else 0  # 🔥 타이 포함 전체 개수
                 }
                 
                 total_time = time.time() - total_start
@@ -592,6 +606,17 @@ class GameMonitoringService:
                 except:
                     continue
             
+            # 🔥 추가: CSS 선택자로 못 찾았을 때 다시 한번 전체 결과 확인
+            try:
+                # 전체 결과를 다시 한번 시도
+                all_results = self._find_all_game_results_with_tie()
+                if all_results and len(all_results) > 0:
+                    latest = all_results[-1]
+                    self.logger.info(f"🔥 Fallback: 전체 결과 배열의 마지막 값 사용: {latest}")
+                    return latest
+            except:
+                pass
+            
             self.logger.warning("최신 게임 결과를 찾을 수 없습니다 (TIE 포함)")
             return ''
             
@@ -713,6 +738,71 @@ class GameMonitoringService:
             
         except Exception as e:
             self.logger.debug(f"텍스트에서 결과 추출 오류 (TIE 포함): {e}")
+            return []
+    
+    def _get_sorted_results_with_tie(self):
+        """정렬된 P,B,T 전체 결과 가져오기"""
+        try:
+            # Bead Road에서 좌표 기반으로 모든 결과 파싱
+            svg_elements = self.devtools.driver.find_elements(
+                By.CSS_SELECTOR, 
+                'svg[data-role="Bead-road"] svg[data-type="coordinates"]'
+            )
+            
+            if not svg_elements:
+                return []
+            
+            coordinate_results = {}
+            
+            for svg in svg_elements:
+                try:
+                    data_x = svg.get_attribute("data-x")
+                    data_y = svg.get_attribute("data-y")
+                    
+                    if data_x is None or data_y is None:
+                        continue
+                    
+                    x = int(data_x)
+                    y = int(data_y)
+                    
+                    result = None
+                    
+                    # text 요소에서 직접 가져오기
+                    try:
+                        text_element = svg.find_element(By.CSS_SELECTOR, 'text')
+                        text_content = text_element.text.strip()
+                        if text_content in ['P', 'B', 'T']:
+                            result = text_content
+                    except:
+                        pass
+                    
+                    # roadItem의 name 속성에서 가져오기
+                    if not result:
+                        try:
+                            road_item = svg.find_element(By.CSS_SELECTOR, 'svg[data-type="roadItem"]')
+                            name = road_item.get_attribute("name")
+                            if name:
+                                if "Player" in name:
+                                    result = "P"
+                                elif "Banker" in name:
+                                    result = "B"
+                                elif "Tie" in name:
+                                    result = "T"
+                        except:
+                            pass
+                    
+                    if result:
+                        coordinate_results[(x, y)] = result
+                        
+                except:
+                    continue
+            
+            # 좌표를 게임 순서대로 정렬
+            sorted_results = self._sort_coordinates_to_game_sequence(coordinate_results)
+            return sorted_results
+            
+        except Exception as e:
+            self.logger.error(f"정렬된 P,B,T 결과 가져오기 오류: {e}")
             return []
     
     def _find_all_game_results_with_tie(self):
@@ -941,6 +1031,13 @@ class GameMonitoringService:
             filtered_results = [r for r in filtered_results if r in ['P', 'B']]
             latest_result = game_state.get('latest_result', '')
             round_number = game_state.get('round', 0)
+            
+            # 🔥 핵심 수정: latest_result가 없고 라운드와 결과 개수가 일치하면 마지막 값 사용
+            if not latest_result and filtered_results:
+                # 라운드 번호와 결과 개수가 비슷하면 (오차 허용)
+                if round_number > 0 and abs(len(filtered_results) - round_number) <= 3:
+                    latest_result = filtered_results[-1]
+                    self.logger.info(f"✅ Fallback: 라운드 {round_number}, 결과 {len(filtered_results)}개 → 마지막 값 사용: {latest_result}")
             
             payload = {
                 "room_id": room_id or "iframe_detected",

@@ -256,6 +256,13 @@ class GameMonitoringWorker(QThread):
             if current_round > self.last_game_count:
                 self.logger.info(f"🆕 새로운 라운드 감지: {self.last_game_count} → {current_round}")
                 
+                # 🔥 단순화: latest_result가 없으면 all_results_with_tie의 마지막 값 사용
+                if not latest_result:
+                    all_results_with_tie = game_state.get('all_results_with_tie', [])
+                    if all_results_with_tie:
+                        latest_result = all_results_with_tie[-1]
+                        self.logger.info(f"✅ 라운드 {current_round} 결과를 P,B,T 배열에서 추출: {latest_result}")
+                
                 # 게임 결과 처리 - 베팅 추적기가 대기 중일 수 있으므로 항상 발송
                 if latest_result and latest_result in ['P', 'B', 'T']:
                     result_data = {
@@ -273,24 +280,36 @@ class GameMonitoringWorker(QThread):
                     
                     # 현재 라운드가 베팅한 라운드와 일치하는지 확인
                     if bet_round and current_round == bet_round:
-                        # latest_result가 없으면 다시 파싱 시도
+                        # 🔥 간단한 로직: 베팅 라운드와 현재 라운드가 같으면 게임 끝 → 마지막 결과 사용
                         if not latest_result:
-                            self.logger.warning(f"⚠️ 라운드 {current_round} 결과 없음 - 재파싱 시도")
+                            self.logger.info(f"🎯 라운드 {current_round} 완료 - 결과 추출 시도")
                             # 게임 상태 다시 가져오기 (캐시 무시)
                             self.last_game_state = None
                             self.last_game_state_time = 0
                             refreshed_state = self._get_game_state_safe()
+                            
                             if refreshed_state:
-                                latest_result = refreshed_state.get('latest_result', '')
-                                if latest_result and latest_result in ['P', 'B', 'T']:
-                                    result_data = {
-                                        'round_number': current_round,
-                                        'latest_result': latest_result,
-                                        'current_game': current_game
-                                    }
-                                    self.logger.info(f"🎲 재파싱 성공 - 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
-                                    self.game_result_received.emit(result_data)
-                                    return
+                                all_results_with_tie = refreshed_state.get('all_results_with_tie', [])
+                                
+                                # 🔥 단순화: P,B,T 전체 결과의 마지막 값 = 현재 라운드 결과
+                                if all_results_with_tie:
+                                    latest_result = all_results_with_tie[-1]
+                                    self.logger.info(f"✅ 라운드 {current_round} 결과: {latest_result} (전체 {len(all_results_with_tie)}개 중 마지막)")
+                                else:
+                                    self.logger.error(f"❌ P,B,T 결과 배열이 비어있음")
+                        
+                        # 결과가 있으면 전송
+                        if latest_result and latest_result in ['P', 'B', 'T']:
+                            result_data = {
+                                'round_number': current_round,
+                                'latest_result': latest_result,
+                                'current_game': current_game
+                            }
+                            self.logger.info(f"🎲 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
+                            self.game_result_received.emit(result_data)
+                            return
+                        else:
+                            self.logger.warning(f"⚠️ 라운드 {current_round} 결과를 찾을 수 없음: {latest_result}")
                         return  # 결과 대기
                     elif bet_round and current_round > bet_round:
                         # 베팅한 라운드를 지나쳤으면 타임아웃으로 처리

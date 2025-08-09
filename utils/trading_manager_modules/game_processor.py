@@ -130,8 +130,8 @@ class GameProcessor:
                 if urgent_processing:
                     self.logger.info(f"⚡ 긴급 처리 모드: {time_since_bet:.1f}초 대기 - 더 유연한 매칭 적용")
                     
-                # 🔥 베팅한 라운드보다 작은 라운드 결과는 무시 (과거 결과) - 단, 긴급 상황 제외
-                if round_number < bet_round and not urgent_processing:
+                # 🔥 단순화: 베팅한 라운드보다 2 이상 작은 경우만 무시 (타이 등으로 인한 지연 고려)
+                if round_number < bet_round - 1 and not urgent_processing:
                     self.logger.info(f"📋 과거 라운드 결과 무시: 완료된 라운드={round_number}, 베팅 대상={bet_round}")
                     return
                 
@@ -195,7 +195,7 @@ class GameProcessor:
                         self.logger.info(f"라운드 {round_number}의 결과를 처리하지 않음")
                 else:
                     # 타임아웃 체크 추가
-                    if time_since_bet > 90.0:  # 90초 이상 대기 시 타임아웃
+                    if time_since_bet > 60.0:  # 60초 이상 대기 시 타임아웃
                         self.logger.warning(f"⚠️ 베팅 결과 타임아웃 ({time_since_bet:.1f}s) - 추적 초기화")
                         self.betting_tracker.reset_tracking()
                         if hasattr(self.tm.betting_service, 'has_bet_current_round'):

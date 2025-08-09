@@ -189,7 +189,7 @@ class MartinBettingService:
 
     def _handle_lose_result(self, position):
         """
-        패배 결과 처리 - 위젯 카운터는 TradingManagerBet에서 증가시킴
+        패배 결과 처리 - 위젯 카운터를 직접 증가시킴
         """
         self.consecutive_losses += 1
         self.lose_count += 1
@@ -200,11 +200,20 @@ class MartinBettingService:
             self.need_room_change = False
             self.logger.info(f"[마틴] 베팅 실패: 패배 처리 완료, 같은 방에서 계속")
         
-        # 현재 위젯 포지션 (TradingManagerBet에서 이미 증가됨)
-        widget_position = 0
+        # 위젯 카운터 증가 - 다음 마틴 단계로 이동
+        if hasattr(self.main_window, 'betting_widget'):
+            widget = self.main_window.betting_widget
+            current_pos = getattr(widget, 'room_position_counter', 0)
+            widget.room_position_counter = current_pos + 1
+            self.logger.info(f"[마틴] 패배 후 위젯 카운터 증가: {current_pos} → {current_pos + 1}")
+            
+            # 패배 마커 표시
+            widget.set_step_marker(current_pos, "X")
+        
+        # 증가된 위젯 포지션 가져오기
         widget_position = get_widget_position(self.main_window)
-
-            # 호환성을 위해 current_step 동기화
+        
+        # 호환성을 위해 current_step 동기화
         self.current_step = widget_position
         
         return widget_position, self.consecutive_losses, position

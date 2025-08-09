@@ -215,6 +215,14 @@ class RoomEntryHandler(QObject):
     def _start_multithreaded_game_monitoring(self, streak_data: dict):
         """🧵 멀티쓰레드 기반 게임 모니터링 시작 - UI 블로킹 방지"""
         try:
+            # 🔍 streak_data 상세 로그
+            self.logger.info("🔍 게임 모니터링 시작 - streak_data 내용:")
+            self.logger.info(f"  - room_name: {streak_data.get('room_name')}")
+            self.logger.info(f"  - room_id: {streak_data.get('room_id')}")
+            self.logger.info(f"  - streak_count: {streak_data.get('streak_count', 'NOT_SET')}")
+            self.logger.info(f"  - streak_type: {streak_data.get('streak_type')}")
+            self.logger.info(f"  - 전체 데이터: {streak_data}")
+            
             # 게임 상태 초기화
             self.tm.game_count = 0
             self.tm.result_count = 0

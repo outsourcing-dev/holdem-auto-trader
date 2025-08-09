@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QMessageBox, QTableWidget, 
-                             QTableWidgetItem, QSizePolicy, QHeaderView,QApplication)
+                             QTableWidgetItem, QSizePolicy, QHeaderView,QApplication, QTabWidget)
 from PyQt6.QtCore import Qt, QTimer, QDateTime
 from PyQt6.QtGui import QGuiApplication, QIcon
 
@@ -253,6 +253,14 @@ class MainWindow(QMainWindow):
 
         start_stop_layout.addWidget(self.start_button)
         start_stop_layout.addWidget(self.stop_button)
+        
+        # 🔍 iframe 디버그 버튼 추가
+        self.debug_button = QPushButton("🔍 디버그")
+        self.debug_button.clicked.connect(self.open_debug_window)
+        self.debug_button.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self.debug_button.setEnabled(False)  # 초기에는 비활성화
+        start_stop_layout.addWidget(self.debug_button)
+        
         self.left_panel.addLayout(start_stop_layout)
 
         # 오른쪽 UI (방 목록 패널) - 변경된 부분
@@ -491,6 +499,31 @@ class MainWindow(QMainWindow):
         # TradingManager의 stop_trading 호출
         self.trading_manager.stop_trading()
     
+    def open_debug_window(self):
+        """iframe 디버그 창 열기"""
+        try:
+            # test_integrated 모듈 import
+            from test_integrated import IframeDebugWidget
+            
+            # 디버그 창이 이미 열려있는지 확인
+            if hasattr(self, 'debug_window') and self.debug_window:
+                self.debug_window.raise_()
+                self.debug_window.activateWindow()
+                return
+            
+            # 새 디버그 창 생성
+            self.debug_window = IframeDebugWidget(self.trading_manager)
+            self.debug_window.setWindowTitle("iframe 실시간 모니터링")
+            self.debug_window.setGeometry(100, 100, 600, 400)
+            
+            # 창이 닫힐 때 참조 제거
+            self.debug_window.destroyed.connect(lambda: setattr(self, 'debug_window', None))
+            
+            self.debug_window.show()
+            
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"디버그 창을 열 수 없습니다: {e}")
+    
     # 방 목록 불러오기 메서드 개선
     def show_room_list(self, rooms=None):
         """방 목록을 테이블에 업데이트"""
@@ -644,6 +677,7 @@ class MainWindow(QMainWindow):
         self.site3_button.setEnabled(enabled)
         self.start_button.setEnabled(enabled)
         self.stop_button.setEnabled(enabled)
+        self.debug_button.setEnabled(enabled)  # 디버그 버튼도 함께 활성화
         self.update_room_button.setEnabled(enabled)
         self.save_room_button.setEnabled(enabled)
         
