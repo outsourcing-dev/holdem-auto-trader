@@ -357,17 +357,10 @@ class TradingManagerBet:
     def _update_widget_after_lose(self):
         """패배 후 위젯 업데이트"""
         try:
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                widget = self.tm.main_window.betting_widget
-                
-                # 현재 위치에 패배 마커 표시
-                current_pos = getattr(widget, 'room_position_counter', 0)
-                widget.set_step_marker(current_pos, "X")
-                
-                # 다음 마틴 단계로 카운터 증가
-                widget.room_position_counter = current_pos + 1
-                
-                self.logger.info(f"패배 마커 표시 및 카운터 증가: {current_pos} → {current_pos + 1}")
+            # 🔥 중복 제거: martin_service.process_bet_result("lose")가 이미 마커 표시와 카운터 관리를 처리함
+            # 이 메서드는 더 이상 필요하지 않으므로 빈 구현으로 유지 (호출하는 곳이 있을 수 있음)
+            self.logger.debug("패배 후 위젯 업데이트 - martin_service가 처리함")
+            pass
 
         except Exception as e:
             self.logger.error(f"패배 후 위젯 업데이트 중 오류: {e}")

@@ -450,8 +450,8 @@ class BettingWidget(QWidget):
                     self.fail_count += 1
                     # 결과 기록
                     self.current_room_results.append("X")
-                    # 마커 카운터 증가
-                    self.room_position_counter += 1
+                    # 🔥 카운터 증가 제거: martin_service가 카운터를 관리함
+                    # self.room_position_counter += 1
                 elif marker == "O":
                     # O는 파란색 글씨로 표시
                     item.setText(marker)
@@ -462,8 +462,8 @@ class BettingWidget(QWidget):
                     self.success_count += 1
                     # 결과 기록
                     self.current_room_results.append("O")
-                    # 마커 카운터 증가
-                    self.room_position_counter += 1
+                    # 🔥 카운터 증가 제거: 승리 시에는 0으로 리셋되어야 함
+                    # self.room_position_counter += 1
                 elif marker == "T":
                     # T는 녹색으로 표시
                     item.setText(marker)

@@ -469,9 +469,9 @@ class GameProcessor:
             if hasattr(self.tm, 'martin_service'):
                 self.tm.martin_service.reset_after_win()
             
-            # 위젯에 승리 마커 설정 (이미 위에서 초기화됨)
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                self.tm.main_window.betting_widget.set_step_marker(0, "O")  # 승리 마커
+            # 🔥 중복 제거: martin_service가 이미 승리 마커와 카운터 리셋을 처리함
+            # if hasattr(self.tm.main_window, 'betting_widget'):
+            #     self.tm.main_window.betting_widget.set_step_marker(0, "O")  # 승리 마커
             
             # Excel Trading Service에 승리 기록
             if hasattr(self.tm, 'excel_trading_service'):
@@ -520,19 +520,19 @@ class GameProcessor:
             # 추적 상태 초기화
             self.betting_tracker.reset_tracking()
             
-            # Martin 서비스에 패배 결과 처리
+            # Martin 서비스에 패배 결과 처리 (마커 표시와 카운터 증가 포함)
             if hasattr(self.tm, 'martin_service'):
                 current_round = self.tm.game_count
                 self.tm.martin_service.process_bet_result("lose", current_round)
                 self.logger.info(f"✅ Martin 서비스에 패배 결과 처리 완료 (라운드: {current_round})")
             
-            # 위젯 카운터 증가 (Martin service process_bet_result에서도 처리하지만 중복 방지 체크)
-            if hasattr(self.tm.main_window, 'betting_widget'):
-                current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
-                self.tm.main_window.betting_widget.set_step_marker(current_pos, "X")  # 패배 마커
-                # Martin service에서 이미 증가시켰을 수 있으므로 확인
-                if self.tm.main_window.betting_widget.room_position_counter == current_pos:
-                    self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
+            # 🔥 중복 제거: Martin service가 이미 set_step_marker를 호출하고 카운터를 관리함
+            # 아래 코드는 중복이므로 제거
+            # if hasattr(self.tm.main_window, 'betting_widget'):
+            #     current_pos = getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0)
+            #     self.tm.main_window.betting_widget.set_step_marker(current_pos, "X")  # 패배 마커
+            #     if self.tm.main_window.betting_widget.room_position_counter == current_pos:
+            #         self.tm.main_window.betting_widget.room_position_counter = current_pos + 1
             
             # Excel Trading Service에 패배 기록
             if hasattr(self.tm, 'excel_trading_service'):

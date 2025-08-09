@@ -166,9 +166,17 @@ class MartinBettingService:
             self.main_window.room_log_widget.has_changed_room = True
             self.logger.info("[마틴] 방 로그 위젯에 방 변경 예정 알림")
         
-        # 위젯 포지션을 0으로 설정
+        # 🔥 승리 시 마커만 표시 (카운터 리셋은 reset_after_win에서 처리)
+        if hasattr(self.main_window, 'betting_widget'):
+            widget = self.main_window.betting_widget
+            current_pos = getattr(widget, 'room_position_counter', 0)
+            # 승리 마커 표시
+            widget.set_step_marker(current_pos, "O")
+            self.logger.info(f"[마틴] 승리 마커 표시 - 현재 위치: {current_pos}")
+        
+        # 위젯 포지션 확인
         new_position = get_widget_position(self.main_window)
-        self.logger.info(f"[마틴] 결과 처리 후 위젯 포지션: {new_position+1}")
+        self.logger.info(f"[마틴] 결과 처리 후 위젯 포지션: {new_position}")
         self.current_step = new_position
         
         return 0, self.consecutive_losses, position
@@ -213,12 +221,14 @@ class MartinBettingService:
         if hasattr(self.main_window, 'betting_widget'):
             widget = self.main_window.betting_widget
             current_pos = getattr(widget, 'room_position_counter', 0)
-            # 🔥 카운터 증가 제거 - set_step_marker에서 자동으로 증가함
-            # widget.room_position_counter = current_pos + 1  # 중복 증가 방지
             self.logger.info(f"[마틴] 패배 처리 - 현재 위치: {current_pos}")
             
-            # 패배 마커 표시 (set_step_marker 내부에서 카운터 증가)
+            # 패배 마커 표시
             widget.set_step_marker(current_pos, "X")
+            
+            # 🔥 카운터를 명시적으로 증가 (set_step_marker는 더 이상 카운터를 증가시키지 않음)
+            widget.room_position_counter = current_pos + 1
+            self.logger.info(f"[마틴] 카운터 증가: {current_pos} → {current_pos + 1}")
         
         # 증가된 위젯 포지션 가져오기
         widget_position = get_widget_position(self.main_window)
