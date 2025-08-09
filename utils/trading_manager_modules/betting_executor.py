@@ -74,6 +74,24 @@ class BettingExecutor:
             if bet_success:
                 self.logger.info(f"✅ 베팅 성공: {pick}, 금액: {bet_amount:,}원 (적용 라운드: {actual_betting_round}){streak_info}")
                 
+                # iframe 로거에 베팅 액션 기록
+                if hasattr(self.tm, 'iframe_logger') and self.tm.iframe_logger and self.tm.iframe_logger.is_logging:
+                    try:
+                        betting_details = {
+                            'action': 'PLACE_BET',
+                            'pick': pick,
+                            'amount': bet_amount,
+                            'round': actual_betting_round,
+                            'room': self.tm.current_room_name,
+                            'martin_step': widget_pos + 1,
+                            'streak_count': self.tm.current_target_room.get('streak_count', 0) if self.tm.current_target_room else 0
+                        }
+                        self.tm.iframe_logger.log_betting_action('베팅 실행', betting_details)
+                        # 스냅샷 캡처 (베팅 순간)
+                        self.tm.iframe_logger.capture_iframe_snapshot()
+                    except Exception as e:
+                        self.logger.debug(f"iframe 베팅 로깅 실패: {e}")
+                
                 # 베팅 서비스에도 실제 적용 라운드 정보 저장
                 if hasattr(self.tm.betting_service, 'last_bet_round'):
                     self.tm.betting_service.last_bet_round = actual_betting_round

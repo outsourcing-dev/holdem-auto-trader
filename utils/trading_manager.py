@@ -12,6 +12,7 @@ from services.betting_service import BettingService
 from services.game_monitoring_service import GameMonitoringService
 from services.balance_service import BalanceService
 from services.martin_service import MartinBettingService
+from services.iframe_logger import IframeLogger  # iframe 로거 추가
 from utils.settings_manager import SettingsManager
 from utils.trading_manager_helpers import TradingManagerHelpers, get_widget_position
 from utils.devtools import DevToolsController
@@ -147,6 +148,7 @@ class TradingManager:
         self.room_entry_service = None
         self.excel_trading_service = None
         self.martin_service = None
+        self.iframe_logger = None  # iframe 로거 추가
         
         # devtools가 있지만 driver가 없는 경우는 정상적인 초기 상태
         if self.devtools and hasattr(self.devtools, 'driver') and self.devtools.driver:
@@ -175,6 +177,9 @@ class TradingManager:
             self.martin_service = MartinBettingService(
                 main_window=self.main_window, logger=self.logger)
             
+            # iframe 로거 초기화
+            self.iframe_logger = IframeLogger(logger=self.logger)
+            
             self.logger.info(f"모든 서비스 초기화 완료 (driver: {type(self.devtools.driver)})")
             return True
         except Exception as e:
@@ -200,6 +205,14 @@ class TradingManager:
             self.refresh_settings()
             if self.balance_service and hasattr(self.balance_service, '_target_amount_reached'):
                 del self.balance_service._target_amount_reached
+            
+            # iframe 로깅 시작
+            if self.iframe_logger:
+                devtools_url = None
+                if self.devtools and hasattr(self.devtools, 'debugger_url'):
+                    devtools_url = self.devtools.debugger_url
+                self.iframe_logger.start_logging(devtools_url)
+                self.logger.info("📝 iframe 로깅 시작됨")
             
             self.stop_all_processes = False
             
@@ -238,6 +251,11 @@ class TradingManager:
         
         # 🔥 헬스 체크 타이머 중지
         self._stop_health_check_timer()
+        
+        # iframe 로깅 중지
+        if self.iframe_logger and self.iframe_logger.is_logging:
+            self.iframe_logger.stop_logging()
+            self.logger.info("📝 iframe 로깅 중지됨")
         
         self.websocket_manager.stop_websocket_service()
         self._reset_all_states()

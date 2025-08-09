@@ -106,6 +106,26 @@ class GameProcessor:
             
             self.logger.info(f"🎯 새로운 게임 결과 등록: #{self.tm.result_count}")
             
+            # iframe 로거에 게임 상태 기록
+            if hasattr(self.tm, 'iframe_logger') and self.tm.iframe_logger and self.tm.iframe_logger.is_logging:
+                try:
+                    betting_info = {
+                        'room_name': self.tm.current_room_name,
+                        'round': round_number,
+                        'result': latest_result,
+                        'current_game': current_game
+                    }
+                    # 베팅 추적 정보가 있으면 추가
+                    if self.betting_tracker.is_waiting_for_result():
+                        betting_info.update({
+                            'bet_round': self.betting_tracker.get_bet_round(),
+                            'bet_type': self.betting_tracker.get_bet_type(),
+                            'martin_step': getattr(self.tm.main_window.betting_widget, 'room_position_counter', 0) if hasattr(self.tm.main_window, 'betting_widget') else 0
+                        })
+                    self.tm.iframe_logger.log_iframe_content(result_data, betting_info)
+                except Exception as e:
+                    self.logger.debug(f"iframe 로깅 실패: {e}")
+            
             # 베팅 결과 추적기로 결과 확인
             if self.betting_tracker.is_waiting_for_result():
                 self.logger.info("📊 베팅 결과 대기 중 - 결과 체크 시작")
