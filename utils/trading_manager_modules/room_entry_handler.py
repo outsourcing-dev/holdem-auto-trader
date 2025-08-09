@@ -109,6 +109,11 @@ class RoomEntryHandler(QObject):
                     self.tm.game_processor.betting_tracker.reset_room_statistics()
                     self.logger.info("🔄 새 방 입장으로 베팅 통계 초기화")
                 
+                # 9. 방 로그 위젯에 새 방 입장 알림
+                if hasattr(self.tm.main_window, 'room_log_widget'):
+                    self.tm.main_window.room_log_widget.set_current_room(room_name, is_new_visit=True)
+                    self.logger.info(f"📝 방 로그 위젯에 새 방 입장 기록: {room_name}")
+                
                 self._start_multithreaded_game_monitoring(streak_data)
                 
             else:
@@ -189,6 +194,11 @@ class RoomEntryHandler(QObject):
             if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
                 self.tm.game_processor.betting_tracker.reset_room_statistics()
                 self.logger.info("🔄 새 방 입장으로 베팅 통계 초기화")
+            
+            # 9. 방 로그 위젯에 새 방 입장 알림
+            if hasattr(self.tm.main_window, 'room_log_widget'):
+                self.tm.main_window.room_log_widget.set_current_room(room_name, is_new_visit=True)
+                self.logger.info(f"📝 방 로그 위젯에 새 방 입장 기록: {room_name}")
             
             self._start_multithreaded_game_monitoring(streak_data)
             
@@ -587,17 +597,38 @@ class RoomEntryHandler(QObject):
             if not game_state:
                 return False
             
-            # 게임 수 확인
+            # 게임 수 확인 - 개선된 로직
             total_results = game_state.get('total_results', 0)
             current_round = game_state.get('round', 0)
-            game_count = current_round if current_round > 0 else total_results
+            filtered_results = game_state.get('filtered_results', [])
+            
+            # 🔥 게임 수 계산 우선순위:
+            # 1. current_round가 있으면 사용
+            # 2. filtered_results 개수 사용 (이전 게임 기록)
+            # 3. total_results 사용
+            if current_round > 0:
+                game_count = current_round
+            elif len(filtered_results) > 0:
+                game_count = len(filtered_results)
+                self.logger.info(f"📊 라운드 0이지만 이전 게임 기록 {game_count}개 확인")
+            else:
+                game_count = total_results
+            
+            # 라운드가 0이고 게임 기록이 충분한 경우 새 라운드 대기
+            if current_round == 0 and len(filtered_results) >= 15:
+                self.logger.info(f"⏳ 게임 막 종료 감지 (라운드 0, 이전 기록 {len(filtered_results)}개)")
+                self.logger.info(f"✅ 이전 게임 기록으로 연패 검증 가능")
+                # 게임 수는 충족하지만 새 라운드 시작을 위해 플래그 설정
+                if hasattr(self.tm, 'game_monitoring_worker'):
+                    self.tm.game_monitoring_worker.wait_for_first_new_result = True
+                return True  # 조건 충족으로 처리
             
             # 조건 체크: 15게임 이상 64게임 미만
             if game_count < 15 or game_count >= 64:
-                self.logger.info(f"📊 게임 수 조건 미충족: {game_count}회")
+                self.logger.info(f"📊 게임 수 조건 미충족: {game_count}회 (라운드: {current_round}, 기록: {len(filtered_results)}개)")
                 return False
             else:
-                self.logger.info(f"📊 게임 수 조건 충족: {game_count}회")
+                self.logger.info(f"📊 게임 수 조건 충족: {game_count}회 (라운드: {current_round}, 기록: {len(filtered_results)}개)")
                 return True
                 
         except Exception as e:
@@ -743,6 +774,11 @@ class RoomEntryHandler(QObject):
             self.tm.current_room_name = ""
             self.tm.room_entry_in_progress = False
             self.tm.is_entering_room = False
+            
+            # 방 로그 위젯에 방 변경 플래그 설정 (다음 방은 새 방)
+            if hasattr(self.tm.main_window, 'room_log_widget'):
+                self.tm.main_window.room_log_widget.has_changed_room = True
+                self.logger.info("📝 방 나가기 - 다음 방은 새 방문으로 기록 예정")
             
             # 웹소켓 모니터링 재개
             self._resume_websocket_monitoring()

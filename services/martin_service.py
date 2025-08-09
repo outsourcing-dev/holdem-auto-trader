@@ -143,6 +143,10 @@ class MartinBettingService:
         if consecutive_count >= 3:
             self.need_room_change = True
             self.logger.info(f"✅ {consecutive_count}연패 감지 (recent_results: {self.recent_results}) - 방 이동 플래그 활성화")
+            # 방 로그 위젯에 방 변경 예정 알림
+            if hasattr(self.main_window, 'room_log_widget'):
+                self.main_window.room_log_widget.has_changed_room = True
+                self.logger.info("[마틴] 3연패로 방 로그 위젯에 방 변경 예정 알림")
         else:
             # 3연패가 아닌 경우 플래그 유지 (다른 조건에서 설정된 경우 유지)
             if not self.need_room_change:
@@ -156,6 +160,11 @@ class MartinBettingService:
         self.need_room_change = True  # 승리 시 방 이동 필요 (새로운 픽 선택을 위해)
         self.has_bet_in_current_room = True
         self.logger.info(f"[마틴] 베팅 성공: 승리 처리 완료, 다음에 새 방으로 이동하여 새 픽 선택")
+        
+        # 방 로그 위젯에 방 변경 예정 알림
+        if hasattr(self.main_window, 'room_log_widget'):
+            self.main_window.room_log_widget.has_changed_room = True
+            self.logger.info("[마틴] 방 로그 위젯에 방 변경 예정 알림")
         
         # 위젯 포지션을 0으로 설정
         new_position = get_widget_position(self.main_window)
@@ -204,10 +213,11 @@ class MartinBettingService:
         if hasattr(self.main_window, 'betting_widget'):
             widget = self.main_window.betting_widget
             current_pos = getattr(widget, 'room_position_counter', 0)
-            widget.room_position_counter = current_pos + 1
-            self.logger.info(f"[마틴] 패배 후 위젯 카운터 증가: {current_pos} → {current_pos + 1}")
+            # 🔥 카운터 증가 제거 - set_step_marker에서 자동으로 증가함
+            # widget.room_position_counter = current_pos + 1  # 중복 증가 방지
+            self.logger.info(f"[마틴] 패배 처리 - 현재 위치: {current_pos}")
             
-            # 패배 마커 표시
+            # 패배 마커 표시 (set_step_marker 내부에서 카운터 증가)
             widget.set_step_marker(current_pos, "X")
         
         # 증가된 위젯 포지션 가져오기

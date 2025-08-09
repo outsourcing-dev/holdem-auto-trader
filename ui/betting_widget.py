@@ -403,8 +403,8 @@ class BettingWidget(QWidget):
         단계별 마커 설정 (X, O, T, 빈칸)
         수정: 마커가 이미 있는 경우 덮어쓰지 않음
         """
-        # 기본 위치 계산 - 현재 마커 위치 + 1
-        display_step = self.room_position_counter + 1
+        # 🔥 수정: step 인자를 무시하지 않고 사용 (0-based를 1-based로 변환)
+        display_step = step + 1 if step >= 0 else self.room_position_counter + 1
         
         # N값으로 인한 방 이동 시 마커 보존 로직 추가
         if hasattr(self, 'prevent_reset') and self.prevent_reset:

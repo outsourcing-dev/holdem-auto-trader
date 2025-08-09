@@ -30,7 +30,7 @@ class GameMonitoringWorker(QThread):
         # 쓰레드 제어 변수
         self._is_running = False
         self._is_paused = False
-        self.monitoring_interval = 5.0  # 5초 간격 (게임 진행 시간 고려)
+        self.monitoring_interval = 2.0  # 2초 간격으로 단축 (베팅 타이밍 개선)
         
         # 쓰레드 동기화
         self.mutex = QMutex()
@@ -51,6 +51,11 @@ class GameMonitoringWorker(QThread):
         self.last_game_state_time = 0
         self.cache_timeout = 3.0  # 3초간 캐시 유지
         
+        # 🔥 서버 예측 캐싱 (베팅 타이밍 개선)
+        self.last_prediction = None
+        self.last_prediction_results = None
+        self.prediction_cache_timeout = 5.0  # 5초간 예측 캐시 유지
+        
         # 🔥 방 입장 시점의 초기 결과 데이터 저장
         self.initial_room_results = []  # 방 입장 시 서버에 보낸 초기 데이터
         
@@ -67,7 +72,7 @@ class GameMonitoringWorker(QThread):
             
             # 방 입장 시간 기록 (안정화 대기용)
             self.room_entry_time = time.time()
-            self.min_stabilization_time = 5.0  # 최소 5초 대기로 단축
+            self.min_stabilization_time = 2.0  # 최소 2초 대기로 단축 (베팅 타이밍 개선)
             
             # 🔥 방 입장 후 첫 라운드 대기 플래그
             self.wait_for_first_new_result = True
@@ -403,10 +408,10 @@ class GameMonitoringWorker(QThread):
                 self.logger.info(f"❌ 베팅 조건 미충족: 결과 데이터 부족 ({len(filtered_results)}/15)")
                 return
             
-            # 방 입장 후 안정화 시간 체크 (5초로 단축)
+            # 방 입장 후 안정화 시간 체크 (2초로 단축)
             if hasattr(self, 'room_entry_time'):
                 time_since_entry = time.time() - self.room_entry_time
-                min_wait_time = 5.0  # 10초에서 5초로 단축
+                min_wait_time = 2.0  # 5초에서 2초로 단축 (베팅 타이밍 개선)
                 if time_since_entry < min_wait_time:
                     remaining = min_wait_time - time_since_entry
                     self.status_updated.emit(f"방 안정화 대기 중... ({remaining:.1f}초)")
@@ -429,24 +434,37 @@ class GameMonitoringWorker(QThread):
             self.logger.error(f"베팅 기회 확인 오류: {e}")
     
     def _request_prediction_async(self, filtered_results: list, current_round: int, betting_round: int):
-        """비동기 예측값 요청"""
+        """비동기 예측값 요청 (캐싱 적용)"""
         try:
             start_time = time.time()
             
-            # 서버 예측값 요청 (상세 로깅)
-            self.logger.info(f"🔮 워커 예측값 요청:")
-            self.logger.info(f"  - 방 ID: {self.current_room_id}")
-            self.logger.info(f"  - 결과 개수: {len(filtered_results)}개")
-            self.logger.info(f"  - 최근 결과: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
-            self.logger.info(f"  - current_round: {current_round}")
-            self.logger.info(f"  - betting_round: {betting_round}")
-            
-            next_pick = self.tm.server_client.get_next_prediction(
-                self.current_room_id, 
-                filtered_results
-            )
-            
-            request_time = time.time() - start_time
+            # 🔥 캐시된 예측값 확인 (베팅 타이밍 개선)
+            if (self.last_prediction and 
+                self.last_prediction_results and 
+                len(filtered_results) == len(self.last_prediction_results) and
+                filtered_results[-5:] == self.last_prediction_results[-5:]):  # 최근 5개 결과가 같으면
+                self.logger.info(f"🚀 캐시된 예측값 사용: {self.last_prediction} (0.00초)")
+                next_pick = self.last_prediction
+                request_time = 0
+            else:
+                # 서버 예측값 요청 (상세 로깅)
+                self.logger.info(f"🔮 워커 예측값 요청:")
+                self.logger.info(f"  - 방 ID: {self.current_room_id}")
+                self.logger.info(f"  - 결과 개수: {len(filtered_results)}개")
+                self.logger.info(f"  - 최근 결과: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
+                self.logger.info(f"  - current_round: {current_round}")
+                self.logger.info(f"  - betting_round: {betting_round}")
+                
+                next_pick = self.tm.server_client.get_next_prediction(
+                    self.current_room_id, 
+                    filtered_results
+                )
+                
+                request_time = time.time() - start_time
+                
+                # 캐시 업데이트
+                self.last_prediction = next_pick
+                self.last_prediction_results = filtered_results.copy()
             
             self.logger.info(f"🔮 워커 서버 응답: {next_pick} ({request_time:.2f}초)")
             self.status_updated.emit(f"서버 응답: {next_pick} ({request_time:.2f}초)")

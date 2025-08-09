@@ -482,6 +482,9 @@ class GameProcessor:
                 if hasattr(self.tm.main_window, 'room_log_widget') and self.tm.current_room_name:
                     self.tm.main_window.room_log_widget.add_bet_result(self.tm.current_room_name, True, False)
                     self.logger.info(f"📝 방 로그에 승리 기록: {self.tm.current_room_name}")
+                    # 다음 방은 새 방임을 표시
+                    self.tm.main_window.room_log_widget.has_changed_room = True
+                    self.logger.info("📝 다음 방은 새 방문으로 기록 예정")
             except Exception as log_error:
                 self.logger.error(f"방 로그 기록 중 오류 (계속 진행): {log_error}")
             
@@ -535,6 +538,12 @@ class GameProcessor:
             if hasattr(self.tm, 'excel_trading_service'):
                 self.tm.excel_trading_service.record_betting_result(False)
             
+            # 🔥 게임 모니터링 워커의 베팅 플래그 리셋 (패배 후 다음 베팅 가능하도록)
+            if (hasattr(self.tm, 'room_entry_handler') and 
+                hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
+                self.tm.room_entry_handler.game_monitoring_worker.betting_in_progress = False
+                self.logger.info("✅ 패배 후 게임 모니터링 워커 베팅 플래그 리셋")
+            
             # 🔥 마틴 한계 도달 확인 (마지막 단계 베팅 후 실패)
             if hasattr(self.tm.main_window, 'betting_widget') and hasattr(self.tm, 'martin_service'):
                 current_pos = self.tm.main_window.betting_widget.room_position_counter
@@ -550,6 +559,9 @@ class GameProcessor:
                         if hasattr(self.tm.main_window, 'room_log_widget') and self.tm.current_room_name:
                             self.tm.main_window.room_log_widget.add_bet_result(self.tm.current_room_name, False, False)
                             self.logger.info(f"📝 방 로그에 마틴 한계 패배 기록: {self.tm.current_room_name}")
+                            # 다음 방은 새 방임을 표시
+                            self.tm.main_window.room_log_widget.has_changed_room = True
+                            self.logger.info("📝 다음 방은 새 방문으로 기록 예정")
                     except Exception as log_error:
                         self.logger.error(f"방 로그 기록 중 오류 (계속 진행): {log_error}")
                     
