@@ -41,23 +41,35 @@ class BettingExecutor:
                 if latest_current_game > 0:
                     current_game = latest_current_game
             
-            # 🔥 정확한 베팅 라운드 계산
-            # round_number: 마지막 완료된 라운드
-            # current_game: 현재 진행 중인 게임 번호 (베팅이 적용될 라운드)
+            # 🔥 실제 계산은 BettingResultTracker가 중앙 관리 - 표시용 정보만 로깅
             display_round = round_number  # 표시용 (마지막 완료된 라운드)
+            display_current_game = current_game if current_game else "N/A"
             
-            # 실제 베팅이 적용될 라운드 계산
-            if current_game and current_game > 0:
-                actual_betting_round = current_game  # 현재 진행 중인 게임에 베팅
-            else:
-                actual_betting_round = round_number + 1  # current_game이 없으면 다음 라운드
+            self.logger.info(f"🎯 베팅 실행 준비: {pick}{streak_info}")
+            self.logger.info(f"  - 완료된 라운드: {display_round}")
+            self.logger.info(f"  - 진행 중인 게임: {display_current_game}")
+            self.logger.info(f"  - 베팅 라운드 계산: BettingResultTracker 담당")
             
-            self.logger.info(f"🎯 베팅 실행: {pick} (완료된 라운드: {display_round}, 베팅 대상 라운드: {actual_betting_round}){streak_info}")
-            self.logger.info(f"📍 {display_round}번째 결과 확인 → {actual_betting_round}번째 게임에 베팅")
-            
-            # 베팅 금액 계산
+            # 베팅 금액 계산 - 마틴 서비스 사용 (위젯 동기화 보장)
             widget_pos = get_widget_position(self.tm.main_window)
-            bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
+            
+            # 🔥 중요: martin_service 사용으로 변경 (위젯과 완벽 동기화)
+            if hasattr(self.tm, 'martin_service'):
+                # 현재 위젯 상태 디버깅
+                self.logger.info(f"🔍 베팅 전 위젯 상태 확인:")
+                self.logger.info(f"   - get_widget_position: {widget_pos}")
+                if hasattr(self.tm.main_window, 'betting_widget'):
+                    actual_pos = self.tm.main_window.betting_widget.room_position_counter
+                    self.logger.info(f"   - 실제 위젯 카운터: {actual_pos}")
+                    if actual_pos != widget_pos:
+                        self.logger.warning(f"   ⚠️ 포지션 불일치 감지!")
+                
+                bet_amount = self.tm.martin_service.get_current_bet_amount()
+                self.logger.info(f"💰 마틴 서비스에서 베팅 금액 가져옴: {bet_amount:,}원 (위젯 포지션: {widget_pos+1})")
+            else:
+                # Fallback: 기존 방식 사용
+                bet_amount = self.tm.excel_trading_service.get_current_bet_amount(widget_position=widget_pos)
+                self.logger.warning(f"⚠️ 마틴 서비스 없음 - Excel 서비스 사용: {bet_amount:,}원")
             
             # 🔥 먼저 베팅 실행 - 성공 후에만 추적 시작
             bet_success = self.tm.betting_service.place_bet(
@@ -68,13 +80,20 @@ class BettingExecutor:
                 bet_amount
             )
             
-            # 🔥 베팅 성공 시에만 추적 시작 (베팅 서비스에서 이미 처리되므로 중복 제거)
-            # betting_service.place_bet() 내부에서 이미 추적을 시작하므로 여기서는 제거
+            # 🔥 베팅 처리는 BettingService에서 중앙 관리 (중복 제거)
+            # BettingService.place_bet()이 모든 베팅 추적을 담당하므로 여기서는 제거됨
             
             if bet_success:
-                self.logger.info(f"✅ 베팅 성공: {pick}, 금액: {bet_amount:,}원 (적용 라운드: {actual_betting_round}){streak_info}")
+                # BettingResultTracker에서 베팅 정보 가져오기 (로깅용)
+                actual_betting_round = None
+                if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
+                    actual_betting_round = self.tm.game_processor.betting_tracker.get_bet_round()
                 
-                # iframe 로거에 베팅 액션 기록
+                self.logger.info(f"✅ 베팅 성공: {pick}, 금액: {bet_amount:,}원")
+                if actual_betting_round:
+                    self.logger.info(f"  - ⭐ 베팅 대상 라운드: {actual_betting_round}{streak_info}")
+                
+                # iframe 로거에 베팅 액션 기록 (선택적)
                 if hasattr(self.tm, 'iframe_logger') and self.tm.iframe_logger and self.tm.iframe_logger.is_logging:
                     try:
                         betting_details = {
@@ -87,14 +106,9 @@ class BettingExecutor:
                             'streak_count': self.tm.current_target_room.get('streak_count', 0) if self.tm.current_target_room else 0
                         }
                         self.tm.iframe_logger.log_betting_action('베팅 실행', betting_details)
-                        # 스냅샷 캡처 (베팅 순간)
                         self.tm.iframe_logger.capture_iframe_snapshot()
                     except Exception as e:
                         self.logger.debug(f"iframe 베팅 로깅 실패: {e}")
-                
-                # 베팅 서비스에도 실제 적용 라운드 정보 저장
-                if hasattr(self.tm.betting_service, 'last_bet_round'):
-                    self.tm.betting_service.last_bet_round = actual_betting_round
                 
                 self.tm.main_window.update_betting_status(
                     pick=pick, 
@@ -123,9 +137,9 @@ class BettingExecutor:
                 self.tm.betting_service.has_bet_current_round = False
             
             # 게임 모니터링 워커 베팅 플래그 리셋
-            if (hasattr(self.tm, 'room_entry_handler') and 
-                hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
-                self.tm.room_entry_handler.game_monitoring_worker.reset_betting_flag()
+            if (hasattr(self.tm, 'room_manager_handler') and 
+                hasattr(self.tm.room_manager_handler, 'game_monitoring_worker')):
+                self.tm.room_manager_handler.game_monitoring_worker.reset_betting_flag()
             
             # 게임 프로세서 쿨다운 리셋
             if hasattr(self.tm, 'game_processor'):

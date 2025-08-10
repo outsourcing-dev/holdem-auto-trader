@@ -128,15 +128,15 @@ class StreakHandler:
             self.logger.info(f"🔄 방 '{current_room_name}' 퇴장 및 정보 초기화 완료")
             
             # 🔥 iframe 모니터링 완전 중지 (중요!)
-            if hasattr(self.tm, 'room_entry_handler'):
+            if hasattr(self.tm, 'room_manager_handler'):
                 # iframe 타이머 완전 중지
-                if hasattr(self.tm.room_entry_handler, 'iframe_timer') and self.tm.room_entry_handler.iframe_timer:
-                    self.tm.room_entry_handler.iframe_timer.stop()
-                    self.tm.room_entry_handler.iframe_timer = None
+                if hasattr(self.tm.room_manager_handler, 'iframe_timer') and self.tm.room_manager_handler.iframe_timer:
+                    self.tm.room_manager_handler.iframe_timer.stop()
+                    self.tm.room_manager_handler.iframe_timer = None
                     self.logger.info("🛑 iframe 타이머 완전 중지")
                 
                 # 추가 안전장치
-                self.tm.room_entry_handler._stop_iframe_monitoring()
+                self.tm.room_manager_handler._stop_iframe_monitoring()
                 self.logger.info("🛑 iframe 모니터링 중지")
             
             # 현재 방에서 나가기
@@ -236,28 +236,55 @@ class StreakHandler:
             
             # 🔥 로비 웹소켓 모니터링 재개 (새로운 연패 감지용)
             if hasattr(self.tm, 'websocket_manager'):
-                # 웹소켓 상태 확인
-                ws_status = self.tm.websocket_manager.get_interceptor_status()
-                self.logger.info(f"📡 현재 웹소켓 상태: {ws_status}")
+                try:
+                    # 🔥 먼저 모니터링 플래그 강제 리셋 (에러 방지)
+                    if hasattr(self.tm.websocket_manager, 'websocket_service') and self.tm.websocket_manager.websocket_service:
+                        ws_service = self.tm.websocket_manager.websocket_service
+                        # 플래그 강제 리셋
+                        ws_service._pause_lobby_monitoring = False
+                        ws_service._in_game_room = False
+                        self.logger.info("🔄 WebSocket 플래그 강제 리셋 완료")
+                        
+                        # resume_lobby_monitoring 호출
+                        ws_service.resume_lobby_monitoring()
+                        self.logger.info("📡 로비 웹소켓 모니터링 재개 완료")
+                        
+                        # 타이머 재시작
+                        try:
+                            ws_service._start_message_collection()
+                        except:
+                            pass
                 
-                if not ws_status.get('is_intercepting', False) or not ws_status.get('cdp_session_active', False):
-                    self.logger.warning("⚠️ 웹소켓 연결이 끊어짐 - 재연결 시도")
-                    success = self.tm.websocket_manager.force_reconnect_websocket()
-                    if not success:
-                        self.logger.error("❌ 웹소켓 재연결 실패")
-                        # 10초 후 재시도
-                        QTimer.singleShot(10000, self.tm.websocket_manager.force_reconnect_websocket)
-                
-                # 웹소켓이 연결된 경우에만 resume
-                if hasattr(self.tm.websocket_manager, 'websocket_service') and self.tm.websocket_manager.websocket_service:
-                    self.logger.info("📡 로비 웹소켓 모니터링 재개")
-                    self.tm.websocket_manager.websocket_service.resume_lobby_monitoring()
+                    # 웹소켓 상태 확인
+                    ws_status = self.tm.websocket_manager.get_interceptor_status()
+                    self.logger.info(f"📡 현재 웹소켓 상태: {ws_status}")
+                    
+                    if not ws_status.get('is_intercepting', False) or not ws_status.get('cdp_session_active', False):
+                        self.logger.warning("⚠️ 웹소켓 연결이 끊어짐 - 재연결 시도")
+                        success = self.tm.websocket_manager.force_reconnect_websocket()
+                        if not success:
+                            self.logger.error("❌ 웹소켓 재연결 실패")
+                            # 10초 후 재시도
+                            QTimer.singleShot(10000, self.tm.websocket_manager.force_reconnect_websocket)
                     
                     # 🔥 웹소켓 서비스 연패 기준도 최신 설정으로 업데이트
-                    if hasattr(self.tm, 'settings_manager'):
+                    if hasattr(self.tm, 'settings_manager') and self.tm.websocket_manager.websocket_service:
                         min_streak = self.tm.settings_manager.get_min_streak()
                         self.tm.websocket_manager.websocket_service.update_streak_threshold(min_streak)
+                        
+                except Exception as ws_error:
+                    self.logger.error(f"WebSocket 모니터링 재개 중 오류: {ws_error}")
+                    # 에러 시에도 강제 플래그 리셋 시도
+                    try:
+                        if hasattr(self.tm.websocket_manager, 'websocket_service') and self.tm.websocket_manager.websocket_service:
+                            self.tm.websocket_manager.websocket_service._pause_lobby_monitoring = False
+                            self.tm.websocket_manager.websocket_service._in_game_room = False
+                            self.logger.info("🔄 에러 후 WebSocket 플래그 강제 리셋")
+                    except:
+                        pass
                         self.logger.info(f"🎯 웹소켓 서비스 연패 기준 업데이트: {min_streak}")
+                else:
+                    self.logger.warning("⚠️ 웹소켓 서비스가 없음 - 재시작 필요")
             
             # 🔥 서버 요청 중단 플래그 해제
             if hasattr(self.tm, 'server_client'):
@@ -481,10 +508,10 @@ class StreakHandler:
                         timer_stopped_count += 1
                         self.logger.info(f"🛑 {attr_name} 타이머 중지")
             
-            # room_entry_handler의 모든 타이머 중지
-            if hasattr(self.tm, 'room_entry_handler'):
-                for attr_name in dir(self.tm.room_entry_handler):
-                    attr = getattr(self.tm.room_entry_handler, attr_name)
+            # room_manager_handler의 모든 타이머 중지
+            if hasattr(self.tm, 'room_manager_handler'):
+                for attr_name in dir(self.tm.room_manager_handler):
+                    attr = getattr(self.tm.room_manager_handler, attr_name)
                     if isinstance(attr, QTimer) and attr.isActive():
                         attr.stop()
                         timer_stopped_count += 1

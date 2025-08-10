@@ -129,36 +129,68 @@ class RoomNavigationManager:
             return False
     
     def handle_room_exit_sequence(self):
-        """방 나가기 전체 시퀀스 처리"""
+        """방 나가기 전체 시퀀스 처리 - 🔥 개선된 에러 처리"""
         try:
             self.logger.info("방 나가기 시퀀스 시작")
             
             # 1. iframe 전환
-            if not self.iframe_navigator.switch_to_game_iframe():
-                self.logger.warning("게임 iframe 전환 실패")
-                return False
+            iframe_switched = False
+            try:
+                iframe_switched = self.iframe_navigator.switch_to_game_iframe()
+                if not iframe_switched:
+                    self.logger.warning("게임 iframe 전환 실패 - 로비 창 전환 시도")
+            except Exception as iframe_error:
+                self.logger.error(f"iframe 전환 오류: {iframe_error}")
             
-            # 2. 방 닫기 시도
-            if self.try_close_room():
-                self.logger.info("방 종료 버튼 클릭 완료")
-                
-                # 3. 종료 대기
-                WebDriverWait(self.devtools.driver, 2).until(
-                    lambda d: d.execute_script("return document.readyState") == "complete"
-                )
-            else:
-                self.logger.warning("방 종료 버튼을 찾을 수 없음")
+            # 2. 방 닫기 시도 (iframe 전환 성공 시에만)
+            room_closed = False
+            if iframe_switched:
+                try:
+                    room_closed = self.try_close_room()
+                    if room_closed:
+                        self.logger.info("방 종료 버튼 클릭 완료")
+                        
+                        # 3. 종료 대기
+                        try:
+                            WebDriverWait(self.devtools.driver, 2).until(
+                                lambda d: d.execute_script("return document.readyState") == "complete"
+                            )
+                        except:
+                            pass  # 타임아웃은 무시
+                    else:
+                        self.logger.warning("방 종료 버튼을 찾을 수 없음 - 계속 진행")
+                except Exception as close_error:
+                    self.logger.error(f"방 닫기 오류: {close_error}")
             
-            # 4. 로비 창으로 전환
-            if self.switch_to_lobby_window():
-                self.logger.info("로비 창 전환 완료")
-                return True
-            else:
-                self.logger.warning("로비 창 전환 실패")
-                return False
+            # 4. 로비 창으로 전환 (항상 시도)
+            lobby_switched = False
+            try:
+                lobby_switched = self.switch_to_lobby_window()
+                if lobby_switched:
+                    self.logger.info("로비 창 전환 완료")
+                else:
+                    self.logger.warning("로비 창 전환 실패 - 첫 번째 창으로 강제 전환")
+                    # 강제로 첫 번째 창으로 전환
+                    windows = self.devtools.driver.window_handles
+                    if windows:
+                        self.devtools.driver.switch_to.window(windows[0])
+                        lobby_switched = True
+            except Exception as lobby_error:
+                self.logger.error(f"로비 전환 오류: {lobby_error}")
+            
+            # 🔥 부분 성공도 성공으로 처리 (로비로 돌아갔으면 OK)
+            return lobby_switched
                 
         except Exception as e:
             self.logger.error(f"방 나가기 시퀀스 중 오류: {e}")
+            # 🔥 오류 시에도 로비 창 전환 시도
+            try:
+                windows = self.devtools.driver.window_handles
+                if windows:
+                    self.devtools.driver.switch_to.window(windows[0])
+                    return True
+            except:
+                pass
             return False
     
     def wait_for_room_load(self, timeout=10):

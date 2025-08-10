@@ -102,9 +102,9 @@ class MainWindow(QMainWindow):
         self.room_manager = RoomManager(self)
         self.trading_manager = TradingManager(self)
         if hasattr(self.trading_manager, '_start_websocket_interceptor'):
-            print("✅ 인터셉터 기반 TradingManager 로드 성공")
+            print("인터셉터 기반 TradingManager 로드 성공")
         else:
-            print("❌ 기존 방식 TradingManager 로드됨 - 문제 있음!")
+            print("기존 방식 TradingManager 로드됨 - 문제 있음!")
         self.ui_updater = UIUpdater(self)
         self.update_button_styles()
         # self.devtools.start_browser()

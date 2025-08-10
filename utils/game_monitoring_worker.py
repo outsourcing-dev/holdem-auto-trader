@@ -30,7 +30,7 @@ class GameMonitoringWorker(QThread):
         # 쓰레드 제어 변수
         self._is_running = False
         self._is_paused = False
-        self.monitoring_interval = 2.0  # 2초 간격으로 단축 (베팅 타이밍 개선)
+        self.monitoring_interval = 0.5  # ⚡⚡ 0.5초 간격으로 단축 (초고속 감지)
         
         # 쓰레드 동기화
         self.mutex = QMutex()
@@ -46,15 +46,25 @@ class GameMonitoringWorker(QThread):
         self.betting_in_progress = False
         self.first_check_after_entry = True
         
+        # TIE 재베팅 관련 플래그
+        self.tie_rebet_needed = False
+        self.tie_rebet_pick = None
+        
+        # 🔥 마틴 재베팅 빠른 처리를 위한 플래그
+        self.needs_immediate_martin_rebet = False
+        self.martin_rebet_pick = None
+        self.fast_monitoring_mode = False  # 빠른 모니터링 모드
+        
         # 캐싱 변수 (중복 파싱 방지)
         self.last_game_state = None
         self.last_game_state_time = 0
-        self.cache_timeout = 3.0  # 3초간 캐시 유지
+        self.cache_timeout = 0.4  # ⚡⚡ 0.4초간 캐시 유지 (모니터링 간격보다 짧게)
+        self.fast_mode_cache_timeout = 0.05  # 빠른 모드에서는 0.05초만 캐시
         
         # 🔥 서버 예측 캐싱 (베팅 타이밍 개선)
         self.last_prediction = None
         self.last_prediction_results = None
-        self.prediction_cache_timeout = 5.0  # 5초간 예측 캐시 유지
+        self.prediction_cache_timeout = 2.0  # ⚡⚡ 2초간 예측 캐시 유지
         
         # 🔥 방 입장 시점의 초기 결과 데이터 저장
         self.initial_room_results = []  # 방 입장 시 서버에 보낸 초기 데이터
@@ -70,12 +80,12 @@ class GameMonitoringWorker(QThread):
             self.first_check_after_entry = False  # False로 초기화하여 첫 베팅 기회 놓치지 않음
             self.betting_in_progress = False
             
-            # 방 입장 시간 기록 (안정화 대기용)
+            # 방 입장 시간 기록 (안정화 대기 제거)
             self.room_entry_time = time.time()
-            self.min_stabilization_time = 2.0  # 최소 2초 대기로 단축 (베팅 타이밍 개선)
+            self.min_stabilization_time = 0  # ⚡⚡ 대기 시간 완전 제거 (즉시 베팅)
             
-            # 🔥 방 입장 후 첫 라운드 대기 플래그
-            self.wait_for_first_new_result = True
+            # 🔥 방 입장 후 즉시 베팅 가능 - 대기 없음
+            self.wait_for_first_new_result = False  # ⚡ 즉시 베팅 허용
             self.entry_round_number = 0  # 입장 시점의 라운드 번호 저장
             self.expected_streak = room_data.get('streak_count', 0)  # 예상 연패 수
             
@@ -88,7 +98,7 @@ class GameMonitoringWorker(QThread):
                         self.initial_room_results.append('B')
                     elif result == 'B':  # Player
                         self.initial_room_results.append('P')
-                self.logger.info(f"📝 초기 결과 데이터 저장: {len(self.initial_room_results)}개")
+                # 초기 결과 데이터 저장
             else:
                 self.initial_room_results = []
             
@@ -102,7 +112,7 @@ class GameMonitoringWorker(QThread):
             else:
                 self.condition.wakeAll()
                 
-            self.logger.info(f"🔍 게임 모니터링 워커 시작: {self.current_room_name}")
+            self.logger.info(f"▶️ 게임 모니터링 시작: {self.current_room_name}")
             
         except Exception as e:
             self.mutex.unlock()
@@ -147,7 +157,7 @@ class GameMonitoringWorker(QThread):
     
     def run(self):
         """워커 쓰레드 메인 루프"""
-        self.logger.info("🚀 게임 모니터링 워커 쓰레드 시작")
+        # 워커 쓰레드 시작
         
         try:
             while True:
@@ -169,14 +179,18 @@ class GameMonitoringWorker(QThread):
                 # 게임 모니터링 실행
                 self._monitor_game_state()
                 
-                # 다음 체크까지 대기 (논블로킹)
-                self.msleep(int(self.monitoring_interval * 1000))
+                # 🔥 빠른 모니터링 모드일 때는 더 짧은 간격
+                if self.fast_monitoring_mode:
+                    self.msleep(100)  # 0.1초로 단축 (초고속)
+                else:
+                    # 다음 체크까지 대기 (논블로킹)
+                    self.msleep(int(self.monitoring_interval * 1000))
                 
         except Exception as e:
             self.logger.error(f"워커 쓰레드 실행 오류: {e}")
             self.error_occurred.emit(f"모니터링 중 오류: {e}")
         
-        self.logger.info("🏁 게임 모니터링 워커 쓰레드 종료")
+        self.logger.debug("게임 모니터링 워커 종료")
     
     def _monitor_game_state(self):
         """게임 상태 모니터링 (별도 쓰레드에서 실행)"""
@@ -190,14 +204,16 @@ class GameMonitoringWorker(QThread):
                                      self.tm.game_processor.betting_tracker.is_waiting_for_result())
             
             if self.betting_in_progress and not betting_tracker_waiting:
-                self.logger.debug("베팅 진행 중 - 모니터링 건너뜀")
+                # 베팅 진행 중 - 건너뜀
                 return
             
             current_time = time.time()
             
-            # 너무 빠른 연속 체크 방지
-            if current_time - self.last_check_time < self.monitoring_interval:
-                return
+            # ⚡⚡ 빠른 모드에서는 최소 체크 간격 무시
+            if not self.fast_monitoring_mode:
+                # 일반 모드에서만 최소 간격 체크
+                if current_time - self.last_check_time < 0.3:  # 0.3초 미만이면 스킵
+                    return
             
             self.last_check_time = current_time
             
@@ -207,66 +223,36 @@ class GameMonitoringWorker(QThread):
             if not game_state:
                 return
             
-            # 게임 상태 업데이트 시그널 발송
-            self.game_state_updated.emit(game_state)
+            # 게임 상태 업데이트 시그널 발송 (빠른 모드에서는 생략 가능)
+            if not self.fast_monitoring_mode:
+                self.game_state_updated.emit(game_state)
             
             current_round = game_state.get('round', 0)
             current_game = game_state.get('current_game', 0)
             latest_result = game_state.get('latest_result', '')
             filtered_results = game_state.get('filtered_results', [])
             
-            # 🔍 디버깅: 게임 상태 값 확인 (매번 로그 기록)
-            self.logger.debug(f"🎯 [워커] 게임 상태 체크 #{self.last_check_time:.0f}:")
-            self.logger.debug(f"  - 방 이름: {self.current_room_name}")
-            self.logger.debug(f"  - 완료된 라운드: {current_round}")
-            self.logger.debug(f"  - 진행 중인 게임: {current_game}")
-            self.logger.debug(f"  - 마지막 체크 라운드: {self.last_game_count}")
-            self.logger.debug(f"  - 최신 결과: {latest_result}")
-            self.logger.debug(f"  - 베팅 진행 중: {self.betting_in_progress}")
-            self.logger.debug(f"  - 베팅 추적기 대기 중: {self.tm.game_processor.betting_tracker.is_waiting_for_result() if hasattr(self.tm.game_processor, 'betting_tracker') else 'N/A'}")
+            # 디버그 로그 제거
             
-            # 🔥 방 입장 후 첫 라운드 대기 처리
-            if self.wait_for_first_new_result:
-                if self.entry_round_number == 0:
-                    # 입장 시점 라운드 번호 저장
-                    self.entry_round_number = current_round
-                    self.logger.info(f"📝 방 입장 시점 라운드: {self.entry_round_number}")
-                    self.logger.info(f"📝 예상 연패 수: {self.expected_streak}")
-                    self.logger.info(f"📝 현재 결과 데이터: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
-                    
-                    # 🔥 초기 데이터가 없으면 현재 데이터 저장 (추가 안전장치)
-                    if not self.initial_room_results and filtered_results:
-                        self.initial_room_results = filtered_results.copy()
-                        self.logger.info(f"🔥 방 입장 시점 데이터 저장: {len(self.initial_room_results)}개")
-                    
-                    return
-                elif current_round > self.entry_round_number:
-                    # 새로운 라운드 발생 - 연패 체크 시작
-                    self.logger.info(f"🆕 방 입장 후 첫 새로운 라운드 감지: {self.entry_round_number} → {current_round}")
-                    self.logger.info(f"📊 연패 체크 시작 - 예상: {self.expected_streak}연패")
-                    self.logger.info(f"📊 현재 결과: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
-                    self.wait_for_first_new_result = False
-                    
-                    # 🔥 연패 체크는 GameProcessor의 베팅 전에 수행
-                    # 여기서는 체크하지 않고 베팅 기회로 넘어감
-                    self.logger.info(f"✅ 새 라운드 시작 - 연패 검증은 베팅 시점에 GameProcessor에서 수행")
-                    self.logger.info(f"📊 예상 연패: {self.expected_streak}, 현재 결과: {len(filtered_results)}개")
-                else:
-                    # 아직 새 라운드 안 나옴 - 대기
-                    self.logger.debug(f"⏳ 새 라운드 대기 중... (현재: {current_round}, 입장: {self.entry_round_number})")
-                    return
+            # ⚡ 방 입장 후 즉시 베팅 처리 - 대기 없음
+            # 초기 데이터 저장만 수행
+            if self.entry_round_number == 0 and filtered_results:
+                self.entry_round_number = current_round
+                if not self.initial_room_results:
+                    self.initial_room_results = filtered_results.copy()
+                    self.logger.info(f"📝 방 입장 데이터 저장: {len(self.initial_room_results)}개")
             
             # 🔥 게임 결과 처리와 베팅 기회 분리
             # 1. 새로운 라운드 결과 처리 (베팅 결과 추적을 위해)
             if current_round > self.last_game_count:
-                self.logger.info(f"🆕 새로운 라운드 감지: {self.last_game_count} → {current_round}")
+                # 새 라운드 감지
                 
                 # 🔥 단순화: latest_result가 없으면 all_results_with_tie의 마지막 값 사용
                 if not latest_result:
                     all_results_with_tie = game_state.get('all_results_with_tie', [])
                     if all_results_with_tie:
                         latest_result = all_results_with_tie[-1]
-                        self.logger.info(f"✅ 라운드 {current_round} 결과를 P,B,T 배열에서 추출: {latest_result}")
+                        # 결과 추출
                 
                 # 게임 결과 처리 - 베팅 추적기가 대기 중일 수 있으므로 항상 발송
                 if latest_result and latest_result in ['P', 'B', 'T']:
@@ -275,7 +261,7 @@ class GameMonitoringWorker(QThread):
                         'latest_result': latest_result,
                         'current_game': current_game
                     }
-                    self.logger.info(f"🎲 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
+                    self.logger.info(f"게임 결과: R{current_round} - {latest_result}")
                     self.game_result_received.emit(result_data)
                 # 🔥 베팅 추적기가 대기 중이고 결과가 없는 경우
                 elif (hasattr(self.tm.game_processor, 'betting_tracker') and 
@@ -287,7 +273,7 @@ class GameMonitoringWorker(QThread):
                     if bet_round and current_round == bet_round:
                         # 🔥 간단한 로직: 베팅 라운드와 현재 라운드가 같으면 게임 끝 → 마지막 결과 사용
                         if not latest_result:
-                            self.logger.info(f"🎯 라운드 {current_round} 완료 - 결과 추출 시도")
+                            # 베팅 라운드 완료 - 결과 추출
                             # 게임 상태 다시 가져오기 (캐시 무시)
                             self.last_game_state = None
                             self.last_game_state_time = 0
@@ -299,7 +285,7 @@ class GameMonitoringWorker(QThread):
                                 # 🔥 단순화: P,B,T 전체 결과의 마지막 값 = 현재 라운드 결과
                                 if all_results_with_tie:
                                     latest_result = all_results_with_tie[-1]
-                                    self.logger.info(f"✅ 라운드 {current_round} 결과: {latest_result} (전체 {len(all_results_with_tie)}개 중 마지막)")
+                                    self.logger.info(f"베팅 결과: R{current_round} - {latest_result}")
                                 else:
                                     self.logger.error(f"❌ P,B,T 결과 배열이 비어있음")
                         
@@ -310,12 +296,12 @@ class GameMonitoringWorker(QThread):
                                 'latest_result': latest_result,
                                 'current_game': current_game
                             }
-                            self.logger.info(f"🎲 게임 결과 발송: 라운드 {current_round}, 결과 {latest_result}")
+                            self.logger.info(f"게임 결과: R{current_round} - {latest_result}")
                             self.game_result_received.emit(result_data)
-                            return
+                            # 🔥 return 제거 - 다음 베팅 기회 체크 계속 진행
                         else:
                             self.logger.warning(f"⚠️ 라운드 {current_round} 결과를 찾을 수 없음: {latest_result}")
-                        return  # 결과 대기
+                            return  # 결과가 없을 때만 대기
                     elif bet_round and current_round > bet_round:
                         # 베팅한 라운드를 지나쳤으면 타임아웃으로 처리
                         self.logger.error(f"❌ 베팅 라운드 {bet_round} 결과 누락 - 현재 {current_round}")
@@ -329,6 +315,10 @@ class GameMonitoringWorker(QThread):
                 
                 self.last_game_count = current_round
             
+            # 🔥 결과 처리 후 즉시 재베팅 준비 (TIE/LOSE 대응)
+            # 베팅 결과가 방금 처리되었고, 재베팅이 필요한 경우를 위해
+            # 빠른 모드가 활성화되어 있으면 바로 베팅 기회 체크로 진행
+            
             # 2. 베팅 추적기 대기 중인 결과도 추가로 발송
             elif (latest_result and latest_result in ['P', 'B', 'T'] and 
                   hasattr(self.tm.game_processor, 'betting_tracker') and 
@@ -340,12 +330,59 @@ class GameMonitoringWorker(QThread):
                     'latest_result': latest_result,
                     'current_game': current_game
                 }
-                self.logger.info(f"🎯 베팅 대기 중 - 현재 라운드 결과 재발송: 라운드 {current_round}, 결과 {latest_result}")
+                # 베팅 대기 중 결과 재발송
                 self.game_result_received.emit(result_data)
             
-            # 3. 베팅 기회 확인 (current_game 기반)
-            if current_game > 0 and not self.betting_in_progress:
-                self.logger.info(f"🎯 current_game 기반 베팅 기회: {current_game}")
+            # 3. ⚡⚡ 마틴 재베팅 처리 (최최우선) - 패배 후 즉시 다음 베팅
+            if self.needs_immediate_martin_rebet and self.martin_rebet_pick and not self.betting_in_progress:
+                if len(filtered_results) >= 15:
+                    self.logger.info(f"⚡⚡ 마틴 즉시 재베팅: {self.martin_rebet_pick}")
+                    self.status_updated.emit(f"⚡⚡ 마틴 재베팅: {self.martin_rebet_pick}")
+                    
+                    # 베팅 라운드 결정 (current_game이 0이면 다음 라운드)
+                    betting_round = current_game if current_game > 0 else current_round + 1
+                    
+                    # 즉시 베팅 요청
+                    self.betting_requested.emit(self.martin_rebet_pick, current_round, betting_round)
+                    self.betting_in_progress = True
+                    self.needs_immediate_martin_rebet = False
+                    self.martin_rebet_pick = None
+                    self.fast_monitoring_mode = False  # 빠른 모드 해제
+                    return  # 다른 처리 건너뛰기
+            
+            # 4. ⚡ TIE 재베팅 처리 (두번째 우선순위) - current_game 조건 완화
+            if self.tie_rebet_needed and self.tie_rebet_pick and not self.betting_in_progress:
+                # TIE 재베팅도 최소 15개 데이터 확인
+                if len(filtered_results) >= 15:
+                    self.logger.info(f"TIE 재베팅: {self.tie_rebet_pick}")
+                    self.status_updated.emit(f"⚡ TIE 재베팅: {self.tie_rebet_pick}")
+                    
+                    # 베팅 라운드 결정 (current_game이 0이면 다음 라운드)
+                    betting_round = current_game if current_game > 0 else current_round + 1
+                    
+                    # 같은 pick으로 즉시 베팅
+                    self.betting_requested.emit(self.tie_rebet_pick, current_round, betting_round)
+                    self.betting_in_progress = True
+                    self.tie_rebet_needed = False
+                    self.tie_rebet_pick = None
+                    self.fast_monitoring_mode = False  # 빠른 모드 해제
+                    
+                    # 옵션 2 (필요시): 서버에 다시 요청하여 확인
+                    # 동일한 15개 데이터로 서버 요청 시 같은 예측값이 나옴
+                else:
+                    pass  # TIE 재베팅 대기
+                
+            # 4. 일반 베팅 기회 확인 (current_game 기반)
+            # 🔥 중요: 베팅 추적기가 결과를 기다리는 중이면 새 베팅 금지
+            betting_tracker_waiting = False
+            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
+                betting_tracker_waiting = self.tm.game_processor.betting_tracker.is_waiting_for_result()
+            
+            if betting_tracker_waiting:
+                # 이전 베팅 결과를 기다리는 중이면 새 베팅 금지
+                self.logger.debug("이전 베팅 결과 대기 중 - 새 베팅 금지")
+            elif current_game > 0 and not self.betting_in_progress:
+                # 베팅 기회 체크
                 betting_round = current_game
                 self._check_betting_opportunity_async(filtered_results, current_round, betting_round)
             elif current_round > 0 and not self.betting_in_progress and current_game == 0:
@@ -358,35 +395,59 @@ class GameMonitoringWorker(QThread):
             self.error_occurred.emit(f"게임 모니터링 오류: {e}")
     
     def _get_game_state_safe(self) -> Optional[Dict[str, Any]]:
-        """쓰레드 안전한 게임 상태 조회 (캐싱 포함)"""
+        """쓰레드 안전한 게임 상태 조회 (중앙 캐시 사용)"""
         try:
-            current_time = time.time()
-            
-            # 캐시가 유효한 경우 캐시된 데이터 반환
-            if (self.last_game_state and 
-                self.last_game_state_time and 
-                current_time - self.last_game_state_time < self.cache_timeout):
-                self.logger.debug(f"캐시된 게임 상태 사용 (경과: {current_time - self.last_game_state_time:.1f}초)")
-                return self.last_game_state
-            
-            if not hasattr(self.tm, 'game_monitoring_service') or not self.tm.game_monitoring_service:
-                return None
-            
-            # 메인 쓰레드가 아닌 곳에서 안전하게 호출
-            # 🔥 더 많은 데이터 요청 (연패 추적을 위해)
-            game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
-                room_id=self.current_room_id,
-                room_name=self.current_room_name,
-                log_always=False,
-                desired_pb_count=None  # 🔥 전체 데이터 요청 (None = 모든 데이터)
-            )
-            
-            # 캐시 업데이트
-            if game_state:
-                self.last_game_state = game_state
-                self.last_game_state_time = current_time
-            
-            return game_state
+            # 중앙 캐시 시스템 사용
+            if hasattr(self.tm, 'game_state_cache'):
+                # fetch 함수 정의
+                def fetch_game_state():
+                    if not hasattr(self.tm, 'game_monitoring_service') or not self.tm.game_monitoring_service:
+                        return None
+                    return self.tm.game_monitoring_service.get_current_game_state_with_server_format(
+                        room_id=self.current_room_id,
+                        room_name=self.current_room_name,
+                        log_always=False,
+                        desired_pb_count=None  # 🔥 전체 데이터 요청
+                    )
+                
+                # 중앙 캐시에서 가져오기 (빠른 모드에서는 짧은 캐시)
+                cache_timeout = self.fast_mode_cache_timeout if self.fast_monitoring_mode else self.cache_timeout
+                return self.tm.game_state_cache.get_or_fetch(
+                    self.current_room_id,
+                    fetch_game_state,
+                    timeout=cache_timeout
+                )
+            else:
+                # 캐시 시스템이 없으면 기존 방식 사용
+                current_time = time.time()
+                
+                # 로컬 캐시 확인 (빠른 모드에서는 짧은 캐시)
+                cache_timeout = self.fast_mode_cache_timeout if self.fast_monitoring_mode else self.cache_timeout
+                if (self.last_game_state and 
+                    self.last_game_state_time and 
+                    current_time - self.last_game_state_time < cache_timeout):
+                    # 빠른 모드에서는 로깅 생략
+                    if not self.fast_monitoring_mode:
+                        self.logger.debug(f"로컬 캐시 사용 (경과: {current_time - self.last_game_state_time:.1f}초)")
+                    return self.last_game_state
+                
+                if not hasattr(self.tm, 'game_monitoring_service') or not self.tm.game_monitoring_service:
+                    return None
+                
+                # 직접 호출
+                game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
+                    room_id=self.current_room_id,
+                    room_name=self.current_room_name,
+                    log_always=False,
+                    desired_pb_count=None
+                )
+                
+                # 로컬 캐시 업데이트
+                if game_state:
+                    self.last_game_state = game_state
+                    self.last_game_state_time = current_time
+                
+                return game_state
             
         except Exception as e:
             self.logger.debug(f"게임 상태 조회 오류: {e}")
@@ -395,37 +456,26 @@ class GameMonitoringWorker(QThread):
     def _check_betting_opportunity_async(self, filtered_results: list, current_round: int, betting_round: int):
         """비동기 베팅 기회 확인"""
         try:
-            # 🔍 베팅 조건 상세 로깅
-            self.logger.info(f"🎯 베팅 조건 확인:")
-            self.logger.info(f"  - filtered_results 개수: {len(filtered_results)}")
-            self.logger.info(f"  - current_round: {current_round}")
-            self.logger.info(f"  - betting_round: {betting_round}")
-            self.logger.info(f"  - first_check_after_entry: {self.first_check_after_entry}")
-            self.logger.info(f"  - betting_in_progress: {self.betting_in_progress}")
+            # 베팅 조건 확인
             
-            # 기본 조건 확인 - 서버 요구사항: 최소 15개 데이터
+            # ⚡⚡ 기본 조건 확인 - 서버 요구사항: TIE 제외 15개 이상 데이터
+            # filtered_results는 이미 TIE가 제외된 상태
             if len(filtered_results) < 15:
-                self.logger.info(f"❌ 베팅 조건 미충족: 결과 데이터 부족 ({len(filtered_results)}/15)")
+                # 로깅 제거하여 속도 향상
+                self.status_updated.emit(f"데이터 부족: {len(filtered_results)}/15")
                 return
             
-            # 방 입장 후 안정화 시간 체크 (2초로 단축)
-            if hasattr(self, 'room_entry_time'):
-                time_since_entry = time.time() - self.room_entry_time
-                min_wait_time = 2.0  # 5초에서 2초로 단축 (베팅 타이밍 개선)
-                if time_since_entry < min_wait_time:
-                    remaining = min_wait_time - time_since_entry
-                    self.status_updated.emit(f"방 안정화 대기 중... ({remaining:.1f}초)")
-                    self.logger.info(f"⏳ 방 입장 후 안정화 대기 ({time_since_entry:.1f}/{min_wait_time}초)")
-                    return
+            # ⚡⚡ 방 입장 후 안정화 대기 완전 제거 - 즉시 베팅 가능
             
             # first_check_after_entry 플래그 제거 - 첫 베팅 기회를 놓치지 않도록
             # 대신 방 입장 후 최소 대기 시간만 체크
             
             if betting_round <= 0:
-                self.logger.info(f"❌ 베팅 조건 미충족: betting_round가 0 이하 ({betting_round})")
+                # 베팅 조건 미충족
+                return
                 return
             
-            self.logger.info("✅ 모든 베팅 조건 충족 - 서버 예측값 요청")
+            # 서버 예측값 요청
             
             # 서버 예측값 요청 (논블로킹)
             self._request_prediction_async(filtered_results, current_round, betting_round)
@@ -434,9 +484,18 @@ class GameMonitoringWorker(QThread):
             self.logger.error(f"베팅 기회 확인 오류: {e}")
     
     def _request_prediction_async(self, filtered_results: list, current_round: int, betting_round: int):
-        """비동기 예측값 요청 (캐싱 적용)"""
+        """비동기 예측값 요청 (최신 데이터 강제 사용)"""
         try:
             start_time = time.time()
+            
+            # 🔥 중요: 예측 전 항상 최신 데이터 가져오기 (캐시 무시)
+            self.last_game_state = None  # 캐시 강제 초기화
+            self.last_game_state_time = 0
+            
+            fresh_state = self._get_game_state_safe()
+            if fresh_state and fresh_state.get('filtered_results'):
+                filtered_results = fresh_state.get('filtered_results', [])
+                self.logger.info(f"🔄 최신 데이터로 갱신: {len(filtered_results)}개")
             
             # 🔥 캐시된 예측값 확인 (베팅 타이밍 개선)
             if (self.last_prediction and 
@@ -447,13 +506,8 @@ class GameMonitoringWorker(QThread):
                 next_pick = self.last_prediction
                 request_time = 0
             else:
-                # 서버 예측값 요청 (상세 로깅)
-                self.logger.info(f"🔮 워커 예측값 요청:")
-                self.logger.info(f"  - 방 ID: {self.current_room_id}")
-                self.logger.info(f"  - 결과 개수: {len(filtered_results)}개")
-                self.logger.info(f"  - 최근 결과: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
-                self.logger.info(f"  - current_round: {current_round}")
-                self.logger.info(f"  - betting_round: {betting_round}")
+                # ⚡⚡ 서버 예측값 요청 (최신 데이터 사용)
+                self.logger.info(f"🔮⚡ 최신 데이터로 예측 요청: {len(filtered_results)}개")
                 
                 next_pick = self.tm.server_client.get_next_prediction(
                     self.current_room_id, 
@@ -484,14 +538,29 @@ class GameMonitoringWorker(QThread):
     
     def on_betting_completed(self, success: bool, message: str):
         """베팅 완료 처리 (메인 쓰레드에서 호출)"""
+        # 🔥 즉시 플래그 리셋 (중요!)
+        was_in_progress = self.betting_in_progress
         self.betting_in_progress = False
+        
+        self.logger.info(f"🎯 베팅 완료 처리: success={success}, message={message}")
+        self.logger.info(f"✅ betting_in_progress 플래그 리셋: {was_in_progress} → {self.betting_in_progress}")
+        
         self.status_updated.emit(f"베팅 완료: {message}")
         
         if not success:
             self.logger.warning(f"베팅 실패: {message}")
-        
-        # 베팅 플래그 리셋 확인 로그
-        self.logger.info(f"✅ betting_in_progress 플래그 리셋 완료: {self.betting_in_progress}")
+            # 🔥 베팅 실패 시 다음 라운드를 위해 상태 초기화
+            self.wait_for_first_new_result = False
+            self.first_bet_after_entry = False
+            self.logger.info("🔄 베팅 실패 - 다음 베팅 기회 대기 모드로 전환")
+    
+    def enable_fast_martin_rebet(self, next_pick: str):
+        """마틴 재베팅을 위한 빠른 모드 활성화"""
+        self.needs_immediate_martin_rebet = True
+        self.martin_rebet_pick = next_pick
+        self.fast_monitoring_mode = True
+        self.betting_in_progress = False  # 즉시 플래그 리셋
+        self.logger.info(f"⚡⚡ 마틴 빠른 재베팅 모드 활성화: {next_pick}")
     
     def reset_betting_flag(self):
         """베팅 플래그 강제 리셋 (타임아웃 등의 경우)"""

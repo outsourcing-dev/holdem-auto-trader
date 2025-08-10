@@ -1,20 +1,1587 @@
-2025-08-07 06:14:30,663 - root - INFO - ================================================================================
-2025-08-07 06:14:30,664 - root - INFO - 프로그램 시작: 2025-08-07 06:14:30
-2025-08-07 06:14:30,664 - root - INFO - ================================================================================
-2025-08-07 06:14:30,664 - root - INFO - 애플리케이션 시작
-2025-08-07 06:14:30,688 - root - INFO - 스타일시트 파일 발견: C:\Users\jkh\Desktop\행사 프로그램\holdem-auto-trader\ui\style.qss
-2025-08-07 06:14:34,381 - utils.trading_manager - INFO - ✅ 메인 윈도우의 기존 DevTools 인스턴스 사용
-2025-08-07 06:14:34,382 - utils.trading_manager - INFO - 🔗 서버 클라이언트 초기화: https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app
-2025-08-07 06:14:36,257 - utils.trading_manager - INFO - DevTools driver가 아직 초기화되지 않음 - 서비스 생성 지연
-2025-08-07 06:14:36,260 - utils.trading_manager - INFO - 단순화된 TradingManagerHelpers 초기화
-2025-08-07 06:14:36,261 - utils.trading_manager - INFO - 단순화된 TradingManagerBet 초기화
-2025-08-07 06:14:36,261 - utils.trading_manager - INFO - 베팅 추적기 초기화 완료
-2025-08-07 06:14:36,261 - utils.trading_manager - INFO - 🔗 워커 시그널 연결 완료
-2025-08-07 06:14:36,261 - utils.trading_manager - INFO - 🔗 멀티쓰레드 시그널 연결 완료
-2025-08-07 06:14:37,357 - utils.devtools - INFO - 기존 Chrome 프로세스 정리 중...
-2025-08-07 06:14:38,107 - utils.devtools - INFO - Chrome 브라우저 시작 시도 1/3
-2025-08-07 06:14:38,108 - utils.devtools - INFO - 🔄 Chrome 시작 중...
-2025-08-07 06:14:38,109 - utils.devtools - INFO - Chrome 138 버전 드라이버로 시작
-2025-08-07 06:14:39,377 - undetected_chromedriver.patcher - INFO - patching driver executable C:\Users\jkh\appdata\roaming\undetected_chromedriver\undetected_chromedriver.exe
-2025-08-07 06:14:41,319 - utils.devtools - INFO - ✅ Chrome 시작 성공
-2025-08-07 06:14:41,319 - utils.devtools - INFO - ✅ Chrome 브라우저 시작 성공
+2025-08-11 00:50:42,196 - root - INFO - 프로그램 시작: 2025-08-11 00:50:42
+2025-08-11 00:50:45,732 - utils.trading_manager - INFO - 🔗 서버 클라이언트 초기화: https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app
+2025-08-11 00:50:47,917 - utils.trading_manager - INFO - DevTools driver가 아직 초기화되지 않음 - 서비스 생성 지연
+2025-08-11 00:50:47,919 - utils.trading_manager - INFO - 단순화된 TradingManagerHelpers 초기화
+2025-08-11 00:50:47,919 - utils.trading_manager - INFO - 단순화된 TradingManagerBet 초기화
+2025-08-11 00:50:47,919 - utils.trading_manager - INFO - 베팅 추적기 초기화 완료
+2025-08-11 00:50:47,920 - utils.trading_manager - INFO - 🔗 워커 시그널 연결 완료
+2025-08-11 00:50:54,718 - undetected_chromedriver.patcher - INFO - patching driver executable C:\Users\jkh\appdata\roaming\undetected_chromedriver\undetected_chromedriver.exe
+2025-08-11 00:51:14,955 - utils.trading_manager - INFO - 🚀 연패 감지 자동 매매 시작
+2025-08-11 00:51:14,956 - utils.trading_manager - INFO - 서비스가 아직 초기화되지 않음 - 생성 시도
+2025-08-11 00:51:14,970 - utils.trading_manager - INFO - GameMonitoringService 초기화 완료 (모듈화된 구조)
+2025-08-11 00:51:14,972 - utils.trading_manager - INFO - 초이스 픽 시스템 초기화 - 마틴 금액: [10000, 20000, 40000]
+2025-08-11 00:51:14,972 - utils.trading_manager - INFO - 단순화된 ChoicePickSystem 인스턴스 생성
+2025-08-11 00:51:14,974 - utils.trading_manager - INFO - 단순화된 ExcelTradingService 초기화 완료
+2025-08-11 00:51:14,974 - utils.trading_manager - INFO - 마틴 설정 로드 완료 - 단계 수: 3, 금액: [10000, 20000, 40000]
+2025-08-11 00:51:14,975 - utils.trading_manager - INFO - 모든 서비스 초기화 완료 (driver: <class 'undetected_chromedriver.Chrome'>)
+2025-08-11 00:51:14,975 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:51:17,187 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:51:17,188 - utils.trading_manager - INFO - 서버 연결 상태 확인 완료
+2025-08-11 00:51:17,188 - utils.trading_manager - INFO - 자동 매매 사전 검증 완료
+2025-08-11 00:51:17,188 - utils.trading_manager - INFO - 마틴 금액 업데이트: [10000, 20000, 40000]
+2025-08-11 00:51:17,188 - utils.trading_manager - INFO - 마틴 금액 설정 완료: [10000, 20000, 40000]
+2025-08-11 00:51:17,189 - utils.trading_manager - INFO - 설정 새로고침 완료 - 마틴: 3단계, [10000, 20000, 40000], 최소 연패: 1회
+2025-08-11 00:51:17,189 - utils.trading_manager - INFO - 🎬 iframe 로깅 시작
+2025-08-11 00:51:17,190 - utils.trading_manager - INFO - 📝 로그 파일 생성: betting_logs\betting_log_20250811_005117.txt
+2025-08-11 00:51:17,190 - utils.trading_manager - INFO - 📝 iframe 로깅 시작됨
+2025-08-11 00:51:17,190 - utils.trading_manager - INFO - 🔍 서버 연결 상태 확인 중...
+2025-08-11 00:51:17,191 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:51:19,330 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:51:19,330 - utils.trading_manager - INFO - ✅ 서버 연결 성공
+2025-08-11 00:51:19,334 - utils.trading_manager - INFO - 에볼루션 로비 창으로 전환 완료
+2025-08-11 00:51:19,336 - utils.trading_manager - INFO - 카지노 로비 창으로 전환 완료
+2025-08-11 00:51:19,377 - utils.trading_manager - INFO - 잔액 확인: 단일 iframe으로 전환 완료
+2025-08-11 00:51:19,404 - utils.trading_manager - INFO - header-balance에서 잔액 텍스트: ⁦⁦₩⁩273,750⁩
+2025-08-11 00:51:19,405 - utils.trading_manager - INFO - 로비 iframe에서 가져온 잔액: 273,750원 (header-balance)
+2025-08-11 00:51:19,407 - utils.trading_manager - INFO - 현재 잔액: 273,750원
+2025-08-11 00:51:19,407 - utils.trading_manager - INFO - UI 잔액 정보 업데이트 완료
+2025-08-11 00:51:19,408 - utils.trading_manager - INFO - 마틴 배팅 가능: 잔고 273,750원
+2025-08-11 00:51:19,408 - utils.trading_manager - INFO - 브라우저 설정 및 잔액 확인 완료
+2025-08-11 00:51:19,408 - utils.trading_manager - INFO - 연패 감지 시작
+2025-08-11 00:51:19,424 - utils.trading_manager - INFO - ⚡ 멀티스레드 웹소켓 URL 추출 시작
+2025-08-11 00:51:23,087 - utils.trading_manager - INFO - ✅ 프로세스에서 포트 발견: 1155
+2025-08-11 00:51:23,088 - utils.trading_manager - INFO - 🔗 기존 브라우저 연결 중... (포트: 1155)
+2025-08-11 00:51:24,354 - utils.trading_manager - INFO - 페이지 확인: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&ua_launch_id=185a72a859684313443e4b03
+2025-08-11 00:51:24,356 - utils.trading_manager - INFO - ✅ 에볼루션 페이지 발견: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&ua_launch_id=185a72a859684313443e4b03
+2025-08-11 00:51:26,310 - utils.trading_manager - INFO - 📡 WebSocket 연결 감지: wss://babylonpegakrph.evo-games.com/public/lobby/socket/v2/tad6kiavs5frppo4?messageFormat=json&device=Desktop&features=opensAt%2CmultipleHero%2CshortThumbnails%2CskipInfosPublished%2Csmc%2CuniRouletteHistory%2CbacHistoryV2%2Cfilters%2CtableDecorations&instance=5hohmu-tad6kiavs5frppo4-&EVOSESSIONID=tad6kiavs5frppo4tckk3qsg7oco6jiyd815cba4fc46205759a840c9c133e6032278d22e52b68a99&client_version=6.20250810.113553.54091-50d19e5459
+2025-08-11 00:51:26,331 - utils.trading_manager - INFO - ✅ 웹소켓 URL 추출 완료 (6.9초, 1개 발견)
+2025-08-11 00:51:26,331 - utils.trading_manager - INFO - 🔚 WebSocketParser 종료됨
+2025-08-11 00:51:26,335 - utils.trading_manager - INFO - 📋 필터링 방 목록 로드 완료: 49개
+2025-08-11 00:51:26,335 - utils.trading_manager - INFO - 📋 사용자 설정: 연패 기준 1, 자동 입장 True
+2025-08-11 00:51:26,335 - utils.trading_manager - INFO - 🔍 WebSocketHybridService 연패 감지 및 자동 방 입장 모드 초기화
+2025-08-11 00:51:26,336 - utils.trading_manager - INFO - ✅ 연패 감지 웹소켓 시그널 연결 완료
+2025-08-11 00:51:26,336 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 연결 시작
+2025-08-11 00:51:26,366 - utils.trading_manager - INFO - ✅ 연패 감지용 인터셉터 주입 완료
+2025-08-11 00:51:26,372 - utils.trading_manager - INFO - ✅ JavaScript 콜백 및 웹소켓 설정 성공
+2025-08-11 00:51:26,373 - utils.trading_manager - INFO - ✅ 연패 감지용 메시지 수집 시작
+2025-08-11 00:51:28,184 - utils.trading_manager - INFO - ✅ 웹소켓 연결 확인됨
+2025-08-11 00:51:28,184 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 상태 변경: 연결됨
+2025-08-11 00:51:28,184 - utils.trading_manager - INFO - ✅ 실시간 연패 감지 시작
+2025-08-11 00:51:28,185 - utils.trading_manager - INFO - 🎯 연패 기준 업데이트: 1
+2025-08-11 00:51:28,185 - utils.trading_manager - INFO - 🎯 웹소켓 서비스 연패 기준 설정: 1
+2025-08-11 00:51:28,185 - utils.trading_manager - INFO - 🔗 Evolution WebSocket 연결 성공: wss://babylonpegakrph.evo-games.com/public/lobby/s...
+2025-08-11 00:51:28,185 - utils.trading_manager - INFO - 📊 연패 감지 시스템 활성화
+2025-08-11 00:51:28,185 - utils.trading_manager - INFO - 🏠 연패 모니터링 시작
+2025-08-11 00:51:28,189 - utils.trading_manager - INFO - 📡 WebSocket 연결 확인 및 연패 데이터 체크 시작
+2025-08-11 00:51:28,189 - utils.trading_manager - INFO - 🏥 헬스 체크 타이머 시작 (30초 간격)
+2025-08-11 00:51:28,190 - utils.trading_manager - INFO - 🎯 연패 감지 자동 매매 시작 완료
+2025-08-11 00:51:33,194 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:51:35,415 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:51:35,421 - utils.trading_manager - INFO - 🎯 [필터링된 방 1] 방 ID: qsf63ownyvbqnz33
+2025-08-11 00:51:35,421 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 스피드 바카라 Z
+2025-08-11 00:51:35,422 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: qsf63ownyvbqnz33
+2025-08-11 00:51:35,422 - utils.trading_manager - INFO - 📊 최근 42개 결과: ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'B', 'B', 'B', 'R', 'R', 'R', 'R', 'R', 'B', 'B', 'R', 'R', 'B', 'B', 'R', 'R', 'B', 'R', 'R', 'R', 'B', 'B', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'B', 'B', 'B', 'R']
+2025-08-11 00:51:35,422 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:51:35,518 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:51:35,518 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 스피드 바카라 Z - 0연패
+2025-08-11 00:51:35,519 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 스피드 바카라 Z - 0연패 (기준: 1)
+2025-08-11 00:51:36,427 - utils.trading_manager - INFO - 🎯 [필터링된 방 2] 방 ID: srswfjnpuz4ucmwm
+2025-08-11 00:51:36,428 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 코리안 스피드 바카라 H
+2025-08-11 00:51:36,428 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: srswfjnpuz4ucmwm
+2025-08-11 00:51:36,428 - utils.trading_manager - INFO - 📊 최근 55개 결과: ['R', 'B', 'R', 'B', 'R', 'R', 'R', 'R', 'R', 'R', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'B', 'R', 'R', 'R', 'B', 'B', 'B', 'R', 'B', 'B', 'R', 'B', 'B', 'R', 'R', 'B', 'R', 'R', 'R', 'R', 'R', 'R', 'B', 'R', 'B', 'R', 'R', 'R', 'R', 'B', 'R', 'B', 'R', 'R', 'R', 'B', 'B']
+2025-08-11 00:51:36,428 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:51:36,543 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:51:36,543 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 코리안 스피드 바카라 H - 2연패
+2025-08-11 00:51:36,543 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 코리안 스피드 바카라 H - 2연패 (기준: 1)
+2025-08-11 00:51:36,544 - utils.trading_manager - INFO - 🚨 연패 기준 달성! 코리안 스피드 바카라 H - 2연패 (기준: 1)
+2025-08-11 00:51:36,544 - utils.trading_manager - INFO - 🚨 연패 방 발견! 코리안 스피드 바카라 H - 2연패
+2025-08-11 00:51:36,544 - utils.trading_manager - INFO - ➕ 새 연패 방 추가: 코리안 스피드 바카라 H
+2025-08-11 00:51:36,544 - utils.trading_manager - INFO - 연패 방 대기 중: 코리안 스피드 바카라 H (2연패)
+2025-08-11 00:51:36,544 - utils.trading_manager - INFO - 🎯 자동 방 입장 조건 만족: 코리안 스피드 바카라 H
+2025-08-11 00:51:36,545 - utils.trading_manager - INFO - 🚪 방 입장 요청: 코리안 스피드 바카라 H (2연패)
+2025-08-11 00:51:36,545 - utils.trading_manager - INFO - 🚪 방 입장 요청 처리: 코리안 스피드 바카라 H (2연패)
+2025-08-11 00:51:36,545 - utils.ui_updater - INFO - 베팅 상태 업데이트: 2연패 방 입장 시도
+2025-08-11 00:51:36,545 - utils.trading_manager - INFO - 🚪 방 입장 시도 (1/5): 코리안 스피드 바카라 H
+2025-08-11 00:51:36,546 - utils.trading_manager - INFO - ⏸️ 로비 모니터링 일시정지 - 게임방 모드
+2025-08-11 00:51:36,546 - utils.trading_manager - INFO - 🔒 WebSocket 로비 모니터링 일시정지 완료
+2025-08-11 00:51:36,546 - utils.trading_manager - INFO - 특정 방 '코리안 스피드 바카라 H' 입장 시도 시작
+2025-08-11 00:51:36,557 - utils.trading_manager - INFO - 방 '코리안 스피드 바카라 H' 입장 시도 1/3
+2025-08-11 00:51:36,591 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:51:42,037 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:51:42,071 - utils.trading_manager - INFO - 방 '코리안 스피드 바카라 H' 입장 및 검증 완료
+2025-08-11 00:51:42,080 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:51:44,356 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:51:44,356 - utils.trading_manager - WARNING - ⚠️ WebSocket 연결 끊어짐
+2025-08-11 00:51:44,357 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 상태 변경: 연결 끊김
+2025-08-11 00:51:44,357 - utils.trading_manager - WARNING - ⚠️ 자동 매매 중 연결 끊김
+2025-08-11 00:51:44,396 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:51:44,397 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 15개)
+2025-08-11 00:51:44,422 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 58 (data-role='gameCount')
+2025-08-11 00:51:44,422 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:51:46,821 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 58개 결과
+2025-08-11 00:51:46,821 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 58개
+2025-08-11 00:51:46,822 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 55개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:46,822 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:47,816 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:51:50,199 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 58개 결과
+2025-08-11 00:51:50,200 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 58개
+2025-08-11 00:51:50,200 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 55개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:50,200 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:51,860 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:51:51,996 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:51:54,221 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 58개 결과
+2025-08-11 00:51:54,221 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 58개
+2025-08-11 00:51:54,221 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 55개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:55,661 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 58개 결과
+2025-08-11 00:51:55,661 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 11.26초):
+2025-08-11 00:51:55,661 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 58
+2025-08-11 00:51:55,661 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 59
+2025-08-11 00:51:55,663 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:51:55,663 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:51:55,663 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:55,663 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:51:55,663 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:51:55,663 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:51:55,664 - utils.trading_manager - INFO -   - all_results: ['P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:55,664 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:51:55,664 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:51:55,664 - utils.trading_manager - INFO -   - round_number: 58
+2025-08-11 00:51:55,664 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:51:55,664 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:51:55,664 - utils.trading_manager - INFO - ✅ iframe 검증 성공: 라운드 58, 결과 15개
+2025-08-11 00:51:55,665 - utils.trading_manager - INFO - [마틴] 새 방 입장으로 recent_results 초기화
+2025-08-11 00:51:55,665 - utils.trading_manager - INFO - [마틴] 새 방 입장으로 위젯 카운터도 0으로 초기화
+2025-08-11 00:51:55,665 - utils.trading_manager - INFO - [마틴] 새 방 입장으로 방 배팅 상태 초기화 - 1단계부터 시작
+2025-08-11 00:51:55,694 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:51:55,694 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 15개)
+2025-08-11 00:51:55,710 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 58 (data-role='gameCount')
+2025-08-11 00:51:55,710 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:51:56,944 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 58개 결과
+2025-08-11 00:51:56,944 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 58개
+2025-08-11 00:51:56,944 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 55개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:56,944 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:57,369 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:51:58,878 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 58개 결과
+2025-08-11 00:51:58,879 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 58개
+2025-08-11 00:51:58,879 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 55개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:58,879 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:51:59,268 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:52:00,605 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:00,605 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 59개
+2025-08-11 00:52:00,605 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 56개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:01,775 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:01,775 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 6.08초):
+2025-08-11 00:52:01,776 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 58
+2025-08-11 00:52:01,776 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 59
+2025-08-11 00:52:01,776 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:52:01,776 - utils.trading_manager - INFO -   - 최신 결과: B
+2025-08-11 00:52:01,776 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:52:01,776 - utils.trading_manager - INFO - 🎮 최신 게임 결과: 라운드 58, 결과 B
+2025-08-11 00:52:01,777 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:52:01,777 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:52:01,777 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:52:01,777 - utils.trading_manager - INFO -   - all_results: ['P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P']
+2025-08-11 00:52:01,777 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:52:01,777 - utils.trading_manager - INFO -   - latest_result: B
+2025-08-11 00:52:01,777 - utils.trading_manager - INFO -   - round_number: 58
+2025-08-11 00:52:01,778 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:52:01,778 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:52:01,778 - utils.trading_manager - INFO - 📊 게임 수 조건 충족: 58회 (라운드: 58, 기록: 15개)
+2025-08-11 00:52:01,778 - utils.trading_manager - INFO - ✅ 방 입장 성공: 코리안 스피드 바카라 H
+2025-08-11 00:52:01,778 - utils.trading_manager - INFO - 방별 통계 초기화 완료
+2025-08-11 00:52:01,778 - utils.trading_manager - INFO - 🔄 새 방 입장으로 베팅 통계 초기화
+2025-08-11 00:52:01,779 - utils.trading_manager - INFO - 🎯 베팅 위젯 초기화 - 모든 마커 제거
+2025-08-11 00:52:01,807 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:04,105 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:04,106 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:06,458 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:06,464 - utils.trading_manager - INFO - 📝 방 로그 위젯에 새 방 입장 기록: 코리안 스피드 바카라 H
+2025-08-11 00:52:06,464 - utils.trading_manager - INFO - 🔍 게임 모니터링 시작 - streak_data 내용:
+2025-08-11 00:52:06,465 - utils.trading_manager - INFO -   - room_name: 코리안 스피드 바카라 H
+2025-08-11 00:52:06,465 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:52:06,465 - utils.trading_manager - INFO -   - streak_count: 2
+2025-08-11 00:52:06,465 - utils.trading_manager - INFO -   - streak_type: Choice Pick Prediction
+2025-08-11 00:52:06,465 - utils.trading_manager - INFO -   - 전체 데이터: {'room_id': 'srswfjnpuz4ucmwm', 'room_name': '코리안 스피드 바카라 H', 'streak_count': 2, 'streak_type': 'Choice Pick Prediction', 'recent_results': ['R', 'B', 'R', 'B', 'R', 'R', 'R', 'R', 'R', 'R', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'B', 'R', 'R', 'R', 'B', 'B', 'B', 'R', 'B', 'B', 'R', 'B', 'B', 'R', 'R', 'B', 'R', 'R', 'R', 'R', 'R', 'R', 'B', 'R', 'B', 'R', 'R', 'R', 'R', 'B', 'R', 'B', 'R', 'R', 'R', 'B', 'B'], 'detection_time': '2025-08-11T00:51:36.544455', 'priority_score': 2.95, 'user_threshold': 1, 'meets_criteria': True}
+2025-08-11 00:52:06,465 - utils.trading_manager - INFO - ▶️ 게임 모니터링 시작: 코리안 스피드 바카라 H
+2025-08-11 00:52:06,466 - utils.trading_manager - INFO - 🧵 멀티쓰레드 게임 모니터링 시작: 코리안 스피드 바카라 H
+2025-08-11 00:52:06,466 - utils.trading_manager - INFO - 🏠 방 입장 완료: 코리안 스피드 바카라 H
+2025-08-11 00:52:06,535 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:52:06,536 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:52:06,568 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 59 (data-role='gameCount')
+2025-08-11 00:52:06,568 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:52:08,222 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:08,222 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 59개
+2025-08-11 00:52:08,222 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 56개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:08,223 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:08,226 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:08,247 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:52:09,788 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:52:10,437 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:11,131 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:11,131 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 59개
+2025-08-11 00:52:11,132 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 56개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:11,132 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:12,427 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:52:12,514 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:52:13,248 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:13,256 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:52:13,955 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:13,956 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 59개
+2025-08-11 00:52:13,956 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 56개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:15,176 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:15,176 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 8.64초):
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 59
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 60
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:52:15,178 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:52:15,179 - utils.trading_manager - INFO -   - all_results: ['B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:15,179 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:52:15,179 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:52:15,179 - utils.trading_manager - INFO -   - round_number: 59
+2025-08-11 00:52:15,179 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:52:15,179 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:52:15,179 - utils.trading_manager - INFO - 게임 결과: R59 - B
+2025-08-11 00:52:15,206 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:52:15,206 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:52:15,218 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 59 (data-role='gameCount')
+2025-08-11 00:52:15,218 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:52:15,560 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:15,560 - utils.trading_manager - INFO - 🎲 [RoomEntryHandler] 게임 결과 수신: 라운드 59, 결과 B
+2025-08-11 00:52:15,560 - utils.trading_manager - INFO - 🎲 [GameProcessor] 게임 결과 처리 시작:
+2025-08-11 00:52:15,561 - utils.trading_manager - INFO -   - 완료된 라운드: 59
+2025-08-11 00:52:15,561 - utils.trading_manager - INFO -   - 진행 중인 게임: 60
+2025-08-11 00:52:15,561 - utils.trading_manager - INFO -   - 결과: B
+2025-08-11 00:52:15,562 - utils.trading_manager - INFO - 🎯 새로운 게임 결과 등록: #1
+2025-08-11 00:52:16,509 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:16,509 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 59개
+2025-08-11 00:52:16,510 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 56개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:16,510 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:17,854 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:52:18,240 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:18,246 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:52:19,086 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:19,086 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 59개
+2025-08-11 00:52:19,086 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 56개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:19,086 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:20,152 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:52:20,213 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:52:20,501 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:21,504 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:21,505 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 59개
+2025-08-11 00:52:21,505 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 56개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:22,675 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 59개 결과
+2025-08-11 00:52:22,676 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 7.47초):
+2025-08-11 00:52:22,676 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 59
+2025-08-11 00:52:22,676 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 60
+2025-08-11 00:52:22,676 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:52:22,676 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:52:22,677 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:22,677 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:52:22,677 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:52:22,677 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:52:22,677 - utils.trading_manager - INFO -   - all_results: ['B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:22,677 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:52:22,677 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:52:22,678 - utils.trading_manager - INFO -   - round_number: 59
+2025-08-11 00:52:22,678 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:52:22,678 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:52:22,678 - utils.trading_manager - INFO - 🔄 최신 데이터로 갱신: 15개
+2025-08-11 00:52:22,678 - utils.trading_manager - INFO - 🔮⚡ 최신 데이터로 예측 요청: 15개
+2025-08-11 00:52:22,678 - utils.trading_manager - INFO - 🎯 예측값 요청 준비:
+2025-08-11 00:52:22,678 - utils.trading_manager - INFO -   - 방 ID: srswfjnpuz4ucmwm
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO -   - 결과 데이터: 15개
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO -   - 최근 5개 결과: ['B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO - 🌐 서버 예측값 요청 전송...
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/get-prediction
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO - 📤 예측값 요청 데이터:
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO -   - 결과 개수: 15
+2025-08-11 00:52:22,679 - utils.trading_manager - INFO -   - 전체 결과: ['B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B']
+2025-08-11 00:52:22,704 - utils.trading_manager - INFO - ✅ 예측값 서버 응답 성공:
+2025-08-11 00:52:22,704 - utils.trading_manager - INFO -   - status: success
+2025-08-11 00:52:22,704 - utils.trading_manager - INFO -   - prediction: B
+2025-08-11 00:52:22,705 - utils.trading_manager - INFO -   - message: N/A
+2025-08-11 00:52:22,705 - utils.trading_manager - INFO - 📥 서버 응답 수신: {'status': 'success', 'next_prediction': 'B', 'data_length': 15}
+2025-08-11 00:52:22,705 - utils.trading_manager - INFO - ✅ 예측값 생성 성공: B
+2025-08-11 00:52:22,705 - utils.trading_manager - INFO - 🔮 워커 서버 응답: B (7.53초)
+2025-08-11 00:52:22,705 - utils.trading_manager - INFO - ✅ 베팅 예측: B - 베팅 요청 시그널 발송
+2025-08-11 00:52:22,706 - utils.trading_manager - INFO - 🎯 베팅 요청 수신: B (라운드: 59 → 60)
+2025-08-11 00:52:22,706 - utils.trading_manager - INFO - ✅ 베팅 요청 접수: B
+2025-08-11 00:52:22,707 - utils.trading_manager - INFO - 베팅 시작: B (R60)
+2025-08-11 00:52:22,707 - utils.ui_updater - INFO - 베팅 상태 업데이트: 베팅 진행 중...
+2025-08-11 00:52:22,708 - utils.trading_manager - INFO - 베팅 시도: B - 10,000원
+2025-08-11 00:52:22,708 - utils.trading_manager - INFO - 새 라운드(59) 감지, 이전 베팅 기록(0) 초기화
+2025-08-11 00:52:22,762 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:52:22,763 - utils.trading_manager - INFO - 베팅 가능 상태 확인 시작...
+2025-08-11 00:52:22,959 - utils.trading_manager - INFO - ✅ 칩 활성화 확인 - 베팅 가능 상태
+2025-08-11 00:52:22,994 - utils.trading_manager - INFO - ✅ 모든 베팅 조건 충족 - 베팅 준비 완료
+2025-08-11 00:52:23,025 - utils.trading_manager - INFO - ⚡ iframe 빠른 추출: 0.031초 (라운드: 59, current_game: None, 결과: 15개)
+2025-08-11 00:52:23,026 - utils.trading_manager - INFO - Banker 베팅 영역 찾는 중...
+2025-08-11 00:52:23,035 - utils.trading_manager - INFO - Banker 베팅 영역 찾음: div.spot--5ad7f[data-betspot-destination='Banker']
+2025-08-11 00:52:23,263 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:23,266 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:52:23,350 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:23,350 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:23,351 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 1s)
+2025-08-11 00:52:24,720 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:24,720 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:24,720 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 2s)
+2025-08-11 00:52:25,496 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:26,153 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:26,154 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:26,154 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 3s)
+2025-08-11 00:52:27,512 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:27,512 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:27,512 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 4s)
+2025-08-11 00:52:28,182 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:28,927 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:28,927 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:28,927 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 5s)
+2025-08-11 00:52:30,359 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:30,360 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:30,360 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 6s)
+2025-08-11 00:52:30,414 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:30,428 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:31,831 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:31,832 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:31,832 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 7s)
+2025-08-11 00:52:32,668 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:33,288 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:33,293 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:52:33,396 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:52:33,397 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:52:33,397 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 8s)
+2025-08-11 00:52:35,040 - utils.trading_manager - INFO - 사용 가능한 칩 값들: [100000, 50000, 25000, 10000, 5000]
+2025-08-11 00:52:35,041 - utils.trading_manager - INFO - 베팅 금액 10,000원 -> 칩별 클릭 횟수: {10000: 1}
+2025-08-11 00:52:35,403 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:36,087 - utils.trading_manager - INFO - 베팅 접수 확인 시작 (기대 금액: 10,000원)
+2025-08-11 00:52:36,118 - utils.trading_manager - INFO - ✅ 금액 확인: 10,000원 (오차: 0원)
+2025-08-11 00:52:36,150 - utils.trading_manager - INFO - ✅ 정상 베팅 레이블: 총 베팅금
+2025-08-11 00:52:36,150 - utils.trading_manager - INFO - Banker 베팅 영역 찾는 중...
+2025-08-11 00:52:36,172 - utils.trading_manager - INFO - Banker 베팅 영역 찾음: div.spot--5ad7f[data-betspot-destination='Banker']
+2025-08-11 00:52:36,222 - utils.trading_manager - INFO - ✅ 칩 위치 확인: B 영역
+2025-08-11 00:52:36,223 - utils.trading_manager - INFO - ✅ 베팅 접수 확인 완료 (조건 3/3 충족)
+2025-08-11 00:52:36,223 - utils.trading_manager - INFO -   - 금액 일치: True
+2025-08-11 00:52:36,223 - utils.trading_manager - INFO -   - 레이블 유효: True (총 베팅금)
+2025-08-11 00:52:36,223 - utils.trading_manager - INFO -   - 칩 위치: True
+2025-08-11 00:52:36,224 - utils.trading_manager - INFO - 🎯 베팅 결과 추적 시작: B → 라운드 60 (금액: 10,000원)
+2025-08-11 00:52:36,224 - utils.trading_manager - INFO - 📍 완료된 라운드: 59, 진행 중: None, 베팅 적용: 60
+2025-08-11 00:52:36,224 - utils.trading_manager - INFO - 🎯 다음 라운드에 베팅: 60
+2025-08-11 00:52:36,224 - utils.trading_manager - INFO - 🎯 베팅 추적 시작: B (베팅 대상 라운드: 60, 금액: 10,000원)
+2025-08-11 00:52:36,224 - utils.trading_manager - INFO - [베팅완료] 표시된 완료 라운드: 59, 베팅타입: B
+2025-08-11 00:52:36,225 - utils.trading_manager - INFO - 📍 실제 베팅 적용 라운드: 60
+2025-08-11 00:52:36,225 - utils.trading_manager - INFO - ⏳ 라운드 60의 결과를 대기합니다
+2025-08-11 00:52:36,225 - utils.trading_manager - INFO - 베팅 위젯 위치 카운터를 마틴 단계와 동기화: 포지션=1
+2025-08-11 00:52:36,225 - utils.trading_manager - INFO - ⏳ 게임 결과 대기 모드 설정 (라운드 60)
+2025-08-11 00:52:36,226 - utils.trading_manager - INFO - 베팅 성공: B - 10,000원
+2025-08-11 00:52:36,228 - utils.trading_manager - INFO - 🎯 베팅 완료 처리: success=True, message=베팅 성공: B, 10,000원
+2025-08-11 00:52:36,229 - utils.trading_manager - INFO - ✅ betting_in_progress 플래그 리셋: True → False
+2025-08-11 00:52:36,230 - utils.ui_updater - INFO - 베팅 상태 업데이트: 결과 대기 중...
+2025-08-11 00:52:36,522 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:52:36,522 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:52:36,542 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 60 (data-role='gameCount')
+2025-08-11 00:52:36,542 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:52:38,143 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 60개 결과
+2025-08-11 00:52:38,143 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 60개
+2025-08-11 00:52:38,144 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 57개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'B']
+2025-08-11 00:52:38,144 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'B']
+2025-08-11 00:52:38,256 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:38,262 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:52:40,278 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:52:40,856 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:41,587 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 60개 결과
+2025-08-11 00:52:41,587 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 60개
+2025-08-11 00:52:41,587 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 57개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'B']
+2025-08-11 00:52:41,588 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'B']
+2025-08-11 00:52:43,074 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:52:43,144 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:52:43,279 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:52:43,283 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:52:44,501 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 60개 결과
+2025-08-11 00:52:44,501 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 60개
+2025-08-11 00:52:44,501 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 57개 - ['B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'B', 'P', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'B']
+2025-08-11 00:52:45,242 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:52:45,737 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 60개 결과
+2025-08-11 00:52:45,738 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 9.22초):
+2025-08-11 00:52:45,738 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 60
+2025-08-11 00:52:45,738 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 61
+2025-08-11 00:52:45,738 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:52:45,738 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'B']
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO -   - all_results: ['P', 'B', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'B']
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:52:45,739 - utils.trading_manager - INFO -   - round_number: 60
+2025-08-11 00:52:45,741 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:52:45,741 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:52:45,741 - utils.trading_manager - INFO - 게임 결과: R60 - B
+2025-08-11 00:52:45,741 - utils.trading_manager - INFO - 🎲 [RoomEntryHandler] 게임 결과 수신: 라운드 60, 결과 B
+2025-08-11 00:52:45,741 - utils.trading_manager - INFO - 🎲 [GameProcessor] 게임 결과 처리 시작:
+2025-08-11 00:52:45,741 - utils.trading_manager - INFO -   - 완료된 라운드: 60
+2025-08-11 00:52:45,741 - utils.trading_manager - INFO -   - 진행 중인 게임: 61
+2025-08-11 00:52:45,742 - utils.trading_manager - INFO -   - 결과: B
+2025-08-11 00:52:45,742 - utils.trading_manager - INFO - 🎯 새로운 게임 결과 등록: #2
+2025-08-11 00:52:45,742 - utils.trading_manager - INFO - 📊 베팅 결과 대기 중 - 결과 체크 시작
+2025-08-11 00:52:45,742 - utils.trading_manager - INFO -   🎯 중앙 관리 베팅 정보:
+2025-08-11 00:52:45,742 - utils.trading_manager - INFO -     - 베팅 대상 라운드: 60
+2025-08-11 00:52:45,742 - utils.trading_manager - INFO -     - 베팅 타입: B
+2025-08-11 00:52:45,742 - utils.trading_manager - INFO -     - 베팅 시점 완료된 라운드: 59
+2025-08-11 00:52:45,743 - utils.trading_manager - INFO -     - 베팅 시점 진행 중: None
+2025-08-11 00:52:45,743 - utils.trading_manager - INFO -   🎮 현재 게임 상태:
+2025-08-11 00:52:45,743 - utils.trading_manager - INFO -     - 방금 완료된 라운드: 60
+2025-08-11 00:52:45,743 - utils.trading_manager - INFO -     - 현재 진행 중: 61
+2025-08-11 00:52:45,743 - utils.trading_manager - INFO - 🔍 베팅 추적 상태:
+2025-08-11 00:52:45,743 - utils.trading_manager - INFO -   - 베팅 대상 라운드: 60
+2025-08-11 00:52:45,743 - utils.trading_manager - INFO -   - 방금 완료된 라운드: 60
+2025-08-11 00:52:45,744 - utils.trading_manager - INFO -   - 현재 진행 중: 61
+2025-08-11 00:52:45,744 - utils.trading_manager - INFO -   - 대기 시간: 9.5초
+2025-08-11 00:52:45,744 - utils.trading_manager - INFO - ✅ 베팅 라운드 정확히 완료: 60
+2025-08-11 00:52:45,744 - utils.trading_manager - INFO - 🔍 [BettingResultTracker] 결과 체크 시작:
+2025-08-11 00:52:45,744 - utils.trading_manager - INFO -   - 현재 상태: waiting
+2025-08-11 00:52:45,744 - utils.trading_manager - INFO -   - 방금 완료된 라운드: 60
+2025-08-11 00:52:45,744 - utils.trading_manager - INFO -   - 해당 라운드 결과: B
+2025-08-11 00:52:45,745 - utils.trading_manager - INFO -   - 베팅 대상 라운드: 60
+2025-08-11 00:52:45,745 - utils.trading_manager - INFO -   - 대기 시간: 9.5초
+2025-08-11 00:52:45,745 - utils.trading_manager - INFO - ✅ 베팅 라운드 정확히 완료: 60
+2025-08-11 00:52:45,745 - utils.trading_manager - INFO - ✅ 베팅 결과 처리 시작!
+2025-08-11 00:52:45,745 - utils.trading_manager - INFO - 🎲 베팅 결과: B vs B = win (대기: 9.5s)
+2025-08-11 00:52:45,745 - utils.trading_manager - INFO - 🎲 베팅 결과 확정: win
+2025-08-11 00:52:45,745 - utils.trading_manager - INFO - 🎉 베팅 승리!
+2025-08-11 00:52:45,746 - utils.trading_manager - INFO - 베팅 추적 상태 초기화
+2025-08-11 00:52:45,746 - utils.trading_manager - INFO - 💰 현재 베팅 금액: 10,000원 (위젯: 1번, 마틴: 1단계)
+2025-08-11 00:52:45,746 - utils.trading_manager - INFO -    마틴 금액 설정: [10000, 20000, 40000]
+2025-08-11 00:52:45,746 - utils.trading_manager - INFO - [마틴] 결과 처리 전 위젯 포지션: 1
+2025-08-11 00:52:45,746 - utils.trading_manager - INFO - [마틴] 베팅 결과 처리: win
+2025-08-11 00:52:45,746 - utils.trading_manager - INFO - [마틴] 베팅 성공: 승리 처리 완료, 다음에 새 방으로 이동하여 새 픽 선택
+2025-08-11 00:52:45,746 - utils.trading_manager - INFO - [마틴] 방 로그 위젯에 방 변경 예정 알림
+2025-08-11 00:52:45,747 - utils.trading_manager - INFO - [마틴] 승리 마커 표시 - 현재 위치: 0
+2025-08-11 00:52:45,747 - utils.trading_manager - INFO - [마틴] 결과 처리 후 위젯 포지션: 0
+2025-08-11 00:52:45,747 - utils.trading_manager - INFO - ✅ 승리로 consecutive_failures와 recent_results 초기화
+2025-08-11 00:52:45,747 - utils.trading_manager - INFO - [마틴] 결과 처리 후 위젯 포지션: 1
+2025-08-11 00:52:45,747 - utils.trading_manager - INFO - ✅ Martin 서비스에 승리 결과 처리 완료 (라운드: 60)
+2025-08-11 00:52:45,747 - utils.trading_manager - INFO - [마틴] 승리 후 마틴 상태 초기화 시작
+2025-08-11 00:52:45,748 - utils.trading_manager - INFO - ✅ 위젯 카운터 정상 초기화 (0)
+2025-08-11 00:52:45,748 - utils.trading_manager - INFO - 💰 현재 베팅 금액: 10,000원 (위젯: 1번, 마틴: 1단계)
+2025-08-11 00:52:45,748 - utils.trading_manager - INFO -    마틴 금액 설정: [10000, 20000, 40000]
+2025-08-11 00:52:45,748 - utils.trading_manager - INFO - 🎯 초기화 후 다음 베팅 금액: 10,000원 (1단계)
+2025-08-11 00:52:45,748 - utils.trading_manager - INFO - [마틴] 승리 후 마틴 상태 완전 초기화 완료 - 다음 방에서 1단계부터 시작
+2025-08-11 00:52:45,748 - utils.trading_manager - INFO - 베팅 성공 - 실패 카운트 초기화
+2025-08-11 00:52:45,748 - utils.trading_manager - INFO - 베팅 결과 기록: 승리
+2025-08-11 00:52:45,749 - utils.trading_manager - INFO - 📝 방 로그에 승리 기록: 코리안 스피드 바카라 H
+2025-08-11 00:52:45,749 - utils.trading_manager - INFO - 📝 다음 방은 새 방문으로 기록 예정
+2025-08-11 00:52:45,749 - utils.trading_manager - INFO - ✅ 승리로 인한 방 나가기 - 새로운 연패방 검색
+2025-08-11 00:52:45,749 - utils.trading_manager - INFO - ✅ 승리 후 게임 모니터링 워커 베팅 플래그 리셋
+2025-08-11 00:52:45,749 - utils.trading_manager - INFO - 🔄 마틴 완료 후 연패 모니터링 모드로 복귀
+2025-08-11 00:52:45,780 - utils.trading_manager - INFO - 잔액 확인: 단일 iframe으로 전환 완료
+2025-08-11 00:52:45,806 - utils.trading_manager - INFO - 로비 iframe에서 가져온 잔액: 263,750원 (balance-label-value)
+2025-08-11 00:52:45,808 - utils.trading_manager - INFO - [연패 방 복귀] 현재 목표 금액: 5,000,000원, 현재 잔액: 263,750원
+2025-08-11 00:52:45,809 - utils.trading_manager - INFO - 📊 방 '코리안 스피드 바카라 H' 최종 승패 통계 저장 시작
+2025-08-11 00:52:45,809 - utils.trading_manager - INFO - 📈 방 '코리안 스피드 바카라 H' 최종 통계:
+2025-08-11 00:52:45,809 - utils.trading_manager - INFO -   - 총 베팅: 1회
+2025-08-11 00:52:45,809 - utils.trading_manager - INFO -   - 승리: 1회, 패배: 0회, 무승부: 0회
+2025-08-11 00:52:45,809 - utils.trading_manager - INFO -   - 승률: 100.0%
+2025-08-11 00:52:45,818 - utils.trading_manager - INFO - ✅ 방 로그 위젯에 '코리안 스피드 바카라 H' 최종 통계 업데이트 완료
+2025-08-11 00:52:45,818 - utils.trading_manager - INFO - 📊 방 '코리안 스피드 바카라 H' 최종 통계 기록:
+2025-08-11 00:52:45,819 - utils.trading_manager - INFO -   - 총 베팅: 1회
+2025-08-11 00:52:45,819 - utils.trading_manager - INFO -   - 승률: 100.0%
+2025-08-11 00:52:45,819 - utils.trading_manager - INFO -   - 최대 연승: 1회
+2025-08-11 00:52:45,819 - utils.trading_manager - INFO -   - 최대 연패: 0회
+2025-08-11 00:52:45,819 - utils.trading_manager - INFO - ✅ Excel 서비스에 '코리안 스피드 바카라 H' 최종 통계 기록 완료
+2025-08-11 00:52:45,819 - utils.trading_manager - INFO - 🔄 방 '코리안 스피드 바카라 H' 퇴장 및 정보 초기화 완료
+2025-08-11 00:52:45,820 - utils.trading_manager - INFO - 🛑 iframe 모니터링 중지
+2025-08-11 00:52:45,820 - utils.trading_manager - INFO - 현재 방 종료 시도
+2025-08-11 00:52:45,970 - utils.trading_manager - INFO - 방 종료 버튼 클릭 완료
+2025-08-11 00:52:45,981 - utils.trading_manager - INFO - 로비 창으로 전환 완료
+2025-08-11 00:52:45,984 - utils.trading_manager - WARNING - 로비 페이지가 아닐 수 있음
+2025-08-11 00:52:45,985 - utils.trading_manager - INFO - 🚪 현재 방 나가기 완료
+2025-08-11 00:52:45,985 - utils.trading_manager - INFO - 📊 베팅 위젯 현재 상태 유지 (연패 중)
+2025-08-11 00:52:45,985 - utils.trading_manager - INFO - [마틴] 마틴 베팅 상태 완전 초기화 완료
+2025-08-11 00:52:45,985 - utils.trading_manager - INFO - 🎰 마틴 서비스 초기화
+2025-08-11 00:52:45,985 - utils.trading_manager - INFO - 🛑 서버 요청 중단 플래그 설정
+2025-08-11 00:52:45,986 - utils.trading_manager - INFO - 베팅 추적 상태 초기화
+2025-08-11 00:52:45,986 - utils.trading_manager - INFO - 🔄 베팅 추적기 상태 초기화 완료
+2025-08-11 00:52:45,998 - utils.ui_updater - INFO - 베팅 상태 업데이트: 연속 자동 매매 진행 중
+2025-08-11 00:52:45,998 - utils.trading_manager - INFO - 🔄 WebSocket 플래그 강제 리셋 완료
+2025-08-11 00:52:45,998 - utils.trading_manager - INFO - ▶️ 로비 모니터링 재개
+2025-08-11 00:52:45,998 - utils.trading_manager - INFO - 📡 로비 웹소켓 모니터링 재개 완료
+2025-08-11 00:52:45,999 - utils.trading_manager - INFO - ✅ 연패 감지용 메시지 수집 시작
+2025-08-11 00:52:45,999 - utils.trading_manager - INFO - 📡 현재 웹소켓 상태: {'is_intercepting': True, 'performance_logs_enabled': True, 'cdp_session_active': False, 'websocket_connections': 0, 'active_connections': 0, 'message_buffer_size': 5, 'processed_messages': 5, 'server_sent_count': 2, 'filtered_room_count': 2, 'target_streak_rooms': 0, 'current_target_room': None, 'room_entry_in_progress': False}
+2025-08-11 00:52:45,999 - utils.trading_manager - WARNING - ⚠️ 웹소켓 연결이 끊어짐 - 재연결 시도
+2025-08-11 00:52:45,999 - utils.trading_manager - INFO - 🔄 웹소켓 재연결 및 URL 재추출 시작
+2025-08-11 00:52:46,004 - utils.trading_manager - INFO - ▶️ 로비 모니터링 재개
+2025-08-11 00:52:46,004 - utils.trading_manager - INFO - 🛑 연패 감지 웹소켓 연결 중지
+2025-08-11 00:52:46,005 - utils.trading_manager - INFO - 📊 최종 통계: 총 메시지 5개, 필터링된 방 2개, 서버 전송 2개
+2025-08-11 00:52:46,012 - utils.trading_manager - INFO - ✅ 연패 감지 웹소켓 중지 완료
+2025-08-11 00:52:46,012 - utils.trading_manager - INFO - 🗑️ 기존 웹소켓 서비스 정리 완료
+2025-08-11 00:52:46,019 - utils.trading_manager - INFO - 🧹 JavaScript 환경 정리 완료
+2025-08-11 00:52:49,020 - utils.trading_manager - INFO - ⏰ 로비 안정화 대기 완료
+2025-08-11 00:52:49,020 - utils.trading_manager - INFO - ⚡ 멀티스레드 웹소켓 URL 추출 시작
+2025-08-11 00:52:52,688 - utils.trading_manager - INFO - ✅ 프로세스에서 포트 발견: 1155
+2025-08-11 00:52:52,689 - utils.trading_manager - INFO - 🔗 기존 브라우저 연결 중... (포트: 1155)
+2025-08-11 00:52:54,000 - utils.trading_manager - INFO - 페이지 확인: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:52:54,001 - utils.trading_manager - INFO - ✅ 에볼루션 페이지 발견: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:52:56,631 - utils.trading_manager - INFO - 📡 WebSocket 연결 감지: wss://babylonpegakrph.evo-games.com/public/lobby/socket/v2/tad6kiavs5frppo4?messageFormat=json&device=Desktop&features=opensAt%2CmultipleHero%2CshortThumbnails%2CskipInfosPublished%2Csmc%2CuniRouletteHistory%2CbacHistoryV2%2Cfilters%2CtableDecorations&instance=tb6vaw-tad6kiavs5frppo4-&EVOSESSIONID=tad6kiavs5frppo4tckk3qsg7oco6jiyd815cba4fc46205759a840c9c133e6032278d22e52b68a99&client_version=6.20250810.113553.54091-50d19e5459
+2025-08-11 00:52:56,648 - utils.trading_manager - INFO - ✅ 웹소켓 URL 추출 완료 (7.6초, 1개 발견)
+2025-08-11 00:52:56,649 - utils.trading_manager - INFO - 🔚 WebSocketParser 종료됨
+2025-08-11 00:52:56,649 - utils.trading_manager - INFO - 📡 새로운 웹소켓 URL 추출 성공: wss://babylonpegakrph.evo-games.com/public/lobby/s...
+2025-08-11 00:52:56,649 - utils.trading_manager - INFO - 연패 감지 시작
+2025-08-11 00:52:56,651 - utils.trading_manager - INFO - ⚡ 멀티스레드 웹소켓 URL 추출 시작
+2025-08-11 00:52:59,962 - utils.trading_manager - INFO - ✅ 프로세스에서 포트 발견: 1155
+2025-08-11 00:52:59,962 - utils.trading_manager - INFO - 🔗 기존 브라우저 연결 중... (포트: 1155)
+2025-08-11 00:53:01,052 - utils.trading_manager - INFO - 페이지 확인: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:53:01,053 - utils.trading_manager - INFO - ✅ 에볼루션 페이지 발견: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:53:01,937 - utils.trading_manager - INFO - 📡 WebSocket 연결 감지: wss://babylonpegakrph.evo-games.com/public/lobby/socket/v2/tad6kiavs5frppo4?messageFormat=json&device=Desktop&features=opensAt%2CmultipleHero%2CshortThumbnails%2CskipInfosPublished%2Csmc%2CuniRouletteHistory%2CbacHistoryV2%2Cfilters%2CtableDecorations&instance=lol8i1-tad6kiavs5frppo4-&EVOSESSIONID=tad6kiavs5frppo4tckk3qsg7oco6jiyd815cba4fc46205759a840c9c133e6032278d22e52b68a99&client_version=6.20250810.113553.54091-50d19e5459
+2025-08-11 00:53:01,968 - utils.trading_manager - INFO - ✅ 웹소켓 URL 추출 완료 (5.3초, 1개 발견)
+2025-08-11 00:53:01,969 - utils.trading_manager - INFO - 🔚 WebSocketParser 종료됨
+2025-08-11 00:53:01,971 - utils.trading_manager - INFO - 📋 필터링 방 목록 로드 완료: 49개
+2025-08-11 00:53:01,971 - utils.trading_manager - INFO - 📋 사용자 설정: 연패 기준 1, 자동 입장 True
+2025-08-11 00:53:01,973 - utils.trading_manager - INFO - 🔍 WebSocketHybridService 연패 감지 및 자동 방 입장 모드 초기화
+2025-08-11 00:53:01,973 - utils.trading_manager - INFO - ✅ 연패 감지 웹소켓 시그널 연결 완료
+2025-08-11 00:53:01,973 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 연결 시작
+2025-08-11 00:53:01,987 - utils.trading_manager - INFO - ✅ 연패 감지용 인터셉터 주입 완료
+2025-08-11 00:53:01,993 - utils.trading_manager - INFO - ✅ JavaScript 콜백 및 웹소켓 설정 성공
+2025-08-11 00:53:01,993 - utils.trading_manager - INFO - ✅ 연패 감지용 메시지 수집 시작
+2025-08-11 00:53:03,785 - utils.trading_manager - INFO - ✅ 웹소켓 연결 확인됨
+2025-08-11 00:53:03,786 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 상태 변경: 연결됨
+2025-08-11 00:53:03,786 - utils.trading_manager - INFO - ✅ 실시간 연패 감지 시작
+2025-08-11 00:53:03,786 - utils.trading_manager - INFO - 🎯 연패 기준 업데이트: 1
+2025-08-11 00:53:03,786 - utils.trading_manager - INFO - 🎯 웹소켓 서비스 연패 기준 설정: 1
+2025-08-11 00:53:03,787 - utils.trading_manager - INFO - 🔗 Evolution WebSocket 연결 성공: wss://babylonpegakrph.evo-games.com/public/lobby/s...
+2025-08-11 00:53:03,787 - utils.trading_manager - INFO - 📊 연패 감지 시스템 활성화
+2025-08-11 00:53:03,787 - utils.trading_manager - INFO - 🎯 연패 기준 업데이트: 1
+2025-08-11 00:53:03,787 - utils.trading_manager - WARNING - ⚠️ 웹소켓 서비스가 없음 - 재시작 필요
+2025-08-11 00:53:03,788 - utils.trading_manager - INFO - ✅ 서버 요청 중단 플래그 해제
+2025-08-11 00:53:03,788 - utils.trading_manager - INFO - 🔄 방 나가기 완료 - 연패 모니터링 재시작
+2025-08-11 00:53:03,788 - utils.trading_manager - INFO - 🏠 연패 모니터링 시작
+2025-08-11 00:53:03,788 - utils.trading_manager - INFO - 📡 WebSocket 연결 확인 및 연패 데이터 체크 시작
+2025-08-11 00:53:03,789 - utils.trading_manager - INFO - ✅ 연패 모니터링 모드 복귀 완료 - 웹소켓으로 새로운 연패 방 대기
+2025-08-11 00:53:03,789 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:05,836 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:05,837 - utils.trading_manager - INFO - 📡 연패 방 대기 중 - 서버 재요청
+2025-08-11 00:53:05,837 - utils.trading_manager - INFO - 📡 웹소켓으로 연패 방 감지 중...
+2025-08-11 00:53:08,800 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:10,855 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:13,795 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:15,874 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:18,820 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:20,892 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:23,821 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:25,913 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:28,059 - utils.trading_manager - INFO - 🎯 [필터링된 방 1] 방 ID: p63cmvmwagteemoy
+2025-08-11 00:53:28,060 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 코리안 스피드 바카라 A
+2025-08-11 00:53:28,060 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: p63cmvmwagteemoy
+2025-08-11 00:53:28,060 - utils.trading_manager - INFO - 📊 최근 1개 결과: ['R']
+2025-08-11 00:53:28,060 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:53:28,085 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:53:28,086 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 코리안 스피드 바카라 A - 0연패
+2025-08-11 00:53:28,086 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 코리안 스피드 바카라 A - 0연패 (기준: 1)
+2025-08-11 00:53:28,185 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:30,551 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:30,551 - utils.trading_manager - INFO - 📡 연패 방 대기 중 - 서버 재요청
+2025-08-11 00:53:30,552 - utils.trading_manager - INFO - 📡 웹소켓으로 연패 방 감지 중...
+2025-08-11 00:53:30,557 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:32,925 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:33,821 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:36,252 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:36,259 - utils.trading_manager - WARNING - 베팅 결과 타임아웃 - 다음 기회 대기
+2025-08-11 00:53:36,259 - utils.trading_manager - INFO - 대기 중인 베팅 정보 초기화됨
+2025-08-11 00:53:38,826 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:41,372 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:43,851 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:46,184 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:48,069 - utils.trading_manager - INFO - 🎯 [필터링된 방 2] 방 ID: o4kylkahpwqqy57w
+2025-08-11 00:53:48,069 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 스피드 바카라 R
+2025-08-11 00:53:48,069 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: o4kylkahpwqqy57w
+2025-08-11 00:53:48,069 - utils.trading_manager - INFO - 📊 최근 53개 결과: ['R', 'B', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'R', 'R', 'B', 'R', 'R', 'B', 'R', 'B', 'R', 'B', 'B', 'B']
+2025-08-11 00:53:48,069 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:53:48,130 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:53:48,131 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 스피드 바카라 R - 0연패
+2025-08-11 00:53:48,131 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 스피드 바카라 R - 0연패 (기준: 1)
+2025-08-11 00:53:48,860 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:51,114 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:53,870 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:53:56,219 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:53:58,180 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:00,520 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:00,521 - utils.trading_manager - INFO - 📡 연패 방 대기 중 - 서버 재요청
+2025-08-11 00:54:00,521 - utils.trading_manager - INFO - 📡 웹소켓으로 연패 방 감지 중...
+2025-08-11 00:54:00,527 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:02,979 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:03,875 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:06,256 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:08,862 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:11,276 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:13,878 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:16,292 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:16,300 - utils.trading_manager - INFO - 🎯 [필터링된 방 3] 방 ID: ndgvz5mlhfuaad6e
+2025-08-11 00:54:16,300 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 스피드 바카라 D
+2025-08-11 00:54:16,300 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: ndgvz5mlhfuaad6e
+2025-08-11 00:54:16,300 - utils.trading_manager - INFO - 📊 최근 58개 결과: ['R', 'R', 'R', 'B', 'R', 'B', 'R', 'R', 'R', 'R', 'B', 'R', 'R', 'R', 'B', 'R', 'R', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'R', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'R', 'B', 'B', 'R', 'R', 'B', 'B', 'R', 'B', 'R', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'R', 'R', 'B', 'R', 'R']
+2025-08-11 00:54:16,301 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:54:16,395 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:54:16,396 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 스피드 바카라 D - 0연패
+2025-08-11 00:54:16,396 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 스피드 바카라 D - 0연패 (기준: 1)
+2025-08-11 00:54:18,894 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:21,422 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:22,149 - utils.trading_manager - INFO - 🎯 [필터링된 방 4] 방 ID: BonsaiBacc000003
+2025-08-11 00:54:22,149 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 본자이 스피드 바카라 C
+2025-08-11 00:54:22,149 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: BonsaiBacc000003
+2025-08-11 00:54:22,150 - utils.trading_manager - INFO - 📊 최근 41개 결과: ['B', 'R', 'B', 'R', 'B', 'R', 'B', 'B', 'R', 'R', 'B', 'R', 'R', 'R', 'R', 'B', 'B', 'B', 'B', 'R', 'R', 'R', 'R', 'B', 'R', 'R', 'B', 'R', 'B', 'B', 'B', 'R', 'B', 'R', 'B', 'R', 'B', 'R', 'R', 'R', 'R']
+2025-08-11 00:54:22,150 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:54:22,194 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:54:22,194 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 본자이 스피드 바카라 C - 0연패
+2025-08-11 00:54:22,194 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 본자이 스피드 바카라 C - 0연패 (기준: 1)
+2025-08-11 00:54:23,903 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:26,444 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:28,183 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:30,647 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:30,647 - utils.trading_manager - INFO - 📡 연패 방 대기 중 - 서버 재요청
+2025-08-11 00:54:30,647 - utils.trading_manager - INFO - 📡 웹소켓으로 연패 방 감지 중...
+2025-08-11 00:54:30,653 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:33,173 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:33,910 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:36,364 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:38,907 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:41,380 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:41,386 - utils.trading_manager - INFO - 🎯 [필터링된 방 5] 방 ID: obj64qcnqfunjelj
+2025-08-11 00:54:41,386 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 스피드 바카라 J
+2025-08-11 00:54:41,386 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: obj64qcnqfunjelj
+2025-08-11 00:54:41,386 - utils.trading_manager - INFO - 📊 최근 29개 결과: ['R', 'B', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'B', 'R', 'B', 'B', 'R', 'R', 'B', 'B', 'R', 'B', 'R', 'B', 'R', 'B', 'B', 'B', 'B', 'B', 'B', 'R']
+2025-08-11 00:54:41,387 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:54:41,483 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:54:41,483 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 스피드 바카라 J - 0연패
+2025-08-11 00:54:41,483 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 스피드 바카라 J - 0연패 (기준: 1)
+2025-08-11 00:54:41,484 - utils.trading_manager - INFO - 📊 통계: 총 36개 메시지, 필터링된 방 5개, 서버 전송 5개
+2025-08-11 00:54:42,173 - utils.trading_manager - INFO - 📊 통계: 총 37개 메시지, 필터링된 방 5개, 서버 전송 5개
+2025-08-11 00:54:43,913 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:46,399 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:46,405 - utils.trading_manager - INFO - 📊 통계: 총 38개 메시지, 필터링된 방 5개, 서버 전송 5개
+2025-08-11 00:54:48,187 - utils.trading_manager - INFO - 📊 통계: 총 39개 메시지, 필터링된 방 5개, 서버 전송 5개
+2025-08-11 00:54:48,914 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:51,519 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:54:51,524 - utils.trading_manager - INFO - 📊 통계: 총 40개 메시지, 필터링된 방 5개, 서버 전송 5개
+2025-08-11 00:54:52,200 - utils.trading_manager - INFO - 🎯 [필터링된 방 6] 방 ID: rep5iuhinyjmalz4
+2025-08-11 00:54:52,201 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 스피드 바카라 10
+2025-08-11 00:54:52,201 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: rep5iuhinyjmalz4
+2025-08-11 00:54:52,201 - utils.trading_manager - INFO - 📊 최근 35개 결과: ['B', 'R', 'R', 'R', 'B', 'B', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'B', 'B', 'R', 'R', 'B', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'B', 'R']
+2025-08-11 00:54:52,201 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:54:52,231 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:54:52,231 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 스피드 바카라 10 - 1연패
+2025-08-11 00:54:52,231 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 스피드 바카라 10 - 1연패 (기준: 1)
+2025-08-11 00:54:52,233 - utils.trading_manager - INFO - 🚨 연패 기준 달성! 스피드 바카라 10 - 1연패 (기준: 1)
+2025-08-11 00:54:52,233 - utils.trading_manager - INFO - 🚨 연패 방 발견! 스피드 바카라 10 - 1연패
+2025-08-11 00:54:52,233 - utils.trading_manager - INFO - ➕ 새 연패 방 추가: 스피드 바카라 10
+2025-08-11 00:54:52,234 - utils.trading_manager - INFO - 연패 방 대기 중: 스피드 바카라 10 (1연패)
+2025-08-11 00:54:52,234 - utils.trading_manager - INFO - 🎯 자동 방 입장 조건 만족: 스피드 바카라 10
+2025-08-11 00:54:52,234 - utils.trading_manager - INFO - 🚪 방 입장 요청: 스피드 바카라 10 (1연패)
+2025-08-11 00:54:52,234 - utils.trading_manager - INFO - 🚪 방 입장 요청 처리: 스피드 바카라 10 (1연패)
+2025-08-11 00:54:52,234 - utils.ui_updater - INFO - 베팅 상태 업데이트: 1연패 방 입장 시도
+2025-08-11 00:54:52,234 - utils.trading_manager - INFO - 🚪 방 입장 시도 (1/5): 스피드 바카라 10
+2025-08-11 00:54:52,235 - utils.trading_manager - INFO - ⏸️ 로비 모니터링 일시정지 - 게임방 모드
+2025-08-11 00:54:52,235 - utils.trading_manager - INFO - 🔒 WebSocket 로비 모니터링 일시정지 완료
+2025-08-11 00:54:52,235 - utils.trading_manager - INFO - 특정 방 '스피드 바카라 10' 입장 시도 시작
+2025-08-11 00:54:52,248 - utils.trading_manager - INFO - 방 '스피드 바카라 10' 입장 시도 1/3
+2025-08-11 00:54:52,287 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:52,657 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:52,658 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:52,766 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:54:52,780 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:52,857 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:54:52,866 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:52,867 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:54:53,008 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:54:53,092 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:54:53,099 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:53,100 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 0.44초):
+2025-08-11 00:54:53,100 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 91
+2025-08-11 00:54:53,100 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 92
+2025-08-11 00:54:53,100 - utils.trading_manager - INFO -   - 전체 P,B 결과: 0개
+2025-08-11 00:54:53,101 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:54:53,101 - utils.trading_manager - INFO - 📊 최근 0개 P,B 결과: []
+2025-08-11 00:54:53,101 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:54:53,101 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:54:53,101 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:54:53,102 - utils.trading_manager - INFO -   - all_results: []
+2025-08-11 00:54:53,102 - utils.trading_manager - INFO -   - total_results: 0
+2025-08-11 00:54:53,102 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:54:53,102 - utils.trading_manager - INFO -   - round_number: 91
+2025-08-11 00:54:53,102 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:54:53,653 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:53,653 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:53,727 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:54:53,735 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:53,782 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:54:53,788 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:53,788 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:54:53,863 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:54:53,903 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:54:53,910 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:53,910 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 0.26초):
+2025-08-11 00:54:53,910 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 91
+2025-08-11 00:54:53,910 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 92
+2025-08-11 00:54:53,911 - utils.trading_manager - INFO -   - 전체 P,B 결과: 0개
+2025-08-11 00:54:53,911 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:54:53,911 - utils.trading_manager - INFO - 📊 최근 0개 P,B 결과: []
+2025-08-11 00:54:53,911 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:54:53,911 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:54:53,912 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:54:53,912 - utils.trading_manager - INFO -   - all_results: []
+2025-08-11 00:54:53,912 - utils.trading_manager - INFO -   - total_results: 0
+2025-08-11 00:54:53,912 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:54:53,912 - utils.trading_manager - INFO -   - round_number: 91
+2025-08-11 00:54:53,912 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:54:54,644 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:54,644 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:54,700 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:54:54,705 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:54,737 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:54:54,745 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:54,745 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:54:54,823 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:54:54,872 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:54:54,877 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:54,878 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 0.23초):
+2025-08-11 00:54:54,878 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 10
+2025-08-11 00:54:54,878 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 11
+2025-08-11 00:54:54,878 - utils.trading_manager - INFO -   - 전체 P,B 결과: 0개
+2025-08-11 00:54:54,879 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:54:54,879 - utils.trading_manager - INFO - 📊 최근 0개 P,B 결과: []
+2025-08-11 00:54:54,879 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:54:54,879 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:54:54,879 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:54:54,879 - utils.trading_manager - INFO -   - all_results: []
+2025-08-11 00:54:54,880 - utils.trading_manager - INFO -   - total_results: 0
+2025-08-11 00:54:54,880 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:54:54,880 - utils.trading_manager - INFO -   - round_number: 10
+2025-08-11 00:54:54,880 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:54:55,420 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:55,420 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:55,706 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:54:55,707 - utils.trading_manager - WARNING - ❌ 라운드 번호를 찾을 수 없습니다
+2025-08-11 00:54:55,707 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:54:55,713 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:55,744 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:54:55,749 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:55,750 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:54:55,817 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:54:55,849 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:54:55,854 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:55,854 - utils.trading_manager - WARNING - ❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다
+2025-08-11 00:54:55,854 - utils.trading_manager - WARNING - ❌ iframe에서 게임 상태를 감지할 수 없습니다
+2025-08-11 00:54:56,397 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:56,397 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:56,451 - utils.trading_manager - WARNING - ❌ 라운드 번호를 찾을 수 없습니다
+2025-08-11 00:54:56,451 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:54:56,455 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:56,490 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:54:56,496 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:56,497 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:54:56,563 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:54:56,595 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:54:56,601 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:56,601 - utils.trading_manager - WARNING - ❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다
+2025-08-11 00:54:56,601 - utils.trading_manager - WARNING - ❌ iframe에서 게임 상태를 감지할 수 없습니다
+2025-08-11 00:54:57,350 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:57,350 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:57,415 - utils.trading_manager - WARNING - ❌ 라운드 번호를 찾을 수 없습니다
+2025-08-11 00:54:57,415 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:54:57,420 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:57,455 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:54:57,462 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:57,462 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:54:57,528 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:54:57,568 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:54:57,573 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:57,574 - utils.trading_manager - WARNING - ❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다
+2025-08-11 00:54:57,574 - utils.trading_manager - WARNING - ❌ iframe에서 게임 상태를 감지할 수 없습니다
+2025-08-11 00:54:57,732 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:57,761 - utils.trading_manager - INFO - 방 '스피드 바카라 10' 입장 및 검증 완료
+2025-08-11 00:54:57,766 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:54:58,099 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:58,099 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:58,147 - utils.trading_manager - WARNING - ❌ 라운드 번호를 찾을 수 없습니다
+2025-08-11 00:54:58,148 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:54:58,152 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:58,180 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:54:58,186 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:58,186 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:54:58,242 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:54:58,273 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:54:58,278 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:54:58,278 - utils.trading_manager - WARNING - ❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다
+2025-08-11 00:54:58,279 - utils.trading_manager - WARNING - ❌ iframe에서 게임 상태를 감지할 수 없습니다
+2025-08-11 00:54:59,145 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:54:59,146 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:54:59,174 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 36 (data-role='gameCount')
+2025-08-11 00:54:59,175 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:00,106 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:00,106 - utils.trading_manager - WARNING - ⚠️ WebSocket 연결 끊어짐
+2025-08-11 00:55:00,107 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 상태 변경: 연결 끊김
+2025-08-11 00:55:00,107 - utils.trading_manager - WARNING - ⚠️ 자동 매매 중 연결 끊김
+2025-08-11 00:55:00,107 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:00,434 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:00,434 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:00,434 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:00,435 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:00,772 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:01,669 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:01,669 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:01,670 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:01,670 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:02,332 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:02,415 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:02,599 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:02,638 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:02,638 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 15개)
+2025-08-11 00:55:02,653 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 36 (data-role='gameCount')
+2025-08-11 00:55:02,653 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:03,620 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 34개 결과
+2025-08-11 00:55:03,620 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 34개
+2025-08-11 00:55:03,620 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 33개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:04,029 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:04,030 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:04,030 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:04,030 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:04,581 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:05,034 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:05,034 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 5.89초):
+2025-08-11 00:55:05,034 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 36
+2025-08-11 00:55:05,034 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 37
+2025-08-11 00:55:05,035 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:05,035 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:05,035 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:05,035 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:05,036 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:55:05,036 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:55:05,036 - utils.trading_manager - INFO -   - all_results: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:05,036 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:05,036 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:05,036 - utils.trading_manager - INFO -   - round_number: 36
+2025-08-11 00:55:05,038 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:05,038 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:05,071 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:05,071 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:55:05,088 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 36 (data-role='gameCount')
+2025-08-11 00:55:05,088 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:05,945 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 35개 결과
+2025-08-11 00:55:05,945 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 35개
+2025-08-11 00:55:05,945 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 34개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:05,946 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:06,512 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:06,513 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:06,513 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:06,513 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:06,861 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:06,957 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:07,065 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:08,232 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:08,232 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:08,232 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:08,367 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:08,367 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:08,368 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:08,368 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:09,206 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:09,283 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:09,605 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:09,605 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 6.97초):
+2025-08-11 00:55:09,605 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 36
+2025-08-11 00:55:09,605 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 37
+2025-08-11 00:55:09,606 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:09,606 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:09,606 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:09,606 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:09,606 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:09,607 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:55:09,607 - utils.trading_manager - INFO -   - all_results: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:09,607 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:09,607 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:09,607 - utils.trading_manager - INFO -   - round_number: 36
+2025-08-11 00:55:09,608 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:09,608 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:09,608 - utils.trading_manager - INFO - ✅ iframe 검증 성공: 라운드 36, 결과 15개
+2025-08-11 00:55:09,608 - utils.trading_manager - INFO - [마틴] 새 방 입장으로 recent_results 초기화
+2025-08-11 00:55:09,608 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:09,609 - utils.trading_manager - INFO - [마틴] 새 방 입장으로 위젯 카운터도 0으로 초기화
+2025-08-11 00:55:09,609 - utils.trading_manager - INFO - [마틴] 새 방 입장으로 방 배팅 상태 초기화 - 1단계부터 시작
+2025-08-11 00:55:09,670 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:09,670 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 15개)
+2025-08-11 00:55:09,685 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 36 (data-role='gameCount')
+2025-08-11 00:55:09,685 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:10,547 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 33개 결과
+2025-08-11 00:55:10,547 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 33개
+2025-08-11 00:55:10,548 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 32개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:11,113 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:11,113 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:11,113 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:11,114 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:11,604 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:11,915 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:11,915 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 6.84초):
+2025-08-11 00:55:11,915 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 36
+2025-08-11 00:55:11,915 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 37
+2025-08-11 00:55:11,915 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:11,916 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:11,916 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:11,916 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:11,916 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:55:11,916 - utils.trading_manager - INFO -   - mapped_room_name: 코리안 스피드 바카라 H
+2025-08-11 00:55:11,917 - utils.trading_manager - INFO -   - all_results: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:11,917 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:11,917 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:11,917 - utils.trading_manager - INFO -   - round_number: 36
+2025-08-11 00:55:11,917 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:11,917 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:11,918 - utils.trading_manager - INFO - 🔄 최신 데이터로 갱신: 15개
+2025-08-11 00:55:11,918 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:11,918 - utils.trading_manager - INFO - 🔮⚡ 최신 데이터로 예측 요청: 15개
+2025-08-11 00:55:11,918 - utils.trading_manager - INFO - 🎯 예측값 요청 준비:
+2025-08-11 00:55:11,919 - utils.trading_manager - INFO -   - 방 ID: srswfjnpuz4ucmwm
+2025-08-11 00:55:11,919 - utils.trading_manager - INFO -   - 결과 데이터: 15개
+2025-08-11 00:55:11,919 - utils.trading_manager - INFO -   - 최근 5개 결과: ['B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:11,919 - utils.trading_manager - INFO - 🌐 서버 예측값 요청 전송...
+2025-08-11 00:55:11,919 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/get-prediction
+2025-08-11 00:55:11,919 - utils.trading_manager - INFO - 📤 예측값 요청 데이터:
+2025-08-11 00:55:11,920 - utils.trading_manager - INFO -   - room_id: srswfjnpuz4ucmwm
+2025-08-11 00:55:11,920 - utils.trading_manager - INFO -   - 결과 개수: 15
+2025-08-11 00:55:11,920 - utils.trading_manager - INFO -   - 전체 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:11,948 - utils.trading_manager - INFO - ✅ 예측값 서버 응답 성공:
+2025-08-11 00:55:11,949 - utils.trading_manager - INFO -   - status: success
+2025-08-11 00:55:11,949 - utils.trading_manager - INFO -   - prediction: B
+2025-08-11 00:55:11,949 - utils.trading_manager - INFO -   - message: N/A
+2025-08-11 00:55:11,949 - utils.trading_manager - INFO - 📥 서버 응답 수신: {'status': 'success', 'next_prediction': 'B', 'data_length': 15}
+2025-08-11 00:55:11,949 - utils.trading_manager - INFO - ✅ 예측값 생성 성공: B
+2025-08-11 00:55:11,950 - utils.trading_manager - INFO - 🔮 워커 서버 응답: B (6.91초)
+2025-08-11 00:55:11,950 - utils.trading_manager - INFO - ✅ 베팅 예측: B - 베팅 요청 시그널 발송
+2025-08-11 00:55:12,486 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:12,487 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:12,487 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:12,487 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:12,990 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:13,040 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:13,795 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:13,795 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 36개
+2025-08-11 00:55:13,795 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 35개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:14,717 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 36개 결과
+2025-08-11 00:55:14,717 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 5.05초):
+2025-08-11 00:55:14,717 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 36
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 37
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - all_results: ['P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B']
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:14,718 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:14,720 - utils.trading_manager - INFO -   - round_number: 36
+2025-08-11 00:55:14,720 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:14,720 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:14,720 - utils.trading_manager - INFO - 📊 게임 수 조건 충족: 36회 (라운드: 36, 기록: 15개)
+2025-08-11 00:55:14,720 - utils.trading_manager - INFO - ✅ 방 입장 성공: 스피드 바카라 10
+2025-08-11 00:55:14,720 - utils.trading_manager - INFO - 방별 통계 초기화 완료
+2025-08-11 00:55:14,721 - utils.trading_manager - INFO - 🔄 새 방 입장으로 베팅 통계 초기화
+2025-08-11 00:55:14,721 - utils.trading_manager - INFO - 🎯 베팅 위젯 초기화 - 모든 마커 제거
+2025-08-11 00:55:14,725 - utils.trading_manager - INFO - 🎯 베팅 요청 수신: B (라운드: 36 → 37)
+2025-08-11 00:55:14,726 - utils.trading_manager - INFO - ✅ 베팅 요청 접수: B
+2025-08-11 00:55:14,726 - utils.trading_manager - INFO - 베팅 시작: B (R37)
+2025-08-11 00:55:14,727 - utils.trading_manager - INFO - 베팅 시도: B - 10,000원
+2025-08-11 00:55:14,728 - utils.trading_manager - INFO - 새 라운드(36) 감지, 이전 베팅 기록(0) 초기화
+2025-08-11 00:55:14,759 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:14,764 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:14,792 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:14,793 - utils.trading_manager - INFO - 베팅 가능 상태 확인 시작...
+2025-08-11 00:55:15,051 - utils.trading_manager - INFO - ✅ 칩 활성화 확인 - 베팅 가능 상태
+2025-08-11 00:55:15,098 - utils.trading_manager - INFO - ✅ 모든 베팅 조건 충족 - 베팅 준비 완료
+2025-08-11 00:55:15,141 - utils.trading_manager - INFO - ⚡ iframe 빠른 추출: 0.043초 (라운드: 37, current_game: None, 결과: 15개)
+2025-08-11 00:55:15,141 - utils.trading_manager - INFO - Banker 베팅 영역 찾는 중...
+2025-08-11 00:55:15,153 - utils.trading_manager - INFO - Banker 베팅 영역 찾음: div.spot--5ad7f[data-betspot-destination='Banker']
+2025-08-11 00:55:15,612 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:55:15,613 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:55:15,613 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 1s)
+2025-08-11 00:55:17,061 - utils.trading_manager - INFO - 사용 가능한 칩 값들: []
+2025-08-11 00:55:17,062 - utils.trading_manager - WARNING - 활성화된 칩을 찾을 수 없음 - 게임이 이미 진행 중 (베팅 불가)
+2025-08-11 00:55:17,062 - utils.trading_manager - INFO - 활성화된 칩이 없음. 1초 후 재시도... (누적 대기: 2s)
+2025-08-11 00:55:17,150 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:17,152 - utils.trading_manager - INFO - 📝 방 로그 위젯에 새 방 입장 기록: 스피드 바카라 10
+2025-08-11 00:55:17,152 - utils.trading_manager - INFO - 🔍 게임 모니터링 시작 - streak_data 내용:
+2025-08-11 00:55:17,152 - utils.trading_manager - INFO -   - room_name: 스피드 바카라 10
+2025-08-11 00:55:17,152 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:17,152 - utils.trading_manager - INFO -   - streak_count: 1
+2025-08-11 00:55:17,152 - utils.trading_manager - INFO -   - streak_type: Choice Pick Prediction
+2025-08-11 00:55:17,152 - utils.trading_manager - INFO -   - 전체 데이터: {'room_id': 'rep5iuhinyjmalz4', 'room_name': '스피드 바카라 10', 'streak_count': 1, 'streak_type': 'Choice Pick Prediction', 'recent_results': ['B', 'R', 'R', 'R', 'B', 'B', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'B', 'B', 'R', 'R', 'B', 'B', 'R', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'B', 'R'], 'detection_time': '2025-08-11T00:54:52.233452', 'priority_score': 1.9500000000000002, 'user_threshold': 1, 'meets_criteria': True}
+2025-08-11 00:55:17,153 - utils.trading_manager - INFO - ▶️ 게임 모니터링 시작: 스피드 바카라 10
+2025-08-11 00:55:17,153 - utils.trading_manager - INFO - 🧵 멀티쓰레드 게임 모니터링 시작: 스피드 바카라 10
+2025-08-11 00:55:17,153 - utils.trading_manager - INFO - 🏠 방 입장 완료: 스피드 바카라 10
+2025-08-11 00:55:17,154 - utils.ui_updater - INFO - 베팅 상태 업데이트: 베팅 진행 중...
+2025-08-11 00:55:17,604 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:17,604 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:55:17,620 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 37 (data-role='gameCount')
+2025-08-11 00:55:17,621 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:18,858 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:18,859 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:18,859 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:18,859 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:18,877 - utils.trading_manager - INFO - 사용 가능한 칩 값들: [100000, 50000, 25000, 10000, 5000]
+2025-08-11 00:55:18,877 - utils.trading_manager - INFO - 베팅 금액 10,000원 -> 칩별 클릭 횟수: {10000: 1}
+2025-08-11 00:55:19,063 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:19,072 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:19,246 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:19,956 - utils.trading_manager - INFO - 베팅 접수 확인 시작 (기대 금액: 10,000원)
+2025-08-11 00:55:19,985 - utils.trading_manager - INFO - ✅ 금액 확인: 10,000원 (오차: 0원)
+2025-08-11 00:55:20,012 - utils.trading_manager - INFO - ✅ 정상 베팅 레이블: 총 베팅금
+2025-08-11 00:55:20,012 - utils.trading_manager - INFO - Banker 베팅 영역 찾는 중...
+2025-08-11 00:55:20,029 - utils.trading_manager - INFO - Banker 베팅 영역 찾음: div.spot--5ad7f[data-betspot-destination='Banker']
+2025-08-11 00:55:20,081 - utils.trading_manager - INFO - ✅ 칩 위치 확인: B 영역
+2025-08-11 00:55:20,081 - utils.trading_manager - INFO - ✅ 베팅 접수 확인 완료 (조건 3/3 충족)
+2025-08-11 00:55:20,082 - utils.trading_manager - INFO -   - 금액 일치: True
+2025-08-11 00:55:20,082 - utils.trading_manager - INFO -   - 레이블 유효: True (총 베팅금)
+2025-08-11 00:55:20,082 - utils.trading_manager - INFO -   - 칩 위치: True
+2025-08-11 00:55:20,082 - utils.trading_manager - INFO - 🎯 베팅 결과 추적 시작: B → 라운드 38 (금액: 10,000원)
+2025-08-11 00:55:20,082 - utils.trading_manager - INFO - 📍 완료된 라운드: 37, 진행 중: None, 베팅 적용: 38
+2025-08-11 00:55:20,082 - utils.trading_manager - INFO - 🎯 다음 라운드에 베팅: 38
+2025-08-11 00:55:20,083 - utils.trading_manager - INFO - 🎯 베팅 추적 시작: B (베팅 대상 라운드: 38, 금액: 10,000원)
+2025-08-11 00:55:20,083 - utils.trading_manager - INFO - [베팅완료] 표시된 완료 라운드: 37, 베팅타입: B
+2025-08-11 00:55:20,083 - utils.trading_manager - INFO - 📍 실제 베팅 적용 라운드: 38
+2025-08-11 00:55:20,083 - utils.trading_manager - INFO - ⏳ 라운드 38의 결과를 대기합니다
+2025-08-11 00:55:20,083 - utils.trading_manager - INFO - 베팅 위젯 위치 카운터를 마틴 단계와 동기화: 포지션=1
+2025-08-11 00:55:20,084 - utils.trading_manager - INFO - ⏳ 게임 결과 대기 모드 설정 (라운드 38)
+2025-08-11 00:55:20,084 - utils.trading_manager - INFO - 베팅 성공: B - 10,000원
+2025-08-11 00:55:20,084 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:21,420 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:21,421 - utils.trading_manager - INFO - 🎯 베팅 완료 처리: success=True, message=베팅 성공: B, 10,000원
+2025-08-11 00:55:21,421 - utils.trading_manager - INFO - ✅ betting_in_progress 플래그 리셋: False → False
+2025-08-11 00:55:21,421 - utils.ui_updater - INFO - 베팅 상태 업데이트: 결과 대기 중...
+2025-08-11 00:55:21,508 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:22,258 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:22,259 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:22,259 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:22,259 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:23,260 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:23,352 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:23,976 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:23,980 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:24,344 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:24,344 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:24,344 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:25,148 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:25,148 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 7.54초):
+2025-08-11 00:55:25,149 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 37
+2025-08-11 00:55:25,149 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 38
+2025-08-11 00:55:25,149 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:25,149 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:25,149 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:25,149 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO -   - all_results: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO -   - round_number: 37
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:25,150 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:25,152 - utils.trading_manager - INFO - 게임 결과: R37 - B
+2025-08-11 00:55:25,683 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:25,683 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:55:25,697 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 37 (data-role='gameCount')
+2025-08-11 00:55:25,697 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:26,437 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:26,437 - utils.trading_manager - INFO - 🎲 [RoomEntryHandler] 게임 결과 수신: 라운드 37, 결과 B
+2025-08-11 00:55:26,438 - utils.trading_manager - INFO - 🎲 [GameProcessor] 게임 결과 처리 시작:
+2025-08-11 00:55:26,438 - utils.trading_manager - INFO -   - 완료된 라운드: 37
+2025-08-11 00:55:26,438 - utils.trading_manager - INFO -   - 진행 중인 게임: 38
+2025-08-11 00:55:26,438 - utils.trading_manager - INFO -   - 결과: B
+2025-08-11 00:55:26,438 - utils.trading_manager - INFO - 🎯 새로운 게임 결과 등록: #1
+2025-08-11 00:55:26,438 - utils.trading_manager - INFO - 📊 베팅 결과 대기 중 - 결과 체크 시작
+2025-08-11 00:55:26,439 - utils.trading_manager - INFO -   🎯 중앙 관리 베팅 정보:
+2025-08-11 00:55:26,439 - utils.trading_manager - INFO -     - 베팅 대상 라운드: 38
+2025-08-11 00:55:26,439 - utils.trading_manager - INFO -     - 베팅 타입: B
+2025-08-11 00:55:26,439 - utils.trading_manager - INFO -     - 베팅 시점 완료된 라운드: 37
+2025-08-11 00:55:26,439 - utils.trading_manager - INFO -     - 베팅 시점 진행 중: None
+2025-08-11 00:55:26,439 - utils.trading_manager - INFO -   🎮 현재 게임 상태:
+2025-08-11 00:55:26,440 - utils.trading_manager - INFO -     - 방금 완료된 라운드: 37
+2025-08-11 00:55:26,440 - utils.trading_manager - INFO -     - 현재 진행 중: 38
+2025-08-11 00:55:26,440 - utils.trading_manager - INFO - ⏳ 베팅한 게임(38)이 아직 진행 중 (current_game=38) - 다음 결과 대기
+2025-08-11 00:55:26,551 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:26,551 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:26,551 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:26,552 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:28,701 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:28,981 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:28,986 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:29,489 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:29,489 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:29,489 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:29,489 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:30,543 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:30,587 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:31,305 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:31,345 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:31,345 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:31,345 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:32,129 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:32,129 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 6.45초):
+2025-08-11 00:55:32,130 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 37
+2025-08-11 00:55:32,130 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 38
+2025-08-11 00:55:32,130 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:32,130 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:32,130 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:32,131 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:32,131 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:32,131 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:55:32,131 - utils.trading_manager - INFO -   - all_results: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:32,131 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:32,131 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:32,132 - utils.trading_manager - INFO -   - round_number: 37
+2025-08-11 00:55:32,132 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:32,132 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:32,671 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:32,671 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:55:32,684 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 37 (data-role='gameCount')
+2025-08-11 00:55:32,684 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:33,449 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:33,449 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:33,450 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:33,450 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:34,001 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:34,004 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:35,176 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:35,886 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:35,886 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:35,886 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:35,887 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:36,483 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:36,824 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:36,876 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:37,730 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:37,730 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:37,730 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:38,530 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:38,530 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 5.86초):
+2025-08-11 00:55:38,530 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 37
+2025-08-11 00:55:38,530 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 38
+2025-08-11 00:55:38,531 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:38,531 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:38,531 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:38,531 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:38,531 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:38,532 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:55:38,532 - utils.trading_manager - INFO -   - all_results: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:38,532 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:38,532 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:38,532 - utils.trading_manager - INFO -   - round_number: 37
+2025-08-11 00:55:38,532 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:38,532 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:38,993 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:39,061 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:39,062 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:55:39,075 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 37 (data-role='gameCount')
+2025-08-11 00:55:39,075 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:39,865 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:39,865 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:39,865 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:39,866 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:41,312 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:42,011 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:42,937 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 37개 결과
+2025-08-11 00:55:42,938 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 37개
+2025-08-11 00:55:42,938 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 36개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:42,938 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:43,816 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:43,870 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:43,998 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:44,003 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:44,829 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 38개 결과
+2025-08-11 00:55:44,829 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 38개
+2025-08-11 00:55:44,830 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 37개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:45,844 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 38개 결과
+2025-08-11 00:55:45,844 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 6.78초):
+2025-08-11 00:55:45,844 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 37
+2025-08-11 00:55:45,845 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 38
+2025-08-11 00:55:45,845 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:45,845 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:45,845 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:45,845 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:45,846 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:45,846 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:55:45,846 - utils.trading_manager - INFO -   - all_results: ['B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B']
+2025-08-11 00:55:45,846 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:45,846 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:45,846 - utils.trading_manager - INFO -   - round_number: 37
+2025-08-11 00:55:45,846 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:45,847 - utils.trading_manager - INFO - 📊 현재 연패 상태 없음
+2025-08-11 00:55:46,310 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:46,382 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:55:46,383 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:55:46,401 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 38 (data-role='gameCount')
+2025-08-11 00:55:46,401 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:55:47,257 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 38개 결과
+2025-08-11 00:55:47,257 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 38개
+2025-08-11 00:55:47,257 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 37개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:47,258 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:48,996 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:55:49,001 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:55:49,001 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:55:50,009 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 38개 결과
+2025-08-11 00:55:50,009 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 38개
+2025-08-11 00:55:50,009 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 37개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:50,009 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:50,997 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:55:51,067 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:55:51,409 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:55:51,922 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 38개 결과
+2025-08-11 00:55:51,923 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 38개
+2025-08-11 00:55:51,923 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 37개 - ['P', 'B', 'B', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:52,803 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 38개 결과
+2025-08-11 00:55:52,803 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 6.42초):
+2025-08-11 00:55:52,804 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 38
+2025-08-11 00:55:52,804 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 39
+2025-08-11 00:55:52,804 - utils.trading_manager - INFO -   - 전체 P,B 결과: 15개
+2025-08-11 00:55:52,804 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:55:52,804 - utils.trading_manager - INFO - 📊 최근 15개 P,B 결과: ['B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:52,804 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO -   - all_results: ['B', 'P', 'P', 'B', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B']
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO -   - total_results: 15
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO -   - round_number: 38
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO - 🔍 연패 분석 결과: Choice Pick (B) 3연패
+2025-08-11 00:55:52,805 - utils.trading_manager - INFO - 🚨 연패 기준 달성! 스피드 바카라 10 - 3연패 (기준: 1)
+2025-08-11 00:55:52,806 - utils.trading_manager - INFO - 게임 결과: R38 - B
+2025-08-11 00:55:52,806 - utils.trading_manager - INFO - 🎲 [RoomEntryHandler] 게임 결과 수신: 라운드 38, 결과 B
+2025-08-11 00:55:52,806 - utils.trading_manager - INFO - 🎲 [GameProcessor] 게임 결과 처리 시작:
+2025-08-11 00:55:52,806 - utils.trading_manager - INFO -   - 완료된 라운드: 38
+2025-08-11 00:55:52,806 - utils.trading_manager - INFO -   - 진행 중인 게임: 39
+2025-08-11 00:55:52,807 - utils.trading_manager - INFO -   - 결과: B
+2025-08-11 00:55:52,807 - utils.trading_manager - INFO - 🎯 새로운 게임 결과 등록: #2
+2025-08-11 00:55:52,807 - utils.trading_manager - INFO - 📊 베팅 결과 대기 중 - 결과 체크 시작
+2025-08-11 00:55:52,807 - utils.trading_manager - INFO -   🎯 중앙 관리 베팅 정보:
+2025-08-11 00:55:52,807 - utils.trading_manager - INFO -     - 베팅 대상 라운드: 38
+2025-08-11 00:55:52,807 - utils.trading_manager - INFO -     - 베팅 타입: B
+2025-08-11 00:55:52,808 - utils.trading_manager - INFO -     - 베팅 시점 완료된 라운드: 37
+2025-08-11 00:55:52,808 - utils.trading_manager - INFO -     - 베팅 시점 진행 중: None
+2025-08-11 00:55:52,808 - utils.trading_manager - INFO -   🎮 현재 게임 상태:
+2025-08-11 00:55:52,808 - utils.trading_manager - INFO -     - 방금 완료된 라운드: 38
+2025-08-11 00:55:52,808 - utils.trading_manager - INFO -     - 현재 진행 중: 39
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO - ⚡ 긴급 처리 모드: 32.7초 대기 - 더 유연한 매칭 적용
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO - 🔍 베팅 추적 상태:
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO -   - 베팅 대상 라운드: 38
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO -   - 방금 완료된 라운드: 38
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO -   - 현재 진행 중: 39
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO -   - 대기 시간: 32.7초
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO - ✅ 베팅 라운드 정확히 완료: 38
+2025-08-11 00:55:52,809 - utils.trading_manager - INFO - 🔍 [BettingResultTracker] 결과 체크 시작:
+2025-08-11 00:55:52,810 - utils.trading_manager - INFO -   - 현재 상태: waiting
+2025-08-11 00:55:52,810 - utils.trading_manager - INFO -   - 방금 완료된 라운드: 38
+2025-08-11 00:55:52,810 - utils.trading_manager - INFO -   - 해당 라운드 결과: B
+2025-08-11 00:55:52,810 - utils.trading_manager - INFO -   - 베팅 대상 라운드: 38
+2025-08-11 00:55:52,810 - utils.trading_manager - INFO -   - 대기 시간: 32.7초
+2025-08-11 00:55:52,810 - utils.trading_manager - INFO - ✅ 베팅 라운드 정확히 완료: 38
+2025-08-11 00:55:52,812 - utils.trading_manager - INFO - ✅ 베팅 결과 처리 시작!
+2025-08-11 00:55:52,812 - utils.trading_manager - INFO - 🎲 베팅 결과: B vs B = win (대기: 32.7s)
+2025-08-11 00:55:52,812 - utils.trading_manager - INFO - 🎲 베팅 결과 확정: win
+2025-08-11 00:55:52,812 - utils.trading_manager - INFO - 🎉 베팅 승리!
+2025-08-11 00:55:52,812 - utils.trading_manager - INFO - 베팅 추적 상태 초기화
+2025-08-11 00:55:52,813 - utils.trading_manager - INFO - 💰 현재 베팅 금액: 10,000원 (위젯: 1번, 마틴: 1단계)
+2025-08-11 00:55:52,813 - utils.trading_manager - INFO -    마틴 금액 설정: [10000, 20000, 40000]
+2025-08-11 00:55:52,813 - utils.trading_manager - INFO - [마틴] 결과 처리 전 위젯 포지션: 1
+2025-08-11 00:55:52,813 - utils.trading_manager - INFO - [마틴] 베팅 결과 처리: win
+2025-08-11 00:55:52,813 - utils.trading_manager - INFO - [마틴] 베팅 성공: 승리 처리 완료, 다음에 새 방으로 이동하여 새 픽 선택
+2025-08-11 00:55:52,813 - utils.trading_manager - INFO - [마틴] 방 로그 위젯에 방 변경 예정 알림
+2025-08-11 00:55:52,814 - utils.trading_manager - INFO - [마틴] 승리 마커 표시 - 현재 위치: 0
+2025-08-11 00:55:52,814 - utils.trading_manager - INFO - [마틴] 결과 처리 후 위젯 포지션: 0
+2025-08-11 00:55:52,814 - utils.trading_manager - INFO - ✅ 승리로 consecutive_failures와 recent_results 초기화
+2025-08-11 00:55:52,814 - utils.trading_manager - INFO - [마틴] 결과 처리 후 위젯 포지션: 1
+2025-08-11 00:55:52,814 - utils.trading_manager - INFO - ✅ Martin 서비스에 승리 결과 처리 완료 (라운드: 38)
+2025-08-11 00:55:52,815 - utils.trading_manager - INFO - [마틴] 승리 후 마틴 상태 초기화 시작
+2025-08-11 00:55:52,815 - utils.trading_manager - INFO - ✅ 위젯 카운터 정상 초기화 (0)
+2025-08-11 00:55:52,815 - utils.trading_manager - INFO - 💰 현재 베팅 금액: 10,000원 (위젯: 1번, 마틴: 1단계)
+2025-08-11 00:55:52,815 - utils.trading_manager - INFO -    마틴 금액 설정: [10000, 20000, 40000]
+2025-08-11 00:55:52,816 - utils.trading_manager - INFO - 🎯 초기화 후 다음 베팅 금액: 10,000원 (1단계)
+2025-08-11 00:55:52,816 - utils.trading_manager - INFO - [마틴] 승리 후 마틴 상태 완전 초기화 완료 - 다음 방에서 1단계부터 시작
+2025-08-11 00:55:52,816 - utils.trading_manager - INFO - 베팅 성공 - 실패 카운트 초기화
+2025-08-11 00:55:52,816 - utils.trading_manager - INFO - 베팅 결과 기록: 승리
+2025-08-11 00:55:52,816 - utils.trading_manager - INFO - 📝 방 로그에 승리 기록: 스피드 바카라 10
+2025-08-11 00:55:52,816 - utils.trading_manager - INFO - 📝 다음 방은 새 방문으로 기록 예정
+2025-08-11 00:55:52,816 - utils.trading_manager - INFO - ✅ 승리로 인한 방 나가기 - 새로운 연패방 검색
+2025-08-11 00:55:52,817 - utils.trading_manager - INFO - ✅ 승리 후 게임 모니터링 워커 베팅 플래그 리셋
+2025-08-11 00:55:52,817 - utils.trading_manager - INFO - 🔄 마틴 완료 후 연패 모니터링 모드로 복귀
+2025-08-11 00:55:52,850 - utils.trading_manager - INFO - 잔액 확인: 단일 iframe으로 전환 완료
+2025-08-11 00:55:52,879 - utils.trading_manager - INFO - 로비 iframe에서 가져온 잔액: 273,250원 (balance-label-value)
+2025-08-11 00:55:52,886 - utils.trading_manager - INFO - [연패 방 복귀] 현재 목표 금액: 5,000,000원, 현재 잔액: 273,250원
+2025-08-11 00:55:52,886 - utils.trading_manager - INFO - 📊 방 '스피드 바카라 10' 최종 승패 통계 저장 시작
+2025-08-11 00:55:52,886 - utils.trading_manager - INFO - 📈 방 '스피드 바카라 10' 최종 통계:
+2025-08-11 00:55:52,886 - utils.trading_manager - INFO -   - 총 베팅: 1회
+2025-08-11 00:55:52,886 - utils.trading_manager - INFO -   - 승리: 1회, 패배: 0회, 무승부: 0회
+2025-08-11 00:55:52,886 - utils.trading_manager - INFO -   - 승률: 100.0%
+2025-08-11 00:55:52,899 - utils.trading_manager - INFO - ✅ 방 로그 위젯에 '스피드 바카라 10' 최종 통계 업데이트 완료
+2025-08-11 00:55:52,899 - utils.trading_manager - INFO - 📊 방 '스피드 바카라 10' 최종 통계 기록:
+2025-08-11 00:55:52,899 - utils.trading_manager - INFO -   - 총 베팅: 1회
+2025-08-11 00:55:52,899 - utils.trading_manager - INFO -   - 승률: 100.0%
+2025-08-11 00:55:52,899 - utils.trading_manager - INFO -   - 최대 연승: 1회
+2025-08-11 00:55:52,900 - utils.trading_manager - INFO -   - 최대 연패: 0회
+2025-08-11 00:55:52,900 - utils.trading_manager - INFO - ✅ Excel 서비스에 '스피드 바카라 10' 최종 통계 기록 완료
+2025-08-11 00:55:52,900 - utils.trading_manager - INFO - 🔄 방 '스피드 바카라 10' 퇴장 및 정보 초기화 완료
+2025-08-11 00:55:52,900 - utils.trading_manager - INFO - 🛑 iframe 모니터링 중지
+2025-08-11 00:55:52,900 - utils.trading_manager - INFO - 현재 방 종료 시도
+2025-08-11 00:55:53,055 - utils.trading_manager - INFO - 방 종료 버튼 클릭 완료
+2025-08-11 00:55:53,060 - utils.trading_manager - INFO - 로비 창으로 전환 완료
+2025-08-11 00:55:53,063 - utils.trading_manager - WARNING - 로비 페이지가 아닐 수 있음
+2025-08-11 00:55:53,064 - utils.trading_manager - INFO - 🚪 현재 방 나가기 완료
+2025-08-11 00:55:53,064 - utils.trading_manager - INFO - 📊 베팅 위젯 현재 상태 유지 (연패 중)
+2025-08-11 00:55:53,064 - utils.trading_manager - INFO - [마틴] 마틴 베팅 상태 완전 초기화 완료
+2025-08-11 00:55:53,064 - utils.trading_manager - INFO - 🎰 마틴 서비스 초기화
+2025-08-11 00:55:53,065 - utils.trading_manager - INFO - 🛑 서버 요청 중단 플래그 설정
+2025-08-11 00:55:53,065 - utils.trading_manager - INFO - 베팅 추적 상태 초기화
+2025-08-11 00:55:53,065 - utils.trading_manager - INFO - 🔄 베팅 추적기 상태 초기화 완료
+2025-08-11 00:55:53,070 - utils.ui_updater - INFO - 베팅 상태 업데이트: 연속 자동 매매 진행 중
+2025-08-11 00:55:53,070 - utils.trading_manager - INFO - 🔄 WebSocket 플래그 강제 리셋 완료
+2025-08-11 00:55:53,071 - utils.trading_manager - INFO - ▶️ 로비 모니터링 재개
+2025-08-11 00:55:53,071 - utils.trading_manager - INFO - 📡 로비 웹소켓 모니터링 재개 완료
+2025-08-11 00:55:53,071 - utils.trading_manager - INFO - ✅ 연패 감지용 메시지 수집 시작
+2025-08-11 00:55:53,071 - utils.trading_manager - INFO - 📡 현재 웹소켓 상태: {'is_intercepting': True, 'performance_logs_enabled': True, 'cdp_session_active': False, 'websocket_connections': 0, 'active_connections': 0, 'message_buffer_size': 41, 'processed_messages': 41, 'server_sent_count': 6, 'filtered_room_count': 6, 'target_streak_rooms': 0, 'current_target_room': None, 'room_entry_in_progress': False}
+2025-08-11 00:55:53,072 - utils.trading_manager - WARNING - ⚠️ 웹소켓 연결이 끊어짐 - 재연결 시도
+2025-08-11 00:55:53,072 - utils.trading_manager - INFO - 🔄 웹소켓 재연결 및 URL 재추출 시작
+2025-08-11 00:55:53,076 - utils.trading_manager - INFO - ▶️ 로비 모니터링 재개
+2025-08-11 00:55:53,076 - utils.trading_manager - INFO - 🛑 연패 감지 웹소켓 연결 중지
+2025-08-11 00:55:53,077 - utils.trading_manager - INFO - 📊 최종 통계: 총 메시지 41개, 필터링된 방 6개, 서버 전송 6개
+2025-08-11 00:55:53,088 - utils.trading_manager - INFO - ✅ 연패 감지 웹소켓 중지 완료
+2025-08-11 00:55:53,088 - utils.trading_manager - INFO - 🗑️ 기존 웹소켓 서비스 정리 완료
+2025-08-11 00:55:53,092 - utils.trading_manager - INFO - 🧹 JavaScript 환경 정리 완료
+2025-08-11 00:55:56,094 - utils.trading_manager - INFO - ⏰ 로비 안정화 대기 완료
+2025-08-11 00:55:56,094 - utils.trading_manager - INFO - ⚡ 멀티스레드 웹소켓 URL 추출 시작
+2025-08-11 00:55:59,856 - utils.trading_manager - INFO - ✅ 프로세스에서 포트 발견: 1155
+2025-08-11 00:55:59,856 - utils.trading_manager - INFO - 🔗 기존 브라우저 연결 중... (포트: 1155)
+2025-08-11 00:56:01,218 - utils.trading_manager - INFO - 페이지 확인: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:56:01,218 - utils.trading_manager - INFO - ✅ 에볼루션 페이지 발견: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:56:02,556 - utils.trading_manager - INFO - 📡 WebSocket 연결 감지: wss://babylonpegakrph.evo-games.com/public/lobby/socket/v2/tad6kiavs5frppo4?messageFormat=json&device=Desktop&features=opensAt%2CmultipleHero%2CshortThumbnails%2CskipInfosPublished%2Csmc%2CuniRouletteHistory%2CbacHistoryV2%2Cfilters%2CtableDecorations&instance=l5n3ur-tad6kiavs5frppo4-&EVOSESSIONID=tad6kiavs5frppo4tckk3qsg7oco6jiyd815cba4fc46205759a840c9c133e6032278d22e52b68a99&client_version=6.20250810.113553.54091-50d19e5459
+2025-08-11 00:56:02,578 - utils.trading_manager - INFO - ✅ 웹소켓 URL 추출 완료 (6.5초, 1개 발견)
+2025-08-11 00:56:02,579 - utils.trading_manager - INFO - 🔚 WebSocketParser 종료됨
+2025-08-11 00:56:02,580 - utils.trading_manager - INFO - 📡 새로운 웹소켓 URL 추출 성공: wss://babylonpegakrph.evo-games.com/public/lobby/s...
+2025-08-11 00:56:02,580 - utils.trading_manager - INFO - 연패 감지 시작
+2025-08-11 00:56:02,581 - utils.trading_manager - INFO - ⚡ 멀티스레드 웹소켓 URL 추출 시작
+2025-08-11 00:56:05,919 - utils.trading_manager - INFO - ✅ 프로세스에서 포트 발견: 1155
+2025-08-11 00:56:05,919 - utils.trading_manager - INFO - 🔗 기존 브라우저 연결 중... (포트: 1155)
+2025-08-11 00:56:07,009 - utils.trading_manager - INFO - 페이지 확인: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:56:07,010 - utils.trading_manager - INFO - ✅ 에볼루션 페이지 발견: https://babylonpegakrph.evo-games.com/frontend/evo/r2/#category=all_games&game=baccarat
+2025-08-11 00:56:08,022 - utils.trading_manager - INFO - 📡 WebSocket 연결 감지: wss://babylonpegakrph.evo-games.com/public/lobby/socket/v2/tad6kiavs5frppo4?messageFormat=json&device=Desktop&features=opensAt%2CmultipleHero%2CshortThumbnails%2CskipInfosPublished%2Csmc%2CuniRouletteHistory%2CbacHistoryV2%2Cfilters%2CtableDecorations&instance=gfhz5x-tad6kiavs5frppo4-&EVOSESSIONID=tad6kiavs5frppo4tckk3qsg7oco6jiyd815cba4fc46205759a840c9c133e6032278d22e52b68a99&client_version=6.20250810.113553.54091-50d19e5459
+2025-08-11 00:56:08,052 - utils.trading_manager - INFO - ✅ 웹소켓 URL 추출 완료 (5.5초, 1개 발견)
+2025-08-11 00:56:08,053 - utils.trading_manager - INFO - 🔚 WebSocketParser 종료됨
+2025-08-11 00:56:08,054 - utils.trading_manager - INFO - 📋 필터링 방 목록 로드 완료: 49개
+2025-08-11 00:56:08,054 - utils.trading_manager - INFO - 📋 사용자 설정: 연패 기준 1, 자동 입장 True
+2025-08-11 00:56:08,054 - utils.trading_manager - INFO - 🔍 WebSocketHybridService 연패 감지 및 자동 방 입장 모드 초기화
+2025-08-11 00:56:08,055 - utils.trading_manager - INFO - ✅ 연패 감지 웹소켓 시그널 연결 완료
+2025-08-11 00:56:08,055 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 연결 시작
+2025-08-11 00:56:08,090 - utils.trading_manager - INFO - ✅ 연패 감지용 인터셉터 주입 완료
+2025-08-11 00:56:08,097 - utils.trading_manager - INFO - ✅ JavaScript 콜백 및 웹소켓 설정 성공
+2025-08-11 00:56:08,098 - utils.trading_manager - INFO - ✅ 연패 감지용 메시지 수집 시작
+2025-08-11 00:56:09,724 - utils.trading_manager - INFO - ✅ 웹소켓 연결 확인됨
+2025-08-11 00:56:09,724 - utils.trading_manager - INFO - 🔌 연패 감지 웹소켓 상태 변경: 연결됨
+2025-08-11 00:56:09,724 - utils.trading_manager - INFO - ✅ 실시간 연패 감지 시작
+2025-08-11 00:56:09,725 - utils.trading_manager - INFO - 🎯 연패 기준 업데이트: 1
+2025-08-11 00:56:09,725 - utils.trading_manager - INFO - 🎯 웹소켓 서비스 연패 기준 설정: 1
+2025-08-11 00:56:09,725 - utils.trading_manager - INFO - 🔗 Evolution WebSocket 연결 성공: wss://babylonpegakrph.evo-games.com/public/lobby/s...
+2025-08-11 00:56:09,725 - utils.trading_manager - INFO - 📊 연패 감지 시스템 활성화
+2025-08-11 00:56:09,725 - utils.trading_manager - INFO - 🎯 연패 기준 업데이트: 1
+2025-08-11 00:56:09,725 - utils.trading_manager - WARNING - ⚠️ 웹소켓 서비스가 없음 - 재시작 필요
+2025-08-11 00:56:09,726 - utils.trading_manager - INFO - ✅ 서버 요청 중단 플래그 해제
+2025-08-11 00:56:09,726 - utils.trading_manager - INFO - 🔄 방 나가기 완료 - 연패 모니터링 재시작
+2025-08-11 00:56:09,726 - utils.trading_manager - INFO - 🏠 연패 모니터링 시작
+2025-08-11 00:56:09,726 - utils.trading_manager - INFO - 📡 WebSocket 연결 확인 및 연패 데이터 체크 시작
+2025-08-11 00:56:09,726 - utils.trading_manager - INFO - ✅ 연패 모니터링 모드 복귀 완료 - 웹소켓으로 새로운 연패 방 대기
+2025-08-11 00:56:09,731 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:56:12,167 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:56:12,168 - utils.trading_manager - INFO - 📡 연패 방 대기 중 - 서버 재요청
+2025-08-11 00:56:12,168 - utils.trading_manager - INFO - 📡 웹소켓으로 연패 방 감지 중...
+2025-08-11 00:56:14,726 - utils.trading_manager - INFO - 🌐 서버 요청: GET https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/status
+2025-08-11 00:56:17,024 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/status
+2025-08-11 00:56:17,031 - utils.trading_manager - INFO - 🎯 [필터링된 방 1] 방 ID: rep45wbxnyjl7hr2
+2025-08-11 00:56:17,031 - utils.trading_manager - INFO - 📍 매핑된 방 이름: 스피드 바카라 5
+2025-08-11 00:56:17,031 - utils.trading_manager - INFO - 🎮 게임 결과 발견! 방 ID: rep45wbxnyjl7hr2
+2025-08-11 00:56:17,032 - utils.trading_manager - INFO - 📊 최근 44개 결과: ['B', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'B', 'B', 'R', 'R', 'R', 'B', 'R', 'B', 'R', 'B', 'R', 'B', 'R', 'B', 'B', 'B', 'R', 'R', 'R', 'R', 'B', 'B', 'R', 'R', 'B', 'B', 'R', 'B', 'B', 'R', 'B', 'R', 'R', 'B']
+2025-08-11 00:56:17,032 - utils.trading_manager - INFO - 🌐 서버 요청: POST https://port-0-vacara-auto-trader1-m8s257i9c06c5ea2.sel4.cloudtype.app/api/rooms/calculate-streak
+2025-08-11 00:56:17,126 - utils.trading_manager - INFO - ✅ 서버 응답 성공: /api/rooms/calculate-streak
+2025-08-11 00:56:17,126 - utils.trading_manager - INFO - ✅ 연패 계산 완료: 스피드 바카라 5 - 1연패
+2025-08-11 00:56:17,127 - utils.trading_manager - INFO - 🔍 연패 응답 처리: 스피드 바카라 5 - 1연패 (기준: 1)
+2025-08-11 00:56:17,127 - utils.trading_manager - INFO - 🚨 연패 기준 달성! 스피드 바카라 5 - 1연패 (기준: 1)
+2025-08-11 00:56:17,127 - utils.trading_manager - INFO - 🚨 연패 방 발견! 스피드 바카라 5 - 1연패
+2025-08-11 00:56:17,127 - utils.trading_manager - INFO - ➕ 새 연패 방 추가: 스피드 바카라 5
+2025-08-11 00:56:17,128 - utils.trading_manager - INFO - 연패 방 대기 중: 스피드 바카라 5 (1연패)
+2025-08-11 00:56:17,128 - utils.trading_manager - INFO - 🎯 자동 방 입장 조건 만족: 스피드 바카라 5
+2025-08-11 00:56:17,128 - utils.trading_manager - INFO - 🚪 방 입장 요청: 스피드 바카라 5 (1연패)
+2025-08-11 00:56:17,128 - utils.trading_manager - INFO - 🚪 방 입장 요청 처리: 스피드 바카라 5 (1연패)
+2025-08-11 00:56:17,129 - utils.ui_updater - INFO - 베팅 상태 업데이트: 1연패 방 입장 시도
+2025-08-11 00:56:17,129 - utils.trading_manager - INFO - 🚪 방 입장 시도 (1/5): 스피드 바카라 5
+2025-08-11 00:56:17,129 - utils.trading_manager - INFO - ⏸️ 로비 모니터링 일시정지 - 게임방 모드
+2025-08-11 00:56:17,129 - utils.trading_manager - INFO - 🔒 WebSocket 로비 모니터링 일시정지 완료
+2025-08-11 00:56:17,129 - utils.trading_manager - INFO - 특정 방 '스피드 바카라 5' 입장 시도 시작
+2025-08-11 00:56:17,142 - utils.trading_manager - INFO - 방 '스피드 바카라 5' 입장 시도 1/3
+2025-08-11 00:56:17,175 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:17,377 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:17,377 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:17,460 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:17,465 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:17,522 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:17,527 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:17,528 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:56:17,617 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:17,685 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:56:17,692 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:17,692 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 0.31초):
+2025-08-11 00:56:17,693 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 91
+2025-08-11 00:56:17,693 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 92
+2025-08-11 00:56:17,693 - utils.trading_manager - INFO -   - 전체 P,B 결과: 0개
+2025-08-11 00:56:17,693 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:56:17,693 - utils.trading_manager - INFO - 📊 최근 0개 P,B 결과: []
+2025-08-11 00:56:17,694 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:56:17,694 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:56:17,694 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:56:17,694 - utils.trading_manager - INFO -   - all_results: []
+2025-08-11 00:56:17,694 - utils.trading_manager - INFO -   - total_results: 0
+2025-08-11 00:56:17,694 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:56:17,694 - utils.trading_manager - INFO -   - round_number: 91
+2025-08-11 00:56:17,695 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:56:18,289 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:18,325 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:18,326 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:18,402 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:18,409 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:18,448 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:18,455 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:18,455 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:56:18,536 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:18,578 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:56:18,585 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:18,586 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 0.26초):
+2025-08-11 00:56:18,586 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 91
+2025-08-11 00:56:18,586 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 92
+2025-08-11 00:56:18,587 - utils.trading_manager - INFO -   - 전체 P,B 결과: 0개
+2025-08-11 00:56:18,587 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:56:18,587 - utils.trading_manager - INFO - 📊 최근 0개 P,B 결과: []
+2025-08-11 00:56:18,587 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:56:18,588 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:56:18,588 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:56:18,588 - utils.trading_manager - INFO -   - all_results: []
+2025-08-11 00:56:18,588 - utils.trading_manager - INFO -   - total_results: 0
+2025-08-11 00:56:18,588 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:56:18,588 - utils.trading_manager - INFO -   - round_number: 91
+2025-08-11 00:56:18,588 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:56:19,129 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:19,130 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:19,186 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:19,193 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:19,235 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:19,240 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:19,241 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:56:19,310 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:19,347 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:56:19,353 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:19,353 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 0.22초):
+2025-08-11 00:56:19,354 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 10
+2025-08-11 00:56:19,354 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 11
+2025-08-11 00:56:19,354 - utils.trading_manager - INFO -   - 전체 P,B 결과: 0개
+2025-08-11 00:56:19,354 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:56:19,354 - utils.trading_manager - INFO - 📊 최근 0개 P,B 결과: []
+2025-08-11 00:56:19,354 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:56:19,355 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:56:19,355 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:56:19,355 - utils.trading_manager - INFO -   - all_results: []
+2025-08-11 00:56:19,355 - utils.trading_manager - INFO -   - total_results: 0
+2025-08-11 00:56:19,355 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:56:19,355 - utils.trading_manager - INFO -   - round_number: 10
+2025-08-11 00:56:19,356 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:56:19,892 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:19,893 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:19,950 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:19,958 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:19,996 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:20,004 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:20,004 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:56:20,084 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:20,129 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:56:20,136 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:20,136 - utils.trading_manager - INFO - 📊 iframe 파싱 결과 (소요시간: 0.24초):
+2025-08-11 00:56:20,137 - utils.trading_manager - INFO -   - 마지막 완료된 게임: 10
+2025-08-11 00:56:20,137 - utils.trading_manager - INFO -   - 현재 진행 중인 게임 (베팅 대상): 11
+2025-08-11 00:56:20,137 - utils.trading_manager - INFO -   - 전체 P,B 결과: 0개
+2025-08-11 00:56:20,137 - utils.trading_manager - INFO -   - 최신 결과: 
+2025-08-11 00:56:20,137 - utils.trading_manager - INFO - 📊 최근 0개 P,B 결과: []
+2025-08-11 00:56:20,137 - utils.trading_manager - INFO - 📋 서버 전송 형태 데이터:
+2025-08-11 00:56:20,138 - utils.trading_manager - INFO -   - room_id: rep5iuhinyjmalz4
+2025-08-11 00:56:20,138 - utils.trading_manager - INFO -   - mapped_room_name: 스피드 바카라 10
+2025-08-11 00:56:20,138 - utils.trading_manager - INFO -   - all_results: []
+2025-08-11 00:56:20,138 - utils.trading_manager - INFO -   - total_results: 0
+2025-08-11 00:56:20,138 - utils.trading_manager - INFO -   - latest_result: 
+2025-08-11 00:56:20,138 - utils.trading_manager - INFO -   - round_number: 10
+2025-08-11 00:56:20,138 - utils.trading_manager - INFO -   - detection_method: iframe_parsing
+2025-08-11 00:56:20,691 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:20,691 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:20,770 - utils.trading_manager - WARNING - ❌ 라운드 번호를 찾을 수 없습니다
+2025-08-11 00:56:20,770 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:20,776 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:20,810 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:20,816 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:20,817 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:56:20,892 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:20,932 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:56:20,939 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:20,939 - utils.trading_manager - WARNING - ❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다
+2025-08-11 00:56:20,939 - utils.trading_manager - WARNING - ❌ iframe에서 게임 상태를 감지할 수 없습니다
+2025-08-11 00:56:21,468 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:21,468 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:21,524 - utils.trading_manager - WARNING - ❌ 라운드 번호를 찾을 수 없습니다
+2025-08-11 00:56:21,524 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:21,529 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:21,817 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:21,821 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:21,822 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:56:21,881 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:21,915 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:56:21,920 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:21,921 - utils.trading_manager - WARNING - ❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다
+2025-08-11 00:56:21,921 - utils.trading_manager - WARNING - ❌ iframe에서 게임 상태를 감지할 수 없습니다
+2025-08-11 00:56:22,469 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:22,469 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:22,514 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe[src*='game']
+2025-08-11 00:56:22,551 - utils.trading_manager - INFO - 방 '스피드 바카라 5' 입장 및 검증 완료
+2025-08-11 00:56:22,551 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:22,580 - utils.trading_manager - WARNING - 베팅 결과 타임아웃 - 다음 기회 대기
+2025-08-11 00:56:22,581 - utils.trading_manager - INFO - 대기 중인 베팅 정보 초기화됨
+2025-08-11 00:56:22,591 - utils.trading_manager - WARNING - ❌ 라운드 번호를 찾을 수 없습니다
+2025-08-11 00:56:22,591 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:22,597 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:22,634 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:22,641 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:22,641 - utils.trading_manager - WARNING - 최신 P,B 게임 결과를 찾을 수 없습니다
+2025-08-11 00:56:22,710 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:22,748 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (제한 없음)
+2025-08-11 00:56:22,755 - utils.trading_manager - WARNING - Bead Road coordinates 요소를 찾을 수 없습니다
+2025-08-11 00:56:22,755 - utils.trading_manager - WARNING - ❌ iframe에서 P,B 게임 데이터를 찾을 수 없습니다
+2025-08-11 00:56:22,755 - utils.trading_manager - WARNING - ❌ iframe에서 게임 상태를 감지할 수 없습니다
+2025-08-11 00:56:23,747 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe
+2025-08-11 00:56:23,748 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 None개)
+2025-08-11 00:56:23,757 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:23,769 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 49 (data-role='gameCount')
+2025-08-11 00:56:23,770 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:24,283 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:24,793 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:25,240 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 49개 결과
+2025-08-11 00:56:25,240 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 49개
+2025-08-11 00:56:25,240 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 44개 - ['P', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'P', 'B', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P']
+2025-08-11 00:56:25,241 - utils.trading_manager - INFO - 🔍 최근 15개 P,B 결과: ['B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P', 'B', 'B', 'P']
+2025-08-11 00:56:25,312 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:25,721 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 10개)
+2025-08-11 00:56:25,832 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:26,330 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:26,839 - utils.trading_manager - WARNING - 요소를 찾을 수 없음: css selector=iframe (timeout: 3s)
+2025-08-11 00:56:26,875 - utils.trading_manager - INFO - 게임 iframe으로 전환 완료: iframe[src*='game']
+2025-08-11 00:56:26,876 - utils.trading_manager - INFO - 🔍 iframe에서 P,B 게임 결과 직접 파싱 시작 (최대 15개)
+2025-08-11 00:56:26,893 - utils.trading_manager - INFO - ✅ 라운드 번호 발견: 49 (data-role='gameCount')
+2025-08-11 00:56:26,893 - utils.trading_manager - INFO - 🎯 Bead Road P,B 게임 결과 파싱 시작 (최대 15개)
+2025-08-11 00:56:26,954 - utils.trading_manager - INFO - 🎯 좌표 정렬 완료: 46개 결과
+2025-08-11 00:56:26,954 - utils.trading_manager - INFO - 📊 Bead Road 전체 게임 결과: 46개
+2025-08-11 00:56:26,954 - utils.trading_manager - INFO - 🎯 P,B만 필터링된 결과: 41개 - ['P', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'P', 'P', 'B', 'B', 'B', 'P', 'B', 'P', 'B', 'P', 'B', 'P', 'B', 'P', 'P', 'P', 'B', 'B', 'B', 'B', 'P', 'P', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P']
+2025-08-11 00:56:26,956 - utils.trading_manager - INFO - 🔍 최근 10개 P,B 결과: ['P', 'B', 'B', 'P', 'P', 'B', 'P', 'P', 'B', 'P']
+2025-08-11 00:56:28,223 - utils.trading_manager - WARNING - 최신 게임 결과를 찾을 수 없습니다 (TIE 포함)
+2025-08-11 00:56:28,345 - urllib3.connectionpool - WARNING - Connection pool is full, discarding connection: localhost. Connection pool size: 1
+2025-08-11 00:56:28,345 - urllib3.connectionpool - WARNING - Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectionResetError(10054, '현재 연결은 원격 호스트에 의해 강제로 끊겼습니다', None, 10054, None)': /session/e46d8ca68b05b5cd4713c8abf125dd86/element/f.4C77EF95BBE68ACFCB2CAD54822AFD7B.d.C59EDBAD1DE836A080810CF79A870E80.e.52400/text

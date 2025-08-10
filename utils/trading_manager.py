@@ -25,6 +25,9 @@ from utils.trading_manager_modules.game_processor import GameProcessor
 from utils.trading_manager_modules.betting_executor import BettingExecutor
 from utils.trading_manager_modules.room_entry_handler import RoomEntryHandler
 
+# 캐시 시스템 import
+from utils.game_state_cache import GameStateCache
+
 
 class TradingManager:
     """연패 감지 및 자동 방 입장 기반 자동매매 매니저"""
@@ -61,6 +64,9 @@ class TradingManager:
         self.helpers = TradingManagerHelpers(self)
         self.bet_helper = TradingManagerBet(self)
         self.game_helper = TradingManagerGame(self)
+        
+        # 캐시 시스템 초기화 (모듈보다 먼저)
+        self.game_state_cache = GameStateCache(default_timeout=0.4, logger=self.logger)
         
         # 새로운 분할된 매니저들 초기화
         self.streak_handler = StreakHandler(self)
@@ -256,6 +262,10 @@ class TradingManager:
         if self.iframe_logger and self.iframe_logger.is_logging:
             self.iframe_logger.stop_logging()
             self.logger.info("📝 iframe 로깅 중지됨")
+        
+        # 캐시 통계 로깅
+        if hasattr(self, 'game_state_cache'):
+            self.game_state_cache.log_stats()
         
         self.websocket_manager.stop_websocket_service()
         self._reset_all_states()

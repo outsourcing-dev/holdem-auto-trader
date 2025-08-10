@@ -15,7 +15,7 @@ class WebSocketManager:
     def start_websocket_service(self) -> bool:
         """연패 감지 웹소켓 서비스 시작"""
         try:
-            self.logger.info("🎯 연패 감지 웹소켓 서비스 시작")
+            self.logger.info("연패 감지 시작")
             
             # 웹소켓 URL 추출
             websocket_urls = self._extract_websocket_urls_for_logging()
@@ -25,7 +25,7 @@ class WebSocketManager:
                 return False
             
             websocket_url = websocket_urls[0]
-            self.logger.info(f"📡 사용할 웹소켓 URL: {websocket_url[:100]}...")
+            # 웹소켓 URL 설정
             
             # 연패 감지 서비스 생성
             from services.websocket_hybrid_service import WebSocketHybridService
@@ -43,7 +43,7 @@ class WebSocketManager:
             # 웹소켓 연결 시작
             if self.websocket_service.start_websocket_connection(websocket_url):
                 self.tm.websocket_intercepting = True
-                self.logger.info("✅ 연패 감지 웹소켓 서비스 시작 성공")
+                # 웹소켓 서비스 시작 성공
                 return True
             else:
                 self.logger.error("❌ 웹소켓 연결 실패")
@@ -61,7 +61,7 @@ class WebSocketManager:
                 self.websocket_service = None
             
             self.tm.websocket_interceptor = None
-            self.logger.info("웹소켓 서비스 중지 완료")
+            # 웹소켓 서비스 중지
             
         except Exception as e:
             self.logger.error(f"웹소켓 서비스 중지 오류: {e}")
@@ -69,7 +69,7 @@ class WebSocketManager:
     def _extract_websocket_urls_for_logging(self) -> list:
         """웹소켓 URL 추출"""
         try:
-            self.logger.info("⚡ 웹소켓 URL 추출 시작")
+            # 웹소켓 URL 추출
             start_time = time.time()
             
             from services.websocket_parser import WebSocketParser
@@ -86,8 +86,7 @@ class WebSocketManager:
             
             if websocket_urls:
                 first_url = websocket_urls[0]
-                self.logger.info(f"📡 WebSocket 연결 감지: {first_url}")
-                self.logger.info(f"✅ 웹소켓 URL 추출 완료 ({elapsed_time:.1f}초, {len(websocket_urls)}개 발견)")
+                # WebSocket 연결 감지
             else:
                 self.logger.warning(f"❌ 웹소켓 URL 추출 실패 ({elapsed_time:.1f}초)")
             
@@ -111,11 +110,11 @@ class WebSocketManager:
                     self.websocket_service.error_occurred.disconnect()
                     self.websocket_service.streak_room_found.disconnect()
                     self.websocket_service.room_entry_requested.disconnect()
-                    self.logger.info("🔌 기존 웹소켓 시그널 연결 해제 완료")
+                    # 기존 시그널 해제
                 except Exception as e:
-                    self.logger.debug(f"시그널 해제 중 오류 (무시): {e}")
+                    pass  # 시그널 해제 오류 무시
         except Exception as e:
-            self.logger.debug(f"시그널 해제 오류: {e}")
+            pass  # 시그널 해제 오류
 
     def _connect_websocket_signals(self):
         """웹소켓 서비스 시그널 연결"""
@@ -273,6 +272,8 @@ class WebSocketManager:
             
             # 🔥 기존 연결 완전 정리
             if self.websocket_service:
+                # 🔥 중요: 로비 모니터링 플래그 먼저 리셋
+                self.websocket_service.resume_lobby_monitoring()
                 self.websocket_service.stop_websocket_connection()
                 self.websocket_service = None
                 self.tm.websocket_interceptor = None

@@ -44,16 +44,20 @@ class BettingService:
 
     def place_bet(self, bet_type, current_room_name, game_count, is_trading_active, bet_amount=None):
         """베팅 실행 - 접수 확인에만 집중, 결과는 나중에 확인"""
-        self.logger.info(f"🎯 베팅 시도 - 타입: {bet_type}, 게임: {game_count}, 금액: {bet_amount}")
-        self.logger.info(f"🏠 방: {current_room_name}, 거래활성: {is_trading_active}")
+        self.logger.info(f"베팅 시도: {bet_type} - {bet_amount:,}원")
 
         try:
-            self.logger.info("🔍 베팅 조건 검증 시작...")
+            # 🔥 베팅 전 상태 저장 (비교용)
+            self.last_bet_attempt_time = time.time()
+            self.last_bet_attempt_amount = bet_amount
+            
+            # 베팅 조건 검증
             if not self._validate_bet_conditions(bet_type, is_trading_active):
                 self.logger.warning("❌ 베팅 조건 검증 실패")
+                self._handle_betting_failure("조건 검증 실패")
                 return False
             
-            self.logger.info("✅ 베팅 조건 검증 통과")
+            # 베팅 조건 통과
             
             # 현재 라운드에 대한 베팅 상태 확인 및 업데이트
             self.check_is_bet_for_current_round(game_count)
@@ -77,26 +81,31 @@ class BettingService:
                 self.logger.warning("IframeNavigator 실패, 기존 방식으로 시도")
                 if not switch_to_iframe_with_retry(self.devtools.driver, max_retries=3, max_depth=2):
                     self.logger.error("베팅: 모든 iframe 전환 실패, 베팅 진행 불가")
+                    self._handle_betting_failure("iframe 전환 실패")
                     return False
 
-            # 베팅 가능한 상태까지 대기
+            # 베팅 가능한 상태까지 대기 (타이밍 검증 강화)
             if not self._wait_for_betting_available():
                 self.logger.warning("베팅 가능 상태 대기 실패")
+                self._handle_betting_failure("베팅 시간 초과")
                 return False
 
             # 🔥 최적화된 로직: 베팅 가능 상태 즉시 → iframe 파싱 → 서버 요청 → 베팅 실행
             start_time = time.time()
             
             # 1단계: 베팅 가능 상태에서 즉시 iframe에서 15개 결과 추출
-            latest_round_number, latest_results = self._extract_latest_results_fast()
+            latest_round_number, latest_current_game, latest_results = self._extract_latest_results_fast()
             
             if latest_round_number is None or not latest_results:
                 self.logger.warning("빠른 결과 추출 실패 - 기존 정보 사용")
                 latest_round_number = game_count
+                latest_current_game = None
                 latest_results = []
             else:
                 if latest_round_number != game_count:
-                    self.logger.info(f"⚡ 라운드 업데이트: {game_count} → {latest_round_number}")
+                    pass  # 라운드 업데이트
+                if latest_current_game:
+                    pass  # 현재 진행 중인 게임
             
             # 2단계: 서버에 빠른 예측값 요청 (결과가 충분한 경우만)
             if len(latest_results) >= 5:
@@ -104,52 +113,52 @@ class BettingService:
                 if room_id and hasattr(self.main_window.trading_manager, 'server_client'):
                     new_prediction = self.main_window.trading_manager.server_client.get_next_prediction(room_id, latest_results)
                     if new_prediction and new_prediction in ['P', 'B'] and new_prediction != bet_type:
-                        self.logger.info(f"⚡ 예측값 업데이트: {bet_type} → {new_prediction}")
-                        bet_type = new_prediction
+                        bet_type = new_prediction  # 예측값 업데이트
             
             elapsed = time.time() - start_time
-            self.logger.info(f"⚡ 베팅 전 처리 완료: {elapsed:.3f}초 (라운드: {latest_round_number}, 결과: {len(latest_results)}개)")
+            # 베팅 전 처리 완료
             
             # 위젯 마커 초기화 로직
             if hasattr(self.main_window, 'betting_widget'):
                 marker = getattr(self.main_window.betting_widget, 'get_current_marker', lambda: None)()
                 if marker == "O":
-                    self.logger.info("베팅 직전: 위젯 마커 'O' 감지 → 마커 초기화")
                     self.main_window.betting_widget.reset_step_markers()
                     self.main_window.betting_widget.room_position_counter = 0
 
             # 타이 직후 처리 로직
             had_tie_last_round = getattr(self.main_window.trading_manager, 'had_tie_last_round', False)
             if had_tie_last_round:
-                self.logger.info("타이 직후 베팅: 동일 위치 유지")
-                self.main_window.trading_manager.had_tie_last_round = False
+                self.main_window.trading_manager.had_tie_last_round = False  # 타이 직후 베팅
 
             # 🔥 베팅 실행 (접수 확인만)
             bet_success = self._execute_betting_placement(bet_type, bet_amount)
 
             if bet_success:
-                # 🔥 베팅 결과 추적 시작 (최신 라운드 번호 사용)
-                actual_bet_round = latest_round_number + 1  # 실제 베팅 적용 라운드
+                # 기존 pending_bet 시스템 (current_game 정보 추가)
+                self._start_result_tracking(bet_type, latest_round_number, bet_amount, current_room_name, latest_current_game)
                 
-                # 기존 pending_bet 시스템
-                self._start_result_tracking(bet_type, latest_round_number, bet_amount, current_room_name)
-                
-                # 🔥 새로운 BettingResultTracker도 시작 (게임 프로세서용)
+                # 🔥 BettingResultTracker를 중앙 관리자로 사용
                 if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
                     if hasattr(self.main_window.trading_manager.game_processor, 'betting_tracker'):
                         betting_tracker = self.main_window.trading_manager.game_processor.betting_tracker
                         if not betting_tracker.is_waiting_for_result():
+                            # 🎯 BettingResultTracker가 베팅 라운드를 계산하고 관리
+                            # 중앙집중식으로 모든 정보 전달, 계산은 tracker에서
+                            actual_bet_round = betting_tracker.calculate_actual_bet_round(
+                                completed_round=latest_round_number,
+                                current_game=latest_current_game
+                            )
+                            
                             betting_tracker.start_betting_tracking(
                                 bet_type=bet_type,
-                                round_number=actual_bet_round,  # 실제 베팅 적용 라운드
+                                round_number=actual_bet_round,  # tracker가 계산한 라운드
                                 bet_amount=bet_amount,
-                                room_name=current_room_name
+                                room_name=current_room_name,
+                                current_game=latest_current_game,
+                                completed_round=latest_round_number
                             )
-                            self.logger.info(f"🎯 [BettingService] 베팅 추적 시작:")
-                            self.logger.info(f"  - 베팅 타입: {bet_type}")
-                            self.logger.info(f"  - 적용 라운드: {actual_bet_round}")
-                            self.logger.info(f"  - 베팅 금액: {bet_amount:,}원")
-                            self.logger.info(f"  - 방 이름: {current_room_name}")
+                            
+                            pass  # 베팅 추적 시작
                         else:
                             self.logger.warning("⚠️ 이미 베팅 결과 대기 중 - 추적 시작 건너뜀")
                 
@@ -158,28 +167,44 @@ class BettingService:
                 return True
             else:
                 self.logger.error(f"❌ 베팅 실패 - 다음 라운드를 기다립니다")
-                # 베팅 실패 시 상태 초기화
-                self.has_bet_current_round = False
-                
-                # 🔥 베팅 추적기 리셋
-                if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
-                    game_processor = self.main_window.trading_manager.game_processor
-                    if hasattr(game_processor, 'betting_tracker'):
-                        game_processor.betting_tracker.reset_tracking()
-                        self.logger.info("🔄 베팅 실패로 베팅 추적기 리셋")
-                    
-                    # 게임 모니터링 워커의 베팅 플래그도 리셋
-                    if hasattr(game_processor.tm, 'room_entry_handler') and \
-                       hasattr(game_processor.tm.room_entry_handler, 'game_monitoring_worker'):
-                        game_processor.tm.room_entry_handler.game_monitoring_worker.reset_betting_flag()
-                        self.logger.info("🔄 게임 모니터링 워커 베팅 플래그 리셋")
-                
+                self._handle_betting_failure("베팅 접수 실패")
                 return False
 
         except Exception as e:
             self.logger.error(f"베팅 중 오류 발생: {e}", exc_info=True)
             return False
 
+    def _handle_betting_failure(self, reason=""):
+        """베팅 실패 시 상태 완전 초기화"""
+        try:
+            self.logger.error(f"🔴 베팅 실패 처리: {reason}")
+            
+            # 베팅 상태 초기화
+            self.has_bet_current_round = False
+            self.is_betting_in_progress = False
+            self.pending_bet = None
+            self.bet_result_confirmed = False
+            
+            # 🔥 베팅 추적기 리셋
+            if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
+                game_processor = self.main_window.trading_manager.game_processor
+                if hasattr(game_processor, 'betting_tracker'):
+                    game_processor.betting_tracker.reset_tracking()
+                    # 베팅 추적기 리셋
+                
+                # 게임 모니터링 워커의 베팅 플래그도 리셋
+                if hasattr(game_processor.tm, 'room_manager_handler') and \
+                   hasattr(game_processor.tm.room_manager_handler, 'game_monitoring_worker'):
+                    game_processor.tm.room_manager_handler.game_monitoring_worker.reset_betting_flag()
+                    pass  # 게임 모니터링 워커 플래그 리셋
+            
+            # UI 업데이트 - reason 파라미터 제거
+            if hasattr(self.main_window, 'update_betting_status'):
+                self.main_window.update_betting_status(status=f"베팅 실패: {reason}")
+            
+        except Exception as e:
+            self.logger.error(f"베팅 실패 처리 중 오류: {e}")
+    
     def _execute_betting_placement(self, bet_type, bet_amount=None):
         """베팅 접수 실행 - 칩을 베팅 영역에 올리는 것에만 집중"""
         bet_element = self._find_betting_area(bet_type)
@@ -187,7 +212,7 @@ class BettingService:
             self.logger.error(f"{bet_type} 베팅 영역을 찾을 수 없음")
             return False
 
-        self.logger.info(f"베팅 접수 시작: {bet_type}, 금액: {bet_amount:,}원")
+        # 베팅 접수
 
         # 동적으로 사용 가능한 칩 값들 가져오기
         available_chips = self._wait_for_active_chips(max_wait=60, interval=1)
@@ -207,24 +232,21 @@ class BettingService:
         placement_success = self._place_chips_on_area(chip_clicks, bet_element, bet_type)
         
         if placement_success:
+            # 🔥 서버 응답 확인을 위한 짧은 대기
+            time.sleep(0.5)
+            
+            # 🔥 베팅 거부 메시지 체크
+            if self._check_betting_rejected():
+                self.logger.error("❌ 서버에서 베팅 거부됨")
+                self._handle_betting_failure("서버 거부")
+                return False
+            
             # 🔥 베팅 접수 확인 (충분한 대기 + 다양한 확인 방법)
             bet_verified = self._verify_betting_placement(bet_amount, bet_type)
             
-            # 🔥 베팅 실패 시 상태 초기화
             if not bet_verified:
                 self.logger.error(f"❌ 베팅 클릭은 했으나 접수 확인 실패")
-                # 베팅 추적기 즉시 리셋
-                if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
-                    game_processor = self.main_window.trading_manager.game_processor
-                    if hasattr(game_processor, 'betting_tracker'):
-                        game_processor.betting_tracker.reset_tracking()
-                        self.logger.info("🔄 베팅 실패로 베팅 추적기 즉시 리셋")
-                    
-                    # 게임 모니터링 워커의 베팅 플래그도 리셋
-                    if hasattr(game_processor.tm, 'room_entry_handler') and \
-                       hasattr(game_processor.tm.room_entry_handler, 'game_monitoring_worker'):
-                        game_processor.tm.room_entry_handler.game_monitoring_worker.reset_betting_flag()
-                        self.logger.info("🔄 게임 모니터링 워커 베팅 플래그 리셋")
+                self._handle_betting_failure("접수 확인 실패")
             
             return bet_verified
         
@@ -282,8 +304,14 @@ class BettingService:
         return bet_successful
 
     def _verify_betting_placement(self, expected_amount, bet_type, max_attempts=5):
-        """베팅이 정상적으로 접수되었는지 확인 - 🔥 개선된 버전"""
+        """베팅이 정상적으로 접수되었는지 확인 - 🔥 TIE 상황 고려한 검증"""
         self.logger.info(f"베팅 접수 확인 시작 (기대 금액: {expected_amount:,}원)")
+        
+        # 🔥 복합 조건 확인을 위한 플래그
+        has_correct_amount = False
+        has_valid_label = False  # 레이블 종류와 관계없이 체크
+        has_chips_on_area = False
+        current_label = None
         
         for attempt in range(max_attempts):
             try:
@@ -292,40 +320,125 @@ class BettingService:
                     lambda d: d.execute_script("return document.readyState") == "complete"
                 )
                 
-                # 방법 1: 베팅 금액 확인
+                # 방법 1: 베팅 금액 확인 (정확한 금액 체크)
                 current_amount = self._get_current_bet_amount()
                 if current_amount > 0:
-                    # 🔥 오차 허용 범위 확대
                     amount_diff = abs(current_amount - expected_amount)
-                    if amount_diff <= max(1000, expected_amount * 0.1):  # 1000원 또는 10% 오차 허용
-                        self.logger.info(f"✅ 베팅 접수 확인 - 금액 일치: {current_amount:,}원 (오차: {amount_diff}원)")
+                    # 🔥 오차 범위를 더 엄격하게 (5% 또는 500원)
+                    if amount_diff <= max(500, expected_amount * 0.05):
+                        has_correct_amount = True
+                        self.logger.info(f"✅ 금액 확인: {current_amount:,}원 (오차: {amount_diff}원)")
+                    else:
+                        self.logger.warning(f"⚠️ 금액 불일치: 기대 {expected_amount:,}원, 실제 {current_amount:,}원")
+                
+                # 방법 2: 레이블 확인 (TIE 상황 고려)
+                current_label = self._check_betting_label()
+                if current_label:
+                    # 🔥 "총 베팅금", "이전 상금" 등 어떤 레이블이든 있으면 OK
+                    # 단, 금액이 맞아야 함
+                    if current_label == "총 베팅금":
+                        has_valid_label = True
+                        self.logger.info(f"✅ 정상 베팅 레이블: {current_label}")
+                    elif current_label in ["이전 상금", "지난 우승", "Last Win"]:
+                        # TIE 후 상황일 가능성 - 금액이 맞으면 OK
+                        if has_correct_amount:
+                            has_valid_label = True
+                            self.logger.info(f"⚠️ TIE 후 레이블 감지: {current_label} (금액 일치로 인정)")
+                        else:
+                            self.logger.warning(f"⚠️ TIE 후 레이블이지만 금액 불일치: {current_label}")
+                    else:
+                        self.logger.debug(f"알 수 없는 레이블: {current_label}")
+                
+                # 방법 3: 베팅 영역에 칩 확인
+                if self._check_chips_on_betting_area(bet_type):
+                    has_chips_on_area = True
+                    self.logger.info(f"✅ 칩 위치 확인: {bet_type} 영역")
+                
+                # 🔥 TIE 후 특별 처리: 금액과 칩 위치만으로도 OK
+                if current_label and ("상금" in current_label or "Win" in current_label):
+                    # TIE 후 상황으로 판단
+                    if has_correct_amount and has_chips_on_area:
+                        self.logger.info(f"✅ TIE 후 재베팅 확인 (금액+칩 위치 일치)")
                         return True
                 
-                # 방법 2: 레이블 확인 (보조적)
-                current_label = self._check_betting_label()
-                if current_label == "총 베팅금":
-                    self.logger.info(f"✅ 베팅 접수 확인 - 레이블: {current_label}")
-                    return True
+                # 🔥 일반 상황: 최소 2개 이상의 조건을 만족해야 성공으로 판단
+                success_count = sum([has_correct_amount, has_valid_label, has_chips_on_area])
                 
-                # 방법 3: 베팅 영역에 칩이 올라갔는지 시각적 확인
-                if self._check_chips_on_betting_area(bet_type):
-                    self.logger.info(f"✅ 베팅 접수 확인 - {bet_type} 영역에 칩 확인")
-                    return True
-                
-                # 🔥 방법 4: 금액이 0보다 크면 일단 성공으로 간주 (관대한 판단)
-                if current_amount > 0:
-                    self.logger.info(f"✅ 베팅 접수 확인 - 베팅 금액 존재: {current_amount:,}원 (관대한 판단)")
+                if success_count >= 2:
+                    self.logger.info(f"✅ 베팅 접수 확인 완료 (조건 {success_count}/3 충족)")
+                    self.logger.info(f"  - 금액 일치: {has_correct_amount}")
+                    self.logger.info(f"  - 레이블 유효: {has_valid_label} ({current_label})")
+                    self.logger.info(f"  - 칩 위치: {has_chips_on_area}")
                     return True
                     
-                self.logger.debug(f"베팅 확인 시도 {attempt+1}: 금액={current_amount}, 레이블={current_label}")
+                self.logger.debug(f"베팅 확인 시도 {attempt+1}: 조건 {success_count}/3")
+                self.logger.debug(f"  - 금액: {has_correct_amount}, 레이블: {has_valid_label} ({current_label}), 칩: {has_chips_on_area}")
+                
+                # 조건을 하나도 못 맞췄으면 다음 시도 전에 대기
+                if success_count == 0:
+                    time.sleep(0.5)
                 
             except Exception as e:
                 self.logger.warning(f"베팅 확인 시도 {attempt+1} 실패: {e}")
                 continue
         
-        self.logger.error("🔥 베팅 접수 확인 실패 - 모든 방법 시도됨")
+        self.logger.error(f"❌ 베팅 접수 확인 실패 - 조건 미충족")
+        self.logger.error(f"  - 금액 일치: {has_correct_amount}")
+        self.logger.error(f"  - 레이블: {current_label} (유효: {has_valid_label})")
+        self.logger.error(f"  - 칩 위치: {has_chips_on_area}")
         return False
 
+    def _check_betting_rejected(self):
+        """서버에서 베팅을 거부했는지 확인"""
+        try:
+            # 베팅 거부 메시지 확인
+            rejection_messages = [
+                "bet rejected",
+                "베팅 거부",
+                "no more bets",
+                "betting closed",
+                "bet failed",
+                "insufficient balance",
+                "잔액 부족",
+                "베팅 실패",
+                "maximum bet",
+                "minimum bet"
+            ]
+            
+            # 모든 텍스트 요소 검색
+            all_elements = self.devtools.driver.find_elements(By.XPATH, "//*[contains(@class, 'message') or contains(@class, 'alert') or contains(@class, 'error') or contains(@class, 'notification')]")
+            
+            for element in all_elements:
+                if element.is_displayed():
+                    text = element.text.lower()
+                    for msg in rejection_messages:
+                        if msg.lower() in text:
+                            self.logger.error(f"❌ 베팅 거부 메시지 감지: {text}")
+                            return True
+            
+            # JavaScript로 추가 확인
+            js_check = """
+            var messages = document.querySelectorAll('[class*="message"], [class*="error"], [class*="alert"]');
+            for(var m of messages) {
+                var text = m.innerText.toLowerCase();
+                if(text.includes('reject') || text.includes('fail') || text.includes('거부')) {
+                    return text;
+                }
+            }
+            return null;
+            """
+            
+            rejected_msg = self.devtools.driver.execute_script(js_check)
+            if rejected_msg:
+                self.logger.error(f"❌ JS 베팅 거부 감지: {rejected_msg}")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.debug(f"베팅 거부 확인 오류: {e}")
+            return False
+    
     def _check_chips_on_betting_area(self, bet_type):
         """베팅 영역에 칩이 올라갔는지 시각적 확인"""
         try:
@@ -357,14 +470,25 @@ class BettingService:
 
     # services/betting_service.py - _start_result_tracking 메서드 수정
 
-    def _start_result_tracking(self, bet_type, round_number, bet_amount, room_name):
+    def _start_result_tracking(self, bet_type, round_number, bet_amount, room_name, current_game=None):
         """베팅 결과 추적 시작 (게임 결과 대기)"""
-        # 🔥 올바른 로직: 표시된 라운드는 완료된 라운드, 베팅은 다음 라운드에 적용됨
-        actual_bet_round = round_number + 1
+        # 🔥 BettingResultTracker의 중앙집중식 로직 사용
+        actual_bet_round = None
+        if hasattr(self.main_window, 'trading_manager') and hasattr(self.main_window.trading_manager, 'game_processor'):
+            if hasattr(self.main_window.trading_manager.game_processor, 'betting_tracker'):
+                betting_tracker = self.main_window.trading_manager.game_processor.betting_tracker
+                actual_bet_round = betting_tracker.calculate_actual_bet_round(
+                    completed_round=round_number,
+                    current_game=current_game
+                )
+        
+        # fallback: tracker가 없으면 기존 로직 사용
+        if actual_bet_round is None:
+            actual_bet_round = current_game if current_game and current_game > 0 else round_number + 1
         
         self.pending_bet = {
             'type': bet_type,
-            'round': actual_bet_round,  # 🔥 다음 라운드로 설정 (베팅 대상)
+            'round': actual_bet_round,  # 🔥 중앙 관리자가 계산한 라운드
             'amount': bet_amount,
             'room_name': room_name,
             'timestamp': time.time()
@@ -373,7 +497,7 @@ class BettingService:
         self.last_bet_result = None
         
         self.logger.info(f"🎯 베팅 결과 추적 시작: {bet_type} → 라운드 {actual_bet_round} (금액: {bet_amount:,}원)")
-        self.logger.info(f"📍 iframe 표시: {round_number}번째 결과 완료, 베팅 적용: {actual_bet_round}번째 게임")
+        self.logger.info(f"📍 완료된 라운드: {round_number}, 진행 중: {current_game}, 베팅 적용: {actual_bet_round}")
 
     def check_pending_bet_result(self, current_round, game_result):
         """🔥 대기 중인 베팅의 결과 확인 - 핵심 메서드"""
@@ -493,18 +617,34 @@ class BettingService:
         return True
 
     def _wait_for_betting_available(self):
-        """베팅 가능 상태가 될 때까지 대기"""
+        """베팅 가능 상태가 될 때까지 대기 - 🔥 타이밍 검증 개선"""
         self.logger.info("베팅 가능 상태 확인 시작...")
         max_attempts = 60
+        betting_time_found = False
         
         for attempt in range(max_attempts):
             try:
+                # 🔥 베팅 시간 타이머 확인 (옵션)
+                timer_active = self._check_betting_timer_active()
+                
                 if self._check_chips_active():
-                    self.logger.info("✅ 활성화된 칩 발견 - 베팅 가능 상태")
+                    if timer_active:
+                        self.logger.info("✅ 베팅 타이머 활성 + 칩 활성화 확인")
+                        betting_time_found = True
+                    else:
+                        # 타이머를 못 찾아도 칩이 활성화되어 있으면 베팅 가능
+                        self.logger.info("✅ 칩 활성화 확인 - 베팅 가능 상태")
+                        betting_time_found = True
                     
                     if self._check_betting_areas_active():
-                        self.logger.info("✅ 베팅 영역도 활성화됨 - 베팅 준비 완료")
-                        return True
+                        # 칩이 활성화되고 베팅 영역이 활성화되면 베팅 진행
+                        if betting_time_found:
+                            self.logger.info("✅ 모든 베팅 조건 충족 - 베팅 준비 완료")
+                            return True
+                        else:
+                            self.logger.warning("⚠️ 베팅 영역 활성화되었지만 타이밍 불확실")
+                            # 타이밍이 불확실하면 조금 더 대기
+                            time.sleep(0.5)
                     else:
                         self.logger.info("⏳ 베팅 영역 활성화 대기 중...")
                 else:
@@ -517,6 +657,87 @@ class BettingService:
         
         self.logger.warning("베팅 가능 상태 대기 시간 초과.")
         return False
+    
+    def _check_betting_timer_active(self):
+        """베팅 타이머가 활성화되어 있는지 확인 - 🔥 딜러 카운트다운 체크"""
+        try:
+            # 1. 딜러 카운트다운 타이머 확인 (가장 중요!)
+            countdown_selectors = [
+                "[data-role='countdown']",
+                "[data-role='timer']",
+                ".dealer-timer",
+                ".countdown-timer",
+                ".betting-timer",
+                "[class*='countdown']",
+                "[class*='timer'][class*='active']"
+            ]
+            
+            for selector in countdown_selectors:
+                try:
+                    timer = self.devtools.driver.find_element(By.CSS_SELECTOR, selector)
+                    if timer and timer.is_displayed():
+                        timer_text = timer.text.strip()
+                        # 숫자가 있고 0이 아니면 베팅 가능
+                        if timer_text and timer_text.isdigit() and int(timer_text) > 0:
+                            self.logger.info(f"⏱️ 베팅 타이머 활성: {timer_text}초 남음")
+                            return True
+                        elif "bet" in timer_text.lower() or "place" in timer_text.lower():
+                            self.logger.info(f"⏱️ 베팅 메시지 확인: {timer_text}")
+                            return True
+                except:
+                    continue
+            
+            # 2. 딜러 음성/메시지 확인
+            dealer_message_selectors = [
+                "[data-role='dealer-message']",
+                ".dealer-announcement",
+                "[class*='dealer-message']"
+            ]
+            
+            for selector in dealer_message_selectors:
+                try:
+                    msg = self.devtools.driver.find_element(By.CSS_SELECTOR, selector)
+                    if msg and msg.is_displayed():
+                        msg_text = msg.text.lower()
+                        if "place your bet" in msg_text or "베팅" in msg_text:
+                            self.logger.info(f"🎰 딜러 베팅 안내 확인: {msg_text}")
+                            return True
+                except:
+                    continue
+            
+            # 3. JavaScript로 베팅 가능 상태 체크
+            js_check = """
+            // 타이머 숫자 체크
+            var timers = document.querySelectorAll('[data-role*="timer"], [class*="countdown"]');
+            for(var t of timers) {
+                var text = t.innerText.trim();
+                if(text && !isNaN(text) && parseInt(text) > 0) return true;
+            }
+            
+            // 베팅 활성 상태 체크
+            return document.querySelector('.betting-time-active') !== null ||
+                   document.querySelector('[data-betting-enabled="true"]') !== null ||
+                   document.querySelector('.place-your-bets') !== null;
+            """
+            if self.devtools.driver.execute_script(js_check):
+                return True
+            
+            # 4. "No More Bets" 메시지가 없으면 베팅 가능
+            no_bet_check = """
+            var noBets = document.querySelectorAll('[class*="no-more"], [class*="no-bet"]');
+            for(var n of noBets) {
+                if(n.innerText.toLowerCase().includes('no more bet')) return false;
+            }
+            return true;
+            """
+            if not self.devtools.driver.execute_script(no_bet_check):
+                self.logger.warning("⛔ 'No More Bets' 감지 - 베팅 불가")
+                return False
+                
+            return False
+        except Exception as e:
+            self.logger.debug(f"타이머 확인 오류: {e}")
+            return False
 
     def _check_chips_active(self):
         """칩 활성화 상태 확인"""
@@ -930,17 +1151,61 @@ class BettingService:
             # 1. 라운드 번호 빠른 추출
             round_number = self._find_round_number_fast()
             
-            # 2. P,B 결과 빠른 추출 (15개)
+            # 2. current_game 추출 (현재 진행 중인 게임 번호)
+            current_game = self._find_current_game_fast()
+            
+            # 3. P,B 결과 빠른 추출 (15개)
             results = self._find_game_results_fast(15)
             
             elapsed = time.time() - start_time
-            self.logger.info(f"⚡ iframe 빠른 추출: {elapsed:.3f}초 (라운드: {round_number}, 결과: {len(results)}개)")
+            self.logger.info(f"⚡ iframe 빠른 추출: {elapsed:.3f}초 (라운드: {round_number}, current_game: {current_game}, 결과: {len(results)}개)")
             
-            return round_number, results
+            return round_number, current_game, results
             
         except Exception as e:
             self.logger.error(f"빠른 결과 추출 오류: {e}")
-            return None, []
+            return None, None, []
+
+    def _find_current_game_fast(self):
+        """⚡ current_game (현재 진행 중인 게임 번호) 빠른 추출"""
+        try:
+            # JavaScript로 current_game 찾기
+            js_script = """
+            var container = document.querySelector('._1Kb5nbqGyx61sLLINWXC3c');
+            if (!container) return null;
+            
+            var allTexts = container.innerText.split('\\n');
+            var currentGameIdx = allTexts.indexOf('current_game');
+            
+            if (currentGameIdx !== -1 && currentGameIdx + 1 < allTexts.length) {
+                var num = parseInt(allTexts[currentGameIdx + 1]);
+                if (!isNaN(num) && num > 0) return num;
+            }
+            return null;
+            """
+            result = self.devtools.driver.execute_script(js_script)
+            
+            if result and result > 0:
+                return result
+            
+            # Fallback: data-role="currentGame" 찾기
+            try:
+                current_game_el = self.devtools.driver.find_element(
+                    By.CSS_SELECTOR, 
+                    'div[data-role="currentGame"]'
+                )
+                if current_game_el:
+                    text = current_game_el.text.strip()
+                    if text.isdigit():
+                        return int(text)
+            except:
+                pass
+            
+            return None
+            
+        except Exception as e:
+            self.logger.debug(f"current_game 추출 오류: {e}")
+            return None
 
     def _find_round_number_fast(self):
         """⚡ 라운드 번호 빠른 추출"""

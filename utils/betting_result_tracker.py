@@ -43,13 +43,27 @@ class BettingResultTracker:
         
         self.logger.info("베팅 추적기 초기화 완료")
 
-    def start_betting_tracking(self, bet_type: str, round_number: int, bet_amount: int, room_name: str):
-        """베팅 추적 시작"""
+    def start_betting_tracking(self, bet_type: str, round_number: int, bet_amount: int, room_name: str, 
+                              current_game: int = None, completed_round: int = None):
+        """베팅 추적 시작 - 모든 라운드 정보를 중앙 관리"""
         try:
+            # 🔥 중앙집중식 베팅 라운드 계산
+            if current_game and current_game > 0:
+                actual_bet_round = current_game
+                self.logger.info(f"🎯 현재 진행 중인 게임에 베팅: {actual_bet_round}")
+            elif completed_round:
+                actual_bet_round = completed_round + 1
+                self.logger.info(f"🎯 다음 라운드에 베팅: {actual_bet_round}")
+            else:
+                actual_bet_round = round_number
+                self.logger.info(f"🎯 지정된 라운드에 베팅: {actual_bet_round}")
+            
             # 베팅 정보 저장
             self.bet_info = {
                 'bet_type': bet_type,
-                'round_number': round_number,
+                'round_number': actual_bet_round,  # 실제 베팅 대상 라운드
+                'completed_round': completed_round,  # 베팅 시점의 완료된 라운드
+                'current_game': current_game,  # 베팅 시점의 진행 중인 게임
                 'bet_amount': bet_amount,
                 'room_name': room_name,
                 'bet_time': time.time(),
@@ -62,7 +76,7 @@ class BettingResultTracker:
             # 총 베팅 수 증가
             self.total_bets += 1
             
-            self.logger.info(f"🎯 베팅 추적 시작: {bet_type} 라운드{round_number} {bet_amount:,}원")
+            self.logger.info(f"🎯 베팅 추적 시작: {bet_type} (베팅 대상 라운드: {round_number}, 금액: {bet_amount:,}원)")
             
         except Exception as e:
             self.logger.error(f"베팅 추적 시작 오류: {e}")
@@ -72,8 +86,8 @@ class BettingResultTracker:
         try:
             self.logger.info(f"🔍 [BettingResultTracker] 결과 체크 시작:")
             self.logger.info(f"  - 현재 상태: {self.status.value}")
-            self.logger.info(f"  - 완료된 라운드: {round_number}")
-            self.logger.info(f"  - 게임 결과: {game_result}")
+            self.logger.info(f"  - 방금 완료된 라운드: {round_number}")
+            self.logger.info(f"  - 해당 라운드 결과: {game_result}")
             
             # 베팅 결과 대기 중이 아니면 무시
             if self.status != BettingStatus.WAITING_RESULT:
@@ -85,8 +99,8 @@ class BettingResultTracker:
             bet_time = self.bet_info.get('bet_time', 0)
             waiting_time = current_time - bet_time
             
-            # 120초 이상 대기 시 타임아웃 처리
-            if waiting_time > 120.0:
+            # 60초 이상 대기 시 타임아웃 처리 (120초는 너무 김)
+            if waiting_time > 60.0:
                 self.logger.warning(f"⏰ 베팅 결과 타임아웃 ({waiting_time:.1f}초) - 추적 초기화")
                 self.reset_tracking()
                 return None
@@ -94,20 +108,25 @@ class BettingResultTracker:
             # 베팅한 라운드 확인
             bet_round = self.bet_info.get('round_number', 0)
             
-            self.logger.info(f"  - 베팅 라운드: {bet_round}")
+            self.logger.info(f"  - 베팅 대상 라운드: {bet_round}")
             self.logger.info(f"  - 대기 시간: {waiting_time:.1f}초")
             
-            # 🔥 베팅 라운드와 현재 라운드 비교 - 엄격한 매칭
+            # 🔥 베팅 라운드와 완료된 라운드 엄격한 비교
+            # bet_round: 베팅이 적용될 라운드 (베팅 대상)
+            # round_number: 방금 완료된 라운드
             round_match = False
             
+            # 🔥 중요: 정확한 라운드만 처리
             if round_number == bet_round:
+                # 베팅한 라운드가 정확히 완료됨
                 round_match = True
-                self.logger.info(f"✅ 정확한 라운드 매칭: {round_number}")
+                self.logger.info(f"✅ 베팅 라운드 정확히 완료: {round_number}")
             elif round_number < bet_round:
-                self.logger.info(f"⏳ 베팅 라운드 아직 미도달: 베팅 대상={bet_round}, 현재 완료={round_number}")
-                return None
+                # 아직 베팅 라운드가 완료되지 않음 - 기다려야 함
+                self.logger.info(f"⏳ 베팅 라운드 아직 미완료: 베팅={bet_round}, 현재={round_number}")
+                return None  # 계속 대기
             elif round_number > bet_round:
-                # 라운드를 놓친 경우
+                # 라운드를 놓친 경우 (결과를 놓침)
                 self.logger.error(f"❌ 베팅 라운드 놓침: 베팅={bet_round}, 현재={round_number}")
                 self.logger.error(f"❌ 결과 확인 불가 - 추적 초기화")
                 self.reset_tracking()
@@ -172,8 +191,25 @@ class BettingResultTracker:
         return self.status == BettingStatus.WAITING_RESULT
 
     def get_bet_round(self) -> Optional[int]:
-        """베팅한 라운드 번호 반환"""
+        """베팅한 라운드 번호 반환 (실제 베팅 대상 라운드)"""
         return self.bet_info.get('round_number')
+    
+    def get_completed_round_at_bet_time(self) -> Optional[int]:
+        """베팅 시점에 완료된 라운드 번호 반환"""
+        return self.bet_info.get('completed_round')
+    
+    def get_current_game_at_bet_time(self) -> Optional[int]:
+        """베팅 시점에 진행 중이던 게임 번호 반환"""
+        return self.bet_info.get('current_game')
+    
+    def calculate_actual_bet_round(self, completed_round: int, current_game: int = None) -> int:
+        """실제 베팅 대상 라운드 계산 - 중앙집중식 로직"""
+        if current_game and current_game > 0:
+            # 현재 진팅 중인 게임에 베팅
+            return current_game
+        else:
+            # 다음 라운드에 베팅
+            return completed_round + 1
 
     def get_bet_type(self) -> Optional[str]:
         """베팅한 타입 반환"""

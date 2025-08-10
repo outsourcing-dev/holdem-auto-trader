@@ -6,7 +6,7 @@ UI 블로킹 없이 베팅 로직 실행
 
 import time
 import logging
-from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QTimer
+from PyQt6.QtCore import QThread, pyqtSignal, QMutex, QTimer, QWaitCondition
 from typing import Dict, Any
 
 
@@ -26,8 +26,13 @@ class BettingWorker(QThread):
         
         # 베팅 큐 (단일 베팅만 처리)
         self.mutex = QMutex()
+        self.wait_condition = QWaitCondition()  # 대기/깨우기 메커니즘
         self.current_bet_request = None
         self.is_processing = False
+        
+        # 쓰레드 제어
+        self._stop_requested = False
+        self._is_running = False
         
     def request_betting(self, pick: str, current_round: int, betting_round: int):
         """베팅 요청 추가"""
@@ -46,10 +51,21 @@ class BettingWorker(QThread):
                 'timestamp': time.time()
             }
             
+            # 대기 중인 쓰레드를 깨움
+            self.wait_condition.wakeAll()
             self.mutex.unlock()
             
             # 쓰레드가 실행 중이 아니면 시작
             if not self.isRunning():
+                # 베팅 워커 시작
+                self._stop_requested = False
+                self._is_running = True
+                self.start()
+            elif self.isFinished():
+                # 쓰레드가 종료되었으면 재시작
+                # 베팅 워커 재시작
+                self._stop_requested = False
+                self._is_running = True
                 self.start()
             
             return True
@@ -60,30 +76,44 @@ class BettingWorker(QThread):
             return False
     
     def run(self):
-        """워커 쓰레드 메인 루프"""
+        """워커 쓰레드 메인 루프 - 지속적으로 실행"""
+        # 베팅 워커 시작
+        
         try:
-            self.mutex.lock()
-            
-            if not self.current_bet_request or self.is_processing:
+            while not self._stop_requested:
+                self.mutex.lock()
+                
+                # 베팅 요청이 없으면 대기
+                if not self.current_bet_request or self.is_processing:
+                    # 100ms 타임아웃으로 대기 (주기적으로 종료 체크)
+                    self.wait_condition.wait(self.mutex, 100)
+                    self.mutex.unlock()
+                    continue
+                
+                # 베팅 요청 처리
+                bet_request = self.current_bet_request.copy()
+                self.current_bet_request = None
+                self.is_processing = True
                 self.mutex.unlock()
-                return
-            
-            bet_request = self.current_bet_request.copy()
-            self.current_bet_request = None
-            self.is_processing = True
-            
-            self.mutex.unlock()
-            
-            # 베팅 실행
-            self._execute_betting(bet_request)
-            
+                
+                # 베팅 실행
+                # 베팅 처리 시작
+                self._execute_betting(bet_request)
+                
+                # 처리 완료
+                self.mutex.lock()
+                self.is_processing = False
+                self.mutex.unlock()
+                
         except Exception as e:
             self.logger.error(f"베팅 워커 실행 오류: {e}")
             self.error_occurred.emit(f"베팅 실행 중 오류: {e}")
         finally:
             self.mutex.lock()
             self.is_processing = False
+            self._is_running = False
             self.mutex.unlock()
+            # 베팅 워커 종료
     
     def _execute_betting(self, bet_request: dict):
         """베팅 실행 (별도 쓰레드에서)"""
@@ -92,21 +122,21 @@ class BettingWorker(QThread):
             current_round = bet_request['current_round']
             betting_round = bet_request['betting_round']
             
-            self.logger.info(f"🎯 베팅 워커 실행: {pick} (라운드: {current_round} → {betting_round})")
+            self.logger.info(f"베팅 시작: {pick} (R{betting_round})")
             
             # 베팅 시작 시그널
             self.betting_started.emit(pick, current_round, betting_round)
             
             # 베팅 진행 상황 업데이트
-            self.betting_progress.emit("베팅 조건 검증 중...")
+            # 베팅 조건 검증
             
             # 베팅 금액 계산
             bet_amount = self._get_bet_amount()
             
-            self.betting_progress.emit(f"베팅 실행 중: {pick}, 금액: {bet_amount:,}원")
+            # 베팅 실행
             
-            # 실제 베팅 실행 (논블로킹 방식으로 호출)
-            bet_success = self._place_bet_safe(pick, current_round, bet_amount)
+            # 실제 베팅 실행 (재시도 로직 포함)
+            bet_success = self._place_bet_with_retry(pick, current_round, bet_amount)
             
             # 결과 처리
             if bet_success:
@@ -118,14 +148,14 @@ class BettingWorker(QThread):
                 }
                 
                 self.betting_completed.emit(True, f"베팅 성공: {pick}, {bet_amount:,}원", result_data)
-                self.logger.info(f"✅ 베팅 성공: {pick} - {bet_amount:,}원")
+                self.logger.info(f"베팅 성공: {pick} - {bet_amount:,}원")
                 
                 # 베팅 추적 시작
                 self._start_result_tracking(pick, betting_round, bet_amount)
                 
             else:
                 self.betting_completed.emit(False, f"베팅 실패: {pick} - 게임 진행 중", {})
-                self.logger.warning(f"❌ 베팅 실패: {pick} - 게임이 이미 진행 중입니다. 다음 라운드를 기다립니다.")
+                self.logger.warning(f"베팅 실패: {pick}")
                 
         except Exception as e:
             self.logger.error(f"베팅 실행 오류: {e}")
@@ -166,6 +196,36 @@ class BettingWorker(QThread):
             self.logger.error(f"안전한 베팅 실행 오류: {e}")
             return False
     
+    def _place_bet_with_retry(self, pick: str, current_round: int, bet_amount: int) -> bool:
+        """베팅 실행 (재시도 로직 포함)"""
+        max_retries = 3
+        retry_delay = 100  # ms
+        
+        for attempt in range(max_retries):
+            try:
+                # 베팅 시도
+                
+                # 베팅 실행
+                success = self._place_bet_safe(pick, current_round, bet_amount)
+                
+                if success:
+                    # 베팅 성공
+                    return True
+                
+                # 마지막 시도가 아니면 재시도
+                if attempt < max_retries - 1:
+                    # 재시도 대기
+                    self.msleep(retry_delay)
+                    retry_delay *= 2  # 지수 백오프
+                    
+            except Exception as e:
+                self.logger.error(f"베팅 시도 {attempt + 1} 오류: {e}")
+                if attempt < max_retries - 1:
+                    self.msleep(retry_delay)
+                    
+        self.logger.error(f"베팅 실패: {max_retries}번 시도 모두 실패")
+        return False
+    
     def _start_result_tracking(self, pick: str, betting_round: int, bet_amount: int):
         """베팅 결과 추적 시작"""
         try:
@@ -183,7 +243,7 @@ class BettingWorker(QThread):
                         room_name=self.tm.current_room_name
                     )
                     
-                    self.logger.info(f"🎯 베팅 결과 추적 시작: {betting_round}번째 게임")
+                    # 베팅 결과 추적 시작
                     
         except Exception as e:
             self.logger.error(f"베팅 결과 추적 시작 오류: {e}")
@@ -194,6 +254,19 @@ class BettingWorker(QThread):
         result = self.is_processing
         self.mutex.unlock()
         return result
+    
+    def stop(self):
+        """워커 쓰레드 중지"""
+        # 베팅 워커 중지
+        self._stop_requested = True
+        self.wait_condition.wakeAll()
+        
+        # 쓰레드 종료 대기
+        if self.isRunning():
+            if not self.wait(3000):  # 3초 대기
+                self.logger.warning("베팅 워커 강제 종료")
+                self.terminate()
+                self.wait(1000)
 
 
 class AsyncBettingManager:
@@ -220,11 +293,28 @@ class AsyncBettingManager:
     def request_betting(self, pick: str, current_round: int, betting_round: int) -> bool:
         """베팅 요청"""
         try:
+            # 워커 쓰레드 상태 확인
             if self.betting_worker.is_betting_in_progress():
                 self.logger.warning("이미 베팅 진행 중")
                 return False
             
-            return self.betting_worker.request_betting(pick, current_round, betting_round)
+            # 쓰레드가 종료되었거나 시작되지 않았으면 시작
+            if not self.betting_worker.isRunning() or self.betting_worker.isFinished():
+                # 쓰레드 시작/재시작
+                self.betting_worker._stop_requested = False
+                self.betting_worker._is_running = True
+                if not self.betting_worker.isRunning():
+                    self.betting_worker.start()
+            
+            # 베팅 요청
+            success = self.betting_worker.request_betting(pick, current_round, betting_round)
+            
+            if success:
+                pass  # 베팅 요청 성공
+            else:
+                self.logger.error(f"베팅 요청 실패: {pick}")
+                
+            return success
             
         except Exception as e:
             self.logger.error(f"베팅 요청 오류: {e}")
@@ -232,7 +322,7 @@ class AsyncBettingManager:
     
     def _on_betting_started(self, pick: str, current_round: int, betting_round: int):
         """베팅 시작 처리"""
-        self.logger.info(f"🎯 베팅 시작: {pick} (라운드 {betting_round})")
+        # 베팅 시작 처리
         
         # UI 업데이트
         if hasattr(self.tm.main_window, 'update_betting_status'):
@@ -243,12 +333,17 @@ class AsyncBettingManager:
     
     def _on_betting_completed(self, success: bool, message: str, result_data: dict):
         """베팅 완료 처리"""
-        self.logger.info(f"베팅 완료: {message}")
+        # 베팅 완료 처리
         
-        # 🔥 게임 모니터링 워커에게 베팅 완료 알림
-        if (hasattr(self.tm, 'room_entry_handler') and 
-            hasattr(self.tm.room_entry_handler, 'game_monitoring_worker')):
-            self.tm.room_entry_handler.game_monitoring_worker.on_betting_completed(success, message)
+        # 🔥 게임 모니터링 워커에게 베팅 완료 알림 (항상!)
+        try:
+            if (hasattr(self.tm, 'room_manager_handler') and 
+                hasattr(self.tm.room_manager_handler, 'game_monitoring_worker')):
+                self.tm.room_manager_handler.game_monitoring_worker.on_betting_completed(success, message)
+                # 게임 모니터링 워커 알림
+        except Exception as e:
+            self.logger.error(f"게임 모니터링 워커 알림 실패: {e}")
+            # 실패해도 계속 진행
         
         if success:
             # 베팅 성공 - 결과 대기 타이머 시작 (60초)
@@ -267,7 +362,7 @@ class AsyncBettingManager:
     
     def _on_betting_progress(self, message: str):
         """베팅 진행 상황 업데이트"""
-        self.logger.debug(f"베팅 진행: {message}")
+        # 베팅 진행 상황
         
         # UI 상태 표시
         if hasattr(self.tm.main_window, 'update_status'):
@@ -291,11 +386,11 @@ class AsyncBettingManager:
     
     def _handle_betting_failure(self, message: str):
         """베팅 실패 처리"""
-        self.logger.warning(f"베팅 실패 처리: {message}")
+        # 베팅 실패 처리
         
         # "이미 베팅했습니다" 메시지는 정상 상황이므로 추적기를 리셋하지 않음
         if "이미 현재 라운드에 베팅했습니다" in message or "게임이 이미 진행 중" in message:
-            self.logger.info("🔄 이미 베팅한 상태 - 추적기 유지")
+            # 이미 베팅한 상태
             return
         
         # 실제 베팅 실패 시에만 추적기 초기화
@@ -308,10 +403,9 @@ class AsyncBettingManager:
         try:
             self.result_timeout_timer.stop()
             
-            if self.betting_worker.isRunning():
-                self.betting_worker.quit()
-                if not self.betting_worker.wait(3000):
-                    self.betting_worker.terminate()
+            # 워커 쓰레드 정상 종료
+            if self.betting_worker:
+                self.betting_worker.stop()
                     
         except Exception as e:
             self.logger.error(f"베팅 매니저 정리 오류: {e}")

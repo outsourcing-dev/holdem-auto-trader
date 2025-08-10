@@ -136,6 +136,10 @@ class WebSocketHybridService(QObject):
             self.logger.info(f"🔌 연패 감지 웹소켓 연결 시작")
             self.logger.debug(f"📍 URL: {websocket_url[:100]}...")
             
+            # 🔥 플래그 초기화
+            self._pause_lobby_monitoring = False
+            self._in_game_room = False
+            
             if not self.devtools or not self.devtools.driver:
                 self.logger.error("DevTools 연결이 없습니다")
                 return False
@@ -777,6 +781,10 @@ class WebSocketHybridService(QObject):
             self.is_active = False
             self.is_connected = False
             
+            # 🔥 플래그 초기화 추가
+            self._pause_lobby_monitoring = False
+            self._in_game_room = False
+            
             self.connection_status_changed.emit(False)
             self.logger.info("✅ 연패 감지 웹소켓 중지 완료")
             
@@ -809,6 +817,12 @@ class WebSocketHybridService(QObject):
         """강제 재연결"""
         try:
             self.logger.info("🔄 연패 감지 웹소켓 강제 재연결")
+            
+            # 🔥 모니터링 플래그 먼저 리셋
+            self._pause_lobby_monitoring = False
+            self._in_game_room = False
+            self.logger.info("🔄 모니터링 플래그 리셋 완료")
+            
             self.stop_websocket_connection()
             time.sleep(2)
             

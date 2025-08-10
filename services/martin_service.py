@@ -39,21 +39,39 @@ class MartinBettingService:
 
     def get_current_bet_amount(self):
         """현재 마틴 단계에 따른 베팅 금액을 반환합니다."""
+        # 최신 설정 리프레시
+        self._refresh_settings()
+        
         # 위젯 포지션 확인 - 항상 최신 값 사용
-        widget_position = 0
         widget_position = get_widget_position(self.main_window)
-
         
         # 동기화 강화 - 항상 위젯 포지션으로 마틴 단계 갱신
         self.current_step = widget_position
         
         # 마틴 단계 수 확인 및 적용
         martin_stages = len(self.martin_amounts)
+        if martin_stages == 0:
+            self.logger.error("❌ 마틴 금액 설정이 비어있음!")
+            return 10000  # 기본값
+        
         effective_martin_step = widget_position % martin_stages
         
         # 계산된 단계에 해당하는 금액 반환
         bet_amount = self.martin_amounts[effective_martin_step]
-        self.logger.info(f"현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position+1}번, 마틴: {effective_martin_step+1}단계)")
+        
+        # 🔥 디버깅 강화: 실제 위젯 상태도 확인
+        actual_widget_pos = 0
+        if hasattr(self.main_window, 'betting_widget'):
+            actual_widget_pos = getattr(self.main_window.betting_widget, 'room_position_counter', 0)
+            if actual_widget_pos != widget_position:
+                self.logger.warning(f"⚠️ 위젯 포지션 불일치! helper: {widget_position}, widget: {actual_widget_pos}")
+                # 실제 위젯 값 사용
+                widget_position = actual_widget_pos
+                effective_martin_step = widget_position % martin_stages
+                bet_amount = self.martin_amounts[effective_martin_step]
+        
+        self.logger.info(f"💰 현재 베팅 금액: {bet_amount:,}원 (위젯: {widget_position+1}번, 마틴: {effective_martin_step+1}단계)")
+        self.logger.info(f"   마틴 금액 설정: {self.martin_amounts}")
         
         return bet_amount
 
@@ -229,6 +247,17 @@ class MartinBettingService:
             # 🔥 카운터를 명시적으로 증가 (set_step_marker는 더 이상 카운터를 증가시키지 않음)
             widget.room_position_counter = current_pos + 1
             self.logger.info(f"[마틴] 카운터 증가: {current_pos} → {current_pos + 1}")
+            
+            # 🔥 증가 후 즉시 확인
+            new_pos = widget.room_position_counter
+            if new_pos != current_pos + 1:
+                self.logger.error(f"❌ 카운터 증가 실패! 예상: {current_pos + 1}, 실제: {new_pos}")
+            else:
+                self.logger.info(f"✅ 카운터 증가 확인: {new_pos}")
+                
+            # 다음 베팅 금액 미리 계산 및 로깅
+            next_bet = self.get_current_bet_amount()
+            self.logger.info(f"💰 다음 베팅 금액 예상: {next_bet:,}원")
         
         # 증가된 위젯 포지션 가져오기
         widget_position = get_widget_position(self.main_window)

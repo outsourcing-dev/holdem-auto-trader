@@ -12,7 +12,8 @@
       "Bash(rm:*)",
       "Bash(pip uninstall:*)",
       "Bash(pip show:*)",
-      "Bash(del test_chrome_fix.py test_site_click.py)"
+      "Bash(del test_chrome_fix.py test_site_click.py)",
+      "Bash(git clean:*)"
     ],
     "deny": []
   }

@@ -70,8 +70,8 @@ class RoomEntryHandler(QObject):
                 success = self._fallback_room_entry(room_name)
             
             if success:
-                # 3. 방 로딩 대기 (비동기 처리)
-                QTimer.singleShot(3000, lambda: self._continue_room_entry_verification(streak_data, current_attempt, max_retries))
+                # 3. 방 로딩 대기 (비동기 처리) - ⚡⚡ 3초→1초로 단축
+                QTimer.singleShot(1000, lambda: self._continue_room_entry_verification(streak_data, current_attempt, max_retries))
                 return  # 비동기 처리를 위해 여기서 반환
                 
                 # 5. 새 방 입장 시 마틴 상태 초기화
@@ -109,6 +109,12 @@ class RoomEntryHandler(QObject):
                     self.tm.game_processor.betting_tracker.reset_room_statistics()
                     self.logger.info("🔄 새 방 입장으로 베팅 통계 초기화")
                 
+                # 🔥 중요: 베팅 위젯 완전 초기화 (이전 방의 마커 제거)
+                if hasattr(self.tm.main_window, 'betting_widget'):
+                    self.tm.main_window.betting_widget.room_position_counter = 0
+                    self.tm.main_window.betting_widget.reset_step_markers()
+                    self.logger.info("🎯 베팅 위젯 초기화 - 모든 마커 제거")
+                
                 # 9. 방 로그 위젯에 새 방 입장 알림
                 if hasattr(self.tm.main_window, 'room_log_widget'):
                     self.tm.main_window.room_log_widget.set_current_room(room_name, is_new_visit=True)
@@ -120,7 +126,7 @@ class RoomEntryHandler(QObject):
                 # 재시도 필요한지 확인
                 if current_attempt < max_retries:
                     self.logger.warning(f"❌ 방 입장 실패 - 재시도 {current_attempt + 1}/{max_retries}")
-                    time.sleep(2)
+                    time.sleep(1)  # ⚡⚡ 2초→1초로 단축
                     self._execute_room_entry_with_retry(streak_data, max_retries, current_attempt + 1)
                     return
                 else:
@@ -195,6 +201,12 @@ class RoomEntryHandler(QObject):
                 self.tm.game_processor.betting_tracker.reset_room_statistics()
                 self.logger.info("🔄 새 방 입장으로 베팅 통계 초기화")
             
+            # 🔥 중요: 베팅 위젯 완전 초기화 (이전 방의 마커 제거)
+            if hasattr(self.tm.main_window, 'betting_widget'):
+                self.tm.main_window.betting_widget.room_position_counter = 0
+                self.tm.main_window.betting_widget.reset_step_markers()
+                self.logger.info("🎯 베팅 위젯 초기화 - 모든 마커 제거")
+            
             # 9. 방 로그 위젯에 새 방 입장 알림
             if hasattr(self.tm.main_window, 'room_log_widget'):
                 self.tm.main_window.room_log_widget.set_current_room(room_name, is_new_visit=True)
@@ -206,19 +218,31 @@ class RoomEntryHandler(QObject):
             self.logger.error(f"방 입장 검증 계속 오류: {e}")
 
     def _pause_websocket_monitoring(self):
-        """웹소켓 모니터링 일시정지"""
+        """웹소켓 모니터링 일시정지 - 🔥 개선된 동기화"""
         try:
-            if hasattr(self.tm, 'websocket_manager') and self.tm.websocket_manager.websocket_service:
-                if hasattr(self.tm.websocket_manager.websocket_service, 'message_collection_timer'):
-                    self.tm.websocket_manager.websocket_service.message_collection_timer.stop()
+            if hasattr(self.tm, 'websocket_manager') and self.tm.websocket_manager:
+                if hasattr(self.tm.websocket_manager, 'websocket_service') and self.tm.websocket_manager.websocket_service:
+                    # 🔥 pause_lobby_monitoring 메서드 직접 호출
+                    if hasattr(self.tm.websocket_manager.websocket_service, 'pause_lobby_monitoring'):
+                        self.tm.websocket_manager.websocket_service.pause_lobby_monitoring()
+                        self.logger.info("🔒 WebSocket 로비 모니터링 일시정지 완료")
+                    # 타이머도 중지
+                    if hasattr(self.tm.websocket_manager.websocket_service, 'message_collection_timer'):
+                        self.tm.websocket_manager.websocket_service.message_collection_timer.stop()
         except Exception as e:
             self.logger.error(f"웹소켓 일시정지 오류: {e}")
 
     def _resume_websocket_monitoring(self):
-        """웹소켓 모니터링 재개"""
+        """웹소켓 모니터링 재개 - 🔥 개선된 동기화"""
         try:
-            if hasattr(self.tm, 'websocket_manager') and self.tm.websocket_manager.websocket_service:
-                self.tm.websocket_manager.websocket_service._start_message_collection()
+            if hasattr(self.tm, 'websocket_manager') and self.tm.websocket_manager:
+                if hasattr(self.tm.websocket_manager, 'websocket_service') and self.tm.websocket_manager.websocket_service:
+                    # 🔥 resume_lobby_monitoring 메서드 직접 호출
+                    if hasattr(self.tm.websocket_manager.websocket_service, 'resume_lobby_monitoring'):
+                        self.tm.websocket_manager.websocket_service.resume_lobby_monitoring()
+                        self.logger.info("🔓 WebSocket 로비 모니터링 재개 완료")
+                    # 타이머도 재시작
+                    self.tm.websocket_manager.websocket_service._start_message_collection()
         except Exception as e:
             self.logger.error(f"웹소켓 재개 오류: {e}")
 
@@ -345,12 +369,12 @@ class RoomEntryHandler(QObject):
             room_id = streak_data.get('room_id', '')
             room_name = streak_data.get('room_name', '')
             
-            # ⚡ iframe에서 현재 게임 상태 가져오기 (최소 데이터로 빠르게)
+            # ⚡ iframe에서 현재 게임 상태 가져오기 (전체 데이터로 정확한 검증)
             game_state = self.tm.game_monitoring_service.get_current_game_state_with_server_format(
                 room_id=room_id,
                 room_name=room_name,
                 log_always=False,
-                desired_pb_count=5  # 15 → 5로 단축하여 속도 향상
+                desired_pb_count=None  # ⚡ 전체 데이터 요청 (정확한 검증을 위해)
             )
             
             if not game_state:
@@ -396,99 +420,102 @@ class RoomEntryHandler(QObject):
         except Exception as e:
             self.logger.error(f"iframe 모니터링 오류: {e}")
 
-    def _check_betting_opportunity_fast(self, filtered_results: list, room_id: str, current_round: int, current_game: int = None, cached_game_state: dict = None):
-        """⚡ 고속 베팅 기회 확인 - 캐시 활용으로 최대 성능 최적화"""
+    def _check_betting_opportunity_unified(self, filtered_results: list, room_id: str, current_round: int, 
+                                          current_game: int = None, cached_game_state: dict = None,
+                                          min_results: int = 15, fast_mode: bool = True):
+        """⚡ 통합 베팅 기회 확인 - 파라미터로 동작 제어"""
         try:
-            # ⚡ 빠른 사전 검증 (디버그 로그 추가)
-            if len(filtered_results) < 10:
-                self.logger.debug(f"📊⚡ 결과 데이터 부족: {len(filtered_results)}개 (10개 필요)")
+            # ⚡ 빠른 사전 검증 (통일된 기준 적용)
+            if len(filtered_results) < min_results:
+                if not fast_mode:
+                    self.logger.debug(f"데이터 부족: {len(filtered_results)}/{min_results}")
                 return
             
             if not self.tm.current_target_room or self.tm.current_target_room.get('room_id') != room_id:
-                self.logger.debug("🏠⚡ 타겟 방 불일치 또는 없음")
                 return
                 
             if hasattr(self.tm, 'first_bet_after_entry') and self.tm.first_bet_after_entry:
                 self.tm.first_bet_after_entry = False
-                self.logger.info("🏠⚡ 방 입장 직후 첫 베팅 - 다음 라운드까지 대기")
                 return
             
             # ⚡ 1. 베팅 가능 상태 확인 (캐시 우선 사용)
-            if not cached_game_state or cached_game_state.get('current_game', 0) <= 0:
-                self.logger.debug("🎮⚡ 베팅 불가능 상태 - 게임 진행 중 아님")
-                return
+            if fast_mode:
+                # Fast mode: 간단한 체크
+                if not cached_game_state or cached_game_state.get('current_game', 0) <= 0:
+                    if hasattr(self.tm.main_window, 'update_status'):
+                        self.tm.main_window.update_status("⚡ 베팅 대기: 게임 진행 중 아님")
+                    return
+            else:
+                # Normal mode: 상세 체크
+                if not self._check_betting_available_state(room_id, cached_game_state):
+                    return
+                # 추가로 최신 결과 확인
+                updated_results = self._get_latest_iframe_results(room_id, cached_game_state)
+                if updated_results:
+                    filtered_results = updated_results
                 
             # ⚡ 2. 베팅 서비스 상태 확인
             if hasattr(self.tm.betting_service, 'has_bet_current_round') and self.tm.betting_service.has_bet_current_round:
-                self.logger.debug("🎯⚡ 이미 현재 라운드에 베팅함")
                 return
                 
-            # ⚡ 3. 서버 예측값 요청 (병렬 처리 가능하도록 타이밍 최적화)
+            # ⚡ 3. 서버 예측값 요청
             start_time = time.time()
-            self.logger.info(f"🔮⚡ 고속 서버 예측값 요청 시작:")
-            self.logger.info(f"  - 방 ID: {room_id}")
-            self.logger.info(f"  - 결과 개수: {len(filtered_results)}개")
-            self.logger.info(f"  - 최근 결과: {filtered_results[-10:] if len(filtered_results) >= 10 else filtered_results}")
+            
+            # 위젯에 상태 표시
+            if hasattr(self.tm.main_window, 'update_status'):
+                self.tm.main_window.update_status("⚡ 서버 예측값 요청 중...")
+            
+            if fast_mode:
+                self.logger.info(f"🔮⚡ 고속 서버 예측값 요청: {len(filtered_results)}개")
             
             next_pick = self.tm.server_client.get_next_prediction(room_id, filtered_results)
             request_time = time.time() - start_time
             
-            self.logger.info(f"🔮⚡ 고속 서버 예측값 응답: {next_pick} ({request_time:.2f}초)")
+            self.logger.info(f"🔮 서버 응답: {next_pick} ({request_time:.2f}초)")
             
-            if next_pick in ['P', 'B']:
-                betting_round = current_game if current_game else current_round
-                
-                # ⚡ 4. 즉시 베팅 실행 (대기 시간 제거)
-                self.logger.info(f"🎯⚡ 베팅 실행: {next_pick} (라운드: {current_round} → {betting_round})")
-                self.tm.betting_executor.execute_betting(next_pick, current_round, betting_round)
-                
-                total_time = time.time() - start_time
-                self.logger.info(f"⚡ 고속 베팅 완료: {total_time:.2f}초 (서버요청: {request_time:.2f}초)")
-            else:
-                self.logger.info(f"🚫⚡ 베팅 안함: 예측값={next_pick}")
-                
-        except Exception as e:
-            self.logger.error(f"고속 베팅 기회 확인 오류: {e}")
-
-    def _check_betting_opportunity(self, filtered_results: list, room_id: str, current_round: int, current_game: int = None, cached_game_state: dict = None):
-        """베팅 기회 확인 및 실행 - 속도 최적화"""
-        try:
-            # ⚡ 빠른 사전 검증
-            if len(filtered_results) < 10:
-                return
-            
-            if not self.tm.current_target_room or self.tm.current_target_room.get('room_id') != room_id:
-                return
-                
-            if hasattr(self.tm, 'first_bet_after_entry') and self.tm.first_bet_after_entry:
-                self.tm.first_bet_after_entry = False
-                return
-            
-            # ⚡ 1. 베팅 가능 상태 확인 (캐시 활용)
-            if not self._check_betting_available_state(room_id, cached_game_state):
-                return
-                
-            # ⚡ 2. 결과값 확인 (캐시 우선 사용)
-            updated_results = self._get_latest_iframe_results(room_id, cached_game_state)
-            if not updated_results or len(updated_results) < 10:
-                return
-                
-            # ⚡ 3. 서버 예측값 요청 (병렬 처리 가능하도록 타이밍 최적화)
-            start_time = time.time()
-            next_pick = self.tm.server_client.get_next_prediction(room_id, updated_results)
-            request_time = time.time() - start_time
+            # 위젯에 상태 표시
+            if hasattr(self.tm.main_window, 'update_status'):
+                self.tm.main_window.update_status(f"⚡ 서버 예측: {next_pick}")
             
             if next_pick in ['P', 'B']:
                 betting_round = current_game if current_game else current_round
                 
                 # ⚡ 4. 즉시 베팅 실행
+                self.logger.info(f"🎯 베팅 실행: {next_pick} (라운드: {current_round} → {betting_round})")
+                
+                # 위젯에 상태 표시
+                if hasattr(self.tm.main_window, 'update_status'):
+                    self.tm.main_window.update_status(f"⚡ 베팅 실행: {next_pick}")
+                
                 self.tm.betting_executor.execute_betting(next_pick, current_round, betting_round)
                 
                 total_time = time.time() - start_time
-                self.logger.info(f"⚡ 베팅 프로세스 완료: {total_time:.2f}초 (서버요청: {request_time:.2f}초)")
+                mode_str = "고속" if fast_mode else "일반"
+                self.logger.info(f"⚡ {mode_str} 베팅 완료: {total_time:.2f}초")
+            else:
+                self.logger.info(f"🚫 베팅 안함: 예측값={next_pick}")
+                if hasattr(self.tm.main_window, 'update_status'):
+                    self.tm.main_window.update_status(f"⚡ 베팅 건너뜀: {next_pick}")
                 
         except Exception as e:
             self.logger.error(f"베팅 기회 확인 오류: {e}")
+    
+    # 기존 함수들을 래퍼로 변경 (호환성 유지)
+    def _check_betting_opportunity_fast(self, filtered_results: list, room_id: str, current_round: int, 
+                                       current_game: int = None, cached_game_state: dict = None):
+        """⚡ 고속 베팅 기회 확인 - 통합 함수 호출"""
+        return self._check_betting_opportunity_unified(
+            filtered_results, room_id, current_round, current_game, 
+            cached_game_state, min_results=15, fast_mode=True
+        )
+
+    def _check_betting_opportunity(self, filtered_results: list, room_id: str, current_round: int, current_game: int = None, cached_game_state: dict = None):
+        """베팅 기회 확인 - 통합 함수 호출 (호환성 유지)"""
+        # ⚡ 성능 최적화: 모든 베팅은 15개 데이터로 통일
+        return self._check_betting_opportunity_unified(
+            filtered_results, room_id, current_round, current_game,
+            cached_game_state, min_results=15, fast_mode=False  # 15개로 통일
+        )
 
     def _check_betting_available_state(self, room_id: str, cached_game_state: dict = None) -> bool:
         """베팅 가능 상태 확인 - 캐시된 게임 상태 활용으로 속도 최적화"""
@@ -620,7 +647,7 @@ class RoomEntryHandler(QObject):
                 self.logger.info(f"✅ 이전 게임 기록으로 연패 검증 가능")
                 # 게임 수는 충족하지만 새 라운드 시작을 위해 플래그 설정
                 if hasattr(self.tm, 'game_monitoring_worker'):
-                    self.tm.game_monitoring_worker.wait_for_first_new_result = True
+                    self.tm.game_monitoring_worker.wait_for_first_new_result = False  # ⚡ 즉시 베팅 허용
                 return True  # 조건 충족으로 처리
             
             # 조건 체크: 15게임 이상 64게임 미만
@@ -644,7 +671,7 @@ class RoomEntryHandler(QObject):
                     room_id=room_id,
                     room_name=room_name,
                     log_always=False,
-                    desired_pb_count=5
+                    desired_pb_count=15  # ⚡ 충분한 데이터 확보
                 )
                 
                 if game_state:
@@ -662,7 +689,7 @@ class RoomEntryHandler(QObject):
                 # 다음 시도 전 잠시 대기
                 if verification_attempt < 3:
                     self.logger.info(f"⏳ iframe 검증 재시도 대기 중... ({verification_attempt}/3)")
-                    time.sleep(2)  # 1초에서 2초로 늘림
+                    time.sleep(1)  # ⚡⚡ 2초→1초로 단축
             
             self.logger.warning("❌ iframe 검증 실패: 게임 상태를 확인할 수 없음")
             return False
@@ -752,9 +779,16 @@ class RoomEntryHandler(QObject):
             self.logger.error(f"게임 모니터링 시작 오류: {e}")
 
     def handle_room_exit(self):
-        """🧵 멀티쓰레드 방 나가기 처리"""
+        """🧵 멀티쓰레드 방 나가기 처리 - 🔥 완전한 정리 보장"""
         try:
             self.logger.info("🚪 방 나가기 처리 시작")
+            
+            # 🔥 베팅 추적기 상태 확인
+            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
+                tracker = self.tm.game_processor.betting_tracker
+                if tracker.is_waiting_for_result():
+                    self.logger.warning("⚠️ 베팅 결과 대기 중 - 추적기 초기화")
+                    tracker.reset_tracking()
             
             # 🧵 게임 모니터링 워커 중지
             self.game_monitoring_worker.stop_monitoring()
@@ -766,10 +800,13 @@ class RoomEntryHandler(QObject):
             self._stop_iframe_monitoring()
             
             # 현재 방에서 나가기
+            room_exit_success = False
             if hasattr(self.tm, 'game_monitoring_service'):
-                self.tm.game_monitoring_service.close_current_room()
+                room_exit_success = self.tm.game_monitoring_service.close_current_room()
+                if not room_exit_success:
+                    self.logger.warning("⚠️ 방 나가기 실패 - 강제 정리 진행")
             
-            # 상태 초기화
+            # 상태 초기화 (실패해도 진행)
             self.tm.current_target_room = None
             self.tm.current_room_name = ""
             self.tm.room_entry_in_progress = False
@@ -780,18 +817,47 @@ class RoomEntryHandler(QObject):
                 self.tm.main_window.room_log_widget.has_changed_room = True
                 self.logger.info("📝 방 나가기 - 다음 방은 새 방문으로 기록 예정")
             
-            # 웹소켓 모니터링 재개
-            self._resume_websocket_monitoring()
+            # 🔥 웹소켓 모니터링 재개 (실패해도 항상 실행)
+            try:
+                self._resume_websocket_monitoring()
+            except Exception as ws_error:
+                self.logger.error(f"WebSocket 재개 실패: {ws_error}")
+                # 강제 플래그 리셋
+                self._force_reset_websocket_flags()
             
             # 방 나가기 완료 시그널 발송
-            self.room_exited.emit("정상 종료")
+            status = "정상 종료" if room_exit_success else "강제 종료"
+            self.room_exited.emit(status)
             
-            self.logger.info("✅ 멀티쓰레드 방 나가기 완료")
+            self.logger.info(f"✅ 멀티쓰레드 방 나가기 완료: {status}")
             
         except Exception as e:
             self.logger.error(f"방 나가기 처리 오류: {e}")
+            # 🔥 오류 시에도 WebSocket 복구 시도
+            self._force_reset_websocket_flags()
             self.room_exited.emit(f"오류: {e}")
 
+    def _force_reset_websocket_flags(self):
+        """🔥 WebSocket 플래그 강제 리셋 (비상용)"""
+        try:
+            self.logger.warning("🚨 WebSocket 플래그 강제 리셋 시작")
+            
+            if hasattr(self.tm, 'websocket_manager') and self.tm.websocket_manager:
+                if hasattr(self.tm.websocket_manager, 'websocket_service') and self.tm.websocket_manager.websocket_service:
+                    # 직접 플래그 리셋
+                    self.tm.websocket_manager.websocket_service._pause_lobby_monitoring = False
+                    self.tm.websocket_manager.websocket_service._in_game_room = False
+                    self.logger.info("✅ WebSocket 플래그 강제 리셋 완료")
+                    
+                    # 타이머 재시작 시도
+                    try:
+                        self.tm.websocket_manager.websocket_service._start_message_collection()
+                    except:
+                        pass
+                        
+        except Exception as e:
+            self.logger.error(f"WebSocket 플래그 강제 리셋 실패: {e}")
+    
     def debug_current_room_status(self):
         """현재 방 상태 디버그"""
         try:
@@ -800,6 +866,21 @@ class RoomEntryHandler(QObject):
             self.logger.info(f"현재 방: {self.tm.current_room_name}")
             self.logger.info(f"게임 카운트: {self.tm.game_count}")
             self.logger.info(f"iframe 모니터링: {'활성' if self.iframe_timer else '비활성'}")
+            
+            # 🔥 WebSocket 상태도 추가
+            if hasattr(self.tm, 'websocket_manager') and self.tm.websocket_manager:
+                if hasattr(self.tm.websocket_manager, 'websocket_service') and self.tm.websocket_manager.websocket_service:
+                    ws_service = self.tm.websocket_manager.websocket_service
+                    self.logger.info(f"WebSocket 일시정지: {getattr(ws_service, '_pause_lobby_monitoring', False)}")
+                    self.logger.info(f"게임방 모드: {getattr(ws_service, '_in_game_room', False)}")
+            
+            # 🔥 베팅 추적기 상태도 추가
+            if hasattr(self.tm, 'game_processor') and hasattr(self.tm.game_processor, 'betting_tracker'):
+                tracker = self.tm.game_processor.betting_tracker
+                self.logger.info(f"베팅 추적 상태: {tracker.status.value}")
+                if tracker.is_waiting_for_result():
+                    self.logger.info(f"대기 중인 베팅: 라운드 {tracker.get_bet_round()}")
+            
             self.logger.info("=" * 50)
             
         except Exception as e:
