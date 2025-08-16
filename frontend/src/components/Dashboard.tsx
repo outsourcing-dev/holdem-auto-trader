@@ -25,6 +25,7 @@ import {
 import BettingWidget from './BettingWidget';
 import Settings from './Settings';
 import Statistics from './Statistics';
+import StreakRoomWidget from './StreakRoomWidget';
 import { api } from '../services/api';
 import { useWebSocket } from '../services/websocket';
 
@@ -45,6 +46,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [martinStep, setMartinStep] = useState(0);
+  const [streakRooms, setStreakRooms] = useState<any[]>([]);  // 연패방 목록
+  const [isMonitoring, setIsMonitoring] = useState(false);  // WebSocket 모니터링 상태
   const [statistics, setStatistics] = useState({
     total_games: 0,
     wins: 0,
@@ -89,6 +92,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         case 'game_update':
           // 게임 상태 업데이트 처리
           break;
+        case 'streak_rooms_update':
+          // 연패방 목록 업데이트
+          setStreakRooms(data.rooms || []);
+          setIsMonitoring(data.is_monitoring || false);
+          break;
       }
     }
   }, [lastMessage]);
@@ -127,12 +135,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   const handleStart = async () => {
     try {
-      // 기존 브라우저가 있어도 새로 시작 (백엔드에서 자동으로 종료하고 재시작)
-      await api.post('/api/trading/start', {
-        site_key: selectedSite
+      // 브라우저만 시작 (베팅은 아직)
+      const response = await api.post('/api/trading/start', {
+        site_key: selectedSite,
+        use_real_betting: true  // 실제 베팅 사용
       });
-      setBrowserLaunched(true);
-      setIsTrading(false); // 베팅 상태는 초기화
+      
+      if (response.data.mode === 'browser_only') {
+        setBrowserLaunched(true);
+        setIsTrading(false); // 아직 트레이딩은 시작하지 않음
+        alert('브라우저가 실행됩니다. 로그인 후 Evolution 게임에 접속해주세요.');
+      }
     } catch (error) {
       console.error('브라우저 시작 실패:', error);
       alert('브라우저 시작에 실패했습니다.');
@@ -303,6 +316,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </Typography>
               <Statistics stats={statistics} />
             </Paper>
+          </Grid>
+
+          {/* 연패방 위젯 */}
+          <Grid item xs={12}>
+            <StreakRoomWidget 
+              rooms={streakRooms}
+              currentTargetRoom={currentRoom}
+              isMonitoring={isMonitoring}
+            />
           </Grid>
         </Grid>
       </Box>

@@ -1,0 +1,8 @@
+{
+    "target_rooms": [],
+    "excluded_rooms": [],
+    "room_preferences": {
+        "min_game_count": 15,
+        "max_game_count": 64
+    }
+}

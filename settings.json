@@ -1,0 +1,9 @@
+{
+    "site1": "",
+    "site2": "",
+    "site3": "",
+    "martin_count": 3,
+    "martin_amounts": [10000, 20000, 40000],
+    "target_amount": 5000000,
+    "min_streak": 3
+}

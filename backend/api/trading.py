@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from api.auth import get_current_user, User
 from core.trading_engine import TradingEngine
+from core.trading_engine_v2 import TradingEngineV2
 from api.websocket import websocket_manager
 
 logger = logging.getLogger(__name__)
@@ -16,12 +17,13 @@ logger = logging.getLogger(__name__)
 # 라우터 생성
 router = APIRouter()
 
-# 전역 트레이딩 엔진 인스턴스 (사용자별 관리 필요시 dict로 변경)
-trading_engines: Dict[str, TradingEngine] = {}
+# 전역 트레이딩 엔진 인스턴스 (V2 사용)
+trading_engines: Dict[str, TradingEngineV2] = {}
 
 # Pydantic 모델
 class TradingStartRequest(BaseModel):
     site_key: str = "site1"  # site1, site2, site3 중 선택
+    use_real_betting: bool = True  # 실제 베팅 사용 여부
     
 class TradingStatusResponse(BaseModel):
     is_active: bool
@@ -37,10 +39,10 @@ class BettingRequest(BaseModel):
     bet_type: str  # 'P' or 'B'
     amount: int
 
-def get_trading_engine(username: str) -> TradingEngine:
-    """사용자별 트레이딩 엔진 가져오기"""
+def get_trading_engine(username: str) -> TradingEngineV2:
+    """사용자별 트레이딩 엔진 가져오기 (V2)"""
     if username not in trading_engines:
-        trading_engines[username] = TradingEngine(username)
+        trading_engines[username] = TradingEngineV2(username)
     return trading_engines[username]
 
 @router.post("/start")
@@ -49,7 +51,7 @@ async def start_trading(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
-    """브라우저 시작 (사이트 접속만)"""
+    """브라우저 시작 (사이트 접속만, 베팅은 하지 않음)"""
     try:
         import json
         import os
@@ -75,38 +77,37 @@ async def start_trading(
         
         engine = get_trading_engine(current_user.username)
         
-        # 이미 실행 중인 프로세스가 있으면 종료
-        if engine.browser_process and engine.browser_process.poll() is None:
-            logger.info(f"기존 브라우저 종료 (PID: {engine.browser_process.pid})")
-            engine.browser_process.terminate()
-            try:
-                engine.browser_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                engine.browser_process.kill()
-            engine.browser_process = None
-        
-        # 상태 초기화
-        engine.browser_launched = False
-        engine.is_active = False
+        # 이미 실행 중인 엔진이 있으면 중지
+        if engine.is_active or engine.browser_launched:
+            await engine.stop_trading()
         
         # Martin 설정 저장
         engine.martin_strategy.martin_count = settings.get("martin_count", 3)
         engine.martin_strategy.martin_amounts = settings.get("martin_amounts", [10000, 20000, 30000])
-        engine.min_streak = settings.get("min_streak", 3)
+        min_streak = settings.get("min_streak", 3)
         
-        # 브라우저만 실행 (베팅은 시작하지 않음)
-        background_tasks.add_task(
-            engine.launch_browser_only,
-            site_url,
-            websocket_manager
-        )
-        
-        logger.info(f"브라우저 시작: {current_user.username}, 사이트: {site_url}")
-        
-        return {
-            "status": "browser_launched",
-            "message": f"브라우저를 실행했습니다. 로그인 후 Evolution 게임에 접속해주세요."
-        }
+        # 브라우저만 시작 (베팅은 안함)
+        if request.use_real_betting:
+            # V2 엔진 사용 - 브라우저만 실행
+            background_tasks.add_task(
+                engine.start_trading,
+                site_url,
+                min_streak,
+                websocket_manager
+            )
+            logger.info(f"브라우저 시작: {current_user.username}, 사이트: {site_url}")
+            
+            return {
+                "status": "browser_started",
+                "message": f"브라우저를 시작합니다. 로그인 후 Evolution 게임에 접속해주세요.",
+                "mode": "browser_only"
+            }
+        else:
+            # 기존 시뮬레이션 모드 (향후 구현)
+            return {
+                "status": "simulation_mode",
+                "message": "시뮬레이션 모드는 준비 중입니다."
+            }
         
     except HTTPException:
         raise
@@ -122,33 +123,35 @@ async def start_betting(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
-    """베팅 시작 (사용자가 Evolution 게임 접속 후)"""
+    """베팅 시작 (사용자가 로그인 및 Evolution 게임 접속 후)"""
     try:
         engine = get_trading_engine(current_user.username)
         
         if not engine.browser_launched:
+            logger.warning(f"브라우저가 실행되지 않음: {current_user.username}")
             raise HTTPException(
                 status_code=400,
                 detail="먼저 브라우저를 실행해주세요"
             )
         
         if engine.is_active:
+            logger.warning(f"베팅이 이미 진행 중: {current_user.username}")
             raise HTTPException(
                 status_code=400,
                 detail="베팅이 이미 진행 중입니다"
             )
         
-        # 백그라운드에서 베팅 시작
+        # 백그라운드에서 베팅 시작 (Evolution 감지 후 자동 시작)
         background_tasks.add_task(
             engine.start_betting,
             websocket_manager
         )
         
-        logger.info(f"베팅 시작: {current_user.username}")
+        logger.info(f"베팅 시작 요청: {current_user.username} - Evolution 감지 대기")
         
         return {
             "status": "betting_started",
-            "message": f"베팅을 시작합니다"
+            "message": "베팅을 시작합니다. Evolution 게임을 감지하는 중..."
         }
         
     except HTTPException:
@@ -167,10 +170,11 @@ async def stop_trading(current_user: User = Depends(get_current_user)):
         engine = get_trading_engine(current_user.username)
         
         if not engine.is_active:
-            raise HTTPException(
-                status_code=400,
-                detail="실행 중인 트레이딩이 없습니다"
-            )
+            logger.warning("실행 중인 트레이딩이 없습니다")
+            return {
+                "status": "not_running",
+                "message": "실행 중인 트레이딩이 없습니다"
+            }
         
         await engine.stop_trading()
         
@@ -198,7 +202,7 @@ async def get_trading_status(current_user: User = Depends(get_current_user)):
         
         return TradingStatusResponse(
             is_active=engine.is_active,
-            browser_launched=engine.browser_launched,
+            browser_launched=engine.is_active,  # V2에서는 is_active가 브라우저 상태를 나타냄
             current_room=engine.current_room,
             game_count=engine.game_count,
             total_bet_amount=engine.total_bet_amount,

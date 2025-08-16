@@ -154,6 +154,22 @@ class WebSocketManager:
             "data": status
         }
         await self.send_to_user(username, message)
+    
+    async def send_streak_rooms_update(self, username: str, rooms_data: dict):
+        """연패방 정보 업데이트 전송"""
+        message = {
+            "type": "streak_rooms_update",
+            "data": rooms_data
+        }
+        await self.send_to_user(username, message)
+    
+    async def send_betting_placed(self, username: str, betting_data: dict):
+        """베팅 내역 전송"""
+        message = {
+            "type": "betting_placed",
+            "data": betting_data
+        }
+        await self.send_to_user(username, message)
 
 # 전역 WebSocket 매니저 인스턴스
 websocket_manager = WebSocketManager()
